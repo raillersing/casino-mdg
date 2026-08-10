@@ -1,0 +1,265 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  GO_VERSION: "1.21"
+
+jobs:
+  # ───────────────────────────────────────────
+  # Backend checks
+  # ───────────────────────────────────────────
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements/requirements.txt
+          pip install black isort flake8 mypy
+      
+      - name: Run black
+        working-directory: backend
+        run: black --check .
+      
+      - name: Run isort
+        working-directory: backend
+        run: isort --check-only .
+      
+      - name: Run flake8
+        working-directory: backend
+        run: flake8 . --max-line-length=100 --exclude=migrations,__pycache__
+      
+      - name: Run mypy
+        working-directory: backend
+        run: mypy apps/ config/ --ignore-missing-imports || true
+
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_casino_mdg
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements/requirements.txt
+          pip install pytest pytest-django pytest-asyncio factory-boy coverage
+      
+      - name: Run migrations
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings
+          DB_HOST: localhost
+          DB_NAME: test_casino_mdg
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://localhost:6379/0
+        run: python manage.py migrate
+      
+      - name: Run tests
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings
+          DB_HOST: localhost
+          DB_NAME: test_casino_mdg
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://localhost:6379/0
+          DEBUG: True
+        run: pytest --cov=apps --cov-report=xml -x
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: backend/coverage.xml
+          fail_ci_if_error: false
+
+  # ───────────────────────────────────────────
+  # Game Engine checks
+  # ───────────────────────────────────────────
+  game-engine-lint:
+    name: Game Engine Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: Download dependencies
+        working-directory: game-engine
+        run: go mod download
+      
+      - name: Run go vet
+        working-directory: game-engine
+        run: go vet ./...
+      
+      - name: Run golint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          working-directory: game-engine
+          args: --timeout=5m
+
+  game-engine-test:
+    name: Game Engine Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: Download dependencies
+        working-directory: game-engine
+        run: go mod download
+      
+      - name: Run tests
+        working-directory: game-engine
+        run: go test -race -coverprofile=coverage.out ./...
+      
+      - name: Run benchmarks
+        working-directory: game-engine
+        run: go test -bench=. -benchmem ./...
+
+  # ───────────────────────────────────────────
+  # Frontend checks
+  # ───────────────────────────────────────────
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      - name: Run ESLint
+        working-directory: frontend
+        run: npm run lint
+      
+      - name: Run Prettier
+        working-directory: frontend
+        run: npx prettier --check "src/**/*.{ts,tsx,css}"
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+
+  # ───────────────────────────────────────────
+  # Security scan
+  # ───────────────────────────────────────────
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Run safety on Python deps
+        working-directory: backend
+        run: |
+          pip install safety
+          safety check -r requirements/requirements.txt || true
+
+  # ───────────────────────────────────────────
+  # Deploy (staging)
+  # ───────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [backend-test, game-engine-test, frontend-build]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to staging
+        run: |
+          echo "🚀 Deploying to staging..."
+          # Add your deployment script here
+          # Example: ssh deploy@staging "cd /opt/casino-mdg && docker-compose pull && docker-compose up -d"

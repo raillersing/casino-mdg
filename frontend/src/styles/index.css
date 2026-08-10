@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  
+  body {
+    @apply bg-surface-900 text-white antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-800;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-600 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-500;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-800 border border-surface-700 rounded-xl p-4;
+  }
+  
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-brand-primary/50 hover:shadow-lg hover:shadow-brand-primary/5;
+  }
+  
+  .btn-primary {
+    @apply px-4 py-2 bg-brand-primary text-surface-900 font-semibold rounded-lg
+           hover:bg-brand-primary/90 active:scale-[0.98] transition-all
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-surface-700 text-white font-medium rounded-lg
+           hover:bg-surface-600 active:scale-[0.98] transition-all
+           border border-surface-600;
+  }
+  
+  .btn-danger {
+    @apply px-4 py-2 bg-brand-danger text-white font-semibold rounded-lg
+           hover:bg-brand-danger/90 active:scale-[0.98] transition-all;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-2 bg-surface-800 border border-surface-700 rounded-lg
+           text-white placeholder-surface-500
+           focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/50
+           transition-all;
+  }
+  
+  .badge {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full;
+  }
+  
+  .badge-green { @apply badge bg-brand-secondary/20 text-brand-secondary; }
+  .badge-red { @apply badge bg-brand-danger/20 text-brand-danger; }
+  .badge-amber { @apply badge bg-brand-warning/20 text-brand-warning; }
+  .badge-blue { @apply badge bg-brand-primary/20 text-brand-primary; }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-primary to-brand-secondary;
+  }
+  
+  .glass {
+    @apply bg-surface-800/80 backdrop-blur-md border border-surface-700/50;
+  }
+}

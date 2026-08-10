@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Extract tag
+        id: extract_tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/casino-mdg-backend:${{ steps.extract_tag.outputs.tag }}
+            ${{ secrets.DOCKER_USERNAME }}/casino-mdg-backend:latest
+      
+      - name: Build and push game engine
+        uses: docker/build-push-action@v5
+        with:
+          context: ./game-engine
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/casino-mdg-game-engine:${{ steps.extract_tag.outputs.tag }}
+            ${{ secrets.DOCKER_USERNAME }}/casino-mdg-game-engine:latest
+      
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/casino-mdg-frontend:${{ steps.extract_tag.outputs.tag }}
+            ${{ secrets.DOCKER_USERNAME }}/casino-mdg-frontend:latest
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false

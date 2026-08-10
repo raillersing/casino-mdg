@@ -1,0 +1,311 @@
+version: "3.8"
+
+services:
+  # ───────────────────────────────────────────
+  # PostgreSQL (base de données principale)
+  # ───────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: casino-mdg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-casino_mdg}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # Redis (cache, sessions, snapshots)
+  # ───────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: casino-mdg-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # RabbitMQ (message broker)
+  # ───────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: casino-mdg-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # Management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # MinIO (S3-compatible storage)
+  # ───────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: casino-mdg-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASS:-minioadmin}
+      MINIO_REGION: ${MINIO_REGION:-mg-antananarivo}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # Django Backend
+  # ───────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: ${ENV:-development}
+    container_name: casino-mdg-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DEBUG: ${DEBUG:-True}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-change-me}
+      DB_HOST: postgres
+      DB_NAME: ${DB_NAME:-casino_mdg}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672//
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_PASS:-minioadmin}
+    volumes:
+      - ./backend:/app
+      - ./backend/media:/app/media
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # Celery Worker
+  # ───────────────────────────────────────────
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: ${ENV:-development}
+    container_name: casino-mdg-celery
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - rabbitmq
+      - redis
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - ./backend:/app
+    command: celery -A config worker --loglevel=info --concurrency=2
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # Celery Beat (scheduler)
+  # ───────────────────────────────────────────
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: ${ENV:-development}
+    container_name: casino-mdg-celery-beat
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - rabbitmq
+      - redis
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - ./backend:/app
+    command: celery -A config beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # Game Engine (Go)
+  # ───────────────────────────────────────────
+  game-engine:
+    build:
+      context: ./game-engine
+      dockerfile: Dockerfile
+    container_name: casino-mdg-game-engine
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - backend
+    environment:
+      GAME_ENGINE_ADDR: :8080
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./game-engine:/app
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # React Frontend
+  # ───────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: build
+    container_name: casino-mdg-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - game-engine
+    ports:
+      - "3000:80"
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+      VITE_WS_URL: ws://localhost:8080
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # Vault (secrets management)
+  # ───────────────────────────────────────────
+  vault:
+    image: hashicorp/vault:latest
+    container_name: casino-mdg-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-root}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    volumes:
+      - vault_data:/vault/file
+    command: server -dev -dev-root-token-id=${VAULT_TOKEN:-root}
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # Prometheus (monitoring)
+  # ───────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: casino-mdg-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - casino-mdg
+
+  # ───────────────────────────────────────────
+  # Grafana (visualization)
+  # ───────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: casino-mdg-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASS:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - casino-mdg
+
+# ───────────────────────────────────────────
+# Volumes
+# ───────────────────────────────────────────
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  minio_data:
+  vault_data:
+  prometheus_data:
+  grafana_data:
+
+# ───────────────────────────────────────────
+# Networks
+# ───────────────────────────────────────────
+networks:
+  casino-mdg:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

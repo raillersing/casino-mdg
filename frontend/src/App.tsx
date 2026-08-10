@@ -1,0 +1,30 @@
+import { Routes, Route } from 'react-router-dom'
+import { useGameStore } from '@stores/gameStore'
+import { Layout } from '@components/ui/Layout'
+import { HomePage } from '@pages/HomePage'
+import { LobbyPage } from '@pages/LobbyPage'
+import { GamePage } from '@pages/GamePage'
+import { WalletPage } from '@pages/WalletPage'
+import { ProfilePage } from '@pages/ProfilePage'
+import { AuthPage } from '@pages/AuthPage'
+import { NotFoundPage } from '@pages/NotFoundPage'
+
+function App() {
+  const isAuthenticated = useGameStore((state) => state.isAuthenticated)
+
+  return (
+    <Layout>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/game/:gameType/:tableId" element={<GamePage />} />
+        <Route path="/wallet" element={<WalletPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Layout>
+  )
+}
+
+export default App

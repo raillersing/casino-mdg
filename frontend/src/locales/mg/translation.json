@@ -1,0 +1,59 @@
+{
+  "app": {
+    "name": "Casino MDG",
+    "tagline": "Ny casino an-tserasera malagasy",
+    "loading": "Mpakatra...",
+    "error": "Nisy lesoka nitranga",
+    "retry": "Andramo indray"
+  },
+  "nav": {
+    "home": "Trano",
+    "lobby": "Lobby",
+    "wallet": "Kitapola",
+    "profile": "Mombamomba",
+    "login": "Miditra",
+    "logout": "Mivoaka"
+  },
+  "games": {
+    "poker": "Poker Texas Hold'em",
+    "belote": "Belote",
+    "rami": "Rami",
+    "join": "Miditra",
+    "create": "Mamorona latabatra",
+    "spectate": "Jereo"
+  },
+  "wallet": {
+    "balance": "Vola",
+    "deposit": "Alefaso",
+    "withdraw": "Alao",
+    "history": "Tantara",
+    "mvola": "MVola",
+    "orange": "Orange Money"
+  },
+  "auth": {
+    "email": "Mailaka",
+    "phone": "Telefaonina",
+    "password": "Tenimiafina",
+    "login": "Miditra",
+    "register": "Hisoratra",
+    "forgot": "Hadino ny tenimiafina ?",
+    "otp": "Kaody fanamarinana"
+  },
+  "social": {
+    "friends": "Namana",
+    "clubs": "Kluby",
+    "leaderboard": "Filaharana",
+    "invite": "Asao",
+    "chat": "Chat"
+  },
+  "game": {
+    "fold": "Manao fold",
+    "check": "Manao check",
+    "call": "Manao call",
+    "raise": "Manao raise",
+    "allIn": "All in",
+    "yourTurn": "Anjaranao",
+    "waiting": "Miandry...",
+    "gracePeriod": "Tsy marina ny fifandraisana — manandrana miverina..."
+  }
+}

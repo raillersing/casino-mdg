@@ -1,0 +1,59 @@
+{
+  "app": {
+    "name": "Casino MDG",
+    "tagline": "Le casino en ligne malgache",
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "retry": "Réessayer"
+  },
+  "nav": {
+    "home": "Accueil",
+    "lobby": "Lobby",
+    "wallet": "Portefeuille",
+    "profile": "Profil",
+    "login": "Connexion",
+    "logout": "Déconnexion"
+  },
+  "games": {
+    "poker": "Poker Texas Hold'em",
+    "belote": "Belote",
+    "rami": "Rami",
+    "join": "Rejoindre",
+    "create": "Créer une table",
+    "spectate": "Regarder"
+  },
+  "wallet": {
+    "balance": "Solde",
+    "deposit": "Déposer",
+    "withdraw": "Retirer",
+    "history": "Historique",
+    "mvola": "MVola",
+    "orange": "Orange Money"
+  },
+  "auth": {
+    "email": "Email",
+    "phone": "Téléphone",
+    "password": "Mot de passe",
+    "login": "Se connecter",
+    "register": "S'inscrire",
+    "forgot": "Mot de passe oublié ?",
+    "otp": "Code de vérification"
+  },
+  "social": {
+    "friends": "Amis",
+    "clubs": "Clubs",
+    "leaderboard": "Classement",
+    "invite": "Inviter",
+    "chat": "Chat"
+  },
+  "game": {
+    "fold": "Se coucher",
+    "check": "Checker",
+    "call": "Suivre",
+    "raise": "Relancer",
+    "allIn": "Tapis",
+    "yourTurn": "C'est votre tour",
+    "waiting": "En attente...",
+    "gracePeriod": "Connexion instable — reconnexion en cours..."
+  }
+}
