@@ -1,0 +1,179 @@
+{
+  "version": "1.0.0",
+  "name": "Casino MDG - Design System",
+  "description": "Tokens du prototype V2 Premium - inspiré Linear/Revolut/GGPoker",
+  "tokens": {
+    "colors": {
+      "z-depth-0": {
+        "value": "#050810",
+        "type": "color",
+        "description": "Background racine"
+      },
+      "z-depth-1": {
+        "value": "#0B1120",
+        "type": "color",
+        "description": "Surface cards"
+      },
+      "z-depth-2": {
+        "value": "#111B2E",
+        "type": "color",
+        "description": "Cards elevées"
+      },
+      "z-depth-3": {
+        "value": "#17233A",
+        "type": "color",
+        "description": "Hover states"
+      },
+      "z-depth-4": {
+        "value": "#1E2D48",
+        "type": "color",
+        "description": "Active states"
+      },
+      "text-primary": {
+        "value": "#F4F6FA",
+        "type": "color"
+      },
+      "text-secondary": {
+        "value": "#8C96A8",
+        "type": "color"
+      },
+      "text-tertiary": {
+        "value": "#5A6580",
+        "type": "color"
+      },
+      "gold": {
+        "value": "#C9A84C",
+        "type": "color",
+        "description": "Accent principal"
+      },
+      "gold-light": {
+        "value": "#E2C87A",
+        "type": "color"
+      },
+      "gold-dim": {
+        "value": "rgba(201,168,76,0.12)",
+        "type": "color"
+      },
+      "accent-blue": {
+        "value": "#5B8DEF",
+        "type": "color"
+      },
+      "accent-rose": {
+        "value": "#E85D5D",
+        "type": "color"
+      },
+      "accent-emerald": {
+        "value": "#4CAF7A",
+        "type": "color"
+      },
+      "accent-violet": {
+        "value": "#8B7FD4",
+        "type": "color"
+      },
+      "accent-amber": {
+        "value": "#D4953C",
+        "type": "color"
+      }
+    },
+    "borders": {
+      "border-1": {
+        "value": "rgba(255,255,255,0.04)",
+        "type": "color"
+      },
+      "border-2": {
+        "value": "rgba(255,255,255,0.08)",
+        "type": "color"
+      },
+      "border-3": {
+        "value": "rgba(255,255,255,0.12)",
+        "type": "color"
+      }
+    },
+    "radius": {
+      "sm": {
+        "value": "8px",
+        "type": "dimension"
+      },
+      "md": {
+        "value": "12px",
+        "type": "dimension"
+      },
+      "lg": {
+        "value": "16px",
+        "type": "dimension"
+      },
+      "xl": {
+        "value": "20px",
+        "type": "dimension"
+      },
+      "full": {
+        "value": "999px",
+        "type": "dimension"
+      }
+    },
+    "shadows": {
+      "sm": {
+        "value": "0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)",
+        "type": "boxShadow"
+      },
+      "md": {
+        "value": "0 4px 16px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)",
+        "type": "boxShadow"
+      },
+      "lg": {
+        "value": "0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)",
+        "type": "boxShadow"
+      },
+      "gold": {
+        "value": "0 0 30px rgba(201,168,76,0.15), 0 0 0 1px rgba(201,168,76,0.2)",
+        "type": "boxShadow"
+      }
+    },
+    "typography": {
+      "font-body": {
+        "value": "Inter",
+        "type": "fontFamily"
+      },
+      "font-display": {
+        "value": "Space Grotesk",
+        "type": "fontFamily"
+      },
+      "font-mono": {
+        "value": "JetBrains Mono",
+        "type": "fontFamily"
+      }
+    },
+    "easing": {
+      "out": {
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "type": "cubicBezier"
+      },
+      "spring": {
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "type": "cubicBezier"
+      }
+    }
+  },
+  "screens": {
+    "mobile": {
+      "value": "480px",
+      "type": "dimension"
+    },
+    "tablet": {
+      "value": "768px",
+      "type": "dimension"
+    }
+  },
+  "meta": {
+    "author": "Casino MDG Design Team",
+    "version": "2.0.0",
+    "platform": "mobile-first",
+    "theme": "dark",
+    "inspirations": [
+      "Linear",
+      "Superhuman",
+      "Revolut",
+      "GGPoker"
+    ]
+  }
+}
