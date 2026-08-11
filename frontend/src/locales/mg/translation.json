@@ -24,6 +24,7 @@
     "create": "Mamorona latabatra",
     "spectate": "Jereo"
   },
+  "lobby": { "open": "Misokatra ny klioba", "live": "mivantana.", "choose": "Misafidiana latabatra ary mipetraha afaka segondra vitsy.", "all": "Rehetra", "search": "Mitadiava latabatra", "filters": "Sivana", "online": "Mpilalao 234 no anaty tambajotra", "fillFast": "Feno haingana ny latabatra anio alina.", "loading": "Mampakatra ny latabatra…", "empty": "Tsy misy latabatra mifanaraka amin'ny fikarohanao.", "popular": "Malaza", "stakes": "Filokana", "players": "Mpilalao", "running": "Mandeha", "openTable": "Misokatra", "connecting": "Mifandray…", "watch": "Jereo ny latabatra", "privateHint": "Hiseho eto ny latabatra manokana rehefa manasa anao ny namanao." },
   "wallet": {
     "balance": "Vola",
     "deposit": "Alefaso",

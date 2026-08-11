@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom'
 import { ArrowUpRight, Lock, Plus, Search, SlidersHorizontal, Users } from 'lucide-react'
 import { getTables, joinTable, type GameTable } from '@services/games'
 import { useGameStore } from '@stores/gameStore'
+import { useTranslation } from 'react-i18next'
 
 const labels = { poker: 'Poker', belote: 'Belote', rami: 'Rami' }
 const gameNames = { poker: 'Texas Hold’em', belote: 'Belote classique', rami: 'Rami' }
 
 export function LobbyPage() {
-  const [filter, setFilter] = useState('Tous')
+  const { t } = useTranslation()
+  const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [tables, setTables] = useState<GameTable[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,7 +20,7 @@ export function LobbyPage() {
 
   useEffect(() => {
     setLoading(true)
-    getTables(filter).then((payload) => setTables(payload.results)).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false))
+    getTables(filter === 'all' ? 'Tous' : filter).then((payload) => setTables(payload.results)).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false))
   }, [filter])
 
   const shown = tables.filter((table) => table.name.toLowerCase().includes(query.toLowerCase()))
@@ -32,10 +34,10 @@ export function LobbyPage() {
   }
 
   return <div className="page-stack">
-  <div className="page-title-row"><div><span className="eyebrow">Le club est ouvert</span><h1>Lobby <em>en direct.</em></h1><p>Choisissez une table et prenez place en quelques secondes.</p></div><button className="button button-gold"><Plus size={17}/> Créer une table</button></div>
-  <div className="lobby-toolbar"><div className="tabs">{['Tous', 'Poker', 'Belote', 'Rami'].map((item) => <button className={filter === item ? 'active' : ''} onClick={() => setFilter(item)} key={item}>{item}</button>)}</div><label className="search-box"><Search size={17}/><input placeholder="Rechercher une table" value={query} onChange={(e) => setQuery(e.target.value)}/></label><button className="filter-button"><SlidersHorizontal size={17}/> <span>Filtres</span></button></div>
-  <div className="live-strip"><div className="live-strip-icon"><Users size={18}/></div><div><strong>234 joueurs sont en ligne</strong><span>Les tables se remplissent vite ce soir.</span></div><div className="avatar-stack"><span>J</span><span>M</span><span>R</span><b>+231</b></div></div>
+  <div className="page-title-row"><div><span className="eyebrow">{t('lobby.open')}</span><h1>Lobby <em>{t('lobby.live')}</em></h1><p>{t('lobby.choose')}</p></div><button className="button button-gold"><Plus size={17}/> {t('games.create')}</button></div>
+  <div className="lobby-toolbar"><div className="tabs">{[{ key: 'all', label: t('lobby.all') }, { key: 'poker', label: t('games.poker') }, { key: 'belote', label: t('games.belote') }, { key: 'rami', label: t('games.rami') }].map((item) => <button className={filter === item.key ? 'active' : ''} onClick={() => setFilter(item.key)} key={item.key}>{item.label}</button>)}</div><label className="search-box"><Search size={17}/><input aria-label={t('lobby.search')} placeholder={t('lobby.search')} value={query} onChange={(e) => setQuery(e.target.value)}/></label><button className="filter-button"><SlidersHorizontal size={17}/> <span>{t('lobby.filters')}</span></button></div>
+  <div className="live-strip"><div className="live-strip-icon"><Users size={18}/></div><div><strong>{t('lobby.online')}</strong><span>{t('lobby.fillFast')}</span></div><div className="avatar-stack"><span>J</span><span>M</span><span>R</span><b>+231</b></div></div>
   {error && <div className="empty-note"><span>{error}</span></div>}
-  <div className="table-list">{loading ? <div className="empty-note"><span>Chargement des tables…</span></div> : shown.length === 0 ? <div className="empty-note"><span>Aucune table ne correspond à votre recherche.</span></div> : shown.map((table, index) => { const type = labels[table.game_type]; const game = gameNames[table.game_type]; const live = table.status === 'running'; return <div className="table-row" key={table.id}><div className={`table-symbol symbol-${type.toLowerCase()}`}>{type === 'Poker' ? '♠' : type === 'Belote' ? '♥' : '♦'}</div><div className="table-main"><div><strong>{table.name}</strong>{index === 0 && <span className="hot-tag">Populaire</span>}</div><span>{game}</span></div><div className="table-cell"><small>Mises</small><strong>{table.stakes}</strong></div><div className="table-cell"><small>Joueurs</small><strong>{table.player_count} / {table.max_players}</strong></div><div className="table-status"><span className={live ? 'status-live' : ''}><i/>{live ? 'En cours' : 'Ouverte'}</span></div>{accessToken ? <button className="join-button" onClick={() => join(table)} disabled={joining === table.id || table.status === 'finished' || table.player_count >= table.max_players}>{joining === table.id ? 'Connexion…' : live ? 'Voir la table' : 'Rejoindre'} <ArrowUpRight size={16}/></button> : <Link to="/auth" className="join-button">Se connecter <ArrowUpRight size={16}/></Link>}</div> })}</div>
-  <div className="empty-note"><Lock size={16}/><span>Les tables privées apparaissent ici lorsque vos amis vous invitent.</span></div>
+  <div className="table-list">{loading ? <div className="empty-note"><span>{t('lobby.loading')}</span></div> : shown.length === 0 ? <div className="empty-note"><span>{t('lobby.empty')}</span></div> : shown.map((table, index) => { const type = labels[table.game_type]; const game = gameNames[table.game_type]; const live = table.status === 'running'; return <div className="table-row" key={table.id}><div className={`table-symbol symbol-${type.toLowerCase()}`}>{type === 'Poker' ? '♠' : type === 'Belote' ? '♥' : '♦'}</div><div className="table-main"><div><strong>{table.name}</strong>{index === 0 && <span className="hot-tag">{t('lobby.popular')}</span>}</div><span>{game}</span></div><div className="table-cell"><small>{t('lobby.stakes')}</small><strong>{table.stakes}</strong></div><div className="table-cell"><small>{t('lobby.players')}</small><strong>{table.player_count} / {table.max_players}</strong></div><div className="table-status"><span className={live ? 'status-live' : ''}><i/>{live ? t('lobby.running') : t('lobby.openTable')}</span></div>{accessToken ? <button className="join-button" onClick={() => join(table)} disabled={joining === table.id || table.status === 'finished' || table.player_count >= table.max_players}>{joining === table.id ? t('lobby.connecting') : live ? t('lobby.watch') : t('games.join')} <ArrowUpRight size={16}/></button> : <Link to="/auth" className="join-button">{t('nav.login')} <ArrowUpRight size={16}/></Link>}</div> })}</div>
+  <div className="empty-note"><Lock size={16}/><span>{t('lobby.privateHint')}</span></div>
 </div> }

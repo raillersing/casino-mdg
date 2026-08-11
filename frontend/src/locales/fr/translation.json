@@ -24,6 +24,7 @@
     "create": "Créer une table",
     "spectate": "Regarder"
   },
+  "lobby": { "open": "Le club est ouvert", "live": "en direct.", "choose": "Choisissez une table et prenez place en quelques secondes.", "all": "Tous", "search": "Rechercher une table", "filters": "Filtres", "online": "234 joueurs sont en ligne", "fillFast": "Les tables se remplissent vite ce soir.", "loading": "Chargement des tables…", "empty": "Aucune table ne correspond à votre recherche.", "popular": "Populaire", "stakes": "Mises", "players": "Joueurs", "running": "En cours", "openTable": "Ouverte", "connecting": "Connexion…", "watch": "Voir la table", "privateHint": "Les tables privées apparaissent ici lorsque vos amis vous invitent." },
   "wallet": {
     "balance": "Solde",
     "deposit": "Déposer",
