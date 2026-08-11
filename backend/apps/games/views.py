@@ -1,4 +1,4 @@
-from django.db.models import Sum
+from django.db.models import Count, Sum
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -76,3 +76,11 @@ class GameResultCreateView(APIView):
             result = GameResult.objects.create(game_id=game_id, user=request.user, game_type=game_type, outcome=outcome, amount=amount, transaction=transaction_entry, metadata=request.data.get("metadata", {}))
             created = created_transaction or transaction_entry is None
         return Response({"id": result.pk, "game_id": str(result.game_id), "outcome": result.outcome, "amount": result.amount, "transaction_id": str(result.transaction_id) if result.transaction_id else None, "created": created}, status=201 if created else 200)
+
+
+class GameLeaderboardView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        ranking = GameResult.objects.filter(outcome="win").values("user_id", "user__display_name").annotate(wins=Count("id"), total_won=Sum("amount")).order_by("-wins", "-total_won")[:20]
+        return Response({"results": [{"rank": index, "user_id": item["user_id"], "display_name": item["user__display_name"], "wins": item["wins"], "total_won": item["total_won"] or 0} for index, item in enumerate(ranking, start=1)]})

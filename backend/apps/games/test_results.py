@@ -28,3 +28,12 @@ class GameResultTests(TestCase):
         response = client.get("/api/v1/games/results/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["stats"], {"played": 3, "wins": 1, "losses": 1, "draws": 1, "total_won": 100})
+
+    def test_leaderboard_is_ranked_by_wins_then_winnings(self):
+        first = User.objects.create_user(email="first@mdg.local", phone="+261340000013", display_name="First")
+        second = User.objects.create_user(email="second@mdg.local", phone="+261340000014", display_name="Second")
+        client = APIClient()
+        for _ in range(2): client.force_authenticate(first); client.post("/api/v1/games/results/", {"game_id": str(uuid.uuid4()), "game_type": "poker", "outcome": "win", "amount": 10}, format="json")
+        client.force_authenticate(second); client.post("/api/v1/games/results/", {"game_id": str(uuid.uuid4()), "game_type": "poker", "outcome": "win", "amount": 500}, format="json")
+        ranking = client.get("/api/v1/games/leaderboard/")
+        self.assertEqual(ranking.status_code, 200); self.assertEqual(ranking.data["results"][0]["display_name"], "First")
