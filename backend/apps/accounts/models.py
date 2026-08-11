@@ -2,9 +2,29 @@
 Models pour l'app accounts.
 """
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.contrib.auth.base_user import BaseUserManager
 from django.db import models
+from django.utils.crypto import get_random_string
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
+
+
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("Un email interne est requis")
+        user = self.model(email=self.normalize_email(email), **extra_fields)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        return self.create_user(email, password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -18,7 +38,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     ]
     
     email = models.EmailField(_("email"), unique=True)
-    phone = models.CharField(_("téléphone"), max_length=20, blank=True)
+    phone = models.CharField(_("téléphone"), max_length=20, unique=True)
     display_name = models.CharField(_("nom affiché"), max_length=50)
     avatar = models.URLField(blank=True)
     
@@ -40,6 +60,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["display_name"]
+    objects = UserManager()
     
     class Meta:
         db_table = "users"
@@ -60,3 +81,19 @@ class UserDevice(models.Model):
     class Meta:
         db_table = "user_devices"
         unique_together = [["user", "device_id"]]
+
+
+class OTPChallenge(models.Model):
+    """Challenge téléphone à usage unique, stocké sous forme de hash."""
+
+    phone = models.CharField(max_length=20, db_index=True)
+    code_hash = models.CharField(max_length=128)
+    request_id = models.CharField(max_length=36, unique=True, default=get_random_string)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "otp_challenges"
+        ordering = ["-created_at"]

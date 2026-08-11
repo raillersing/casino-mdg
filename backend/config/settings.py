@@ -43,6 +43,8 @@ LOCAL_APPS = [
     "apps.backoffice",
 ]
 
+AUTH_USER_MODEL = "accounts.User"
+
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # ─── Middleware ───────────────────────────────────────────────
