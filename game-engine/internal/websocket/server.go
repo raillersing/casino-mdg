@@ -102,6 +102,9 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 func (s *Server) readPump(client *Client) {
 	defer func() {
 		s.removeClient(client)
+		if client.tableID != "" {
+			s.roomManager.DisconnectPlayer(client.tableID, client.playerID)
+		}
 		client.conn.Close()
 	}()
 
@@ -163,6 +166,8 @@ func (s *Server) handleMessage(client *Client, msg *Message) {
 		s.handleAction(client, msg)
 	case MsgPing:
 		client.conn.WriteJSON(Message{Type: MsgPong, Timestamp: time.Now()})
+	case MsgHeartbeat:
+		client.conn.WriteJSON(Message{Type: MsgHeartbeat, TableID: client.tableID, Sequence: msg.Sequence, Timestamp: time.Now()})
 	case MsgSync:
 		s.handleSync(client, msg)
 	default:

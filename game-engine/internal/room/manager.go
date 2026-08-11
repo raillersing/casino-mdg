@@ -133,10 +133,34 @@ func (m *Manager) ApplyAction(tableID, playerID, action string, expectedSequence
 	if expectedSequence != table.Sequence {
 		return Event{}, fmt.Errorf("stale sequence: expected %d", table.Sequence)
 	}
-	if !validAction(action) {
+	if !validActionForGame(table.GameType, action) {
 		return Event{}, fmt.Errorf("invalid action")
 	}
 	return appendEvent(table, playerID, action, payload), nil
+}
+
+func (m *Manager) DisconnectPlayer(tableID, playerID string) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return
+	}
+	table.mu.Lock()
+	player, ok := table.Players[playerID]
+	if !ok {
+		table.mu.Unlock()
+		return
+	}
+	player.IsActive = false
+	deadline := time.Now().Add(table.GracePeriod)
+	table.mu.Unlock()
+	go func() {
+		time.Sleep(time.Until(deadline))
+		table.mu.Lock()
+		defer table.mu.Unlock()
+		if current, exists := table.Players[playerID]; exists && !current.IsActive && time.Now().After(deadline) {
+			delete(table.Players, playerID)
+		}
+	}()
 }
 
 func (m *Manager) EventsSince(tableID string, after uint64) ([]Event, error) {
@@ -161,6 +185,24 @@ func appendEvent(table *Table, playerID, action string, payload interface{}) Eve
 	table.Events = append(table.Events, event)
 	table.UpdatedAt = event.Timestamp
 	return event
+}
+
+func validActionForGame(gameType, action string) bool {
+	if gameType == "belote" {
+		switch action {
+		case "play_card", "announce", "pass":
+			return true
+		}
+		return false
+	}
+	if gameType == "rami" {
+		switch action {
+		case "draw", "discard", "meld":
+			return true
+		}
+		return false
+	}
+	return validAction(action)
 }
 
 func validAction(action string) bool {
