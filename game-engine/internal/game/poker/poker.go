@@ -1,0 +1,202 @@
+package poker
+
+import (
+	"fmt"
+	"sort"
+
+	"github.com/casino-mdg/game-engine/internal/rng"
+)
+
+type Card struct {
+	Rank int `json:"rank"`
+	Suit int `json:"suit"`
+}
+type Action string
+
+const (
+	Fold  Action = "fold"
+	Check Action = "check"
+	Call  Action = "call"
+	Bet   Action = "bet"
+	Raise Action = "raise"
+	AllIn Action = "all_in"
+)
+
+type Player struct {
+	ID     string `json:"id"`
+	Stack  int64  `json:"stack"`
+	Bet    int64  `json:"bet"`
+	Folded bool   `json:"folded"`
+	AllIn  bool   `json:"all_in"`
+}
+type Hand struct {
+	Players   []*Player `json:"players"`
+	Community []Card    `json:"community"`
+	Pot       int64     `json:"pot"`
+	Current   int       `json:"current"`
+	Phase     string    `json:"phase"`
+	Deck      []Card    `json:"-"`
+}
+
+func NewHand(players []*Player, shuffle func([]Card)) (*Hand, error) {
+	if len(players) < 2 || len(players) > 9 {
+		return nil, fmt.Errorf("poker requires 2 to 9 players")
+	}
+	deck := makeDeck()
+	shuffle(deck)
+	return &Hand{Players: players, Deck: deck, Current: 0, Phase: "preflop"}, nil
+}
+
+func NewShuffledHand(players []*Player) (*Hand, error) {
+	return NewHand(players, func(deck []Card) { rng.Shuffle(len(deck), func(i, j int) { deck[i], deck[j] = deck[j], deck[i] }) })
+}
+
+func (h *Hand) PostBlind(index int, amount int64) error {
+	if index < 0 || index >= len(h.Players) || amount <= 0 {
+		return fmt.Errorf("invalid blind")
+	}
+	return h.commit(index, amount)
+}
+
+func (h *Hand) Apply(index int, action Action, amount int64) error {
+	if index != h.Current || index < 0 || index >= len(h.Players) {
+		return fmt.Errorf("not this player's turn")
+	}
+	p := h.Players[index]
+	if p.Folded || p.AllIn {
+		return fmt.Errorf("player cannot act")
+	}
+	toCall := h.highestBet() - p.Bet
+	switch action {
+	case Fold:
+		p.Folded = true
+	case Check:
+		if toCall != 0 {
+			return fmt.Errorf("cannot check while facing a bet")
+		}
+	case Call:
+		if toCall <= 0 {
+			return fmt.Errorf("nothing to call")
+		}
+		if err := h.commit(index, toCall); err != nil {
+			return err
+		}
+	case Bet, Raise:
+		if amount <= toCall {
+			return fmt.Errorf("bet must exceed call amount")
+		}
+		if err := h.commit(index, amount); err != nil {
+			return err
+		}
+	case AllIn:
+		if err := h.commit(index, p.Stack); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("invalid action")
+	}
+	h.nextTurn()
+	return nil
+}
+
+func (h *Hand) commit(index int, amount int64) error {
+	p := h.Players[index]
+	if amount <= 0 || amount > p.Stack {
+		return fmt.Errorf("insufficient stack")
+	}
+	p.Stack -= amount
+	p.Bet += amount
+	h.Pot += amount
+	if p.Stack == 0 {
+		p.AllIn = true
+	}
+	return nil
+}
+func (h *Hand) highestBet() int64 {
+	var result int64
+	for _, p := range h.Players {
+		if p.Bet > result {
+			result = p.Bet
+		}
+	}
+	return result
+}
+func (h *Hand) nextTurn() {
+	for step := 1; step <= len(h.Players); step++ {
+		next := (h.Current + step) % len(h.Players)
+		if !h.Players[next].Folded && !h.Players[next].AllIn {
+			h.Current = next
+			return
+		}
+	}
+	h.Phase = "showdown"
+}
+func makeDeck() []Card {
+	deck := make([]Card, 0, 52)
+	for suit := 0; suit < 4; suit++ {
+		for rank := 2; rank <= 14; rank++ {
+			deck = append(deck, Card{Rank: rank, Suit: suit})
+		}
+	}
+	return deck
+}
+
+// RankFive returns a comparable category score for a five-card hand.
+func RankFive(cards []Card) int {
+	if len(cards) != 5 {
+		return 0
+	}
+	counts := map[int]int{}
+	suits := map[int]int{}
+	for _, c := range cards {
+		counts[c.Rank]++
+		suits[c.Suit]++
+	}
+	flush := len(suits) == 1
+	ranks := make([]int, 0, len(counts))
+	for rank := range counts {
+		ranks = append(ranks, rank)
+	}
+	sort.Ints(ranks)
+	straight := len(ranks) == 5 && ranks[4]-ranks[0] == 4
+	if len(ranks) == 5 && ranks[4] == 14 && ranks[0] == 2 && ranks[1] == 3 && ranks[2] == 4 && ranks[3] == 5 {
+		straight = true
+	}
+	if straight && flush {
+		return 8
+	}
+	pairs, trips, quads := 0, 0, 0
+	for _, count := range counts {
+		if count == 4 {
+			quads++
+		}
+		if count == 3 {
+			trips++
+		}
+		if count == 2 {
+			pairs++
+		}
+	}
+	if quads > 0 {
+		return 7
+	}
+	if trips > 0 && pairs > 0 {
+		return 6
+	}
+	if flush {
+		return 5
+	}
+	if straight {
+		return 4
+	}
+	if trips > 0 {
+		return 3
+	}
+	if pairs == 2 {
+		return 2
+	}
+	if pairs == 1 {
+		return 1
+	}
+	return 0
+}
