@@ -18,6 +18,7 @@ dist/
 build/
 *.log
 npm-debug.log*
+frontend/test-results/
 
 # Go
 *.exe

@@ -245,6 +245,31 @@ jobs:
         working-directory: frontend
         run: npm test
 
+  frontend-e2e:
+    name: Frontend E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright journeys
+        working-directory: frontend
+        run: npm run test:e2e
+
   docker-build:
     name: Docker Images and Compose Validation
     runs-on: ubuntu-latest
@@ -316,7 +341,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [backend-test, game-engine-test, frontend-build, frontend-test, docker-build]
+    needs: [backend-test, game-engine-test, frontend-build, frontend-test, frontend-e2e, docker-build]
     if: github.ref == 'refs/heads/develop'
     environment: staging
     steps:
