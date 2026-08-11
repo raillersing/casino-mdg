@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop, feature/*]
+    branches: [master, main, develop, feature/*]
   pull_request:
-    branches: [main, develop]
+    branches: [master, main, develop]
 
 env:
   PYTHON_VERSION: "3.12"
@@ -183,7 +183,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: frontend/package.json
+          cache-dependency-path: frontend/package-lock.json
       
       - name: Install dependencies
         working-directory: frontend
@@ -208,7 +208,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: frontend/package.json
+          cache-dependency-path: frontend/package-lock.json
       
       - name: Install dependencies
         working-directory: frontend
@@ -223,6 +223,27 @@ jobs:
         with:
           name: frontend-build
           path: frontend/dist
+
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run Vitest
+        working-directory: frontend
+        run: npm test
 
   # ───────────────────────────────────────────
   # Security scan
