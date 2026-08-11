@@ -2,14 +2,14 @@
 Django>=5.0,<6.0
 djangorestframework>=3.14.0
 django-cors-headers>=4.3.0
-django-channels>=4.0.0
+channels>=4.0.0
 channels-redis>=4.2.0
 celery>=5.3.0
 redis>=5.0.0
 python-dotenv>=1.0.0
 
 # Database
-psycopg>=3.1.0
+psycopg[binary]>=3.1.0
 django-postgres-extra>=2.0.0
 
 # Auth & Security

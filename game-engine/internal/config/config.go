@@ -19,7 +19,7 @@ func Load() (*Config, error) {
 	return &Config{
 		ServerAddr:           getEnv("GAME_ENGINE_ADDR", ":8080"),
 		RedisURL:             getEnv("REDIS_URL", "redis://localhost:6379/0"),
-		JWTSecret:            getEnv("JWT_SECRET", "dev-secret"),
+		JWTSecret:            getEnv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes"),
 		GracePeriod:          30 * time.Second,
 		SnapshotInterval:     5 * time.Second,
 		MaxTables:            10000,

@@ -4,7 +4,7 @@ Models pour l'app accounts.
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.contrib.auth.base_user import BaseUserManager
 from django.db import models
-from django.utils.crypto import get_random_string
+import uuid
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
@@ -88,7 +88,7 @@ class OTPChallenge(models.Model):
 
     phone = models.CharField(max_length=20, db_index=True)
     code_hash = models.CharField(max_length=128)
-    request_id = models.CharField(max_length=36, unique=True, default=get_random_string)
+    request_id = models.CharField(max_length=36, unique=True, default=uuid.uuid4)
     attempts = models.PositiveSmallIntegerField(default=0)
     expires_at = models.DateTimeField()
     consumed_at = models.DateTimeField(null=True, blank=True)

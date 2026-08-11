@@ -4,6 +4,7 @@ import django.db.models.deletion
 import django.utils.timezone
 import django.utils.crypto
 import apps.accounts.models
+import uuid
 
 
 class Migration(migrations.Migration):
@@ -44,7 +45,7 @@ class Migration(migrations.Migration):
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
                 ("phone", models.CharField(db_index=True, max_length=20)),
                 ("code_hash", models.CharField(max_length=128)),
-                ("request_id", models.CharField(default=django.utils.crypto.get_random_string, max_length=36, unique=True)),
+                ("request_id", models.CharField(default=uuid.uuid4, max_length=36, unique=True)),
                 ("attempts", models.PositiveSmallIntegerField(default=0)),
                 ("expires_at", models.DateTimeField()),
                 ("consumed_at", models.DateTimeField(blank=True, null=True)),

@@ -101,6 +101,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: ${ENV:-development}
+      # BuildKit cannot reach Debian mirrors through its isolated network here.
+      # This only affects image build-time dependency installation.
+      network: host
     container_name: casino-mdg-backend
     restart: unless-stopped
     depends_on:
@@ -128,7 +131,7 @@ services:
       - ./backend:/app
       - ./backend/media:/app/media
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8001}:8000"
     command: >
       sh -c "
         python manage.py migrate &&
@@ -200,7 +203,7 @@ services:
     environment:
       GAME_ENGINE_ADDR: :8080
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me-32-bytes}
     ports:
       - "8080:8080"
     volumes:
@@ -224,7 +227,7 @@ services:
     ports:
       - "3000:80"
     environment:
-      VITE_API_URL: http://localhost:8000/api/v1
+      VITE_API_URL: http://localhost:${BACKEND_PORT:-8001}/api/v1
       VITE_WS_URL: ws://localhost:8080
     networks:
       - casino-mdg
@@ -308,4 +311,6 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        # Keep this project isolated from the other local Compose stacks
+        # using 172.18.0.0/16 through 172.21.0.0/16.
+        - subnet: 172.30.0.0/16
