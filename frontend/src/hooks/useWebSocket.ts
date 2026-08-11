@@ -7,6 +7,7 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 type WebSocketOptions = {
   enabled?: boolean;
   onOpen?: (socket: WebSocket) => void;
+  onClose?: () => void;
   onMessage?: (event: MessageEvent<string>) => void;
 };
 
@@ -16,7 +17,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   const reconnectAttempts = useRef(0);
   const setReconnecting = useGameStore((state) => state.setReconnecting);
   const accessToken = useGameStore((state) => state.accessToken);
-  const { enabled = true, onOpen, onMessage } = options;
+  const { enabled = true, onOpen, onClose, onMessage } = options;
 
   const connect = useCallback(() => {
     closed.current = false;
@@ -36,6 +37,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     };
 
     ws.current.onclose = () => {
+      onClose?.();
       if (
         !closed.current &&
         reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
@@ -49,7 +51,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       console.error("WebSocket error:", error);
     };
     ws.current.onmessage = (event) => onMessage?.(event);
-  }, [accessToken, onMessage, onOpen, setReconnecting, url]);
+  }, [accessToken, onClose, onMessage, onOpen, setReconnecting, url]);
 
   const send = useCallback((data: object) => {
     if (ws.current?.readyState === WebSocket.OPEN) {

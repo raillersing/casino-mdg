@@ -28,6 +28,11 @@ export function GamePage() {
   const [invite, setInvite] = useState("");
   const [sequence, setSequence] = useState(0);
   const [gameConnectionError, setGameConnectionError] = useState("");
+  const [connectionState, setConnectionState] = useState<
+    "offline" | "connecting" | "connected"
+  >("offline");
+  const [playerCount, setPlayerCount] = useState(0);
+  const [lastAction, setLastAction] = useState("");
   const accessToken = useGameStore((state) => state.accessToken);
   const isPoker = gameType === "poker";
   const socketUrl = `${import.meta.env.VITE_WS_URL || "ws://localhost:8080"}/ws`;
@@ -36,9 +41,16 @@ export function GamePage() {
       const payload = JSON.parse(event.data) as {
         type?: string;
         sequence?: number;
-        payload?: string;
+        payload?: unknown;
       };
       if (typeof payload.sequence === "number") setSequence(payload.sequence);
+      if (payload.type === "state") {
+        const state = payload.payload as { players?: unknown } | undefined;
+        if (state && Array.isArray(state.players))
+          setPlayerCount(state.players.length);
+        setConnectionState("connected");
+      }
+      if (payload.type === "action") setLastAction("action reçue");
       if (payload.type === "error")
         setGameConnectionError(
           typeof payload.payload === "string"
@@ -53,6 +65,7 @@ export function GamePage() {
   }, []);
   const handleSocketOpen = useCallback(
     (socket: WebSocket) => {
+      setConnectionState("connected");
       if (tableId)
         socket.send(
           JSON.stringify({
@@ -65,11 +78,20 @@ export function GamePage() {
     },
     [tableId],
   );
+  const handleSocketClose = useCallback(
+    () => setConnectionState("offline"),
+    [],
+  );
   const { send } = useWebSocket(socketUrl, {
     enabled: Boolean(tableId && accessToken),
     onOpen: handleSocketOpen,
+    onClose: handleSocketClose,
     onMessage: handleSocketMessage,
   });
+
+  useEffect(() => {
+    if (tableId && accessToken) setConnectionState("connecting");
+  }, [accessToken, tableId]);
 
   useEffect(() => {
     if (!tableId || !accessToken) return;
@@ -141,7 +163,13 @@ export function GamePage() {
         <div>
           <strong>Table Émeraude</strong>
           <span>
-            <i /> Partie en cours · {isPoker ? "Texas Hold’em" : gameType}
+            <i />{" "}
+            {connectionState === "connected"
+              ? "Connecté"
+              : connectionState === "connecting"
+                ? "Connexion…"
+                : "Hors ligne"}{" "}
+            · {isPoker ? "Texas Hold’em" : gameType}
           </span>
         </div>
         <button
@@ -155,6 +183,13 @@ export function GamePage() {
       {gameConnectionError && (
         <p className="form-error game-connection-error">
           {gameConnectionError}
+        </p>
+      )}
+      {connectionState === "connected" && (
+        <p className="secure-note game-sync-note">
+          {playerCount} joueur{playerCount > 1 ? "s" : ""} synchronisé
+          {playerCount > 1 ? "s" : ""} · séquence {sequence}
+          {lastAction ? ` · ${lastAction}` : ""}
         </p>
       )}
       <div className={`felt-table ${isPoker ? "felt-green" : "felt-blue"}`}>
