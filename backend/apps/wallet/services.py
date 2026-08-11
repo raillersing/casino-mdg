@@ -31,3 +31,23 @@ def credit_simulation_bonus(user):
     entry = WalletTransaction.objects.create(transaction_code=f"SIM-BONUS-{user.pk}", user=user, type="bonus", direction="credit", amount=SIMULATION_STARTING_BONUS, currency_code="SIM", status="completed", source_account=platform, destination_account=player, idempotency_key=key, description="Bonus de bienvenue MDG Game Club", processed_at=timezone.now())
     LedgerEntry.objects.bulk_create([LedgerEntry(transaction=entry, account=platform, entry_type="debit", amount=SIMULATION_STARTING_BONUS, balance_after=platform.balance), LedgerEntry(transaction=entry, account=player, entry_type="credit", amount=SIMULATION_STARTING_BONUS, balance_after=player.balance)])
     return player, entry, True
+
+
+@transaction.atomic
+def settle_game_win(user, game_id, game_type, amount, metadata=None):
+    """Credit one simulation win exactly once and return its transaction."""
+    if amount < 0:
+        raise ValueError("Le gain ne peut pas être négatif.")
+    key = f"game-win:{game_id}:{user.pk}"
+    existing = WalletTransaction.objects.filter(idempotency_key=key).first()
+    if existing:
+        return existing, False
+    player = LedgerAccount.objects.select_for_update().get_or_create(user=user, account_type="player", currency_code="SIM")[0]
+    platform = LedgerAccount.objects.select_for_update().get_or_create(user=None, account_type="platform", currency_code="SIM")[0]
+    player.balance += amount
+    player.save(update_fields=["balance", "updated_at"])
+    platform.balance -= amount
+    platform.save(update_fields=["balance", "updated_at"])
+    entry = WalletTransaction.objects.create(transaction_code=f"SIM-GAME-{game_id}", user=user, type="game", direction="credit", amount=amount, currency_code="SIM", status="completed", source_account=platform, destination_account=player, idempotency_key=key, description=f"Gain de partie {game_type}", metadata=metadata or {}, processed_at=timezone.now())
+    LedgerEntry.objects.bulk_create([LedgerEntry(transaction=entry, account=platform, entry_type="debit", amount=amount, balance_after=platform.balance), LedgerEntry(transaction=entry, account=player, entry_type="credit", amount=amount, balance_after=player.balance)])
+    return entry, True

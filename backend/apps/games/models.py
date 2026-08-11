@@ -40,3 +40,19 @@ class TableSeat(models.Model):
             models.UniqueConstraint(fields=["table", "user"], name="unique_table_player"),
             models.UniqueConstraint(fields=["table", "seat_index"], name="unique_table_seat"),
         ]
+
+
+class GameResult(models.Model):
+    OUTCOMES = [("win", "Victoire"), ("loss", "Défaite"), ("draw", "Égalité")]
+    game_id = models.UUIDField(unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="game_results")
+    game_type = models.CharField(max_length=20, choices=GameTable.GAME_TYPES)
+    outcome = models.CharField(max_length=10, choices=OUTCOMES)
+    amount = models.PositiveBigIntegerField(default=0)
+    transaction = models.ForeignKey("wallet.WalletTransaction", null=True, blank=True, on_delete=models.PROTECT, related_name="game_results")
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "game_results"
+        ordering = ["-created_at"]

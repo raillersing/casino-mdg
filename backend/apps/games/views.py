@@ -2,8 +2,9 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import GameTable
+from .models import GameResult, GameTable
 from .services import join_table, seed_demo_tables
+from apps.wallet.services import settle_game_win
 
 
 def table_payload(table, request):
@@ -46,3 +47,26 @@ class TableJoinView(APIView):
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=409)
         return Response({"table": table_payload(table, request), "table_id": str(table.id), "seat_index": seat.seat_index, "created": created}, status=201 if created else 200)
+
+
+class GameResultCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        try:
+            game_id = request.data["game_id"]
+            game_type = request.data["game_type"]
+            outcome = request.data["outcome"]
+            amount = int(request.data.get("amount", 0))
+        except (KeyError, TypeError, ValueError):
+            return Response({"detail": "Résultat de partie invalide."}, status=400)
+        if game_type not in dict(GameTable.GAME_TYPES) or outcome not in dict(GameResult.OUTCOMES) or amount < 0:
+            return Response({"detail": "Résultat de partie invalide."}, status=400)
+        try:
+            result = GameResult.objects.get(game_id=game_id, user=request.user)
+            created = False
+        except GameResult.DoesNotExist:
+            transaction_entry, created_transaction = settle_game_win(request.user, game_id, game_type, amount, request.data.get("metadata", {})) if outcome == "win" else (None, False)
+            result = GameResult.objects.create(game_id=game_id, user=request.user, game_type=game_type, outcome=outcome, amount=amount, transaction=transaction_entry, metadata=request.data.get("metadata", {}))
+            created = created_transaction or transaction_entry is None
+        return Response({"id": result.pk, "game_id": str(result.game_id), "outcome": result.outcome, "amount": result.amount, "transaction_id": str(result.transaction_id) if result.transaction_id else None, "created": created}, status=201 if created else 200)
