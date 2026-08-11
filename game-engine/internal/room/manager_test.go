@@ -40,6 +40,21 @@ func TestDisconnectedPlayerCanReconnectDuringGracePeriod(t *testing.T) {
 	}
 }
 
+func TestSnapshotRestoresSequenceAndEvents(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: time.Second})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur", 1)
+	snapshot, err := m.Snapshot(table.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restoredManager := NewManager(&config.Config{GracePeriod: time.Second})
+	restored, err := restoredManager.RestoreSnapshot(snapshot)
+	if err != nil || restored.Sequence != 1 || len(restored.Events) != 1 {
+		t.Fatalf("restored=%+v err=%v", restored, err)
+	}
+}
+
 func TestEventsSinceSupportsResync(t *testing.T) {
 	m := NewManager(&config.Config{GracePeriod: 30})
 	table := m.CreateTable("poker")

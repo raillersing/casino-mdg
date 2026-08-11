@@ -13,6 +13,7 @@ import (
 
 	"github.com/casino-mdg/game-engine/internal/config"
 	"github.com/casino-mdg/game-engine/internal/room"
+	"github.com/casino-mdg/game-engine/internal/state"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -56,6 +57,7 @@ type Server struct {
 	config      *config.Config
 	roomManager *room.Manager
 	clients     map[string]*Client
+	snapshots   *state.SnapshotManager
 	mu          sync.RWMutex
 }
 
@@ -72,6 +74,7 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 		config:      cfg,
 		roomManager: rm,
 		clients:     make(map[string]*Client),
+		snapshots:   state.NewSnapshotManager(cfg.RedisURL),
 	}
 }
 
@@ -178,8 +181,17 @@ func (s *Server) handleMessage(client *Client, msg *Message) {
 func (s *Server) handleJoin(client *Client, msg *Message) {
 	table, ok := s.roomManager.GetTable(msg.TableID)
 	if !ok {
-		client.conn.WriteJSON(Message{Type: MsgError, Payload: "table not found", Timestamp: time.Now()})
-		return
+		var snapshot room.TableSnapshot
+		if err := s.snapshots.GetSnapshotInto(msg.TableID, &snapshot); err != nil {
+			client.conn.WriteJSON(Message{Type: MsgError, Payload: "table not found", Timestamp: time.Now()})
+			return
+		}
+		restored, err := s.roomManager.RestoreSnapshot(snapshot)
+		if err != nil {
+			client.conn.WriteJSON(Message{Type: MsgError, Payload: "invalid table snapshot", Timestamp: time.Now()})
+			return
+		}
+		table = restored
 	}
 
 	client.tableID = msg.TableID
@@ -196,6 +208,7 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		"players":   table.Players,
 	}
 	client.conn.WriteJSON(Message{Type: MsgState, Payload: state, Timestamp: time.Now()})
+	s.persistSnapshot(msg.TableID)
 }
 
 func (s *Server) handleLeave(client *Client, msg *Message) {
@@ -209,6 +222,19 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		return
 	}
 	s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: event.Payload, EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp})
+	s.persistSnapshot(msg.TableID)
+}
+
+func (s *Server) persistSnapshot(tableID string) {
+	snapshot, err := s.roomManager.Snapshot(tableID)
+	if err != nil {
+		return
+	}
+	go func() {
+		if err := s.snapshots.SaveSnapshot(tableID, snapshot); err != nil {
+			log.Printf("snapshot save failed table=%s: %v", tableID, err)
+		}
+	}()
 }
 
 func (s *Server) handleSync(client *Client, msg *Message) {

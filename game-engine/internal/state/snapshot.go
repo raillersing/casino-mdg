@@ -25,12 +25,23 @@ func NewSnapshotManager(redisURL string) *SnapshotManager {
 }
 
 func (sm *SnapshotManager) SaveSnapshot(tableID string, state interface{}) error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 	data, err := json.Marshal(state)
 	if err != nil {
 		return err
 	}
 	return sm.redisClient.Set(ctx, "snapshot:"+tableID, data, sm.ttl).Err()
+}
+
+func (sm *SnapshotManager) GetSnapshotInto(tableID string, destination interface{}) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	data, err := sm.redisClient.Get(ctx, "snapshot:"+tableID).Bytes()
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, destination)
 }
 
 func (sm *SnapshotManager) GetSnapshot(tableID string) (map[string]interface{}, error) {

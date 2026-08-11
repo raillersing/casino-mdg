@@ -34,6 +34,15 @@ type Event struct {
 	Timestamp time.Time   `json:"timestamp"`
 }
 
+type TableSnapshot struct {
+	ID        string             `json:"id"`
+	GameType  string             `json:"game_type"`
+	Sequence  uint64             `json:"sequence"`
+	Players   map[string]*Player `json:"players"`
+	Events    []Event            `json:"events"`
+	UpdatedAt time.Time          `json:"updated_at"`
+}
+
 type Player struct {
 	ID       string
 	Name     string
@@ -177,6 +186,41 @@ func (m *Manager) EventsSince(tableID string, after uint64) ([]Event, error) {
 		}
 	}
 	return result, nil
+}
+
+func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return TableSnapshot{}, fmt.Errorf("table not found")
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	players := make(map[string]*Player, len(table.Players))
+	for id, player := range table.Players {
+		copy := *player
+		players[id] = &copy
+	}
+	events := append([]Event(nil), table.Events...)
+	return TableSnapshot{ID: table.ID, GameType: table.GameType, Sequence: table.Sequence, Players: players, Events: events, UpdatedAt: table.UpdatedAt}, nil
+}
+
+func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
+	if snapshot.ID == "" || snapshot.GameType == "" {
+		return nil, fmt.Errorf("invalid table snapshot")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if existing, ok := m.tables[snapshot.ID]; ok {
+		return existing, nil
+	}
+	players := make(map[string]*Player, len(snapshot.Players))
+	for id, player := range snapshot.Players {
+		copy := *player
+		players[id] = &copy
+	}
+	table := &Table{ID: snapshot.ID, GameType: snapshot.GameType, Players: players, CreatedAt: time.Now(), UpdatedAt: snapshot.UpdatedAt, IsActive: true, GracePeriod: m.config.GracePeriod, Sequence: snapshot.Sequence, Events: append([]Event(nil), snapshot.Events...)}
+	m.tables[table.ID] = table
+	return table, nil
 }
 
 func appendEvent(table *Table, playerID, action string, payload interface{}) Event {
