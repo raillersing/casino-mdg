@@ -72,7 +72,10 @@ class VerifyOTPView(APIView):
             if not created and request.data.get("display_name"):
                 user.display_name = str(request.data["display_name"])[:50]
                 user.save(update_fields=["display_name"])
-        return Response({"user": {"id": str(user.pk), "display_name": user.display_name, "phone": user.phone, "xp": user.xp, "level": user.level}, "access": encode_token(user), "refresh": encode_token(user, "refresh", 60 * 60 * 24 * 30)}, status=200)
+        from apps.wallet.services import credit_simulation_bonus
+
+        account, _, _ = credit_simulation_bonus(user)
+        return Response({"user": {"id": str(user.pk), "display_name": user.display_name, "phone": user.phone, "xp": user.xp, "level": user.level}, "wallet": {"balance": account.balance, "currency": account.currency_code}, "access": encode_token(user), "refresh": encode_token(user, "refresh", 60 * 60 * 24 * 30)}, status=200)
 
 
 class MeView(APIView):

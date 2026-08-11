@@ -3,7 +3,7 @@
 export interface WalletOperation {
   userId: string
   amount: number
-  currency: 'MGA'
+  currency: 'MGA' | 'SIM'
   type: 'deposit' | 'withdrawal' | 'win' | 'loss' | 'rake'
   metadata?: Record<string, unknown>
 }

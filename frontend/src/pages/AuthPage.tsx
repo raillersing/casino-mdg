@@ -25,7 +25,7 @@ export function AuthPage() {
     setLoading(true); setError('')
     try {
       const result = await verifyOtp(phone, code, displayName || 'Joueur MDG')
-      setUser({ id: result.user.id, displayName: result.user.display_name, email: `${result.user.phone}@mdg.local`, xp: result.user.xp, level: result.user.level, balance: 0 })
+      setUser({ id: result.user.id, displayName: result.user.display_name, email: `${result.user.phone}@mdg.local`, xp: result.user.xp, level: result.user.level, balance: result.wallet.balance })
       setAuthenticated(true); setStep('done'); window.setTimeout(() => navigate('/'), 700)
     } catch (verifyError) { setError(verifyError instanceof Error ? verifyError.message : 'Code invalide.') } finally { setLoading(false) }
   }

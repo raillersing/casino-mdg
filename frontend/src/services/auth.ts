@@ -4,6 +4,7 @@ type AuthResponse = {
   access: string
   refresh: string
   user: { id: string; display_name: string; phone: string; xp: number; level: number }
+  wallet: { balance: number; currency: string }
 }
 
 async function post<T>(path: string, body: Record<string, string>): Promise<T> {
