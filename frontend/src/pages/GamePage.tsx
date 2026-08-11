@@ -35,6 +35,9 @@ export function GamePage() {
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
   const [resultMessage, setResultMessage] = useState("");
+  const [gameState, setGameState] = useState<Record<string, unknown> | null>(
+    null,
+  );
   const [resolvedTableId, setResolvedTableId] = useState("");
   const settled = useRef(false);
   const accessToken = useGameStore((state) => state.accessToken);
@@ -54,9 +57,12 @@ export function GamePage() {
         };
         if (typeof payload.sequence === "number") setSequence(payload.sequence);
         if (payload.type === "state") {
-          const state = payload.payload as { players?: unknown } | undefined;
+          const state = payload.payload as
+            | { players?: unknown; game_state?: Record<string, unknown> }
+            | undefined;
           if (state && Array.isArray(state.players))
             setPlayerCount(state.players.length);
+          if (state?.game_state) setGameState(state.game_state);
           setConnectionState("connected");
         }
         if (payload.type === "action") {
@@ -66,7 +72,11 @@ export function GamePage() {
           payload.payload && typeof payload.payload === "object"
             ? payload.payload
             : {}
-        ) as { outcome?: "win" | "loss" | "draw"; amount?: number; signature?: string };
+        ) as {
+          outcome?: "win" | "loss" | "draw";
+          amount?: number;
+          signature?: string;
+        };
         const outcome = payload.outcome || resultPayload.outcome;
         const amount = payload.amount ?? resultPayload.amount ?? 0;
         const signature = resultPayload.signature;
@@ -262,6 +272,9 @@ export function GamePage() {
       {resultMessage && (
         <p className="secure-note game-sync-note">{resultMessage}</p>
       )}
+      {gameState && gameType !== "poker" && (
+        <GameStateSummary gameType={gameType || ""} state={gameState} />
+      )}
       <div className={`felt-table ${isPoker ? "felt-green" : "felt-blue"}`}>
         <div className="table-brand">
           MDG <small>GAME CLUB</small>
@@ -430,5 +443,34 @@ function PlayingCard({
       <span>{hidden ? "?" : value}</span>
       <b>{hidden ? "✦" : suit}</b>
     </button>
+  );
+}
+
+function GameStateSummary({
+  gameType,
+  state,
+}: {
+  gameType: string;
+  state: Record<string, unknown>;
+}) {
+  const players = Array.isArray(state.players) ? state.players : [];
+  if (gameType === "belote") {
+    const points = Array.isArray(state.team_points)
+      ? state.team_points
+      : [0, 0];
+    return (
+      <div className="secure-note game-sync-note">
+        <strong>Belote</strong> · Atout : {String(state.trump ?? "—")} · Équipe
+        1 : {String(points[0])} · Équipe 2 : {String(points[1])} · Pli :{" "}
+        {Array.isArray(state.trick) ? state.trick.length : 0}/4
+      </div>
+    );
+  }
+  return (
+    <div className="secure-note game-sync-note">
+      <strong>Rami</strong> · Joueur actif : {String(state.current ?? "—")} ·
+      Défausse : {Array.isArray(state.discard) ? state.discard.length : 0} ·
+      Joueurs : {players.length}
+    </div>
   );
 }
