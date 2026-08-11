@@ -40,3 +40,21 @@ func TestRankFiveCategories(t *testing.T) {
 		t.Fatal("pair was not ranked")
 	}
 }
+
+func TestHandAdvancesThroughCommunityPhases(t *testing.T) {
+	hand, err := NewHand([]*Player{{ID: "a", Stack: 1000}, {ID: "b", Stack: 1000}}, func(deck []Card) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []struct {
+		index int
+		kind  Action
+	}{{0, Check}, {1, Check}, {0, Check}, {1, Check}, {0, Check}, {1, Check}, {0, Check}, {1, Check}} {
+		if err := hand.Apply(action.index, action.kind, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if hand.Phase != "showdown" || len(hand.Community) != 5 {
+		t.Fatalf("phase=%s community=%d", hand.Phase, len(hand.Community))
+	}
+}

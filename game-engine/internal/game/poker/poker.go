@@ -30,12 +30,13 @@ type Player struct {
 	AllIn  bool   `json:"all_in"`
 }
 type Hand struct {
-	Players   []*Player `json:"players"`
-	Community []Card    `json:"community"`
-	Pot       int64     `json:"pot"`
-	Current   int       `json:"current"`
-	Phase     string    `json:"phase"`
-	Deck      []Card    `json:"-"`
+	Players      []*Player `json:"players"`
+	Community    []Card    `json:"community"`
+	Pot          int64     `json:"pot"`
+	Current      int       `json:"current"`
+	Phase        string    `json:"phase"`
+	Deck         []Card    `json:"-"`
+	RoundActions int       `json:"round_actions"`
 }
 
 func NewHand(players []*Player, shuffle func([]Card)) (*Hand, error) {
@@ -95,6 +96,7 @@ func (h *Hand) Apply(index int, action Action, amount int64) error {
 	default:
 		return fmt.Errorf("invalid action")
 	}
+	h.RoundActions++
 	h.nextTurn()
 	return nil
 }
@@ -132,6 +134,10 @@ func (h *Hand) nextTurn() {
 		h.Phase = "showdown"
 		return
 	}
+	if h.RoundActions >= active && h.betsEqual() {
+		h.advancePhase()
+		return
+	}
 	for step := 1; step <= len(h.Players); step++ {
 		next := (h.Current + step) % len(h.Players)
 		if !h.Players[next].Folded && !h.Players[next].AllIn {
@@ -140,6 +146,53 @@ func (h *Hand) nextTurn() {
 		}
 	}
 	h.Phase = "showdown"
+}
+
+func (h *Hand) betsEqual() bool {
+	var bet int64 = -1
+	for _, player := range h.Players {
+		if player.Folded {
+			continue
+		}
+		if bet < 0 {
+			bet = player.Bet
+		} else if player.Bet != bet {
+			return false
+		}
+	}
+	return bet >= 0
+}
+
+func (h *Hand) advancePhase() {
+	h.RoundActions = 0
+	h.Current = 0
+	for h.Current < len(h.Players) && (h.Players[h.Current].Folded || h.Players[h.Current].AllIn) {
+		h.Current++
+	}
+	if h.Current >= len(h.Players) {
+		h.Phase = "showdown"
+		return
+	}
+	switch h.Phase {
+	case "preflop":
+		h.Phase = "flop"
+		h.dealCommunity(3)
+	case "flop":
+		h.Phase = "turn"
+		h.dealCommunity(1)
+	case "turn":
+		h.Phase = "river"
+		h.dealCommunity(1)
+	case "river":
+		h.Phase = "showdown"
+	}
+}
+
+func (h *Hand) dealCommunity(count int) {
+	for i := 0; i < count && len(h.Deck) > 0; i++ {
+		h.Community = append(h.Community, h.Deck[0])
+		h.Deck = h.Deck[1:]
+	}
 }
 
 func (h *Hand) Winner() (*Player, bool) {
