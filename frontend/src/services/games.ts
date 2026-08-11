@@ -28,3 +28,7 @@ export function joinTable(tableId: string, accessToken: string) {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
 }
+
+export type GameStats = { played: number; wins: number; losses: number; draws: number; total_won: number }
+export function getGameStats(accessToken: string) { return request<{ stats: GameStats }>('results/', { headers: { Authorization: `Bearer ${accessToken}` } }) }
+export function getLeaderboard() { return request<{ results: Array<{ rank: number; display_name: string; wins: number; total_won: number }> }>('leaderboard/') }
