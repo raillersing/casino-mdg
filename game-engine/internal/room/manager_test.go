@@ -5,6 +5,7 @@ import (
 
 	"github.com/casino-mdg/game-engine/internal/config"
 	"github.com/casino-mdg/game-engine/internal/game/belote"
+	"github.com/casino-mdg/game-engine/internal/game/poker"
 	"github.com/casino-mdg/game-engine/internal/game/rami"
 	"testing"
 	"time"
@@ -150,6 +151,26 @@ func TestSnapshotRestoresSequenceAndEvents(t *testing.T) {
 	restored, err := restoredManager.RestoreSnapshot(snapshot)
 	if err != nil || restored.Sequence != 1 || len(restored.Events) != 1 {
 		t.Fatalf("restored=%+v err=%v", restored, err)
+	}
+}
+
+func TestSnapshotRestoresPokerPrivateDeckForContinuation(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: time.Second, Deterministic: true})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur 1", 1)
+	_, _ = m.JoinPlayer(table.ID, "p2", "Joueur 2", 2)
+	snapshot, err := m.Snapshot(table.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restoredManager := NewManager(&config.Config{GracePeriod: time.Second, Deterministic: true})
+	restored, err := restoredManager.RestoreSnapshot(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hand, ok := restored.State.(*poker.Hand)
+	if !ok || len(hand.Deck) != 48 {
+		t.Fatalf("state=%T deck=%d", restored.State, len(hand.Deck))
 	}
 }
 

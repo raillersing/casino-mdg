@@ -18,7 +18,7 @@ type Player struct {
 }
 type Game struct {
 	Players  []*Player `json:"players"`
-	DrawPile []Card    `json:"-"`
+	DrawPile []Card    `json:"draw_pile"`
 	Discard  []Card    `json:"discard"`
 	Current  int       `json:"current"`
 	Finished bool      `json:"finished"`

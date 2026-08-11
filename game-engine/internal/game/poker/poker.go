@@ -36,7 +36,7 @@ type Hand struct {
 	Pot          int64     `json:"pot"`
 	Current      int       `json:"current"`
 	Phase        string    `json:"phase"`
-	Deck         []Card    `json:"-"`
+	Deck         []Card    `json:"deck"`
 	RoundActions int       `json:"round_actions"`
 }
 

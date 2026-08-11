@@ -26,7 +26,7 @@ type Round struct {
 	Trick        []Card    `json:"trick"`
 	TrickPlayers []int     `json:"trick_players"`
 	TeamPoints   [2]int    `json:"team_points"`
-	Deck         []Card    `json:"-"`
+	Deck         []Card    `json:"deck"`
 }
 
 func (r *Round) Finished() bool {
