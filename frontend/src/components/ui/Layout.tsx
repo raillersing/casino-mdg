@@ -1,36 +1,44 @@
 import { ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
+import { Bell, CircleUserRound, Compass, Home, LogIn, Menu, WalletCards } from 'lucide-react'
 import { useGameStore } from '@stores/gameStore'
 
+const navItems = [
+  { to: '/', label: 'Accueil', icon: Home },
+  { to: '/lobby', label: 'Jouer', icon: Compass },
+  { to: '/wallet', label: 'Portefeuille', icon: WalletCards },
+  { to: '/profile', label: 'Profil', icon: CircleUserRound },
+]
+
 export function Layout({ children }: { children: ReactNode }) {
-  const { t } = useTranslation()
   const user = useGameStore((state) => state.user)
 
   return (
-    <div className="min-h-screen bg-surface-900">
-      <header className="glass sticky top-0 z-50 border-b border-surface-700/50">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold text-gradient">{t('app.name')}</span>
-          </Link>
-          <nav className="flex items-center gap-4">
-            <Link to="/lobby" className="text-sm text-surface-400 hover:text-white transition-colors">{t('nav.lobby')}</Link>
-            <Link to="/wallet" className="text-sm text-surface-400 hover:text-white transition-colors">{t('nav.wallet')}</Link>
-            {user ? (
-              <Link to="/profile" className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary text-sm font-bold">
-                  {user.displayName[0]?.toUpperCase()}
-                </div>
-              </Link>
-            ) : (
-              <Link to="/auth" className="btn-primary text-sm">{t('nav.login')}</Link>
-            )}
-          </nav>
+    <div className="app-shell">
+      <aside className="sidebar">
+        <Link to="/" className="brand-lockup">
+          <span className="brand-mark">♠</span>
+          <span><strong>MDG</strong><small>GAME CLUB</small></span>
+        </Link>
+        <div className="sidebar-label">Navigation</div>
+        <nav className="sidebar-nav">
+          {navItems.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><Icon size={18} />{label}</NavLink>)}
+        </nav>
+        <div className="sidebar-spacer" />
+        <div className="sidebar-promo"><span className="eyebrow">Club privilege</span><strong>Jouez avec vos proches.</strong><p>Créez une table privée et invitez votre cercle.</p><Link to="/lobby" className="text-link">Créer une table →</Link></div>
+        <div className="sidebar-user">
+          {user ? <><div className="avatar avatar-sm">{user.displayName[0]}</div><div><strong>{user.displayName}</strong><small>Joueur niveau {user.level}</small></div></> : <><div className="avatar avatar-sm muted">?</div><div><strong>Visiteur</strong><small>Mode découverte</small></div></>}
         </div>
-      </header>
-      
-      <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
+      </aside>
+      <section className="main-shell">
+        <header className="topbar">
+          <div className="mobile-brand"><span className="brand-mark">♠</span><strong>MDG</strong></div>
+          <div className="breadcrumbs"><span>MDG Game Club</span><span className="slash">/</span><span className="current">{location.pathname === '/lobby' ? 'Lobby' : location.pathname === '/wallet' ? 'Portefeuille' : location.pathname === '/profile' ? 'Profil' : 'Accueil'}</span></div>
+          <div className="topbar-actions"><button className="icon-button" aria-label="Notifications"><Bell size={18} /><i /></button>{user ? <Link to="/profile" className="top-avatar avatar">{user.displayName[0]}</Link> : <Link to="/auth" className="login-link"><LogIn size={16} /> Se connecter</Link>}<button className="icon-button mobile-menu"><Menu size={20} /></button></div>
+        </header>
+        <main className="content">{children}</main>
+        <nav className="mobile-nav">{navItems.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => isActive ? 'active' : ''}><Icon size={19}/><span>{label}</span></NavLink>)}</nav>
+      </section>
     </div>
   )
 }

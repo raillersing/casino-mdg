@@ -1,17 +1,6 @@
-import { useTranslation } from 'react-i18next'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Check, ShieldCheck } from 'lucide-react'
+import { useGameStore } from '@stores/gameStore'
 
-export function AuthPage() {
-  const { t } = useTranslation()
-  return (
-    <div className="max-w-md mx-auto py-12">
-      <div className="card">
-        <h2 className="text-xl font-bold text-center mb-6">{t('auth.login')}</h2>
-        <div className="space-y-4">
-          <input type="email" placeholder={t('auth.email')} className="input-field" />
-          <input type="password" placeholder={t('auth.password')} className="input-field" />
-          <button className="btn-primary w-full">{t('auth.login')}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
+export function AuthPage() { const [phone, setPhone] = useState(''); const [done, setDone] = useState(false); const navigate = useNavigate(); const setUser = useGameStore((s) => s.setUser); const setAuthenticated = useGameStore((s) => s.setAuthenticated); const submit = () => { if (phone.length > 4) { setUser({ id: 'demo-01', displayName: 'Miora', email: `${phone}@mdg.local`, xp: 680, level: 4, balance: 12450 }); setAuthenticated(true); setDone(true); setTimeout(() => navigate('/'), 700) } }; return <div className="auth-layout"><Link to="/" className="back-link"><ArrowLeft size={16}/> Retour à l’accueil</Link><div className="auth-card"><div className="auth-brand"><span className="brand-mark">♠</span><strong>MDG GAME CLUB</strong></div>{done ? <div className="success-state"><div className="success-icon"><Check size={26}/></div><h1>Bienvenue au club.</h1><p>Votre espace est prêt. Redirection vers votre accueil…</p></div> : <><span className="eyebrow">Première main</span><h1>Entrez dans<br/><em>le cercle.</em></h1><p className="auth-intro">Un numéro suffit pour commencer. Vous recevrez 10 000 jetons gratuits à l’inscription.</p><label className="field-label">Numéro de téléphone</label><div className="phone-field"><span>+261</span><input autoFocus value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="34 00 000 00" /></div><button className="button button-gold full" onClick={submit}>Continuer <ArrowRight size={17}/></button><div className="auth-trust"><ShieldCheck size={16}/><span>Vos données sont chiffrées et protégées.</span></div></>} </div><p className="auth-footer">En continuant, vous acceptez les <a>conditions du club</a>.</p></div> }

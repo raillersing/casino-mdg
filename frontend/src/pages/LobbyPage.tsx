@@ -1,5 +1,13 @@
-import { useTranslation } from 'react-i18next'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowUpRight, Lock, Plus, Search, SlidersHorizontal, Users } from 'lucide-react'
 
-export function LobbyPage() {
-  const { t } = useTranslation()
-  return <div className="text-center py-12"><h1 className="text-2xl font-bold">{t('nav.lobby')}</h1><p className="text-surface-400">Game lobby — tables list here</p></div>
+const tables = [{ name: 'Émeraude', game: 'Texas Hold’em', type: 'Poker', stakes: '100 / 200', players: '5 / 6', status: 'En cours', id: 'emerald-01' }, { name: 'Baobab', game: 'Belote classique', type: 'Belote', stakes: 'Gratuit', players: '3 / 4', status: 'Rejoindre', id: 'baobab-01' }, { name: 'Vanille', game: 'Rami', type: 'Rami', stakes: '50 / 100', players: '2 / 4', status: 'Rejoindre', id: 'vanilla-01' }, { name: 'Océan Indien', game: 'Texas Hold’em', type: 'Poker', stakes: '500 / 1K', players: '8 / 9', status: 'Rejoindre', id: 'ocean-01' }]
+
+export function LobbyPage() { const [filter, setFilter] = useState('Tous'); const [query, setQuery] = useState(''); const shown = tables.filter((t) => (filter === 'Tous' || t.type === filter) && t.name.toLowerCase().includes(query.toLowerCase())); return <div className="page-stack">
+  <div className="page-title-row"><div><span className="eyebrow">Le club est ouvert</span><h1>Lobby <em>en direct.</em></h1><p>Choisissez une table et prenez place en quelques secondes.</p></div><button className="button button-gold"><Plus size={17}/> Créer une table</button></div>
+  <div className="lobby-toolbar"><div className="tabs">{['Tous', 'Poker', 'Belote', 'Rami'].map((item) => <button className={filter === item ? 'active' : ''} onClick={() => setFilter(item)} key={item}>{item}</button>)}</div><label className="search-box"><Search size={17}/><input placeholder="Rechercher une table" value={query} onChange={(e) => setQuery(e.target.value)}/></label><button className="filter-button"><SlidersHorizontal size={17}/> <span>Filtres</span></button></div>
+  <div className="live-strip"><div className="live-strip-icon"><Users size={18}/></div><div><strong>234 joueurs sont en ligne</strong><span>Les tables se remplissent vite ce soir.</span></div><div className="avatar-stack"><span>J</span><span>M</span><span>R</span><b>+231</b></div></div>
+  <div className="table-list">{shown.map((table, index) => <div className="table-row" key={table.id}><div className={`table-symbol symbol-${table.type.toLowerCase()}`}>{table.type === 'Poker' ? '♠' : table.type === 'Belote' ? '♥' : '♦'}</div><div className="table-main"><div><strong>{table.name}</strong>{index === 0 && <span className="hot-tag">Populaire</span>}</div><span>{table.game}</span></div><div className="table-cell"><small>Mises</small><strong>{table.stakes}</strong></div><div className="table-cell"><small>Joueurs</small><strong>{table.players}</strong></div><div className="table-status"><span className={table.status === 'En cours' ? 'status-live' : ''}><i/>{table.status}</span></div><Link to={`/game/${table.type.toLowerCase() === 'texas hold’em' ? 'poker' : table.type.toLowerCase()}/${table.id}`} className="join-button">{table.status === 'En cours' ? 'Voir la table' : 'Rejoindre'} <ArrowUpRight size={16}/></Link></div>)}</div>
+  <div className="empty-note"><Lock size={16}/><span>Les tables privées apparaissent ici lorsque vos amis vous invitent.</span></div>
+</div> }

@@ -1,5 +1,4 @@
 import { Routes, Route } from 'react-router-dom'
-import { useGameStore } from '@stores/gameStore'
 import { Layout } from '@components/ui/Layout'
 import { HomePage } from '@pages/HomePage'
 import { LobbyPage } from '@pages/LobbyPage'
@@ -10,8 +9,6 @@ import { AuthPage } from '@pages/AuthPage'
 import { NotFoundPage } from '@pages/NotFoundPage'
 
 function App() {
-  const isAuthenticated = useGameStore((state) => state.isAuthenticated)
-
   return (
     <Layout>
       <Routes>

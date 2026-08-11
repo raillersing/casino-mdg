@@ -1,16 +1,7 @@
-import { useParams } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import { useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { ChevronLeft, MessageCircle, MoreHorizontal, Send, Settings2, Users } from 'lucide-react'
 
-export function GamePage() {
-  const { gameType, tableId } = useParams()
-  const { t } = useTranslation()
-  return (
-    <div className="text-center py-12">
-      <h1 className="text-2xl font-bold capitalize">{t(`games.${gameType}`)}</h1>
-      <p className="text-surface-400">Table: {tableId}</p>
-      <div className="mt-8 p-8 bg-surface-800 rounded-xl border border-surface-700">
-        <p className="text-surface-400">Game canvas will be rendered here (PixiJS)</p>
-      </div>
-    </div>
-  )
-}
+export function GamePage() { const { gameType } = useParams(); const [selected, setSelected] = useState(''); const [message, setMessage] = useState(''); const isPoker = gameType === 'poker'; return <div className="game-room"><div className="game-room-head"><Link to="/lobby" className="back-link"><ChevronLeft size={17}/> Quitter la table</Link><div><strong>Table Émeraude</strong><span><i/> Partie en cours · {isPoker ? 'Texas Hold’em' : gameType}</span></div><button className="icon-button"><MoreHorizontal size={19}/></button></div><div className={`felt-table ${isPoker ? 'felt-green' : 'felt-blue'}`}><div className="table-brand">MDG <small>GAME CLUB</small></div><PlayerSeat pos="top" name="Tovo" chips="8 420"/><PlayerSeat pos="left" name="Rija" chips="12 100"/><PlayerSeat pos="right" name="Saholy" chips="6 750"/><div className="pot">POT <strong>2 400</strong></div><div className="community-cards"><PlayingCard value="A" suit="♠"/><PlayingCard value="K" suit="♥" red/><PlayingCard value="8" suit="♦" red/><PlayingCard value="7" suit="♣"/><PlayingCard value="?" suit="" hidden/></div><div className="you-seat"><div className="you-avatar">M</div><div><strong>Vous</strong><span>12 450 jetons</span></div></div><div className="hole-cards"><PlayingCard value="A" suit="♥" red selected={selected === 'a'} onClick={() => setSelected('a')}/><PlayingCard value="J" suit="♣" selected={selected === 'j'} onClick={() => setSelected('j')}/></div></div><div className="game-controls"><div className="turn-state"><span className="timer">00:18</span><div><strong>À vous de jouer</strong><span>Choisissez votre action</span></div></div><div className="action-row"><button className="action-fold">Se coucher</button><button className="action-check">Checker</button><button className="action-bet">Miser <strong>800</strong></button></div></div><div className="game-bottom"><div className="chat-box"><div className="chat-head"><span><MessageCircle size={15}/> Chat de table</span><Users size={15}/></div><div className="chat-messages"><p><b>Tovo</b> Bonne chance à tous 👋</p><p><b>Rija</b> On y croit !</p></div><div className="chat-input"><input placeholder="Écrire un message…" value={message} onChange={(e) => setMessage(e.target.value)}/><button><Send size={15}/></button></div></div><div className="game-info"><div><Settings2 size={16}/><span>Paramètres de table</span></div><div><span>Buy-in</span><strong>10 000 jetons</strong></div><div><span>Blinds</span><strong>100 / 200</strong></div></div></div></div> }
+function PlayerSeat({ pos, name, chips }: {pos:string; name:string; chips:string}) { return <div className={`player-seat seat-${pos}`}><div className="seat-avatar">{name[0]}</div><div><strong>{name}</strong><span>{chips}</span></div></div> }
+function PlayingCard({value, suit, red, hidden, selected, onClick}: {value:string; suit:string; red?:boolean; hidden?:boolean; selected?:boolean; onClick?:()=>void}) { return <button onClick={onClick} className={`playing-card ${red ? 'red' : ''} ${hidden ? 'hidden-card' : ''} ${selected ? 'selected' : ''}`}><span>{hidden ? '?' : value}</span><b>{hidden ? '✦' : suit}</b></button> }
