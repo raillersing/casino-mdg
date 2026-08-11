@@ -8,6 +8,7 @@ import { ProfilePage } from '@pages/ProfilePage'
 import { AuthPage } from '@pages/AuthPage'
 import { NotFoundPage } from '@pages/NotFoundPage'
 import { SupportPage } from '@pages/SupportPage'
+import { BackofficePage } from '@pages/BackofficePage'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/wallet" element={<WalletPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/support" element={<SupportPage />} />
+        <Route path="/backoffice" element={<BackofficePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>
