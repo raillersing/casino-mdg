@@ -29,6 +29,28 @@ type Round struct {
 	Deck         []Card    `json:"-"`
 }
 
+func (r *Round) Finished() bool {
+	if len(r.Trick) > 0 {
+		return false
+	}
+	for _, player := range r.Players {
+		if len(player.Hand) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Round) WinningTeam() (int, bool) {
+	if !r.Finished() || r.TeamPoints[0] == r.TeamPoints[1] {
+		return -1, false
+	}
+	if r.TeamPoints[0] > r.TeamPoints[1] {
+		return 0, true
+	}
+	return 1, true
+}
+
 func NewRound(ids []string, shuffle func([]Card)) (*Round, error) {
 	if len(ids) != 4 {
 		return nil, fmt.Errorf("belote requires exactly 4 players")

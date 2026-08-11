@@ -43,3 +43,15 @@ func TestTrumpJackBeatsNonTrumpAce(t *testing.T) {
 		}
 	}
 }
+
+func TestRoundDetectsFinishedTeam(t *testing.T) {
+	round, _ := NewRound([]string{"a", "b", "c", "d"}, func([]Card) {})
+	for _, player := range round.Players {
+		player.Hand = nil
+	}
+	round.TeamPoints = [2]int{61, 59}
+	team, ok := round.WinningTeam()
+	if !ok || team != 0 || !round.Finished() {
+		t.Fatalf("team=%d ok=%v", team, ok)
+	}
+}

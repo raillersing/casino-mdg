@@ -256,6 +256,17 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			}
 		}
 	}
+	if msg.Action == "play_card" {
+		winners, losers, points, finished := s.roomManager.FinishedBeloteResults(msg.TableID)
+		if finished {
+			for _, playerID := range winners {
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": points, "signature": signResult(s.config.ResultSecret, msg.TableID, "belote", "win", int(points))}, Sequence: event.Sequence, Timestamp: time.Now()})
+			}
+			for _, playerID := range losers {
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "belote", "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
+			}
+		}
+	}
 	s.persistSnapshot(msg.TableID)
 }
 

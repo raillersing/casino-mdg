@@ -288,6 +288,32 @@ func (m *Manager) FinishedPokerPayouts(tableID string) (map[string]int64, bool) 
 	return hand.Payouts(), true
 }
 
+func (m *Manager) FinishedBeloteResults(tableID string) (winners, losers []string, points int64, finished bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return nil, nil, 0, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	round, ok := table.State.(*belote.Round)
+	if !ok {
+		return nil, nil, 0, false
+	}
+	team, finished := round.WinningTeam()
+	if !finished {
+		return nil, nil, 0, false
+	}
+	points = int64(round.TeamPoints[team])
+	for _, player := range round.Players {
+		if player.Team == team {
+			winners = append(winners, player.ID)
+		} else {
+			losers = append(losers, player.ID)
+		}
+	}
+	return winners, losers, points, true
+}
+
 func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
