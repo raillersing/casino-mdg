@@ -54,6 +54,7 @@ export function recordGameResult(
   gameType: string,
   outcome: "win" | "loss" | "draw",
   amount = 0,
+  signature?: string,
 ) {
   return request<{
     created: boolean;
@@ -64,6 +65,7 @@ export function recordGameResult(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      ...(signature ? { "X-Game-Engine-Signature": signature } : {}),
     },
     body: JSON.stringify({
       game_id: gameId,

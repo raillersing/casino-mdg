@@ -61,31 +61,15 @@ export function GamePage() {
         }
         if (payload.type === "action") {
           setLastAction("action reçue");
-          if (
-            payload.action === "fold" &&
-            accessToken &&
-            gameType &&
-            engineTableId &&
-            !settled.current
-          ) {
-            settled.current = true;
-            void recordGameResult(
-              accessToken,
-              engineTableId,
-              gameType,
-              "loss",
-            ).catch(() => {
-              settled.current = false;
-            });
-          }
         }
         const resultPayload = (
           payload.payload && typeof payload.payload === "object"
             ? payload.payload
             : {}
-        ) as { outcome?: "win" | "loss" | "draw"; amount?: number };
+        ) as { outcome?: "win" | "loss" | "draw"; amount?: number; signature?: string };
         const outcome = payload.outcome || resultPayload.outcome;
         const amount = payload.amount ?? resultPayload.amount ?? 0;
+        const signature = resultPayload.signature;
         if (
           (payload.type === "result" || payload.action === "result") &&
           outcome &&
@@ -102,6 +86,7 @@ export function GamePage() {
             gameType,
             outcome,
             amount,
+            signature,
           )
             .then((result) =>
               setResultMessage(

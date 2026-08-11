@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -242,7 +243,24 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		return
 	}
 	s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: event.Payload, EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp})
+	if msg.Action == "fold" {
+		s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, tableGameType(s.roomManager, msg.TableID), "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
+	}
 	s.persistSnapshot(msg.TableID)
+}
+
+func tableGameType(manager *room.Manager, tableID string) string {
+	if table, ok := manager.GetTable(tableID); ok {
+		return table.GameType
+	}
+	return "poker"
+}
+
+func signResult(secret, gameID, gameType, outcome string, amount int) string {
+	payload, _ := json.Marshal(map[string]interface{}{"amount": amount, "game_id": gameID, "game_type": gameType, "metadata": map[string]interface{}{}, "outcome": outcome})
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write(payload)
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func (s *Server) persistSnapshot(tableID string) {
