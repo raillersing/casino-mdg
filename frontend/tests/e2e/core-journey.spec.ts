@@ -80,3 +80,23 @@ test('switches the lobby journey to Malagasy', async ({ page }) => {
   await expect(page.getByText('Misafidiana latabatra')).toBeVisible()
   await expect(page.getByText('Misokatra', { exact: true })).toBeVisible()
 })
+
+test('opens an auditable wallet transaction from history', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('mdg_access_token', 'wallet-token')
+    localStorage.setItem('mdg_refresh_token', 'wallet-refresh')
+  })
+  await page.route('**/api/v1/wallet/balance/', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ account_id: 1, balance: 10000, held_balance: 0, currency: 'SIM' }) }))
+  await page.route('**/api/v1/wallet/transactions/', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 1, next_offset: null, results: [{ id: 'transaction-1', type: 'bonus', direction: 'credit', amount: 10000, currency: 'SIM', status: 'completed', description: 'Bonus de bienvenue MDG Game Club', created_at: '2026-08-11T12:00:00Z' }] }) }))
+  await page.route('**/api/v1/wallet/transactions/transaction-1/', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'transaction-1', transaction_code: 'SIM-BONUS-1', type: 'bonus', direction: 'credit', amount: 10000, currency: 'SIM', status: 'completed', description: 'Bonus de bienvenue MDG Game Club', created_at: '2026-08-11T12:00:00Z', processed_at: '2026-08-11T12:00:00Z', metadata: {}, entries: [{ account_type: 'platform', entry_type: 'debit', amount: 10000, balance_after: -10000 }, { account_type: 'player', entry_type: 'credit', amount: 10000, balance_after: 10000 }] }) }))
+  await page.route('**/api/v1/payments/intents/', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: [] }) }))
+
+  await page.goto('/wallet')
+  await page.getByRole('button', { name: 'Historique' }).click()
+  await page.getByRole('button', { name: /Bonus de bienvenue/i }).click()
+
+  await expect(page.getByText('Détail de la transaction')).toBeVisible()
+  await expect(page.getByText('SIM-BONUS-1')).toBeVisible()
+  await expect(page.getByText('Compte platform')).toBeVisible()
+  await expect(page.getByText('Compte player')).toBeVisible()
+})
