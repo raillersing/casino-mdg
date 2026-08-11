@@ -51,22 +51,38 @@ export function GamePage() {
       setGameConnectionError("Réponse de table invalide.");
     }
   }, []);
-  const handleSocketOpen = useCallback((socket: WebSocket) => {
-    if (tableId)
-      socket.send(
-        JSON.stringify({
-          type: "join",
-          table_id: tableId,
-          sequence: 0,
-          timestamp: new Date().toISOString(),
-        }),
-      );
-  }, [tableId]);
+  const handleSocketOpen = useCallback(
+    (socket: WebSocket) => {
+      if (tableId)
+        socket.send(
+          JSON.stringify({
+            type: "join",
+            table_id: tableId,
+            sequence: 0,
+            timestamp: new Date().toISOString(),
+          }),
+        );
+    },
+    [tableId],
+  );
   const { send } = useWebSocket(socketUrl, {
     enabled: Boolean(tableId && accessToken),
     onOpen: handleSocketOpen,
     onMessage: handleSocketMessage,
   });
+
+  useEffect(() => {
+    if (!tableId || !accessToken) return;
+    const heartbeat = window.setInterval(() => {
+      send({
+        type: "heartbeat",
+        table_id: tableId,
+        sequence,
+        timestamp: new Date().toISOString(),
+      });
+    }, 15000);
+    return () => window.clearInterval(heartbeat);
+  }, [accessToken, send, sequence, tableId]);
 
   useEffect(() => {
     if (!tableId || !accessToken) return;
@@ -136,7 +152,11 @@ export function GamePage() {
           <Users size={18} />
         </button>
       </div>
-      {gameConnectionError && <p className="form-error game-connection-error">{gameConnectionError}</p>}
+      {gameConnectionError && (
+        <p className="form-error game-connection-error">
+          {gameConnectionError}
+        </p>
+      )}
       <div className={`felt-table ${isPoker ? "felt-green" : "felt-blue"}`}>
         <div className="table-brand">
           MDG <small>GAME CLUB</small>
@@ -186,8 +206,18 @@ export function GamePage() {
           </div>
         </div>
         <div className="action-row">
-          <button className="action-fold" onClick={() => sendGameAction("fold")}>Se coucher</button>
-          <button className="action-check" onClick={() => sendGameAction("check")}>Checker</button>
+          <button
+            className="action-fold"
+            onClick={() => sendGameAction("fold")}
+          >
+            Se coucher
+          </button>
+          <button
+            className="action-check"
+            onClick={() => sendGameAction("check")}
+          >
+            Checker
+          </button>
           <button className="action-bet" onClick={() => sendGameAction("bet")}>
             Miser <strong>800</strong>
           </button>

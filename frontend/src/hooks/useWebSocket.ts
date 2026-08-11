@@ -12,12 +12,14 @@ type WebSocketOptions = {
 
 export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   const ws = useRef<WebSocket | null>(null);
+  const closed = useRef(false);
   const reconnectAttempts = useRef(0);
   const setReconnecting = useGameStore((state) => state.setReconnecting);
   const accessToken = useGameStore((state) => state.accessToken);
   const { enabled = true, onOpen, onMessage } = options;
 
   const connect = useCallback(() => {
+    closed.current = false;
     setReconnecting(true);
 
     const separator = url.includes("?") ? "&" : "?";
@@ -34,7 +36,10 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     };
 
     ws.current.onclose = () => {
-      if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+      if (
+        !closed.current &&
+        reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
+      ) {
         reconnectAttempts.current++;
         setTimeout(connect, RECONNECT_DELAY * reconnectAttempts.current);
       }
@@ -55,7 +60,10 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   useEffect(() => {
     if (!enabled || !url || !accessToken) return;
     connect();
-    return () => ws.current?.close();
+    return () => {
+      closed.current = true;
+      ws.current?.close();
+    };
   }, [accessToken, connect, enabled, url]);
 
   return { ws, send };
