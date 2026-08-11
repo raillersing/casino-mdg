@@ -42,3 +42,16 @@ func TestMeldRemovesCardsFromCurrentPlayer(t *testing.T) {
 		t.Fatalf("hand=%v err=%v", game.Players[0].Hand, err)
 	}
 }
+
+func TestEmptyHandFinishesAndRanksScores(t *testing.T) {
+	game, _ := NewGame([]string{"a", "b"}, func([]Card) {})
+	game.Players[0].Hand = []Card{{0, 1}}
+	game.Players[1].Hand = []Card{{0, 9}}
+	if err := game.DiscardCard(game.Players[0].Hand[0]); err != nil {
+		t.Fatal(err)
+	}
+	winner, ok := game.Winner()
+	if !ok || winner.ID != "a" || game.Players[1].Score != 9 {
+		t.Fatalf("winner=%v scores=%v", winner, game.Players)
+	}
+}

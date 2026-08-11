@@ -325,6 +325,31 @@ func (m *Manager) FinishedBeloteResults(tableID string) (winners, losers []strin
 	return winners, losers, points, true
 }
 
+func (m *Manager) FinishedRamiResults(tableID string) (winnerID string, losers []string, amount int64, finished bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return "", nil, 0, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	game, ok := table.State.(*rami.Game)
+	if !ok {
+		return "", nil, 0, false
+	}
+	winner, finished := game.Winner()
+	if !finished {
+		return "", nil, 0, false
+	}
+	winnerID = winner.ID
+	for _, player := range game.Players {
+		if player.ID != winnerID {
+			losers = append(losers, player.ID)
+			amount += int64(player.Score)
+		}
+	}
+	return winnerID, losers, amount, true
+}
+
 func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {

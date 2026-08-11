@@ -267,6 +267,15 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			}
 		}
 	}
+	if msg.Action == "discard" {
+		winnerID, losers, amount, finished := s.roomManager.FinishedRamiResults(msg.TableID)
+		if finished {
+			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": amount, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "win", int(amount))}, Sequence: event.Sequence, Timestamp: time.Now()})
+			for _, playerID := range losers {
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
+			}
+		}
+	}
 	s.persistSnapshot(msg.TableID)
 }
 

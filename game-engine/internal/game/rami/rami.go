@@ -68,6 +68,7 @@ func (g *Game) DiscardCard(card Card) error {
 			g.Discard = append(g.Discard, card)
 			if len(player.Hand) == 0 {
 				g.Finished = true
+				g.calculateScores()
 			}
 			if !g.Finished {
 				g.Current = (g.Current + 1) % len(g.Players)
@@ -76,6 +77,33 @@ func (g *Game) DiscardCard(card Card) error {
 		}
 	}
 	return fmt.Errorf("card is not in player's hand")
+}
+
+func (g *Game) calculateScores() {
+	for _, player := range g.Players {
+		player.Score = handScore(player.Hand)
+	}
+}
+
+func handScore(hand []Card) int {
+	total := 0
+	for _, card := range hand {
+		total += card.Rank
+	}
+	return total
+}
+
+func (g *Game) Winner() (*Player, bool) {
+	if !g.Finished || len(g.Players) == 0 {
+		return nil, false
+	}
+	winner := g.Players[0]
+	for _, player := range g.Players[1:] {
+		if player.Score < winner.Score {
+			winner = player
+		}
+	}
+	return winner, true
 }
 
 func (g *Game) MeldCards(cards []Card) error {
