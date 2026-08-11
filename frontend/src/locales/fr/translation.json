@@ -52,7 +52,7 @@
     "sandboxDescription": "Vous pouvez tester la création d’un intent MVola. Aucun solde n’est modifié et aucun paiement réel n’est déclenché.",
     "createTest": "Créer un intent test",
     "protected": "Solde protégé",
-    "privateHistory": "Votre historique reste privé et accessible à tout moment."
+    "privateHistory": "Votre historique reste privé et accessible à tout moment.", "details": "Détail de la transaction", "transactionCode": "Référence", "ledgerEntries": "Écritures comptables", "account": "Compte {{type}}", "balanceAfter": "Solde après mouvement", "loadingDetail": "Chargement du détail…", "detailError": "Détail indisponible."
   },
   "auth": {
     "email": "Email",
@@ -99,5 +99,5 @@
   "promo": { "title": "Jouez avec vos proches.", "body": "Créez une table privée et invitez votre cercle." },
   "profile": { "level": "Joueur niveau {{level}}", "visitor": "Visiteur", "discovery": "Mode découverte", "memberSince": "Membre depuis août 2026", "online": "En ligne maintenant · Antananarivo", "edit": "Modifier", "progress": "Progression du joueur", "explorer": "Explorateur", "nextLevel": "Encore 320 XP pour atteindre le niveau 5.", "yourStats": "Vos chiffres", "gameStats": "Statistiques de jeu", "gamesPlayed": "Parties jouées", "winRate": "Taux de victoire", "totalWinnings": "Gains cumulés", "localRank": "Classement local", "compliance": "Conformité progressive", "kycLevel": "Niveau KYC", "request": "Demande {{status}}", "noRequest": "Aucune demande en cours", "documentsDisabled": "Documents désactivés · Limite dépôt {{limit}} MGA", "publicProfile": "Profil public", "publicProfileHint": "Ce que les autres joueurs voient", "collection": "Collection", "recentBadges": "Badges récents", "firstWin": "Première victoire", "earnedToday": "Obtenu aujourd’hui", "tableAce": "As de la table", "winsRecorded": "{{count}} victoires enregistrées", "collector": "Collectionneur", "gamesPlayedCount": "{{count}} parties jouées", "allBadges": "Voir tous les badges", "logout": "Se déconnecter" },
   "support": { "title": "Besoin d’aide ?", "intro": "Décrivez votre demande, notre équipe pourra la suivre depuis le club.", "back": "Retour au profil", "openTicket": "Ouvrir un ticket", "category": "Catégorie", "account": "Compte", "wallet": "Portefeuille", "game": "Partie", "other": "Autre", "subject": "Sujet", "subjectPlaceholder": "Ex. Question sur une partie", "description": "Description", "descriptionPlaceholder": "Expliquez votre demande…", "sending": "Envoi…", "send": "Envoyer le ticket", "loginRequired": "Connectez-vous pour ouvrir un ticket.", "sent": "Votre ticket a été envoyé.", "failed": "Ticket impossible.", "yourTickets": "Vos tickets", "empty": "Aucun ticket pour le moment." },
-  "a11y": { "changeLanguage": "Changer de langue", "notifications": "Notifications", "openProfile": "Ouvrir le profil", "openMenu": "Ouvrir le menu" }
+  "a11y": { "changeLanguage": "Changer de langue", "notifications": "Notifications", "openProfile": "Ouvrir le profil", "openMenu": "Ouvrir le menu", "close": "Fermer" }
 }

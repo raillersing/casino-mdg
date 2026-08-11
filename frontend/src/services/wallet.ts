@@ -1,5 +1,6 @@
 export type WalletBalance = { account_id: number; balance: number; held_balance: number; currency: string }
 export type WalletTransaction = { id: string; type: string; direction: 'credit' | 'debit'; amount: number; currency: string; status: string; description: string; created_at: string }
+export type WalletTransactionDetail = WalletTransaction & { transaction_code: string; metadata: Record<string, unknown>; processed_at: string | null; entries: Array<{ account_type: string; entry_type: 'credit' | 'debit'; amount: number; balance_after: number }> }
 
 async function get<T>(path: string, accessToken: string): Promise<T> {
   const response = await fetch(`/api/v1/wallet/${path}`, { headers: { Authorization: `Bearer ${accessToken}` } })
@@ -10,3 +11,4 @@ async function get<T>(path: string, accessToken: string): Promise<T> {
 
 export function getWalletBalance(accessToken: string) { return get<WalletBalance>('balance/', accessToken) }
 export function getWalletTransactions(accessToken: string) { return get<{ results: WalletTransaction[] }>('transactions/', accessToken) }
+export function getWalletTransaction(accessToken: string, transactionId: string) { return get<WalletTransactionDetail>(`transactions/${transactionId}/`, accessToken) }
