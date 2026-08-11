@@ -245,6 +245,49 @@ jobs:
         working-directory: frontend
         run: npm test
 
+  docker-build:
+    name: Docker Images and Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          target: production
+          push: false
+          tags: casino-mdg/backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build game engine image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./game-engine
+          file: ./game-engine/Dockerfile
+          push: false
+          tags: casino-mdg/game-engine:ci
+          cache-from: type=gha,scope=game-engine
+          cache-to: type=gha,mode=max,scope=game-engine
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: casino-mdg/frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
   # ───────────────────────────────────────────
   # Security scan
   # ───────────────────────────────────────────
@@ -273,7 +316,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [backend-test, game-engine-test, frontend-build]
+    needs: [backend-test, game-engine-test, frontend-build, frontend-test, docker-build]
     if: github.ref == 'refs/heads/develop'
     environment: staging
     steps:

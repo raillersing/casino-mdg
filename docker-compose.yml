@@ -130,6 +130,11 @@ services:
       - ./backend/media:/app/media
     ports:
       - "${BACKEND_PORT:-8001}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
     command: >
       sh -c "
         python manage.py migrate &&
@@ -196,8 +201,10 @@ services:
     container_name: casino-mdg-game-engine
     restart: unless-stopped
     depends_on:
-      - redis
-      - backend
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     environment:
       GAME_ENGINE_ADDR: :8080
       REDIS_URL: redis://redis:6379/0
@@ -205,6 +212,11 @@ services:
       GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET:-dev-game-engine-result-secret-change-me}
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
     volumes:
       - ./game-engine:/app
     networks:
@@ -217,14 +229,20 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: build
     container_name: casino-mdg-frontend
     restart: unless-stopped
     depends_on:
-      - backend
-      - game-engine
+      backend:
+        condition: service_healthy
+      game-engine:
+        condition: service_healthy
     ports:
       - "3000:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
     environment:
       VITE_API_URL: http://localhost:${BACKEND_PORT:-8001}/api/v1
       VITE_WS_URL: ws://localhost:8080

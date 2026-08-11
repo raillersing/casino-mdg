@@ -1,5 +1,6 @@
 # Core
 Django>=5.0,<6.0
+gunicorn>=21.2.0
 djangorestframework>=3.14.0
 django-cors-headers>=4.3.0
 channels>=4.0.0
