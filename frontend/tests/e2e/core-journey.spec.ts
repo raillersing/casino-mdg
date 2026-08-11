@@ -100,3 +100,19 @@ test('opens an auditable wallet transaction from history', async ({ page }) => {
   await expect(page.getByText('Compte platform')).toBeVisible()
   await expect(page.getByText('Compte player')).toBeVisible()
 })
+
+test('claims a completed daily mission from the profile', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('mdg_access_token', 'mission-token'))
+  await page.route('**/api/v1/games/results/', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ stats: { played: 1, wins: 1, losses: 0, draws: 0, total_won: 100 } }) }))
+  await page.route('**/api/v1/games/leaderboard/', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: [] }) }))
+  await page.route('**/api/v1/kyc/status/', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ level: 'discovered', limits_mga: { deposit: 100000, withdrawal: 0 }, request: null, documents_enabled: false }) }))
+  await page.route('**/api/v1/games/missions/', (route) => {
+    if (route.request().method() === 'POST') return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ claimed: true, duplicate: false, transaction_id: 'reward-1' }) })
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ date: '2026-08-11', missions: [{ key: 'play_daily', title: 'Jouer aujourd’hui', progress: 1, goal: 1, reward: 100, claimed: false, claimable: true }, { key: 'win_daily', title: 'Gagner aujourd’hui', progress: 1, goal: 1, reward: 250, claimed: false, claimable: true }] }) })
+  })
+
+  await page.goto('/profile')
+  await expect(page.getByRole('heading', { name: 'Missions du jour' })).toBeVisible()
+  await page.getByRole('button', { name: 'Réclamer' }).first().click()
+  await expect(page.getByText('Réclamée').first()).toBeVisible()
+})

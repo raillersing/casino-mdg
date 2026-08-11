@@ -5,14 +5,15 @@ import json
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Sum
+from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.backoffice.services import is_feature_enabled, record_audit
-from apps.wallet.services import settle_game_win
+from apps.wallet.services import credit_simulation_reward, settle_game_win
 
-from .models import GameResult, GameTable
+from .models import DailyRewardClaim, GameResult, GameTable
 from .services import join_table, seed_demo_tables
 
 
@@ -289,3 +290,48 @@ class GameLeaderboardView(APIView):
                 ]
             }
         )
+
+
+MISSIONS = {
+    "play_daily": {"title": "Jouer aujourd’hui", "goal": 1, "reward": 100, "outcome": None},
+    "win_daily": {"title": "Gagner aujourd’hui", "goal": 1, "reward": 250, "outcome": "win"},
+}
+
+
+class DailyMissionsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _payload(self, user):
+        today = timezone.localdate()
+        results = GameResult.objects.filter(user=user, created_at__date=today)
+        claims = set(DailyRewardClaim.objects.filter(user=user, mission_date=today).values_list("mission_key", flat=True))
+        payload = []
+        for key, mission in MISSIONS.items():
+            progress = results.filter(outcome=mission["outcome"]).count() if mission["outcome"] else results.count()
+            payload.append({"key": key, "title": mission["title"], "progress": min(progress, mission["goal"]), "goal": mission["goal"], "reward": mission["reward"], "claimed": key in claims, "claimable": progress >= mission["goal"] and key not in claims})
+        return {"date": today.isoformat(), "missions": payload}
+
+    def get(self, request):
+        return Response(self._payload(request.user))
+
+    def post(self, request):
+        key = str(request.data.get("key", ""))
+        mission = MISSIONS.get(key)
+        if not mission:
+            return Response({"detail": "Mission inconnue."}, status=400)
+        today = timezone.localdate()
+        results = GameResult.objects.filter(user=request.user, created_at__date=today)
+        progress = results.filter(outcome=mission["outcome"]).count() if mission["outcome"] else results.count()
+        if progress < mission["goal"]:
+            return Response({"detail": "Mission non terminée."}, status=409)
+        try:
+            with transaction.atomic():
+                claim = DailyRewardClaim.objects.select_for_update().filter(user=request.user, mission_key=key, mission_date=today).first()
+                if claim:
+                    return Response({"claimed": True, "transaction_id": str(claim.transaction_id), "duplicate": True})
+                wallet_transaction, _ = credit_simulation_reward(request.user, f"daily-reward:{request.user.pk}:{today}:{key}", mission["reward"], mission["title"])
+                claim = DailyRewardClaim.objects.create(user=request.user, mission_key=key, mission_date=today, amount=mission["reward"], transaction=wallet_transaction)
+        except IntegrityError:
+            claim = DailyRewardClaim.objects.get(user=request.user, mission_key=key, mission_date=today)
+            return Response({"claimed": True, "transaction_id": str(claim.transaction_id), "duplicate": True})
+        return Response({"claimed": True, "transaction_id": str(claim.transaction_id), "duplicate": False}, status=201)

@@ -51,3 +51,21 @@ def settle_game_win(user, game_id, game_type, amount, metadata=None):
     entry = WalletTransaction.objects.create(transaction_code=f"SIM-GAME-{game_id}", user=user, type="game", direction="credit", amount=amount, currency_code="SIM", status="completed", source_account=platform, destination_account=player, idempotency_key=key, description=f"Gain de partie {game_type}", metadata=metadata or {}, processed_at=timezone.now())
     LedgerEntry.objects.bulk_create([LedgerEntry(transaction=entry, account=platform, entry_type="debit", amount=amount, balance_after=platform.balance), LedgerEntry(transaction=entry, account=player, entry_type="credit", amount=amount, balance_after=player.balance)])
     return entry, True
+
+
+@transaction.atomic
+def credit_simulation_reward(user, idempotency_key, amount, description):
+    if amount <= 0:
+        raise ValueError("La récompense doit être positive.")
+    existing = WalletTransaction.objects.filter(idempotency_key=idempotency_key).first()
+    if existing:
+        return existing, False
+    player = LedgerAccount.objects.select_for_update().get_or_create(user=user, account_type="player", currency_code="SIM")[0]
+    platform = LedgerAccount.objects.select_for_update().get_or_create(user=None, account_type="platform", currency_code="SIM")[0]
+    player.balance += amount
+    player.save(update_fields=["balance", "updated_at"])
+    platform.balance -= amount
+    platform.save(update_fields=["balance", "updated_at"])
+    entry = WalletTransaction.objects.create(transaction_code=f"SIM-REWARD-{user.pk}-{idempotency_key[-20:]}", user=user, type="bonus", direction="credit", amount=amount, currency_code="SIM", status="completed", source_account=platform, destination_account=player, idempotency_key=idempotency_key, description=description, processed_at=timezone.now())
+    LedgerEntry.objects.bulk_create([LedgerEntry(transaction=entry, account=platform, entry_type="debit", amount=amount, balance_after=platform.balance), LedgerEntry(transaction=entry, account=player, entry_type="credit", amount=amount, balance_after=player.balance)])
+    return entry, True

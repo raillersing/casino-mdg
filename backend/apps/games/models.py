@@ -56,3 +56,16 @@ class GameResult(models.Model):
     class Meta:
         db_table = "game_results"
         ordering = ["-created_at"]
+
+
+class DailyRewardClaim(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="daily_reward_claims")
+    mission_key = models.CharField(max_length=40)
+    mission_date = models.DateField()
+    amount = models.PositiveBigIntegerField()
+    transaction = models.ForeignKey("wallet.WalletTransaction", on_delete=models.PROTECT, related_name="daily_reward_claims")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "daily_reward_claims"
+        constraints = [models.UniqueConstraint(fields=["user", "mission_key", "mission_date"], name="unique_daily_reward_claim")]
