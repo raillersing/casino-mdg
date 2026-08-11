@@ -81,3 +81,19 @@ func TestShowdownReturnsTiedWinners(t *testing.T) {
 		t.Fatalf("winners=%v ok=%v", winners, ok)
 	}
 }
+
+func TestCalculatePotsSeparatesAllInLevelsAndFoldedPlayers(t *testing.T) {
+	pots := CalculatePots([]*Player{{ID: "a", Bet: 100}, {ID: "b", Bet: 200}, {ID: "c", Bet: 300, Folded: true}})
+	if len(pots) != 3 {
+		t.Fatalf("pots=%v", pots)
+	}
+	if pots[0].Amount != 300 || len(pots[0].Eligible) != 2 {
+		t.Fatalf("main pot=%v", pots[0])
+	}
+	if pots[1].Amount != 200 || len(pots[1].Eligible) != 1 || pots[1].Eligible[0] != "b" {
+		t.Fatalf("side pot=%v", pots[1])
+	}
+	if pots[2].Amount != 100 || len(pots[2].Eligible) != 0 {
+		t.Fatalf("folded side pot=%v", pots[2])
+	}
+}

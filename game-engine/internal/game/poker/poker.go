@@ -40,6 +40,47 @@ type Hand struct {
 	RoundActions int       `json:"round_actions"`
 }
 
+type Pot struct {
+	Amount   int64    `json:"amount"`
+	Eligible []string `json:"eligible"`
+}
+
+func CalculatePots(players []*Player) []Pot {
+	levels := make([]int64, 0)
+	for _, player := range players {
+		if player.Bet > 0 {
+			levels = append(levels, player.Bet)
+		}
+	}
+	sort.Slice(levels, func(i, j int) bool { return levels[i] < levels[j] })
+	unique := levels[:0]
+	for _, level := range levels {
+		if len(unique) == 0 || unique[len(unique)-1] != level {
+			unique = append(unique, level)
+		}
+	}
+	previous := int64(0)
+	pots := make([]Pot, 0, len(unique))
+	for _, level := range unique {
+		contributors := 0
+		eligible := make([]string, 0)
+		for _, player := range players {
+			if player.Bet >= level {
+				contributors++
+			}
+			if player.Bet >= level && !player.Folded {
+				eligible = append(eligible, player.ID)
+			}
+		}
+		amount := (level - previous) * int64(contributors)
+		if amount > 0 {
+			pots = append(pots, Pot{Amount: amount, Eligible: eligible})
+		}
+		previous = level
+	}
+	return pots
+}
+
 func NewHand(players []*Player, shuffle func([]Card)) (*Hand, error) {
 	if len(players) < 2 || len(players) > 9 {
 		return nil, fmt.Errorf("poker requires 2 to 9 players")
