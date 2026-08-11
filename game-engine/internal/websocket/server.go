@@ -245,11 +245,17 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 	}
 	s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: event.Payload, EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp})
 	if msg.Action == "fold" {
-		winnerID, pot, finished := s.roomManager.FinishedPokerResult(msg.TableID)
+		winnerIDs, pot, finished := s.roomManager.FinishedPokerResult(msg.TableID)
 		if finished {
 			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, tableGameType(s.roomManager, msg.TableID), "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
-			if winnerID != client.playerID {
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": pot, "signature": signResult(s.config.ResultSecret, msg.TableID, tableGameType(s.roomManager, msg.TableID), "win", int(pot))}, Sequence: event.Sequence, Timestamp: time.Now()})
+			if len(winnerIDs) > 0 {
+				share := pot / int64(len(winnerIDs))
+				for _, winnerID := range winnerIDs {
+					if winnerID == client.playerID {
+						continue
+					}
+					s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": share, "signature": signResult(s.config.ResultSecret, msg.TableID, tableGameType(s.roomManager, msg.TableID), "win", int(share))}, Sequence: event.Sequence, Timestamp: time.Now()})
+				}
 			}
 		}
 	}

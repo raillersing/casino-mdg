@@ -217,26 +217,31 @@ func (h *Hand) dealCommunity(count int) {
 }
 
 func (h *Hand) Winner() (*Player, bool) {
+	winners, ok := h.Winners()
+	if !ok {
+		return nil, false
+	}
+	return winners[0], true
+}
+
+func (h *Hand) Winners() ([]*Player, bool) {
 	if h.Phase != "showdown" {
 		return nil, false
 	}
-	var winner *Player
 	best := -1
+	winners := make([]*Player, 0)
 	for _, player := range h.Players {
 		if player.Folded {
 			continue
 		}
-		if winner == nil {
-			winner = player
-			best = BestRank(append(append([]Card{}, player.Cards...), h.Community...))
-			continue
-		}
 		rank := BestRank(append(append([]Card{}, player.Cards...), h.Community...))
 		if rank > best {
-			winner, best = player, rank
+			best, winners = rank, []*Player{player}
+		} else if rank == best {
+			winners = append(winners, player)
 		}
 	}
-	return winner, winner != nil
+	return winners, len(winners) > 0
 }
 
 func BestRank(cards []Card) int {

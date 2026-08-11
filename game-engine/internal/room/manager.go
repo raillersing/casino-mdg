@@ -242,22 +242,25 @@ func (m *Manager) EventsSince(tableID string, after uint64) ([]Event, error) {
 	return result, nil
 }
 
-func (m *Manager) FinishedPokerResult(tableID string) (winnerID string, pot int64, finished bool) {
+func (m *Manager) FinishedPokerResult(tableID string) (winnerIDs []string, pot int64, finished bool) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
-		return "", 0, false
+		return nil, 0, false
 	}
 	table.mu.RLock()
 	defer table.mu.RUnlock()
 	hand, ok := table.State.(*poker.Hand)
 	if !ok {
-		return "", 0, false
+		return nil, 0, false
 	}
-	winner, finished := hand.Winner()
+	winners, finished := hand.Winners()
 	if !finished {
-		return "", 0, false
+		return nil, 0, false
 	}
-	return winner.ID, hand.Pot, true
+	for _, winner := range winners {
+		winnerIDs = append(winnerIDs, winner.ID)
+	}
+	return winnerIDs, hand.Pot, true
 }
 
 func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {

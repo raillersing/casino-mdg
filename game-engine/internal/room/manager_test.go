@@ -50,7 +50,7 @@ func TestPokerFoldFinishesHeadsUpAndExposesWinner(t *testing.T) {
 		t.Fatal(err)
 	}
 	winner, _, finished := m.FinishedPokerResult(table.ID)
-	if !finished || winner != "p2" {
+	if !finished || len(winner) != 1 || winner[0] != "p2" {
 		t.Fatalf("winner=%q finished=%v", winner, finished)
 	}
 }

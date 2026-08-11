@@ -69,3 +69,15 @@ func TestHandDealsPrivateCardsAndFindsBestRank(t *testing.T) {
 		t.Fatalf("expected full house rank, got %d", rank)
 	}
 }
+
+func TestShowdownReturnsTiedWinners(t *testing.T) {
+	hand, _ := NewHand([]*Player{{ID: "a", Stack: 1000}, {ID: "b", Stack: 1000}}, func([]Card) {})
+	hand.Phase = "showdown"
+	hand.Community = []Card{{14, 0}, {13, 0}, {12, 0}, {11, 0}, {10, 0}}
+	hand.Players[0].Cards = []Card{{2, 1}, {3, 1}}
+	hand.Players[1].Cards = []Card{{4, 1}, {5, 1}}
+	winners, ok := hand.Winners()
+	if !ok || len(winners) != 2 {
+		t.Fatalf("winners=%v ok=%v", winners, ok)
+	}
+}
