@@ -29,7 +29,7 @@ test('navigates from home to the lobby and sees an available table', async ({ pa
 
   await expect(page).toHaveURL(/\/lobby$/)
   await expect(page.getByText('Table Émeraude')).toBeVisible()
-  await expect(page.getByText('Texas Hold’em')).toBeVisible()
+  await expect(page.locator('.table-main > span')).toHaveText("Poker Texas Hold'em")
 })
 
 test('completes the local OTP onboarding journey', async ({ page }) => {
@@ -67,4 +67,16 @@ test('switches the core home screen to Malagasy', async ({ page }) => {
   await page.getByRole('button', { name: 'Changer de langue' }).click()
   await expect(page.getByRole('heading', { name: /Manana adiresy/i })).toBeVisible()
   await expect(page.getByText('Hiditra amin\'ny lobby')).toBeVisible()
+})
+
+test('switches the lobby journey to Malagasy', async ({ page }) => {
+  await page.route('**/api/v1/games/tables/**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(tablesPayload),
+  }))
+  await page.goto('/lobby')
+  await page.getByRole('button', { name: 'Changer de langue' }).click()
+  await expect(page.getByText('Misafidiana latabatra')).toBeVisible()
+  await expect(page.getByText('Misokatra', { exact: true })).toBeVisible()
 })
