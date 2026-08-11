@@ -26,3 +26,12 @@ class PaymentWebhookTests(TestCase):
         client = APIClient(); client.force_authenticate(user); payload = {"provider": "mvola", "direction": "deposit", "amount": 5000, "idempotency_key": "deposit-001"}
         first = client.post("/api/v1/payments/intents/", payload, format="json"); second = client.post("/api/v1/payments/intents/", payload, format="json")
         self.assertEqual(first.status_code, 201); self.assertEqual(second.status_code, 200); self.assertTrue(second.data["duplicate"]); self.assertTrue(first.data["sandbox"]); self.assertEqual(PaymentIntent.objects.count(), 1)
+
+    def test_signed_callback_updates_intent_without_touching_wallet(self):
+        from apps.accounts.models import User
+        user = User.objects.create_user(email="callback@mdg.local", phone="+261340000023", display_name="Callback")
+        client = APIClient(); client.force_authenticate(user)
+        intent = client.post("/api/v1/payments/intents/", {"provider": "orange", "direction": "deposit", "amount": 7500, "idempotency_key": "deposit-callback"}, format="json").data
+        client.force_authenticate(None); payload = {"event_id": "evt-callback", "event_type": "payment.succeeded", "intent_id": intent["id"]}; body = json.dumps(payload, separators=(",", ":")).encode(); signature = hmac.new(settings.PAYMENT_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
+        response = client.post("/api/v1/payments/webhooks/orange/", payload, format="json", HTTP_X_WEBHOOK_SIGNATURE=signature)
+        self.assertEqual(response.status_code, 201); self.assertEqual(PaymentIntent.objects.get(pk=intent["id"]).status, "completed")
