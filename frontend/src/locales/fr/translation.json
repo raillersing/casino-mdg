@@ -8,7 +8,9 @@
   },
   "nav": {
     "home": "Accueil",
+    "play": "Jouer",
     "lobby": "Lobby",
+    "navigation": "Navigation",
     "wallet": "Portefeuille",
     "profile": "Profil",
     "login": "Connexion",
@@ -40,6 +42,7 @@
     "otp": "Code de vérification"
   },
   "social": {
+    "club": "Club privilège",
     "friends": "Amis",
     "clubs": "Clubs",
     "leaderboard": "Classement",
@@ -55,5 +58,8 @@
     "yourTurn": "C'est votre tour",
     "waiting": "En attente...",
     "gracePeriod": "Connexion instable — reconnexion en cours..."
-  }
+  },
+  "promo": { "title": "Jouez avec vos proches.", "body": "Créez une table privée et invitez votre cercle." },
+  "profile": { "level": "Joueur niveau {{level}}", "visitor": "Visiteur", "discovery": "Mode découverte" },
+  "a11y": { "changeLanguage": "Changer de langue", "notifications": "Notifications", "openProfile": "Ouvrir le profil", "openMenu": "Ouvrir le menu" }
 }

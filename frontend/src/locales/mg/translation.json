@@ -8,7 +8,9 @@
   },
   "nav": {
     "home": "Trano",
+    "play": "Milalao",
     "lobby": "Lobby",
+    "navigation": "Fivezivezena",
     "wallet": "Kitapola",
     "profile": "Mombamomba",
     "login": "Miditra",
@@ -40,6 +42,7 @@
     "otp": "Kaody fanamarinana"
   },
   "social": {
+    "club": "Tombontsoa ho an'ny klioba",
     "friends": "Namana",
     "clubs": "Kluby",
     "leaderboard": "Filaharana",
@@ -55,5 +58,8 @@
     "yourTurn": "Anjaranao",
     "waiting": "Miandry...",
     "gracePeriod": "Tsy marina ny fifandraisana — manandrana miverina..."
-  }
+  },
+  "promo": { "title": "Milalaova miaraka amin'ny namanao.", "body": "Mamorona latabatra manokana ary asao ny namanao." },
+  "profile": { "level": "Mpilalao ambaratonga {{level}}", "visitor": "Mpitsidika", "discovery": "Fomba fijerena" },
+  "a11y": { "changeLanguage": "Hanova fiteny", "notifications": "Fampandrenesana", "openProfile": "Sokafy ny mombamomba", "openMenu": "Sokafy ny sakafo" }
 }
