@@ -71,12 +71,13 @@ export function GamePage() {
           JSON.stringify({
             type: "join",
             table_id: tableId,
+            payload: { game_type: gameType || "poker" },
             sequence: 0,
             timestamp: new Date().toISOString(),
           }),
         );
     },
-    [tableId],
+    [gameType, tableId],
   );
   const handleSocketClose = useCallback(
     () => setConnectionState("offline"),

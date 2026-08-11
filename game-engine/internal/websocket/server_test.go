@@ -74,4 +74,31 @@ func TestWebSocketRejectsMissingToken(t *testing.T) {
 	}
 }
 
+func TestAuthenticatedWebSocketProvisionsRoomFromJoinPayload(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	server := NewServer(cfg, room.NewManager(cfg))
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+	url := "ws" + httpServer.URL[len("http"):]+"/ws?token=" + testToken("player-2", cfg.JWTSecret)
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("dial failed: %v", err)
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: "table-code-01", Payload: map[string]string{"game_type": "belote"}}); err != nil {
+		t.Fatal(err)
+	}
+	var state Message
+	if err := conn.ReadJSON(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state.Type != MsgState {
+		t.Fatalf("message=%+v", state)
+	}
+	payload, ok := state.Payload.(map[string]interface{})
+	if !ok || payload["game_type"] != "belote" {
+		t.Fatalf("payload=%v", state.Payload)
+	}
+}
+
 func serverHandler(server *Server) http.Handler { return http.HandlerFunc(server.HandleConnection) }

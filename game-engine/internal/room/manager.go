@@ -73,11 +73,19 @@ func NewManager(cfg *config.Config) *Manager {
 
 // CreateTable creates a new game table
 func (m *Manager) CreateTable(gameType string) *Table {
+	return m.CreateTableWithID(uuid.New().String(), gameType)
+}
+
+// CreateTableWithID provisions a room using the table identifier owned by the API.
+func (m *Manager) CreateTableWithID(id, gameType string) *Table {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if existing, ok := m.tables[id]; ok {
+		return existing
+	}
 
 	table := &Table{
-		ID:          uuid.New().String(),
+		ID:          id,
 		GameType:    gameType,
 		Players:     make(map[string]*Player),
 		CreatedAt:   time.Now(),

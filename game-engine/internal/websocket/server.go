@@ -185,15 +185,20 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 	if !ok {
 		var snapshot room.TableSnapshot
 		if err := s.snapshots.GetSnapshotInto(msg.TableID, &snapshot); err != nil {
-			client.conn.WriteJSON(Message{Type: MsgError, Payload: "table not found", Timestamp: time.Now()})
-			return
+			gameType := gameTypeFromPayload(msg.Payload)
+			if !validGameType(gameType) {
+				client.conn.WriteJSON(Message{Type: MsgError, Payload: "invalid game type", Timestamp: time.Now()})
+				return
+			}
+			table = s.roomManager.CreateTableWithID(msg.TableID, gameType)
+		} else {
+			restored, restoreErr := s.roomManager.RestoreSnapshot(snapshot)
+			if restoreErr != nil {
+				client.conn.WriteJSON(Message{Type: MsgError, Payload: "invalid table snapshot", Timestamp: time.Now()})
+				return
+			}
+			table = restored
 		}
-		restored, err := s.roomManager.RestoreSnapshot(snapshot)
-		if err != nil {
-			client.conn.WriteJSON(Message{Type: MsgError, Payload: "invalid table snapshot", Timestamp: time.Now()})
-			return
-		}
-		table = restored
 	}
 
 	client.tableID = msg.TableID
@@ -211,6 +216,19 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 	}
 	client.conn.WriteJSON(Message{Type: MsgState, Payload: state, Timestamp: time.Now()})
 	s.persistSnapshot(msg.TableID)
+}
+
+func gameTypeFromPayload(payload interface{}) string {
+	values, ok := payload.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	gameType, _ := values["game_type"].(string)
+	return gameType
+}
+
+func validGameType(gameType string) bool {
+	return gameType == "poker" || gameType == "belote" || gameType == "rami"
 }
 
 func (s *Server) handleLeave(client *Client, msg *Message) {
