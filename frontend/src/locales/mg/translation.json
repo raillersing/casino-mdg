@@ -41,6 +41,7 @@
     "forgot": "Hadino ny tenimiafina ?",
     "otp": "Kaody fanamarinana"
   },
+  "authUi": { "back": "Hiverina any amin'ny trano", "welcome": "Tongasoa eto amin'ny klioba.", "redirect": "Vonona ny toerana misy anao. Miverina any amin'ny trano…", "firstHand": "Tanana voalohany", "secureCheck": "Fanamarinana azo antoka", "enter": "Midira ao", "circle": "amin'ny faribolana.", "oneMore": "Dingana", "step": "iray sisa.", "phoneIntro": "Laharana iray dia ampy hanombohana. Hahazo kaody fanamarinana ianao.", "codeSent": "Kaody 6 isa nalefa tany amin'ny +261 {{phone}}.", "receiveCode": "Raiso ny kaodiko", "receivedCode": "Kaody voaray", "nickname": "Anaram-bositra", "localCode": "Fomba local · kaody fitsapana", "enterClub": "Midira amin'ny klioba", "changePhone": "Hanova laharana", "protected": "Voaaro sy voafina ny angonao.", "termsPrefix": "Amin'ny fanohizana dia manaiky ny", "terms": "fepetran'ny klioba" },
   "social": {
     "club": "Tombontsoa ho an'ny klioba",
     "friends": "Namana",

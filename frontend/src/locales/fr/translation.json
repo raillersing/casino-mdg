@@ -41,6 +41,7 @@
     "forgot": "Mot de passe oublié ?",
     "otp": "Code de vérification"
   },
+  "authUi": { "back": "Retour à l’accueil", "welcome": "Bienvenue au club.", "redirect": "Votre espace est prêt. Redirection vers votre accueil…", "firstHand": "Première main", "secureCheck": "Vérification sécurisée", "enter": "Entrez dans", "circle": "le cercle.", "oneMore": "Encore", "step": "une étape.", "phoneIntro": "Un numéro suffit pour commencer. Vous recevrez un code de vérification pour ouvrir votre espace.", "codeSent": "Un code à 6 chiffres a été envoyé au +261 {{phone}}.", "receiveCode": "Recevoir mon code", "receivedCode": "Code reçu", "nickname": "Votre pseudo", "localCode": "Mode local · code de test", "enterClub": "Entrer dans le club", "changePhone": "Modifier le numéro", "protected": "Vos données sont chiffrées et protégées.", "termsPrefix": "En continuant, vous acceptez les", "terms": "conditions du club" },
   "social": {
     "club": "Club privilège",
     "friends": "Amis",
