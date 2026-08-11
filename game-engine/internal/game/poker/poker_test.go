@@ -97,3 +97,15 @@ func TestCalculatePotsSeparatesAllInLevelsAndFoldedPlayers(t *testing.T) {
 		t.Fatalf("folded side pot=%v", pots[2])
 	}
 }
+
+func TestPayoutsUseOnlyEligiblePlayersForEachPot(t *testing.T) {
+	hand, _ := NewHand([]*Player{{ID: "a", Stack: 0, Bet: 100}, {ID: "b", Stack: 0, Bet: 200}, {ID: "c", Stack: 0, Bet: 300, Folded: true}}, func([]Card) {})
+	hand.Phase = "showdown"
+	hand.Community = []Card{{14, 0}, {13, 0}, {12, 0}, {11, 0}, {10, 0}}
+	hand.Players[0].Cards = []Card{{2, 1}, {3, 1}}
+	hand.Players[1].Cards = []Card{{4, 1}, {5, 1}}
+	payouts := hand.Payouts()
+	if payouts["a"] != 150 || payouts["b"] != 350 || len(payouts) != 2 {
+		t.Fatalf("payouts=%v", payouts)
+	}
+}

@@ -263,6 +263,20 @@ func (m *Manager) FinishedPokerResult(tableID string) (winnerIDs []string, pot i
 	return winnerIDs, hand.Pot, true
 }
 
+func (m *Manager) FinishedPokerPayouts(tableID string) (map[string]int64, bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return nil, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	hand, ok := table.State.(*poker.Hand)
+	if !ok || hand.Phase != "showdown" {
+		return nil, false
+	}
+	return hand.Payouts(), true
+}
+
 func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {

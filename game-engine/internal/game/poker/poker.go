@@ -285,6 +285,49 @@ func (h *Hand) Winners() ([]*Player, bool) {
 	return winners, len(winners) > 0
 }
 
+func (h *Hand) WinnersForPot(pot Pot) []*Player {
+	best := -1
+	winners := make([]*Player, 0)
+	for _, player := range h.Players {
+		eligible := false
+		for _, id := range pot.Eligible {
+			if id == player.ID {
+				eligible = true
+				break
+			}
+		}
+		if !eligible {
+			continue
+		}
+		rank := BestRank(append(append([]Card{}, player.Cards...), h.Community...))
+		if rank > best {
+			best, winners = rank, []*Player{player}
+		} else if rank == best {
+			winners = append(winners, player)
+		}
+	}
+	return winners
+}
+
+func (h *Hand) Payouts() map[string]int64 {
+	payouts := map[string]int64{}
+	for _, pot := range CalculatePots(h.Players) {
+		winners := h.WinnersForPot(pot)
+		if len(winners) == 0 {
+			continue
+		}
+		share := pot.Amount / int64(len(winners))
+		remainder := pot.Amount % int64(len(winners))
+		for index, winner := range winners {
+			payouts[winner.ID] += share
+			if int64(index) < remainder {
+				payouts[winner.ID]++
+			}
+		}
+	}
+	return payouts
+}
+
 func BestRank(cards []Card) int {
 	if len(cards) < 5 {
 		return 0
