@@ -44,7 +44,7 @@ class TableChatView(APIView):
             ChatMessage.objects.create(table=table, author=request.user, body=body, is_hidden=True)
             return Response({"detail": "Message bloqué par la modération."}, status=400)
         message = ChatMessage.objects.create(table=table, author=request.user, body=body)
-        return Response({"id": message.pk, "body": message.body, "created_at": message.created_at.isoformat()}, status=201)
+        return Response({"id": message.pk, "author": message.author.display_name, "body": message.body, "created_at": message.created_at.isoformat()}, status=201)
 
 
 class TableInvitationView(APIView):

@@ -16,7 +16,7 @@ class SocialTests(TestCase):
     def test_chat_is_persisted_and_blocked_content_is_not_published(self):
         response = self.client.post(f"/api/v1/social/tables/{self.table.pk}/chat/", {"body": "Bonne chance"}, format="json")
         blocked = self.client.post(f"/api/v1/social/tables/{self.table.pk}/chat/", {"body": "spam"}, format="json")
-        self.assertEqual(response.status_code, 201); self.assertEqual(blocked.status_code, 400)
+        self.assertEqual(response.status_code, 201); self.assertEqual(response.data["author"], "Social"); self.assertEqual(blocked.status_code, 400)
         self.assertEqual(self.client.get(f"/api/v1/social/tables/{self.table.pk}/chat/").data["results"][0]["body"], "Bonne chance")
 
     def test_invitation_requires_table_access(self):
