@@ -11,6 +11,7 @@ import (
 	"github.com/casino-mdg/game-engine/internal/config"
 	"github.com/casino-mdg/game-engine/internal/game/belote"
 	"github.com/casino-mdg/game-engine/internal/game/poker"
+	"github.com/casino-mdg/game-engine/internal/game/rami"
 	"github.com/google/uuid"
 )
 
@@ -181,6 +182,11 @@ func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, e
 			return Event{}, err
 		}
 	}
+	if table.GameType == "rami" && len(table.Players) >= 2 && table.State == nil {
+		if err := initializeRamiGame(table); err != nil {
+			return Event{}, err
+		}
+	}
 	return appendEvent(table, playerID, "joined", map[string]interface{}{"seat": seat}), nil
 }
 
@@ -207,6 +213,11 @@ func (m *Manager) ApplyAction(tableID, playerID, action string, expectedSequence
 	}
 	if table.GameType == "belote" && table.State != nil {
 		if err := applyBeloteAction(table, playerID, action, payload); err != nil {
+			return Event{}, err
+		}
+	}
+	if table.GameType == "rami" && table.State != nil {
+		if err := applyRamiAction(table, playerID, action, payload); err != nil {
 			return Event{}, err
 		}
 	}
@@ -358,6 +369,12 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 			table.State = &round
 		}
 	}
+	if snapshot.GameType == "rami" && len(snapshot.State) > 0 {
+		var game rami.Game
+		if err := json.Unmarshal(snapshot.State, &game); err == nil {
+			table.State = &game
+		}
+	}
 	m.tables[table.ID] = table
 	return table, nil
 }
@@ -412,6 +429,32 @@ func initializeBeloteRound(table *Table) error {
 		return err
 	}
 	table.State = round
+	return nil
+}
+
+func initializeRamiGame(table *Table) error {
+	seats := make([]*Player, 0, len(table.Players))
+	for _, player := range table.Players {
+		seats = append(seats, player)
+	}
+	sort.Slice(seats, func(i, j int) bool { return seats[i].Seat < seats[j].Seat })
+	ids := make([]string, 0, len(seats))
+	for _, player := range seats {
+		ids = append(ids, player.ID)
+	}
+	if table.Deterministic {
+		game, err := rami.NewGame(ids, func([]rami.Card) {})
+		if err != nil {
+			return err
+		}
+		table.State = game
+		return nil
+	}
+	game, err := rami.NewShuffledGame(ids)
+	if err != nil {
+		return err
+	}
+	table.State = game
 	return nil
 }
 
@@ -484,6 +527,48 @@ func applyBeloteAction(table *Table, playerID, action string, payload interface{
 		return round.Pass()
 	default:
 		return fmt.Errorf("invalid belote action")
+	}
+}
+
+func applyRamiAction(table *Table, playerID, action string, payload interface{}) error {
+	game, ok := table.State.(*rami.Game)
+	if !ok {
+		return fmt.Errorf("invalid rami state")
+	}
+	index := -1
+	for i, player := range game.Players {
+		if player.ID == playerID {
+			index = i
+			break
+		}
+	}
+	if index < 0 || game.Current != index {
+		return fmt.Errorf("not this player's turn")
+	}
+	values, _ := payload.(map[string]interface{})
+	readCard := func(value map[string]interface{}) rami.Card {
+		suit, _ := value["suit"].(float64)
+		rank, _ := value["rank"].(float64)
+		return rami.Card{Suit: int(suit), Rank: int(rank)}
+	}
+	switch action {
+	case "draw":
+		_, err := game.Draw()
+		return err
+	case "discard":
+		card, _ := values["card"].(map[string]interface{})
+		return game.DiscardCard(readCard(card))
+	case "meld":
+		raw, _ := values["cards"].([]interface{})
+		cards := make([]rami.Card, 0, len(raw))
+		for _, item := range raw {
+			if card, ok := item.(map[string]interface{}); ok {
+				cards = append(cards, readCard(card))
+			}
+		}
+		return game.MeldCards(cards)
+	default:
+		return fmt.Errorf("invalid rami action")
 	}
 }
 

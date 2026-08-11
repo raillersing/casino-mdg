@@ -5,6 +5,7 @@ import (
 
 	"github.com/casino-mdg/game-engine/internal/config"
 	"github.com/casino-mdg/game-engine/internal/game/belote"
+	"github.com/casino-mdg/game-engine/internal/game/rami"
 	"testing"
 	"time"
 )
@@ -67,6 +68,19 @@ func TestBeloteRoundIsCreatedAtFourPlayers(t *testing.T) {
 		}
 	}
 	if _, ok := table.State.(*belote.Round); !ok {
+		t.Fatalf("state=%T", table.State)
+	}
+}
+
+func TestRamiGameIsCreatedAtTwoPlayers(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
+	table := m.CreateTable("rami")
+	for index := 0; index < 2; index++ {
+		if _, err := m.JoinPlayer(table.ID, fmt.Sprintf("r%d", index), "Joueur", index); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, ok := table.State.(*rami.Game); !ok {
 		t.Fatalf("state=%T", table.State)
 	}
 }

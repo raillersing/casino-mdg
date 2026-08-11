@@ -78,6 +78,32 @@ func (g *Game) DiscardCard(card Card) error {
 	return fmt.Errorf("card is not in player's hand")
 }
 
+func (g *Game) MeldCards(cards []Card) error {
+	if g.Finished {
+		return fmt.Errorf("game is finished")
+	}
+	if !ValidMeld(cards) {
+		return fmt.Errorf("invalid meld")
+	}
+	player := g.Players[g.Current]
+	remaining := append([]Card(nil), player.Hand...)
+	for _, card := range cards {
+		found := -1
+		for index, candidate := range remaining {
+			if candidate == card {
+				found = index
+				break
+			}
+		}
+		if found < 0 {
+			return fmt.Errorf("card is not in player's hand")
+		}
+		remaining = append(remaining[:found], remaining[found+1:]...)
+	}
+	player.Hand = remaining
+	return nil
+}
+
 func ValidMeld(cards []Card) bool {
 	if len(cards) < 3 {
 		return false

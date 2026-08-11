@@ -34,3 +34,11 @@ func TestValidMelds(t *testing.T) {
 		t.Fatal("mixed sequence accepted")
 	}
 }
+
+func TestMeldRemovesCardsFromCurrentPlayer(t *testing.T) {
+	game, _ := NewGame([]string{"a", "b"}, func([]Card) {})
+	game.Players[0].Hand = []Card{{0, 3}, {0, 4}, {0, 5}}
+	if err := game.MeldCards(game.Players[0].Hand); err != nil || len(game.Players[0].Hand) != 0 {
+		t.Fatalf("hand=%v err=%v", game.Players[0].Hand, err)
+	}
+}
