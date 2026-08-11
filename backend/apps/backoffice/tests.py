@@ -3,6 +3,8 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import User
 from apps.backoffice.models import AuditEvent, FeatureFlag
+from apps.games.models import GameTable, TableSeat
+from apps.social.models import ChatMessage
 
 
 class AuditTests(TestCase):
@@ -21,3 +23,13 @@ class AuditTests(TestCase):
         client = APIClient(); client.force_authenticate(staff)
         response = client.post("/api/v1/backoffice/feature-flags/", {"key": "game_results", "enabled": False, "reason": "Maintenance"}, format="json")
         self.assertEqual(response.status_code, 200); self.assertFalse(FeatureFlag.objects.get(key="game_results").enabled)
+
+    def test_staff_can_hide_chat_message_and_action_is_audited(self):
+        player = User.objects.create_user(email="chatplayer@mdg.local", phone="+261340000020", display_name="Chat player")
+        table = GameTable.objects.create(table_code="audit-chat", name="Audit chat", game_type="poker", created_by=player)
+        TableSeat.objects.create(table=table, user=player, seat_index=0)
+        message = ChatMessage.objects.create(table=table, author=player, body="Message à modérer")
+        staff = User.objects.create_user(email="modstaff@mdg.local", phone="+261340000021", display_name="Moderator", is_staff=True)
+        client = APIClient(); client.force_authenticate(staff)
+        response = client.post("/api/v1/backoffice/chat-messages/", {"message_id": message.pk, "reason": "signalement"}, format="json")
+        self.assertEqual(response.status_code, 200); self.assertTrue(ChatMessage.objects.get(pk=message.pk).is_hidden); self.assertTrue(AuditEvent.objects.filter(action="chat.message.hidden").exists())
