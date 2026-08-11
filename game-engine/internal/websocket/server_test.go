@@ -23,7 +23,7 @@ func testToken(subject, secret string) string {
 }
 
 func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("poker")
 	server := NewServer(cfg, manager)
@@ -60,6 +60,45 @@ func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
 	}
 }
 
+func TestFoldPublishesSignedLossResult(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	manager := room.NewManager(cfg)
+	table := manager.CreateTable("poker")
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testToken("player-fold", cfg.JWTSecret)
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("dial failed: %v", err)
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
+		t.Fatal(err)
+	}
+	var state Message
+	if err := conn.ReadJSON(&state); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "fold", Sequence: 1}); err != nil {
+		t.Fatal(err)
+	}
+	var action, result Message
+	if err := conn.ReadJSON(&action); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.ReadJSON(&result); err != nil {
+		t.Fatal(err)
+	}
+	if action.Action != "fold" || result.Action != "result" {
+		t.Fatalf("action=%+v result=%+v", action, result)
+	}
+	payload, ok := result.Payload.(map[string]interface{})
+	if !ok || payload["outcome"] != "loss" || payload["signature"] == "" {
+		t.Fatalf("result payload=%v", result.Payload)
+	}
+}
+
 func TestWebSocketRejectsMissingToken(t *testing.T) {
 	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0"}
 	server := NewServer(cfg, room.NewManager(cfg))
@@ -79,7 +118,7 @@ func TestAuthenticatedWebSocketProvisionsRoomFromJoinPayload(t *testing.T) {
 	server := NewServer(cfg, room.NewManager(cfg))
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
-	url := "ws" + httpServer.URL[len("http"):]+"/ws?token=" + testToken("player-2", cfg.JWTSecret)
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testToken("player-2", cfg.JWTSecret)
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
