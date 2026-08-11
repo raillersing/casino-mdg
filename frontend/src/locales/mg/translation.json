@@ -53,7 +53,7 @@
     "invite": "Asao",
     "chat": "Chat"
   },
-  "game": {
+    "game": {
     "fold": "Manao fold",
     "check": "Manao check",
     "call": "Manao call",
@@ -61,7 +61,7 @@
     "allIn": "All in",
     "yourTurn": "Anjaranao",
     "waiting": "Miandry...",
-    "gracePeriod": "Tsy marina ny fifandraisana — manandrana miverina...", "leaveTable": "Miala amin'ny latabatra", "inProgress": "Lalao mandeha", "inviteFriend": "Asao ny namana", "pot": "POT", "you": "Ianao", "yourTurnAction": "Anjaranao izao", "chooseAction": "Safidio ny hetsika", "tableChat": "Chat amin'ny latabatra", "noMessages": "Tsy misy hafatra izao.", "messagePlaceholder": "Manorata hafatra…", "invitationCopied": "Voakopia ny rohy fanasana", "tableSettings": "Fikirakirana latabatra", "buyIn": "Buy-in", "blinds": "Blinds"
+    "gracePeriod": "Tsy marina ny fifandraisana — manandrana miverina...", "leaveTable": "Miala amin'ny latabatra", "inProgress": "Lalao mandeha", "inviteFriend": "Asao ny namana", "pot": "POT", "you": "Ianao", "yourTurnAction": "Anjaranao izao", "chooseAction": "Safidio ny hetsika", "tableChat": "Chat amin'ny latabatra", "noMessages": "Tsy misy hafatra izao.", "messagePlaceholder": "Manorata hafatra…", "invitationCopied": "Voakopia ny rohy fanasana", "tableSettings": "Fikirakirana latabatra", "buyIn": "Buy-in", "blinds": "Blinds", "resultSaving": "Rakitra ny vokatra…", "winCredited": "Voaray ny tombony: {{transaction}}", "resultSaved": "Voarakitra ny vokatra.", "tableConnectionError": "Tsy afaka mifandray amin0027ny latabatra.", "invalidTableResponse": "Valin0027ny latabatra tsy mety.", "tableName": "Latabatra Émeraude", "connected": "Mifandray", "connecting": "Mifandray…", "offline": "Tsy anaty tambajotra", "syncedPlayers": "Mpilalao {{count}} voarindra", "sequence": "filaharana", "bet": "Miloka", "trump": "Atout", "team": "Ekipa", "trick": "Pli", "activePlayer": "Mpilalao mavitrika", "discard": "Karatra nariana", "play": "Milalao", "draw": "Misintona", "discardCard": "Manary"
   },
   "promo": { "title": "Milalaova miaraka amin'ny namanao.", "body": "Mamorona latabatra manokana ary asao ny namanao." },
   "profile": { "level": "Mpilalao ambaratonga {{level}}", "visitor": "Mpitsidika", "discovery": "Fomba fijerena" },

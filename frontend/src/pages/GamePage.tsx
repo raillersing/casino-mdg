@@ -89,7 +89,7 @@ export function GamePage() {
           !settled.current
         ) {
           settled.current = true;
-          setResultMessage("Enregistrement du résultat…");
+          setResultMessage(t("game.resultSaving"));
           void recordGameResult(
             accessToken,
             engineTableId,
@@ -101,8 +101,8 @@ export function GamePage() {
             .then((result) =>
               setResultMessage(
                 result.transaction_id
-                  ? `Gain crédité : ${result.transaction_id}`
-                  : "Résultat enregistré.",
+                  ? t("game.winCredited", { transaction: result.transaction_id })
+                  : t("game.resultSaved"),
               ),
             )
             .catch((error: Error) => {
@@ -114,15 +114,15 @@ export function GamePage() {
           setGameConnectionError(
             typeof payload.payload === "string"
               ? payload.payload
-              : "Connexion à la table impossible.",
+          : t("game.tableConnectionError"),
           );
         if (payload.type === "state" || payload.type === "sync")
           setGameConnectionError("");
       } catch {
-        setGameConnectionError("Réponse de table invalide.");
+        setGameConnectionError(t("game.invalidTableResponse"));
       }
     },
-    [accessToken, engineTableId, gameType],
+    [accessToken, engineTableId, gameType, t],
   );
   const handleSocketOpen = useCallback(
     (socket: WebSocket) => {
@@ -217,7 +217,7 @@ export function GamePage() {
 
   const sendGameAction = (action: string, actionPayload?: unknown) => {
     if (!tableId || !accessToken) {
-      setGameConnectionError("Connectez-vous pour jouer.");
+      setGameConnectionError(t("auth.login"));
       return;
     }
     setGameConnectionError("");
@@ -236,24 +236,24 @@ export function GamePage() {
     <div className="game-room">
       <div className="game-room-head">
         <Link to="/lobby" className="back-link">
-          <ChevronLeft size={17} /> Quitter la table
+          <ChevronLeft size={17} /> {t("game.leaveTable")}
         </Link>
         <div>
-          <strong>Table Émeraude</strong>
+          <strong>{t("game.tableName")}</strong>
           <span>
             <i />{" "}
             {connectionState === "connected"
-              ? "Connecté"
+              ? t("game.connected")
               : connectionState === "connecting"
-                ? "Connexion…"
-                : "Hors ligne"}{" "}
-            · {isPoker ? "Texas Hold’em" : gameType}
+                ? t("game.connecting")
+                : t("game.offline")}{" "}
+            · {isPoker ? t("games.poker") : t(`games.${gameType}`)}
           </span>
         </div>
         <button
           className="icon-button"
           onClick={inviteFriend}
-          title="Inviter un ami"
+          title={t("game.inviteFriend")}
         >
           <Users size={18} />
         </button>
@@ -265,8 +265,7 @@ export function GamePage() {
       )}
       {connectionState === "connected" && (
         <p className="secure-note game-sync-note">
-          {playerCount} joueur{playerCount > 1 ? "s" : ""} synchronisé
-          {playerCount > 1 ? "s" : ""} · séquence {sequence}
+          {t("game.syncedPlayers", { count: playerCount })} · {t("game.sequence")} {sequence}
           {lastAction ? ` · ${lastAction}` : ""}
         </p>
       )}
@@ -284,7 +283,7 @@ export function GamePage() {
         <PlayerSeat pos="left" name="Rija" chips="12 100" />
         <PlayerSeat pos="right" name="Saholy" chips="6 750" />
         <div className="pot">
-          POT <strong>2 400</strong>
+            {t("game.pot")} <strong>2 400</strong>
         </div>
         <div className="community-cards">
           <PlayingCard value="A" suit="♠" />
@@ -296,7 +295,7 @@ export function GamePage() {
         <div className="you-seat">
           <div className="you-avatar">M</div>
           <div>
-            <strong>Vous</strong>
+            <strong>{t("game.you")}</strong>
             <span>12 450 jetons</span>
           </div>
         </div>
@@ -320,8 +319,8 @@ export function GamePage() {
         <div className="turn-state">
           <span className="timer">00:18</span>
           <div>
-            <strong>À vous de jouer</strong>
-            <span>Choisissez votre action</span>
+            <strong>{t("game.yourTurnAction")}</strong>
+            <span>{t("game.chooseAction")}</span>
           </div>
         </div>
         {isPoker ? (
@@ -330,19 +329,19 @@ export function GamePage() {
               className="action-fold"
               onClick={() => sendGameAction("fold")}
             >
-              Se coucher
+              {t("game.fold")}
             </button>
             <button
               className="action-check"
               onClick={() => sendGameAction("check")}
             >
-              Checker
+              {t("game.check")}
             </button>
             <button
               className="action-bet"
               onClick={() => sendGameAction("bet")}
             >
-              Miser <strong>800</strong>
+              {t("game.bet")} <strong>800</strong>
             </button>
           </div>
         ) : (
@@ -357,7 +356,7 @@ export function GamePage() {
         <div className="chat-box">
           <div className="chat-head">
             <span>
-              <MessageCircle size={15} /> Chat de table
+              <MessageCircle size={15} /> {t("game.tableChat")}
             </span>
             <Users size={15} />
           </div>
@@ -369,12 +368,12 @@ export function GamePage() {
                 </p>
               ))
             ) : (
-              <p className="muted">Aucun message pour le moment.</p>
+              <p className="muted">{t("game.noMessages")}</p>
             )}
           </div>
           <div className="chat-input">
             <input
-              placeholder="Écrire un message…"
+              placeholder={t("game.messagePlaceholder")}
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               onKeyDown={(event) => {
@@ -391,21 +390,21 @@ export function GamePage() {
               className="text-link"
               onClick={() => void navigator.clipboard?.writeText(invite)}
             >
-              <Copy size={14} /> Lien d’invitation copié
+              <Copy size={14} /> {t("game.invitationCopied")}
             </button>
           )}
         </div>
         <div className="game-info">
           <div>
             <Settings2 size={16} />
-            <span>Paramètres de table</span>
+            <span>{t("game.tableSettings")}</span>
           </div>
           <div>
-            <span>Buy-in</span>
+            <span>{t("game.buyIn")}</span>
             <strong>10 000 jetons</strong>
           </div>
           <div>
-            <span>Blinds</span>
+            <span>{t("game.blinds")}</span>
             <strong>100 / 200</strong>
           </div>
         </div>
@@ -465,6 +464,7 @@ function GameStateSummary({
   gameType: string;
   state: Record<string, unknown>;
 }) {
+  const { t } = useTranslation();
   const players = Array.isArray(state.players) ? state.players : [];
   if (gameType === "belote") {
     const points = Array.isArray(state.team_points)
@@ -472,17 +472,16 @@ function GameStateSummary({
       : [0, 0];
     return (
       <div className="secure-note game-sync-note">
-        <strong>Belote</strong> · Atout : {String(state.trump ?? "—")} · Équipe
-        1 : {String(points[0])} · Équipe 2 : {String(points[1])} · Pli :{" "}
+        <strong>{t("games.belote")}</strong> · {t("game.trump")} : {String(state.trump ?? "—")} · {t("game.team")} 1 : {String(points[0])} · {t("game.team")} 2 : {String(points[1])} · {t("game.trick")} :{" "}
         {Array.isArray(state.trick) ? state.trick.length : 0}/4
       </div>
     );
   }
   return (
     <div className="secure-note game-sync-note">
-      <strong>Rami</strong> · Joueur actif : {String(state.current ?? "—")} ·
-      Défausse : {Array.isArray(state.discard) ? state.discard.length : 0} ·
-      Joueurs : {players.length}
+      <strong>{t("games.rami")}</strong> · {t("game.activePlayer")} : {String(state.current ?? "—")} ·
+      {t("game.discard")} : {Array.isArray(state.discard) ? state.discard.length : 0} ·
+      {t("lobby.players")} : {players.length}
     </div>
   );
 }
@@ -496,6 +495,7 @@ function GameSpecificControls({
   state: Record<string, unknown> | null;
   onAction: (action: string, payload?: unknown) => void;
 }) {
+  const { t } = useTranslation();
   const players =
     state && Array.isArray(state.players)
       ? (state.players as Array<Record<string, unknown>>)
@@ -511,7 +511,7 @@ function GameSpecificControls({
             key={`${card.suit}-${card.rank}`}
             onClick={() => onAction("play_card", { card })}
           >
-            Jouer {card.rank}♣
+            {t("game.play")} {card.rank}♣
           </button>
         ))}
       </div>
@@ -519,7 +519,7 @@ function GameSpecificControls({
   return (
     <div className="action-row">
       <button className="action-check" onClick={() => onAction("draw")}>
-        Piocher
+        {t("game.draw")}
       </button>
       {currentHand.map((card) => (
         <button
@@ -527,7 +527,7 @@ function GameSpecificControls({
           key={`${card.suit}-${card.rank}`}
           onClick={() => onAction("discard", { card })}
         >
-          Défausser {card.rank}
+          {t("game.discardCard")} {card.rank}
         </button>
       ))}
     </div>

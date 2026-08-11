@@ -94,7 +94,7 @@
     "invitationCopied": "Lien d’invitation copié",
     "tableSettings": "Paramètres de table",
     "buyIn": "Buy-in",
-    "blinds": "Blinds"
+    "blinds": "Blinds", "resultSaving": "Enregistrement du résultat…", "winCredited": "Gain crédité : {{transaction}}", "resultSaved": "Résultat enregistré.", "tableConnectionError": "Connexion à la table impossible.", "invalidTableResponse": "Réponse de table invalide.", "tableName": "Table Émeraude", "connected": "Connecté", "connecting": "Connexion…", "offline": "Hors ligne", "syncedPlayers": "{{count}} joueur(s) synchronisé(s)", "sequence": "séquence", "bet": "Miser", "trump": "Atout", "team": "Équipe", "trick": "Pli", "activePlayer": "Joueur actif", "discard": "Défausse", "play": "Jouer", "draw": "Piocher", "discardCard": "Défausser"
   },
   "promo": { "title": "Jouez avec vos proches.", "body": "Créez une table privée et invitez votre cercle." },
   "profile": { "level": "Joueur niveau {{level}}", "visitor": "Visiteur", "discovery": "Mode découverte" },
