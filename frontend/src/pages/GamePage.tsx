@@ -34,6 +34,7 @@ export function GamePage() {
   >("offline");
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
+  const [resultMessage, setResultMessage] = useState("");
   const [resolvedTableId, setResolvedTableId] = useState("");
   const settled = useRef(false);
   const accessToken = useGameStore((state) => state.accessToken);
@@ -46,6 +47,8 @@ export function GamePage() {
         const payload = JSON.parse(event.data) as {
           type?: string;
           action?: string;
+          outcome?: "win" | "loss" | "draw";
+          amount?: number;
           sequence?: number;
           payload?: unknown;
         };
@@ -75,6 +78,42 @@ export function GamePage() {
               settled.current = false;
             });
           }
+        }
+        const resultPayload = (
+          payload.payload && typeof payload.payload === "object"
+            ? payload.payload
+            : {}
+        ) as { outcome?: "win" | "loss" | "draw"; amount?: number };
+        const outcome = payload.outcome || resultPayload.outcome;
+        const amount = payload.amount ?? resultPayload.amount ?? 0;
+        if (
+          (payload.type === "result" || payload.action === "result") &&
+          outcome &&
+          accessToken &&
+          gameType &&
+          engineTableId &&
+          !settled.current
+        ) {
+          settled.current = true;
+          setResultMessage("Enregistrement du résultat…");
+          void recordGameResult(
+            accessToken,
+            engineTableId,
+            gameType,
+            outcome,
+            amount,
+          )
+            .then((result) =>
+              setResultMessage(
+                result.transaction_id
+                  ? `Gain crédité : ${result.transaction_id}`
+                  : "Résultat enregistré.",
+              ),
+            )
+            .catch((error: Error) => {
+              settled.current = false;
+              setResultMessage(error.message);
+            });
         }
         if (payload.type === "error")
           setGameConnectionError(
@@ -234,6 +273,9 @@ export function GamePage() {
           {playerCount > 1 ? "s" : ""} · séquence {sequence}
           {lastAction ? ` · ${lastAction}` : ""}
         </p>
+      )}
+      {resultMessage && (
+        <p className="secure-note game-sync-note">{resultMessage}</p>
       )}
       <div className={`felt-table ${isPoker ? "felt-green" : "felt-blue"}`}>
         <div className="table-brand">
