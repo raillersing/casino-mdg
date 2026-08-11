@@ -4,6 +4,7 @@ URL configuration for Casino MDG backend.
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from django.db import connection
 
 
 def healthz(request):
@@ -11,7 +12,13 @@ def healthz(request):
 
 
 def readyz(request):
-    return JsonResponse({"status": "ok"})
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except Exception:
+        return JsonResponse({"status": "unready", "database": "unavailable"}, status=503)
+    return JsonResponse({"status": "ok", "database": "ok"})
 
 urlpatterns = [
     path("healthz/", healthz, name="healthz"),
