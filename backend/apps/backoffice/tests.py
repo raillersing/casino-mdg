@@ -5,6 +5,7 @@ from apps.accounts.models import User
 from apps.backoffice.models import AuditEvent, FeatureFlag
 from apps.games.models import GameTable, TableSeat
 from apps.social.models import ChatMessage
+from apps.payments.models import PaymentIntent, WebhookInboxEvent
 
 
 class AuditTests(TestCase):
@@ -33,3 +34,10 @@ class AuditTests(TestCase):
         client = APIClient(); client.force_authenticate(staff)
         response = client.post("/api/v1/backoffice/chat-messages/", {"message_id": message.pk, "reason": "signalement"}, format="json")
         self.assertEqual(response.status_code, 200); self.assertTrue(ChatMessage.objects.get(pk=message.pk).is_hidden); self.assertTrue(AuditEvent.objects.filter(action="chat.message.hidden").exists())
+
+    def test_staff_can_run_sandbox_payment_reconciliation(self):
+        staff = User.objects.create_user(email="recon@mdg.local", phone="+261340000024", display_name="Recon", is_staff=True)
+        WebhookInboxEvent.objects.create(provider="mvola", event_id="unmatched", event_type="payment.succeeded", payload={"intent_id": "missing"}, status="processed")
+        PaymentIntent.objects.create(user=staff, provider="mvola", direction="deposit", amount=100, idempotency_key="recon-intent")
+        client = APIClient(); client.force_authenticate(staff); response = client.get("/api/v1/backoffice/payment-reconciliation/")
+        self.assertEqual(response.status_code, 200); self.assertEqual(response.data["intents_pending"], 1); self.assertEqual(len(response.data["unmatched_webhooks"]), 1)
