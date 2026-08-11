@@ -8,11 +8,13 @@ export function useWebSocket(url: string) {
   const ws = useRef<WebSocket | null>(null)
   const reconnectAttempts = useRef(0)
   const setReconnecting = useGameStore((state) => state.setReconnecting)
+  const accessToken = useGameStore((state) => state.accessToken)
 
   const connect = useCallback(() => {
     setReconnecting(true)
     
-    ws.current = new WebSocket(url)
+    const separator = url.includes('?') ? '&' : '?'
+    ws.current = new WebSocket(accessToken ? `${url}${separator}token=${encodeURIComponent(accessToken)}` : url)
     
     ws.current.onopen = () => {
       reconnectAttempts.current = 0
@@ -29,7 +31,7 @@ export function useWebSocket(url: string) {
     ws.current.onerror = (error) => {
       console.error('WebSocket error:', error)
     }
-  }, [url, setReconnecting])
+  }, [accessToken, url, setReconnecting])
 
   const send = useCallback((data: object) => {
     if (ws.current?.readyState === WebSocket.OPEN) {

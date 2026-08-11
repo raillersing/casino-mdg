@@ -1,9 +1,13 @@
 package websocket
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,6 +49,7 @@ type Message struct {
 	Payload   interface{} `json:"payload,omitempty"`
 	Timestamp time.Time   `json:"timestamp"`
 	EventID   string      `json:"event_id,omitempty"`
+	Sequence  uint64      `json:"sequence,omitempty"`
 }
 
 type Server struct {
@@ -71,6 +76,11 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 }
 
 func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
+	playerID, ok := authenticate(r.URL.Query().Get("token"), s.config.JWTSecret)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade failed: %v", err)
@@ -82,6 +92,7 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		conn:     conn,
 		send:     make(chan []byte, 256),
 		lastPong: time.Now(),
+		playerID: playerID,
 	}
 
 	go s.writePump(client)
@@ -167,8 +178,12 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 	}
 
 	client.tableID = msg.TableID
-	client.playerID = msg.PlayerID
+	if msg.PlayerID != "" && msg.PlayerID != client.playerID {
+		client.conn.WriteJSON(Message{Type: MsgError, Payload: "player identity mismatch", Timestamp: time.Now()})
+		return
+	}
 	s.addClient(client)
+	_, _ = s.roomManager.JoinPlayer(msg.TableID, client.playerID, client.playerID, len(table.Players)+1)
 
 	state := map[string]interface{}{
 		"table_id":  table.ID,
@@ -183,12 +198,21 @@ func (s *Server) handleLeave(client *Client, msg *Message) {
 }
 
 func (s *Server) handleAction(client *Client, msg *Message) {
-	msg.EventID = generateEventID()
-	s.broadcastToTable(msg.TableID, msg)
+	event, err := s.roomManager.ApplyAction(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload)
+	if err != nil {
+		client.conn.WriteJSON(Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
+		return
+	}
+	s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: event.Payload, EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp})
 }
 
 func (s *Server) handleSync(client *Client, msg *Message) {
-	// TODO: send missed events since last_event_id
+	events, err := s.roomManager.EventsSince(client.tableID, msg.Sequence)
+	if err != nil {
+		client.conn.WriteJSON(Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
+		return
+	}
+	client.conn.WriteJSON(Message{Type: MsgSync, TableID: client.tableID, Payload: events, Sequence: msg.Sequence, Timestamp: time.Now()})
 }
 
 func (s *Server) addClient(client *Client) {
@@ -220,4 +244,25 @@ func (s *Server) broadcastToTable(tableID string, msg *Message) {
 
 func generateEventID() string {
 	return time.Now().Format("20060102T150405.000") + "-" + uuid.New().String()[:8]
+}
+
+func authenticate(token, secret string) (string, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return "", false
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(parts[0] + "." + parts[1]))
+	signature, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil || !hmac.Equal(mac.Sum(nil), signature) {
+		return "", false
+	}
+	var claims struct {
+		Sub string `json:"sub"`
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil || json.Unmarshal(payload, &claims) != nil || claims.Sub == "" {
+		return "", false
+	}
+	return claims.Sub, true
 }
