@@ -4,7 +4,9 @@ URL configuration for Casino MDG backend.
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from django.http import HttpResponse
 from django.db import connection
+from .metrics import prometheus_metrics
 
 
 def healthz(request):
@@ -20,9 +22,14 @@ def readyz(request):
         return JsonResponse({"status": "unready", "database": "unavailable"}, status=503)
     return JsonResponse({"status": "ok", "database": "ok"})
 
+
+def metrics(request):
+    return HttpResponse(prometheus_metrics(), content_type="text/plain; version=0.0.4")
+
 urlpatterns = [
     path("healthz/", healthz, name="healthz"),
     path("readyz/", readyz, name="readyz"),
+    path("metrics/", metrics, name="metrics"),
     path("admin/", admin.site.urls),
     path("api/v1/auth/", include("apps.accounts.urls")),
     path("api/v1/wallet/", include("apps.wallet.urls")),
