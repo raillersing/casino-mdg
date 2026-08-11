@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from .authentication import encode_token
 from .models import OTPChallenge, User
+from .throttles import OTPRequestThrottle, OTPVerifyThrottle
 
 
 def normalize_phone(value):
@@ -28,6 +29,7 @@ def normalize_phone(value):
 class RequestOTPView(APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
+    throttle_classes = [OTPRequestThrottle]
 
     def post(self, request):
         try:
@@ -48,6 +50,7 @@ class RequestOTPView(APIView):
 class VerifyOTPView(APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
+    throttle_classes = [OTPVerifyThrottle]
 
     def post(self, request):
         try:
