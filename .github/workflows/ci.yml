@@ -245,6 +245,10 @@ jobs:
         working-directory: frontend
         run: npm test
 
+      - name: Audit production dependencies
+        working-directory: frontend
+        run: npm audit --omit=dev
+
   frontend-e2e:
     name: Frontend E2E
     runs-on: ubuntu-latest
