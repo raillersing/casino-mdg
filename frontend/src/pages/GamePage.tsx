@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -15,6 +15,7 @@ import {
   sendTableMessage,
   type ChatMessage,
 } from "@services/social";
+import { getTables, joinTable, recordGameResult } from "@services/games";
 import { useGameStore } from "@stores/gameStore";
 import { useWebSocket } from "@hooks/useWebSocket";
 
@@ -33,58 +34,84 @@ export function GamePage() {
   >("offline");
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
+  const [resolvedTableId, setResolvedTableId] = useState("");
+  const settled = useRef(false);
   const accessToken = useGameStore((state) => state.accessToken);
   const isPoker = gameType === "poker";
+  const engineTableId = resolvedTableId || tableId || "";
   const socketUrl = `${import.meta.env.VITE_WS_URL || "ws://localhost:8080"}/ws`;
-  const handleSocketMessage = useCallback((event: MessageEvent<string>) => {
-    try {
-      const payload = JSON.parse(event.data) as {
-        type?: string;
-        sequence?: number;
-        payload?: unknown;
-      };
-      if (typeof payload.sequence === "number") setSequence(payload.sequence);
-      if (payload.type === "state") {
-        const state = payload.payload as { players?: unknown } | undefined;
-        if (state && Array.isArray(state.players))
-          setPlayerCount(state.players.length);
-        setConnectionState("connected");
+  const handleSocketMessage = useCallback(
+    (event: MessageEvent<string>) => {
+      try {
+        const payload = JSON.parse(event.data) as {
+          type?: string;
+          action?: string;
+          sequence?: number;
+          payload?: unknown;
+        };
+        if (typeof payload.sequence === "number") setSequence(payload.sequence);
+        if (payload.type === "state") {
+          const state = payload.payload as { players?: unknown } | undefined;
+          if (state && Array.isArray(state.players))
+            setPlayerCount(state.players.length);
+          setConnectionState("connected");
+        }
+        if (payload.type === "action") {
+          setLastAction("action reçue");
+          if (
+            payload.action === "fold" &&
+            accessToken &&
+            gameType &&
+            engineTableId &&
+            !settled.current
+          ) {
+            settled.current = true;
+            void recordGameResult(
+              accessToken,
+              engineTableId,
+              gameType,
+              "loss",
+            ).catch(() => {
+              settled.current = false;
+            });
+          }
+        }
+        if (payload.type === "error")
+          setGameConnectionError(
+            typeof payload.payload === "string"
+              ? payload.payload
+              : "Connexion à la table impossible.",
+          );
+        if (payload.type === "state" || payload.type === "sync")
+          setGameConnectionError("");
+      } catch {
+        setGameConnectionError("Réponse de table invalide.");
       }
-      if (payload.type === "action") setLastAction("action reçue");
-      if (payload.type === "error")
-        setGameConnectionError(
-          typeof payload.payload === "string"
-            ? payload.payload
-            : "Connexion à la table impossible.",
-        );
-      if (payload.type === "state" || payload.type === "sync")
-        setGameConnectionError("");
-    } catch {
-      setGameConnectionError("Réponse de table invalide.");
-    }
-  }, []);
+    },
+    [accessToken, engineTableId, gameType],
+  );
   const handleSocketOpen = useCallback(
     (socket: WebSocket) => {
       setConnectionState("connected");
-      if (tableId)
+      if (engineTableId)
         socket.send(
           JSON.stringify({
             type: "join",
-            table_id: tableId,
+            table_id: engineTableId,
             payload: { game_type: gameType || "poker" },
             sequence: 0,
             timestamp: new Date().toISOString(),
           }),
         );
     },
-    [gameType, tableId],
+    [engineTableId, gameType],
   );
   const handleSocketClose = useCallback(
     () => setConnectionState("offline"),
     [],
   );
   const { send } = useWebSocket(socketUrl, {
-    enabled: Boolean(tableId && accessToken),
+    enabled: Boolean(engineTableId && accessToken),
     onOpen: handleSocketOpen,
     onClose: handleSocketClose,
     onMessage: handleSocketMessage,
@@ -95,17 +122,32 @@ export function GamePage() {
   }, [accessToken, tableId]);
 
   useEffect(() => {
-    if (!tableId || !accessToken) return;
+    if (!engineTableId || !accessToken) return;
     const heartbeat = window.setInterval(() => {
       send({
         type: "heartbeat",
-        table_id: tableId,
+        table_id: engineTableId,
         sequence,
         timestamp: new Date().toISOString(),
       });
     }, 15000);
     return () => window.clearInterval(heartbeat);
-  }, [accessToken, send, sequence, tableId]);
+  }, [accessToken, engineTableId, send, sequence]);
+
+  useEffect(() => {
+    if (!tableId) return;
+    getTables(gameType)
+      .then(({ results }) => {
+        const match = results.find(
+          (table) => table.table_code === tableId || table.id === tableId,
+        );
+        if (match) {
+          setResolvedTableId(match.id);
+          if (accessToken) void joinTable(match.id, accessToken);
+        } else setResolvedTableId(tableId);
+      })
+      .catch(() => setResolvedTableId(tableId));
+  }, [accessToken, gameType, tableId]);
 
   useEffect(() => {
     if (!tableId || !accessToken) return;
