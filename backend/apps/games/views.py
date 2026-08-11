@@ -1,3 +1,4 @@
+from django.db.models import Sum
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -51,6 +52,11 @@ class TableJoinView(APIView):
 
 class GameResultCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        results = GameResult.objects.filter(user=request.user).select_related("transaction")
+        payload = [{"id": result.pk, "game_id": str(result.game_id), "game_type": result.game_type, "outcome": result.outcome, "amount": result.amount, "transaction_id": str(result.transaction_id) if result.transaction_id else None, "created_at": result.created_at.isoformat()} for result in results[:50]]
+        return Response({"results": payload, "stats": {"played": results.count(), "wins": results.filter(outcome="win").count(), "losses": results.filter(outcome="loss").count(), "draws": results.filter(outcome="draw").count(), "total_won": results.filter(outcome="win").aggregate(total=Sum("amount"))["total"] or 0}})
 
     def post(self, request):
         try:
