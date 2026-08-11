@@ -13,6 +13,9 @@ import (
 	"time"
 
 	"github.com/casino-mdg/game-engine/internal/config"
+	"github.com/casino-mdg/game-engine/internal/game/belote"
+	"github.com/casino-mdg/game-engine/internal/game/poker"
+	"github.com/casino-mdg/game-engine/internal/game/rami"
 	"github.com/casino-mdg/game-engine/internal/room"
 	"github.com/casino-mdg/game-engine/internal/state"
 	"github.com/google/uuid"
@@ -214,10 +217,47 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		"table_id":   table.ID,
 		"game_type":  table.GameType,
 		"players":    table.Players,
-		"game_state": table.State,
+		"game_state": publicGameState(table.State, client.playerID),
 	}
 	client.conn.WriteJSON(Message{Type: MsgState, Payload: state, Timestamp: time.Now()})
 	s.persistSnapshot(msg.TableID)
+}
+
+func publicGameState(state interface{}, playerID string) interface{} {
+	switch game := state.(type) {
+	case *poker.Hand:
+		players := make([]map[string]interface{}, 0, len(game.Players))
+		for _, player := range game.Players {
+			cards := interface{}(nil)
+			if player.ID == playerID {
+				cards = player.Cards
+			}
+			players = append(players, map[string]interface{}{"id": player.ID, "stack": player.Stack, "bet": player.Bet, "cards": cards, "folded": player.Folded, "all_in": player.AllIn})
+		}
+		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "current": game.Current, "phase": game.Phase}
+	case *belote.Round:
+		players := make([]map[string]interface{}, 0, len(game.Players))
+		for _, player := range game.Players {
+			hand := interface{}(nil)
+			if player.ID == playerID {
+				hand = player.Hand
+			}
+			players = append(players, map[string]interface{}{"id": player.ID, "team": player.Team, "hand": hand})
+		}
+		return map[string]interface{}{"players": players, "trump": game.Trump, "current": game.Current, "lead_suit": game.LeadSuit, "trick": game.Trick, "team_points": game.TeamPoints}
+	case *rami.Game:
+		players := make([]map[string]interface{}, 0, len(game.Players))
+		for _, player := range game.Players {
+			hand := interface{}(nil)
+			if player.ID == playerID {
+				hand = player.Hand
+			}
+			players = append(players, map[string]interface{}{"id": player.ID, "hand": hand, "score": player.Score})
+		}
+		return map[string]interface{}{"players": players, "discard": game.Discard, "current": game.Current, "finished": game.Finished}
+	default:
+		return nil
+	}
 }
 
 func gameTypeFromPayload(payload interface{}) string {

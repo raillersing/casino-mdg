@@ -215,7 +215,7 @@ export function GamePage() {
     }
   };
 
-  const sendGameAction = (action: "fold" | "check" | "bet") => {
+  const sendGameAction = (action: string, actionPayload?: unknown) => {
     if (!tableId || !accessToken) {
       setGameConnectionError("Connectez-vous pour jouer.");
       return;
@@ -223,10 +223,11 @@ export function GamePage() {
     setGameConnectionError("");
     send({
       type: "action",
-      table_id: tableId,
+      table_id: engineTableId,
       action,
       sequence,
-      payload: action === "bet" ? { amount: 800 } : undefined,
+      payload:
+        actionPayload ?? (action === "bet" ? { amount: 800 } : undefined),
       timestamp: new Date().toISOString(),
     });
   };
@@ -323,23 +324,34 @@ export function GamePage() {
             <span>Choisissez votre action</span>
           </div>
         </div>
-        <div className="action-row">
-          <button
-            className="action-fold"
-            onClick={() => sendGameAction("fold")}
-          >
-            Se coucher
-          </button>
-          <button
-            className="action-check"
-            onClick={() => sendGameAction("check")}
-          >
-            Checker
-          </button>
-          <button className="action-bet" onClick={() => sendGameAction("bet")}>
-            Miser <strong>800</strong>
-          </button>
-        </div>
+        {isPoker ? (
+          <div className="action-row">
+            <button
+              className="action-fold"
+              onClick={() => sendGameAction("fold")}
+            >
+              Se coucher
+            </button>
+            <button
+              className="action-check"
+              onClick={() => sendGameAction("check")}
+            >
+              Checker
+            </button>
+            <button
+              className="action-bet"
+              onClick={() => sendGameAction("bet")}
+            >
+              Miser <strong>800</strong>
+            </button>
+          </div>
+        ) : (
+          <GameSpecificControls
+            gameType={gameType || ""}
+            state={gameState}
+            onAction={sendGameAction}
+          />
+        )}
       </div>
       <div className="game-bottom">
         <div className="chat-box">
@@ -471,6 +483,53 @@ function GameStateSummary({
       <strong>Rami</strong> · Joueur actif : {String(state.current ?? "—")} ·
       Défausse : {Array.isArray(state.discard) ? state.discard.length : 0} ·
       Joueurs : {players.length}
+    </div>
+  );
+}
+
+function GameSpecificControls({
+  gameType,
+  state,
+  onAction,
+}: {
+  gameType: string;
+  state: Record<string, unknown> | null;
+  onAction: (action: string, payload?: unknown) => void;
+}) {
+  const players =
+    state && Array.isArray(state.players)
+      ? (state.players as Array<Record<string, unknown>>)
+      : [];
+  const currentHand = (players.find((player) => Array.isArray(player.hand))
+    ?.hand || []) as Array<{ suit: number; rank: number }>;
+  if (gameType === "belote")
+    return (
+      <div className="action-row">
+        {currentHand.map((card) => (
+          <button
+            className="action-check"
+            key={`${card.suit}-${card.rank}`}
+            onClick={() => onAction("play_card", { card })}
+          >
+            Jouer {card.rank}♣
+          </button>
+        ))}
+      </div>
+    );
+  return (
+    <div className="action-row">
+      <button className="action-check" onClick={() => onAction("draw")}>
+        Piocher
+      </button>
+      {currentHand.map((card) => (
+        <button
+          className="action-bet"
+          key={`${card.suit}-${card.rank}`}
+          onClick={() => onAction("discard", { card })}
+        >
+          Défausser {card.rank}
+        </button>
+      ))}
     </div>
   );
 }
