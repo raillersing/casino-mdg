@@ -24,6 +24,7 @@ type Table struct {
 	IsActive      bool
 	GracePeriod   time.Duration
 	Deterministic bool
+	Blinds        bool
 	Sequence      uint64
 	Events        []Event
 	mu            sync.RWMutex
@@ -99,6 +100,7 @@ func (m *Manager) CreateTableWithID(id, gameType string) *Table {
 		IsActive:      true,
 		GracePeriod:   m.config.GracePeriod,
 		Deterministic: m.config.Deterministic,
+		Blinds:        m.config.Blinds,
 	}
 
 	m.tables[table.ID] = table
@@ -289,7 +291,7 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 		copy := *player
 		players[id] = &copy
 	}
-	table := &Table{ID: snapshot.ID, GameType: snapshot.GameType, Players: players, CreatedAt: time.Now(), UpdatedAt: snapshot.UpdatedAt, IsActive: true, GracePeriod: m.config.GracePeriod, Deterministic: m.config.Deterministic, Sequence: snapshot.Sequence, Events: append([]Event(nil), snapshot.Events...)}
+	table := &Table{ID: snapshot.ID, GameType: snapshot.GameType, Players: players, CreatedAt: time.Now(), UpdatedAt: snapshot.UpdatedAt, IsActive: true, GracePeriod: m.config.GracePeriod, Deterministic: m.config.Deterministic, Blinds: m.config.Blinds, Sequence: snapshot.Sequence, Events: append([]Event(nil), snapshot.Events...)}
 	if snapshot.GameType == "poker" && len(snapshot.State) > 0 {
 		var hand poker.Hand
 		if err := json.Unmarshal(snapshot.State, &hand); err == nil {
@@ -321,6 +323,11 @@ func initializePokerHand(table *Table) error {
 		return err
 	}
 	table.State = hand
+	if table.Blinds {
+		if err := hand.StartHand(50, 100); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

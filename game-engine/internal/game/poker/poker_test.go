@@ -5,7 +5,7 @@ import "testing"
 func TestHandUsesInjectedDeterministicDeck(t *testing.T) {
 	players := []*Player{{ID: "a", Stack: 1000}, {ID: "b", Stack: 1000}}
 	hand, err := NewHand(players, func(deck []Card) {})
-	if err != nil || len(hand.Deck) != 52 {
+	if err != nil || len(hand.Deck) != 48 {
 		t.Fatalf("hand=%+v err=%v", hand, err)
 	}
 	if err := hand.PostBlind(1, 50); err != nil {
@@ -56,5 +56,16 @@ func TestHandAdvancesThroughCommunityPhases(t *testing.T) {
 	}
 	if hand.Phase != "showdown" || len(hand.Community) != 5 {
 		t.Fatalf("phase=%s community=%d", hand.Phase, len(hand.Community))
+	}
+}
+
+func TestHandDealsPrivateCardsAndFindsBestRank(t *testing.T) {
+	hand, err := NewHand([]*Player{{ID: "a", Stack: 1000}, {ID: "b", Stack: 1000}}, func(deck []Card) {})
+	if err != nil || len(hand.Players[0].Cards) != 2 || len(hand.Players[1].Cards) != 2 {
+		t.Fatalf("hand=%+v err=%v", hand, err)
+	}
+	rank := BestRank([]Card{{14, 0}, {14, 1}, {2, 0}, {2, 1}, {2, 2}, {9, 3}, {7, 1}})
+	if rank != 6 {
+		t.Fatalf("expected full house rank, got %d", rank)
 	}
 }

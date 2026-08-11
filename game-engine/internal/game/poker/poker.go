@@ -26,6 +26,7 @@ type Player struct {
 	ID     string `json:"id"`
 	Stack  int64  `json:"stack"`
 	Bet    int64  `json:"bet"`
+	Cards  []Card `json:"cards"`
 	Folded bool   `json:"folded"`
 	AllIn  bool   `json:"all_in"`
 }
@@ -45,7 +46,27 @@ func NewHand(players []*Player, shuffle func([]Card)) (*Hand, error) {
 	}
 	deck := makeDeck()
 	shuffle(deck)
+	for _, player := range players {
+		for card := 0; card < 2; card++ {
+			player.Cards = append(player.Cards, deck[0])
+			deck = deck[1:]
+		}
+	}
 	return &Hand{Players: players, Deck: deck, Current: 0, Phase: "preflop"}, nil
+}
+
+func (h *Hand) StartHand(smallBlind, bigBlind int64) error {
+	if len(h.Players) < 2 || smallBlind <= 0 || bigBlind <= smallBlind {
+		return fmt.Errorf("invalid blinds")
+	}
+	if err := h.PostBlind(0, smallBlind); err != nil {
+		return err
+	}
+	if err := h.PostBlind(1, bigBlind); err != nil {
+		return err
+	}
+	h.Current = 0
+	return nil
 }
 
 func NewShuffledHand(players []*Player) (*Hand, error) {
@@ -200,16 +221,44 @@ func (h *Hand) Winner() (*Player, bool) {
 		return nil, false
 	}
 	var winner *Player
+	best := -1
 	for _, player := range h.Players {
 		if player.Folded {
 			continue
 		}
-		if winner != nil {
-			return nil, false
+		if winner == nil {
+			winner = player
+			best = BestRank(append(append([]Card{}, player.Cards...), h.Community...))
+			continue
 		}
-		winner = player
+		rank := BestRank(append(append([]Card{}, player.Cards...), h.Community...))
+		if rank > best {
+			winner, best = player, rank
+		}
 	}
 	return winner, winner != nil
+}
+
+func BestRank(cards []Card) int {
+	if len(cards) < 5 {
+		return 0
+	}
+	best := 0
+	for a := 0; a < len(cards)-4; a++ {
+		for b := a + 1; b < len(cards)-3; b++ {
+			for c := b + 1; c < len(cards)-2; c++ {
+				for d := c + 1; d < len(cards)-1; d++ {
+					for e := d + 1; e < len(cards); e++ {
+						rank := RankFive([]Card{cards[a], cards[b], cards[c], cards[d], cards[e]})
+						if rank > best {
+							best = rank
+						}
+					}
+				}
+			}
+		}
+	}
+	return best
 }
 func makeDeck() []Card {
 	deck := make([]Card, 0, 52)

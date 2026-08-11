@@ -14,7 +14,8 @@ type Config struct {
 	SnapshotInterval   time.Duration
 	MaxTables          int
 	MaxPlayersPerTable int
-	Deterministic       bool
+	Deterministic      bool
+	Blinds             bool
 }
 
 func Load() (*Config, error) {
@@ -27,6 +28,7 @@ func Load() (*Config, error) {
 		SnapshotInterval:   5 * time.Second,
 		MaxTables:          10000,
 		MaxPlayersPerTable: 9,
+		Blinds:             true,
 	}, nil
 }
 
