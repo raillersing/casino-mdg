@@ -13,6 +13,8 @@ from rest_framework.views import APIView
 from .authentication import encode_token
 from .models import OTPChallenge, User
 from .throttles import OTPRequestThrottle, OTPVerifyThrottle
+from .models import UserDevice
+from apps.backoffice.services import record_audit
 
 
 def normalize_phone(value):
@@ -85,3 +87,17 @@ class MeView(APIView):
     def get(self, request):
         user = request.user
         return Response({"id": str(user.pk), "display_name": user.display_name, "phone": user.phone, "xp": user.xp, "level": user.level})
+
+
+class RegisterDeviceView(APIView):
+    def post(self, request):
+        device_id = str(request.data.get("device_id", "")).strip()
+        fingerprint = str(request.data.get("fingerprint", "")).strip()
+        if not device_id or not fingerprint or len(device_id) > 64 or len(fingerprint) > 128:
+            return Response({"detail": "Empreinte d'appareil invalide."}, status=400)
+        other_accounts = UserDevice.objects.filter(fingerprint=fingerprint).exclude(user=request.user).values_list("user_id", flat=True).distinct()
+        device, _ = UserDevice.objects.update_or_create(user=request.user, device_id=device_id, defaults={"device_name": str(request.data.get("device_name", "Appareil"))[:100], "fingerprint": fingerprint})
+        record_audit(request.user, "account.device.registered", device, {"shared_account_count": len(other_accounts)})
+        if other_accounts:
+            return Response({"detail": "Empreinte déjà associée à un autre compte.", "review_required": True}, status=409)
+        return Response({"device_id": device.device_id, "trusted": device.is_trusted, "review_required": False}, status=201)
