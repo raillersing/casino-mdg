@@ -61,3 +61,10 @@ test('completes the local OTP onboarding journey', async ({ page }) => {
   await expect(page.getByText('Miora')).toBeVisible()
   await expect(page.evaluate(() => localStorage.getItem('mdg_access_token'))).resolves.toBe('access-token')
 })
+
+test('switches the core home screen to Malagasy', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Changer de langue' }).click()
+  await expect(page.getByRole('heading', { name: /Manana adiresy/i })).toBeVisible()
+  await expect(page.getByText('Hiditra amin\'ny lobby')).toBeVisible()
+})
