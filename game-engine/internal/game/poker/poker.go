@@ -122,6 +122,16 @@ func (h *Hand) highestBet() int64 {
 	return result
 }
 func (h *Hand) nextTurn() {
+	active := 0
+	for _, player := range h.Players {
+		if !player.Folded {
+			active++
+		}
+	}
+	if active <= 1 {
+		h.Phase = "showdown"
+		return
+	}
 	for step := 1; step <= len(h.Players); step++ {
 		next := (h.Current + step) % len(h.Players)
 		if !h.Players[next].Folded && !h.Players[next].AllIn {
@@ -130,6 +140,23 @@ func (h *Hand) nextTurn() {
 		}
 	}
 	h.Phase = "showdown"
+}
+
+func (h *Hand) Winner() (*Player, bool) {
+	if h.Phase != "showdown" {
+		return nil, false
+	}
+	var winner *Player
+	for _, player := range h.Players {
+		if player.Folded {
+			continue
+		}
+		if winner != nil {
+			return nil, false
+		}
+		winner = player
+	}
+	return winner, winner != nil
 }
 func makeDeck() []Card {
 	deck := make([]Card, 0, 52)

@@ -23,7 +23,7 @@ func testToken(subject, secret string) string {
 }
 
 func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("poker")
 	server := NewServer(cfg, manager)
@@ -61,9 +61,15 @@ func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
 }
 
 func TestFoldPublishesSignedLossResult(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("poker")
+	if _, err := manager.JoinPlayer(table.ID, "player-fold", "Fold", 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.JoinPlayer(table.ID, "player-other", "Other", 2); err != nil {
+		t.Fatal(err)
+	}
 	server := NewServer(cfg, manager)
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
@@ -80,7 +86,7 @@ func TestFoldPublishesSignedLossResult(t *testing.T) {
 	if err := conn.ReadJSON(&state); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "fold", Sequence: 1}); err != nil {
+	if err := conn.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "fold", Sequence: 2}); err != nil {
 		t.Fatal(err)
 	}
 	var action, result Message

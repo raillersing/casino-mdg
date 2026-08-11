@@ -40,6 +40,21 @@ func TestPokerStateValidatesCurrentPlayerAction(t *testing.T) {
 	}
 }
 
+func TestPokerFoldFinishesHeadsUpAndExposesWinner(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur 1", 1)
+	_, _ = m.JoinPlayer(table.ID, "p2", "Joueur 2", 2)
+	_, err := m.ApplyAction(table.ID, "p1", "fold", 2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	winner, _, finished := m.FinishedPokerResult(table.ID)
+	if !finished || winner != "p2" {
+		t.Fatalf("winner=%q finished=%v", winner, finished)
+	}
+}
+
 func TestDisconnectedPlayerCanReconnectDuringGracePeriod(t *testing.T) {
 	m := NewManager(&config.Config{GracePeriod: 30 * time.Millisecond})
 	table := m.CreateTable("poker")
