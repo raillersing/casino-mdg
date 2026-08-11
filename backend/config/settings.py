@@ -160,6 +160,7 @@ CORS_ALLOWED_ORIGINS = os.getenv(
 
 # ─── Game Engine WebSocket ──────────────────────────────────
 GAME_ENGINE_WS_URL = os.getenv("GAME_ENGINE_WS_URL", "ws://localhost:8080")
+PAYMENT_WEBHOOK_SECRET = os.getenv("PAYMENT_WEBHOOK_SECRET", "dev-webhook-secret-change-me")
 
 # ─── Default primary key ─────────────────────────────────────
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
