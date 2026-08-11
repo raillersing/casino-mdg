@@ -85,6 +85,43 @@ func TestRamiGameIsCreatedAtTwoPlayers(t *testing.T) {
 	}
 }
 
+func TestBeloteRoomAcceptsAValidCardPlay(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
+	table := m.CreateTable("belote")
+	for index := 0; index < 4; index++ {
+		if _, err := m.JoinPlayer(table.ID, fmt.Sprintf("b%d", index), "Joueur", index); err != nil {
+			t.Fatal(err)
+		}
+	}
+	round := table.State.(*belote.Round)
+	card := round.Players[0].Hand[0]
+	event, err := m.ApplyAction(table.ID, "b0", "play_card", 4, map[string]interface{}{"card": map[string]interface{}{"suit": float64(card.Suit), "rank": float64(card.Rank)}})
+	if err != nil || event.Sequence != 5 {
+		t.Fatalf("event=%+v err=%v", event, err)
+	}
+}
+
+func TestRamiRoomAcceptsDrawAndDiscardSequence(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
+	table := m.CreateTable("rami")
+	for index := 0; index < 2; index++ {
+		if _, err := m.JoinPlayer(table.ID, fmt.Sprintf("r%d", index), "Joueur", index); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := m.ApplyAction(table.ID, "r0", "draw", 2, nil); err != nil {
+		t.Fatal(err)
+	}
+	game := table.State.(*rami.Game)
+	card := game.Players[0].Hand[0]
+	if _, err := m.ApplyAction(table.ID, "r0", "discard", 3, map[string]interface{}{"card": map[string]interface{}{"suit": float64(card.Suit), "rank": float64(card.Rank)}}); err != nil {
+		t.Fatal(err)
+	}
+	if game.Current != 1 {
+		t.Fatalf("current=%d", game.Current)
+	}
+}
+
 func TestDisconnectedPlayerCanReconnectDuringGracePeriod(t *testing.T) {
 	m := NewManager(&config.Config{GracePeriod: 30 * time.Millisecond})
 	table := m.CreateTable("poker")
