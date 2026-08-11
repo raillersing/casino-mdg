@@ -211,9 +211,10 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 	_, _ = s.roomManager.JoinPlayer(msg.TableID, client.playerID, client.playerID, len(table.Players)+1)
 
 	state := map[string]interface{}{
-		"table_id":  table.ID,
-		"game_type": table.GameType,
-		"players":   table.Players,
+		"table_id":   table.ID,
+		"game_type":  table.GameType,
+		"players":    table.Players,
+		"game_state": table.State,
 	}
 	client.conn.WriteJSON(Message{Type: MsgState, Payload: state, Timestamp: time.Now()})
 	s.persistSnapshot(msg.TableID)

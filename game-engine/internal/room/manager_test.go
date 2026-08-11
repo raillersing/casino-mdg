@@ -7,7 +7,7 @@ import (
 )
 
 func TestActionsAreAuthoritativeAndMonotone(t *testing.T) {
-	m := NewManager(&config.Config{GracePeriod: 30})
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
 	table := m.CreateTable("poker")
 	if _, err := m.JoinPlayer(table.ID, "p1", "Joueur", 1); err != nil {
 		t.Fatal(err)
@@ -21,6 +21,22 @@ func TestActionsAreAuthoritativeAndMonotone(t *testing.T) {
 	}
 	if _, err := m.ApplyAction(table.ID, "p1", "hack", 2, nil); err == nil {
 		t.Fatal("invalid action was accepted")
+	}
+}
+
+func TestPokerStateValidatesCurrentPlayerAction(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur 1", 1)
+	_, _ = m.JoinPlayer(table.ID, "p2", "Joueur 2", 2)
+	if _, err := m.ApplyAction(table.ID, "p2", "check", 2, nil); err == nil {
+		t.Fatal("out-of-turn poker action was accepted")
+	}
+	if _, err := m.ApplyAction(table.ID, "p1", "check", 2, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.ApplyAction(table.ID, "p2", "check", 3, nil); err != nil {
+		t.Fatal(err)
 	}
 }
 

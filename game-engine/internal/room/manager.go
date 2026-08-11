@@ -1,27 +1,32 @@
 package room
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/casino-mdg/game-engine/internal/config"
+	"github.com/casino-mdg/game-engine/internal/game/poker"
 	"github.com/google/uuid"
 )
 
 // Table represents a game table (Poker, Belote, Rami)
 type Table struct {
-	ID          string
-	GameType    string
-	Players     map[string]*Player
-	State       interface{}
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	IsActive    bool
-	GracePeriod time.Duration
-	Sequence    uint64
-	Events      []Event
-	mu          sync.RWMutex
+	ID            string
+	GameType      string
+	Players       map[string]*Player
+	State         interface{}
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	IsActive      bool
+	GracePeriod   time.Duration
+	Deterministic bool
+	Sequence      uint64
+	Events        []Event
+	mu            sync.RWMutex
 }
 
 type Event struct {
@@ -41,6 +46,7 @@ type TableSnapshot struct {
 	Players   map[string]*Player `json:"players"`
 	Events    []Event            `json:"events"`
 	UpdatedAt time.Time          `json:"updated_at"`
+	State     json.RawMessage    `json:"state,omitempty"`
 }
 
 type Player struct {
@@ -85,13 +91,14 @@ func (m *Manager) CreateTableWithID(id, gameType string) *Table {
 	}
 
 	table := &Table{
-		ID:          id,
-		GameType:    gameType,
-		Players:     make(map[string]*Player),
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-		IsActive:    true,
-		GracePeriod: m.config.GracePeriod,
+		ID:            id,
+		GameType:      gameType,
+		Players:       make(map[string]*Player),
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+		IsActive:      true,
+		GracePeriod:   m.config.GracePeriod,
+		Deterministic: m.config.Deterministic,
 	}
 
 	m.tables[table.ID] = table
@@ -160,7 +167,12 @@ func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, e
 		existing.JoinedAt = time.Now()
 		return Event{TableID: tableID, PlayerID: playerID, Action: "reconnected", Sequence: table.Sequence}, nil
 	}
-	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, IsActive: true, JoinedAt: time.Now()}
+	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, JoinedAt: time.Now()}
+	if table.GameType == "poker" && len(table.Players) >= 2 && table.State == nil {
+		if err := initializePokerHand(table); err != nil {
+			return Event{}, err
+		}
+	}
 	return appendEvent(table, playerID, "joined", map[string]interface{}{"seat": seat}), nil
 }
 
@@ -179,6 +191,11 @@ func (m *Manager) ApplyAction(tableID, playerID, action string, expectedSequence
 	}
 	if !validActionForGame(table.GameType, action) {
 		return Event{}, fmt.Errorf("invalid action")
+	}
+	if table.GameType == "poker" && table.State != nil {
+		if err := applyPokerAction(table, playerID, action, payload); err != nil {
+			return Event{}, err
+		}
 	}
 	return appendEvent(table, playerID, action, payload), nil
 }
@@ -236,7 +253,8 @@ func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 		players[id] = &copy
 	}
 	events := append([]Event(nil), table.Events...)
-	return TableSnapshot{ID: table.ID, GameType: table.GameType, Sequence: table.Sequence, Players: players, Events: events, UpdatedAt: table.UpdatedAt}, nil
+	state, _ := json.Marshal(table.State)
+	return TableSnapshot{ID: table.ID, GameType: table.GameType, Sequence: table.Sequence, Players: players, Events: events, UpdatedAt: table.UpdatedAt, State: state}, nil
 }
 
 func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
@@ -253,9 +271,72 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 		copy := *player
 		players[id] = &copy
 	}
-	table := &Table{ID: snapshot.ID, GameType: snapshot.GameType, Players: players, CreatedAt: time.Now(), UpdatedAt: snapshot.UpdatedAt, IsActive: true, GracePeriod: m.config.GracePeriod, Sequence: snapshot.Sequence, Events: append([]Event(nil), snapshot.Events...)}
+	table := &Table{ID: snapshot.ID, GameType: snapshot.GameType, Players: players, CreatedAt: time.Now(), UpdatedAt: snapshot.UpdatedAt, IsActive: true, GracePeriod: m.config.GracePeriod, Deterministic: m.config.Deterministic, Sequence: snapshot.Sequence, Events: append([]Event(nil), snapshot.Events...)}
+	if snapshot.GameType == "poker" && len(snapshot.State) > 0 {
+		var hand poker.Hand
+		if err := json.Unmarshal(snapshot.State, &hand); err == nil {
+			table.State = &hand
+		}
+	}
 	m.tables[table.ID] = table
 	return table, nil
+}
+
+func initializePokerHand(table *Table) error {
+	players := make([]*poker.Player, 0, len(table.Players))
+	seats := make([]*Player, 0, len(table.Players))
+	for _, player := range table.Players {
+		seats = append(seats, player)
+	}
+	sort.Slice(seats, func(i, j int) bool { return seats[i].Seat < seats[j].Seat })
+	for _, player := range seats {
+		players = append(players, &poker.Player{ID: player.ID, Stack: player.Stack})
+	}
+	var hand *poker.Hand
+	var err error
+	if tableManagerDeterministic(table) {
+		hand, err = poker.NewHand(players, func([]poker.Card) {})
+	} else {
+		hand, err = poker.NewShuffledHand(players)
+	}
+	if err != nil {
+		return err
+	}
+	table.State = hand
+	return nil
+}
+
+func tableManagerDeterministic(table *Table) bool {
+	return table.Deterministic
+}
+
+func applyPokerAction(table *Table, playerID, action string, payload interface{}) error {
+	hand, ok := table.State.(*poker.Hand)
+	if !ok {
+		return fmt.Errorf("invalid poker state")
+	}
+	index := -1
+	for i, player := range hand.Players {
+		if player.ID == playerID {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return fmt.Errorf("player is not in poker hand")
+	}
+	amount := int64(0)
+	if values, ok := payload.(map[string]interface{}); ok {
+		switch value := values["amount"].(type) {
+		case float64:
+			amount = int64(value)
+		case int:
+			amount = int64(value)
+		case string:
+			amount, _ = strconv.ParseInt(value, 10, 64)
+		}
+	}
+	return hand.Apply(index, poker.Action(action), amount)
 }
 
 func appendEvent(table *Table, playerID, action string, payload interface{}) Event {

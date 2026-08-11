@@ -14,6 +14,7 @@ type Config struct {
 	SnapshotInterval   time.Duration
 	MaxTables          int
 	MaxPlayersPerTable int
+	Deterministic       bool
 }
 
 func Load() (*Config, error) {
