@@ -31,7 +31,8 @@
     "withdraw": "Alao",
     "history": "Tantara",
     "mvola": "MVola",
-    "orange": "Orange Money"
+    "orange": "Orange Money",
+    "title": "Kitapolan'ny klioba.", "subtitle": "Tantano ny jetons ary araho ny hetsika farany.", "sandboxTest": "Andramo ny dépôt sandbox", "creating": "Mamorona…", "available": "Vola azo ampiasaina", "tokens": "jetons", "simulation": "Fomba simulation · vola virtoaly", "overview": "Topimaso", "quickSecure": "Haingana & azo antoka", "ready": "Vonona ny volanao", "welcomeBonus": "bonus fandraisana", "transaction": "transaction voarakitra", "transactions": "transactions voarakitra", "sandboxIntents": "intents sandbox", "noTransactions": "Tsy misy transaction voarakitra.", "paymentJourney": "Dingana fandoavana.", "sandboxDescription": "Afaka manandrana mamorona intent MVola ianao. Tsy miova ny vola ary tsy misy fandoavana tena izy.", "createTest": "Mamorona intent fitsapana", "protected": "Voaaro ny vola", "privateHistory": "Mijanona ho tsiambaratelo ny tantaranao ary azo jerena foana."
   },
   "auth": {
     "email": "Mailaka",
@@ -59,7 +60,7 @@
     "allIn": "All in",
     "yourTurn": "Anjaranao",
     "waiting": "Miandry...",
-    "gracePeriod": "Tsy marina ny fifandraisana — manandrana miverina..."
+    "gracePeriod": "Tsy marina ny fifandraisana — manandrana miverina...", "leaveTable": "Miala amin'ny latabatra", "inProgress": "Lalao mandeha", "inviteFriend": "Asao ny namana", "pot": "POT", "you": "Ianao", "yourTurnAction": "Anjaranao izao", "chooseAction": "Safidio ny hetsika", "tableChat": "Chat amin'ny latabatra", "noMessages": "Tsy misy hafatra izao.", "messagePlaceholder": "Manorata hafatra…", "invitationCopied": "Voakopia ny rohy fanasana", "tableSettings": "Fikirakirana latabatra", "buyIn": "Buy-in", "blinds": "Blinds"
   },
   "promo": { "title": "Milalaova miaraka amin'ny namanao.", "body": "Mamorona latabatra manokana ary asao ny namanao." },
   "profile": { "level": "Mpilalao ambaratonga {{level}}", "visitor": "Mpitsidika", "discovery": "Fomba fijerena" },
