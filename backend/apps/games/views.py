@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from .models import GameResult, GameTable
 from .services import join_table, seed_demo_tables
 from apps.wallet.services import settle_game_win
-from apps.backoffice.services import record_audit
+from apps.backoffice.services import is_feature_enabled, record_audit
 
 
 def table_payload(table, request):
@@ -25,6 +25,8 @@ class TableListCreateView(APIView):
         return Response({"results": [table_payload(table, request) for table in tables]})
 
     def post(self, request):
+        if not is_feature_enabled("game_results"):
+            return Response({"detail": "Les résultats de partie sont temporairement suspendus."}, status=503)
         game_type = request.data.get("game_type", "poker")
         if game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)

@@ -16,3 +16,17 @@ class AuditEvent(models.Model):
     class Meta:
         db_table = "audit_events"
         ordering = ["-created_at"]
+
+
+class FeatureFlag(models.Model):
+    key = models.CharField(max_length=80, unique=True)
+    enabled = models.BooleanField(default=True)
+    reason = models.CharField(max_length=255, blank=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="feature_flag_changes")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "feature_flags"
+
+    def __str__(self):
+        return self.key
