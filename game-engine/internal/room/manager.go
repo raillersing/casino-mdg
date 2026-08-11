@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/casino-mdg/game-engine/internal/config"
+	"github.com/casino-mdg/game-engine/internal/game/belote"
 	"github.com/casino-mdg/game-engine/internal/game/poker"
 	"github.com/google/uuid"
 )
@@ -175,6 +176,11 @@ func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, e
 			return Event{}, err
 		}
 	}
+	if table.GameType == "belote" && len(table.Players) >= 4 && table.State == nil {
+		if err := initializeBeloteRound(table); err != nil {
+			return Event{}, err
+		}
+	}
 	return appendEvent(table, playerID, "joined", map[string]interface{}{"seat": seat}), nil
 }
 
@@ -196,6 +202,11 @@ func (m *Manager) ApplyAction(tableID, playerID, action string, expectedSequence
 	}
 	if table.GameType == "poker" && table.State != nil {
 		if err := applyPokerAction(table, playerID, action, payload); err != nil {
+			return Event{}, err
+		}
+	}
+	if table.GameType == "belote" && table.State != nil {
+		if err := applyBeloteAction(table, playerID, action, payload); err != nil {
 			return Event{}, err
 		}
 	}
@@ -315,6 +326,12 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 			table.State = &hand
 		}
 	}
+	if snapshot.GameType == "belote" && len(snapshot.State) > 0 {
+		var round belote.Round
+		if err := json.Unmarshal(snapshot.State, &round); err == nil {
+			table.State = &round
+		}
+	}
 	m.tables[table.ID] = table
 	return table, nil
 }
@@ -345,6 +362,30 @@ func initializePokerHand(table *Table) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func initializeBeloteRound(table *Table) error {
+	seats := make([]*Player, 0, len(table.Players))
+	for _, player := range table.Players {
+		seats = append(seats, player)
+	}
+	sort.Slice(seats, func(i, j int) bool { return seats[i].Seat < seats[j].Seat })
+	ids := make([]string, 0, len(seats))
+	for _, player := range seats {
+		ids = append(ids, player.ID)
+	}
+	var round *belote.Round
+	var err error
+	if table.Deterministic {
+		round, err = belote.NewRound(ids, func([]belote.Card) {})
+	} else {
+		round, err = belote.NewShuffledRound(ids)
+	}
+	if err != nil {
+		return err
+	}
+	table.State = round
 	return nil
 }
 
@@ -379,6 +420,45 @@ func applyPokerAction(table *Table, playerID, action string, payload interface{}
 		}
 	}
 	return hand.Apply(index, poker.Action(action), amount)
+}
+
+func applyBeloteAction(table *Table, playerID, action string, payload interface{}) error {
+	round, ok := table.State.(*belote.Round)
+	if !ok {
+		return fmt.Errorf("invalid belote state")
+	}
+	index := -1
+	for i, player := range round.Players {
+		if player.ID == playerID {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return fmt.Errorf("player is not in belote round")
+	}
+	values, _ := payload.(map[string]interface{})
+	switch action {
+	case "play_card":
+		cardValues, _ := values["card"].(map[string]interface{})
+		suit, _ := cardValues["suit"].(float64)
+		rank, _ := cardValues["rank"].(float64)
+		if round.Current != index {
+			return fmt.Errorf("not this player's turn")
+		}
+		_, err := round.PlayCard(index, belote.Card{Suit: int(suit), Rank: int(rank)})
+		return err
+	case "announce":
+		trump, _ := values["trump"].(float64)
+		return round.Announce(index, int(trump))
+	case "pass":
+		if round.Current != index {
+			return fmt.Errorf("not this player's turn")
+		}
+		return round.Pass()
+	default:
+		return fmt.Errorf("invalid belote action")
+	}
 }
 
 func appendEvent(table *Table, playerID, action string, payload interface{}) Event {

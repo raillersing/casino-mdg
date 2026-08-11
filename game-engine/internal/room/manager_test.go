@@ -1,7 +1,10 @@
 package room
 
 import (
+	"fmt"
+
 	"github.com/casino-mdg/game-engine/internal/config"
+	"github.com/casino-mdg/game-engine/internal/game/belote"
 	"testing"
 	"time"
 )
@@ -52,6 +55,19 @@ func TestPokerFoldFinishesHeadsUpAndExposesWinner(t *testing.T) {
 	winner, _, finished := m.FinishedPokerResult(table.ID)
 	if !finished || len(winner) != 1 || winner[0] != "p2" {
 		t.Fatalf("winner=%q finished=%v", winner, finished)
+	}
+}
+
+func TestBeloteRoundIsCreatedAtFourPlayers(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
+	table := m.CreateTable("belote")
+	for index := 0; index < 4; index++ {
+		if _, err := m.JoinPlayer(table.ID, fmt.Sprintf("p%d", index), "Joueur", index); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, ok := table.State.(*belote.Round); !ok {
+		t.Fatalf("state=%T", table.State)
 	}
 }
 

@@ -95,6 +95,23 @@ func (r *Round) PlayCard(player int, card Card) (int, error) {
 	return winner, nil
 }
 
+func (r *Round) Pass() error {
+	if r.LeadSuit >= 0 {
+		return fmt.Errorf("cannot pass during a trick")
+	}
+	r.Current = (r.Current + 1) % 4
+	return nil
+}
+
+func (r *Round) Announce(player, trump int) error {
+	if player != r.Current || trump < 0 || trump > 3 {
+		return fmt.Errorf("invalid trump announcement")
+	}
+	r.Trump = trump
+	r.Current = (r.Current + 1) % 4
+	return nil
+}
+
 func (r *Round) trickWinner() int {
 	winner := 0
 	winning := r.Trick[0]
