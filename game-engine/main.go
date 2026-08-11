@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -34,10 +35,10 @@ func main() {
 		w.Write([]byte(`{"status":"ok","service":"game-engine","version":"1.0.0"}`))
 	})
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		stats := rm.Stats()
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`# TYPE tables_active gauge
-tables_active ` + string(rune(len(rm.ListTables()))) + `
-`))
+		_, _ = w.Write([]byte("# TYPE casino_tables_active gauge\ncasino_tables_active " + strconv.Itoa(stats.TablesActive) + "\n# TYPE casino_players_active gauge\ncasino_players_active " + strconv.Itoa(stats.PlayersActive) + "\n# TYPE casino_events_total counter\ncasino_events_total " + strconv.FormatUint(stats.EventsTotal, 10) + "\n# TYPE casino_websocket_clients gauge\ncasino_websocket_clients " + strconv.Itoa(wsServer.ClientCount()) + "\n"))
 	})
 
 	srv := &http.Server{

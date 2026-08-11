@@ -58,6 +58,12 @@ type Manager struct {
 	mu     sync.RWMutex
 }
 
+type Stats struct {
+	TablesActive  int
+	PlayersActive int
+	EventsTotal   uint64
+}
+
 func NewManager(cfg *config.Config) *Manager {
 	return &Manager{
 		config: cfg,
@@ -104,6 +110,27 @@ func (m *Manager) ListTables() map[string]*Table {
 		}
 	}
 	return active
+}
+
+func (m *Manager) Stats() Stats {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	stats := Stats{}
+	for _, table := range m.tables {
+		if !table.IsActive {
+			continue
+		}
+		stats.TablesActive++
+		table.mu.RLock()
+		stats.EventsTotal += uint64(len(table.Events))
+		for _, player := range table.Players {
+			if player.IsActive {
+				stats.PlayersActive++
+			}
+		}
+		table.mu.RUnlock()
+	}
+	return stats
 }
 
 // RemoveTable removes a table (after grace period)

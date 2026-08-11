@@ -61,6 +61,8 @@ type Server struct {
 	mu          sync.RWMutex
 }
 
+func (s *Server) ClientCount() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.clients) }
+
 type Client struct {
 	conn     *websocket.Conn
 	playerID string
