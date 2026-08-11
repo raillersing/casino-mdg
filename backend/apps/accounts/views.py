@@ -60,14 +60,14 @@ class VerifyOTPView(APIView):
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         code = str(request.data.get("code", ""))
-        challenge = OTPChallenge.objects.filter(phone=phone, consumed_at__isnull=True).first()
-        if not challenge or challenge.expires_at <= timezone.now() or challenge.attempts >= 5:
-            return Response({"detail": "Code expiré ou introuvable."}, status=400)
-        challenge.attempts += 1
-        challenge.save(update_fields=["attempts"])
-        if not check_password(code, challenge.code_hash):
-            return Response({"detail": "Code incorrect.", "attempts_left": max(0, 5 - challenge.attempts)}, status=400)
         with transaction.atomic():
+            challenge = OTPChallenge.objects.select_for_update().filter(phone=phone, consumed_at__isnull=True).first()
+            if not challenge or challenge.expires_at <= timezone.now() or challenge.attempts >= 5:
+                return Response({"detail": "Code expiré ou introuvable."}, status=400)
+            challenge.attempts += 1
+            challenge.save(update_fields=["attempts"])
+            if not check_password(code, challenge.code_hash):
+                return Response({"detail": "Code incorrect.", "attempts_left": max(0, 5 - challenge.attempts)}, status=400)
             challenge.consumed_at = timezone.now()
             challenge.save(update_fields=["consumed_at"])
             user, created = User.objects.get_or_create(

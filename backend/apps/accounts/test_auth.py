@@ -25,6 +25,17 @@ class OTPFlowTests(TestCase):
         response = self.client.post("/api/v1/auth/otp/request/", {"phone": "020000"}, format="json")
         self.assertEqual(response.status_code, 400)
 
+    def test_otp_is_single_use_after_successful_verification(self):
+        response = self.client.post("/api/v1/auth/otp/request/", {"phone": "0340000001"}, format="json")
+        payload = {"phone": "0340000001", "code": response.data["dev_code"], "display_name": "Miora"}
+
+        first = self.client.post("/api/v1/auth/otp/verify/", payload, format="json")
+        second = self.client.post("/api/v1/auth/otp/verify/", payload, format="json")
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(User.objects.filter(phone="+261340000001").count(), 1)
+
     def test_otp_requests_are_limited_per_ip(self):
         responses = [self.client.post("/api/v1/auth/otp/request/", {"phone": f"03400000{i:02d}"}, REMOTE_ADDR="10.0.0.8") for i in range(6)]
         self.assertEqual([response.status_code for response in responses].count(429), 1)
