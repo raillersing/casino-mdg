@@ -7,6 +7,7 @@ import { WalletPage } from '@pages/WalletPage'
 import { ProfilePage } from '@pages/ProfilePage'
 import { AuthPage } from '@pages/AuthPage'
 import { NotFoundPage } from '@pages/NotFoundPage'
+import { SupportPage } from '@pages/SupportPage'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/game/:gameType/:tableId" element={<GamePage />} />
         <Route path="/wallet" element={<WalletPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/support" element={<SupportPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>
