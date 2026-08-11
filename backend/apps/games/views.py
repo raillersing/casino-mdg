@@ -1,3 +1,8 @@
+import hashlib
+import hmac
+import json
+
+from django.conf import settings
 from django.db.models import Count, Sum
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -7,6 +12,16 @@ from .models import GameResult, GameTable
 from .services import join_table, seed_demo_tables
 from apps.wallet.services import settle_game_win
 from apps.backoffice.services import is_feature_enabled, record_audit
+
+
+def game_result_signature_payload(game_id, game_type, outcome, amount, metadata):
+    return json.dumps({"amount": amount, "game_id": str(game_id), "game_type": game_type, "metadata": metadata or {}, "outcome": outcome}, separators=(",", ":"), sort_keys=True).encode()
+
+
+def valid_engine_signature(request, game_id, game_type, outcome, amount, metadata):
+    received = request.headers.get("X-Game-Engine-Signature", "")
+    expected = hmac.new(settings.GAME_ENGINE_RESULT_SECRET.encode(), game_result_signature_payload(game_id, game_type, outcome, amount, metadata), hashlib.sha256).hexdigest()
+    return bool(received) and hmac.compare_digest(received, expected)
 
 
 def table_payload(table, request):
@@ -71,13 +86,16 @@ class GameResultCreateView(APIView):
             return Response({"detail": "Résultat de partie invalide."}, status=400)
         if game_type not in dict(GameTable.GAME_TYPES) or outcome not in dict(GameResult.OUTCOMES) or amount < 0:
             return Response({"detail": "Résultat de partie invalide."}, status=400)
+        metadata = request.data.get("metadata", {})
+        if outcome == "win" and not valid_engine_signature(request, game_id, game_type, outcome, amount, metadata):
+            return Response({"detail": "Une victoire doit être attestée par le moteur de jeu."}, status=403)
         try:
             result = GameResult.objects.get(game_id=game_id, user=request.user)
             created = False
         except GameResult.DoesNotExist:
-            transaction_entry, created_transaction = settle_game_win(request.user, game_id, game_type, amount, request.data.get("metadata", {})) if outcome == "win" else (None, False)
-            result = GameResult.objects.create(game_id=game_id, user=request.user, game_type=game_type, outcome=outcome, amount=amount, transaction=transaction_entry, metadata=request.data.get("metadata", {}))
-            record_audit(request.user, "game.result.created", result, {"outcome": outcome, "amount": amount})
+            transaction_entry, created_transaction = settle_game_win(request.user, game_id, game_type, amount, metadata) if outcome == "win" else (None, False)
+            result = GameResult.objects.create(game_id=game_id, user=request.user, game_type=game_type, outcome=outcome, amount=amount, transaction=transaction_entry, metadata=metadata)
+            record_audit(request.user, "game.result.created", result, {"outcome": outcome, "amount": amount, "source": "game-engine" if outcome == "win" else "player"})
             created = created_transaction or transaction_entry is None
         return Response({"id": result.pk, "game_id": str(result.game_id), "outcome": result.outcome, "amount": result.amount, "transaction_id": str(result.transaction_id) if result.transaction_id else None, "created": created}, status=201 if created else 200)
 
