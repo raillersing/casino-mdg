@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from .models import GameResult, GameTable
 from .services import join_table, seed_demo_tables
 from apps.wallet.services import settle_game_win
+from apps.backoffice.services import record_audit
 
 
 def table_payload(table, request):
@@ -74,6 +75,7 @@ class GameResultCreateView(APIView):
         except GameResult.DoesNotExist:
             transaction_entry, created_transaction = settle_game_win(request.user, game_id, game_type, amount, request.data.get("metadata", {})) if outcome == "win" else (None, False)
             result = GameResult.objects.create(game_id=game_id, user=request.user, game_type=game_type, outcome=outcome, amount=amount, transaction=transaction_entry, metadata=request.data.get("metadata", {}))
+            record_audit(request.user, "game.result.created", result, {"outcome": outcome, "amount": amount})
             created = created_transaction or transaction_entry is None
         return Response({"id": result.pk, "game_id": str(result.game_id), "outcome": result.outcome, "amount": result.amount, "transaction_id": str(result.transaction_id) if result.transaction_id else None, "created": created}, status=201 if created else 200)
 

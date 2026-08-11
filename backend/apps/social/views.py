@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.games.models import GameTable, TableSeat
+from apps.backoffice.services import record_audit
 
 from .models import ChatMessage, TableInvitation
 
@@ -54,4 +55,5 @@ class TableInvitationView(APIView):
         except GameTable.DoesNotExist: return Response({"detail": "Table introuvable."}, status=404)
         if not can_access(table, request.user): return Response({"detail": "Seul un joueur peut inviter."}, status=403)
         invitation = TableInvitation.objects.create(table=table, inviter=request.user, expires_at=timezone.now() + timedelta(hours=24))
+        record_audit(request.user, "table.invitation.created", invitation, {"table_id": str(table.pk)})
         return Response({"token": str(invitation.token), "expires_at": invitation.expires_at.isoformat()}, status=201)
