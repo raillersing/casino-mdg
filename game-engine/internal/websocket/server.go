@@ -219,7 +219,7 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		"players":    table.Players,
 		"game_state": publicGameState(table.State, client.playerID),
 	}
-	client.conn.WriteJSON(Message{Type: MsgState, Payload: state, Timestamp: time.Now()})
+	client.conn.WriteJSON(Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
 	s.persistSnapshot(msg.TableID)
 }
 

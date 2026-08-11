@@ -60,6 +60,100 @@ func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
 	}
 }
 
+func TestWebSocketReconnectRestoresSequencePrivateStateAndResync(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	manager := room.NewManager(cfg)
+	table := manager.CreateTable("poker")
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+	url := "ws" + httpServer.URL[len("http"):]
+
+	connect := func(player string) *websocket.Conn {
+		conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?token="+testToken(player, cfg.JWTSecret), nil)
+		if err != nil {
+			t.Fatalf("dial %s failed: %v", player, err)
+		}
+		if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
+			t.Fatalf("join %s failed: %v", player, err)
+		}
+		return conn
+	}
+
+	first := connect("player-1")
+	defer first.Close()
+	var firstState Message
+	if err := first.ReadJSON(&firstState); err != nil {
+		t.Fatal(err)
+	}
+	second := connect("player-2")
+	defer second.Close()
+	var secondState Message
+	if err := second.ReadJSON(&secondState); err != nil {
+		t.Fatal(err)
+	}
+	if firstState.Sequence != 1 || secondState.Sequence != 2 {
+		t.Fatalf("join sequences=%d,%d", firstState.Sequence, secondState.Sequence)
+	}
+	if err := first.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "check", Sequence: 2}); err != nil {
+		t.Fatal(err)
+	}
+	var action Message
+	if err := first.ReadJSON(&action); err != nil {
+		t.Fatal(err)
+	}
+	if action.Sequence != 3 {
+		t.Fatalf("action sequence=%d", action.Sequence)
+	}
+	_ = first.Close()
+
+	reconnected := connect("player-1")
+	defer reconnected.Close()
+	var restored Message
+	if err := reconnected.ReadJSON(&restored); err != nil {
+		t.Fatal(err)
+	}
+	if restored.Sequence != 3 {
+		t.Fatalf("restored sequence=%d", restored.Sequence)
+	}
+	state, ok := restored.Payload.(map[string]interface{})
+	if !ok {
+		t.Fatalf("state payload=%T", restored.Payload)
+	}
+	gameState, ok := state["game_state"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("game state=%T", state["game_state"])
+	}
+	players, ok := gameState["players"].([]interface{})
+	if !ok || len(players) != 2 {
+		t.Fatalf("players=%v", gameState["players"])
+	}
+	for _, raw := range players {
+		player := raw.(map[string]interface{})
+		cards, exists := player["cards"]
+		if player["id"] == "player-1" && (!exists || cards == nil) {
+			t.Fatalf("own private cards were not restored: %v", player)
+		}
+		if player["id"] == "player-2" && cards != nil {
+			t.Fatalf("opponent private cards leaked: %v", player)
+		}
+	}
+	if err := reconnected.WriteJSON(Message{Type: MsgSync, TableID: table.ID, Sequence: 2}); err != nil {
+		t.Fatal(err)
+	}
+	var sync Message
+	if err := reconnected.ReadJSON(&sync); err != nil {
+		t.Fatal(err)
+	}
+	if sync.Type != MsgSync || sync.Sequence != 2 {
+		t.Fatalf("sync=%+v", sync)
+	}
+	events, ok := sync.Payload.([]interface{})
+	if !ok || len(events) != 1 {
+		t.Fatalf("sync events=%v", sync.Payload)
+	}
+}
+
 func TestFoldPublishesSignedLossResult(t *testing.T) {
 	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
