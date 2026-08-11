@@ -23,7 +23,7 @@ class AuditTests(TestCase):
         staff = User.objects.create_user(email="flagstaff@mdg.local", phone="+261340000017", display_name="Flag staff", is_staff=True)
         client = APIClient(); client.force_authenticate(staff)
         response = client.post("/api/v1/backoffice/feature-flags/", {"key": "game_results", "enabled": False, "reason": "Maintenance"}, format="json")
-        self.assertEqual(response.status_code, 200); self.assertFalse(FeatureFlag.objects.get(key="game_results").enabled)
+        self.assertEqual(response.status_code, 200); self.assertFalse(FeatureFlag.objects.get(key="game_results").enabled); self.assertTrue(AuditEvent.objects.filter(action="feature_flag.updated", target_id=str(FeatureFlag.objects.get(key="game_results").pk)).exists())
 
     def test_staff_can_hide_chat_message_and_action_is_audited(self):
         player = User.objects.create_user(email="chatplayer@mdg.local", phone="+261340000020", display_name="Chat player")

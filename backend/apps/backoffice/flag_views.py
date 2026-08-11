@@ -20,6 +20,7 @@ class FeatureFlagView(APIView):
         key = str(request.data.get("key", "")).strip()
         if not key or len(key) > 80: return Response({"detail": "Clé de feature flag invalide."}, status=400)
         flag, _ = FeatureFlag.objects.update_or_create(key=key, defaults={"enabled": bool(request.data.get("enabled", True)), "reason": str(request.data.get("reason", ""))[:255], "updated_by": request.user})
+        record_audit(request.user, "feature_flag.updated", flag, {"enabled": flag.enabled, "reason": flag.reason})
         return Response({"key": flag.key, "enabled": flag.enabled, "reason": flag.reason}, status=200)
 
 
