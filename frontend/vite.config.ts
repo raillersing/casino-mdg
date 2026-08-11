@@ -56,10 +56,10 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'i18n': ['i18next', 'react-i18next'],
-          'utils': ['zustand', 'axios', 'socket.io-client'],
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'react-vendor'
+          if (id.includes('node_modules/i18next') || id.includes('node_modules/react-i18next')) return 'i18n'
+          if (id.includes('node_modules/zustand') || id.includes('node_modules/axios') || id.includes('node_modules/socket.io-client')) return 'utils'
         },
       },
     },
