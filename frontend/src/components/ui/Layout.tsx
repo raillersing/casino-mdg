@@ -32,7 +32,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {user ? <><div className="avatar avatar-sm">{user.displayName[0]}</div><div><strong>{user.displayName}</strong><small>{t('profile.level', { level: user.level })}</small></div></> : <><div className="avatar avatar-sm muted">?</div><div><strong>{t('profile.visitor')}</strong><small>{t('profile.discovery')}</small></div></>}
         </div>
       </aside>
-      <section className="main-shell">
+      <div className="main-shell">
         <header className="topbar">
           <div className="mobile-brand"><span className="brand-mark">♠</span><strong>MDG</strong></div>
           <div className="breadcrumbs"><span>MDG Game Club</span><span className="slash">/</span><span className="current">{location.pathname === '/lobby' ? t('nav.lobby') : location.pathname === '/wallet' ? t('nav.wallet') : location.pathname === '/profile' ? t('nav.profile') : t('nav.home')}</span></div>
@@ -40,7 +40,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </header>
         <main className="content">{children}</main>
         <nav className="mobile-nav">{navItems.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => isActive ? 'active' : ''}><Icon size={19}/><span>{label}</span></NavLink>)}</nav>
-      </section>
+      </div>
     </div>
   )
 }
