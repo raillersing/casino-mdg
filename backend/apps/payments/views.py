@@ -21,6 +21,8 @@ class PaymentWebhookView(APIView):
         event_id = str(request.data.get("event_id", "")).strip(); event_type = str(request.data.get("event_type", "")).strip()
         if not event_id or not event_type: return Response({"detail": "Événement webhook invalide."}, status=400)
         event, created = WebhookInboxEvent.objects.get_or_create(provider=provider, event_id=event_id, defaults={"event_type": event_type, "payload": request.data, "status": "received"})
+        if not created and (event.event_type != event_type or event.payload != request.data):
+            return Response({"detail": "Identifiant webhook déjà utilisé avec un payload différent."}, status=409)
         if created:
             intent_id = request.data.get("intent_id")
             status_by_event = {"payment.processing": "processing", "payment.succeeded": "completed", "payment.failed": "failed", "payment.cancelled": "cancelled"}
