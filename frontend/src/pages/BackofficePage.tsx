@@ -53,6 +53,14 @@ export function BackofficePage() {
       average: number | null;
       p95: number | null;
     };
+    retention: Record<
+      "d1" | "d7",
+      {
+        eligible_actors: number;
+        returned_actors: number;
+        rate: number | null;
+      }
+    >;
   } | null>(null);
   useEffect(() => {
     if (!token) {
@@ -147,6 +155,24 @@ export function BackofficePage() {
         <div>
           <strong>{productSummary?.heartbeat_latency_ms.p95 ?? "—"}</strong>
           <span>Latence réseau p95 · ms</span>
+        </div>
+        <div>
+          <strong>
+            {productSummary?.retention.d1.rate === null ||
+            productSummary?.retention.d1.rate === undefined
+              ? "—"
+              : `${Math.round(productSummary.retention.d1.rate * 100)}%`}
+          </strong>
+          <span>Rétention D1 · acteurs éligibles</span>
+        </div>
+        <div>
+          <strong>
+            {productSummary?.retention.d7.rate === null ||
+            productSummary?.retention.d7.rate === undefined
+              ? "—"
+              : `${Math.round(productSummary.retention.d7.rate * 100)}%`}
+          </strong>
+          <span>Rétention D7 · acteurs éligibles</span>
         </div>
       </div>
       <div className="wallet-layout">
