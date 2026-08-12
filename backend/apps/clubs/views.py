@@ -58,6 +58,9 @@ def event_payload(event, user):
         "points_reward": event.points_reward,
         "status": event.status,
         "joined": event.participants.filter(user=user).exists(),
+        "rewarded": event.participants.filter(
+            user=user, rewarded_at__isnull=False
+        ).exists(),
     }
 
 
@@ -318,3 +321,45 @@ class ClubEventJoinView(APIView):
         return Response(
             event_payload(event, request.user), status=201 if created else 200
         )
+
+
+class ClubEventCompleteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, event_id):
+        with transaction.atomic():
+            try:
+                event = (
+                    ClubEvent.objects.select_for_update()
+                    .select_related("club")
+                    .get(pk=event_id)
+                )
+            except ClubEvent.DoesNotExist:
+                return Response({"detail": "Événement introuvable."}, status=404)
+            actor = membership_for(event.club, request.user)
+            if not actor or actor.role not in {"owner", "admin"}:
+                return Response(
+                    {"detail": "Permission responsable requise."}, status=403
+                )
+            if event.status == "completed":
+                return Response({"status": "completed", "awarded_count": 0})
+            if event.starts_at > timezone.now():
+                return Response(
+                    {"detail": "L’événement ne peut être clôturé avant sa date."},
+                    status=409,
+                )
+            awarded_count = 0
+            for participant in event.participants.select_for_update():
+                if participant.rewarded_at:
+                    continue
+                membership = ClubMembership.objects.select_for_update().get(
+                    club=event.club, user=participant.user
+                )
+                membership.points += event.points_reward
+                membership.save(update_fields=["points"])
+                participant.rewarded_at = timezone.now()
+                participant.save(update_fields=["rewarded_at"])
+                awarded_count += 1
+            event.status = "completed"
+            event.save(update_fields=["status"])
+            return Response({"status": "completed", "awarded_count": awarded_count})

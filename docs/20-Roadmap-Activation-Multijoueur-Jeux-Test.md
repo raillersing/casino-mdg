@@ -106,6 +106,11 @@ Les événements planifiés sont visibles dans le club et l’inscription est
 idempotente ; aucun prix en argent réel ni classement compétitif n’est créé par
 ce lot.
 
+La clôture est maintenant réservée aux responsables et verrouillée dans une
+transaction : elle refuse une date future, crédite une seule fois les points
+aux participants inscrits, puis marque l’événement terminé. Un rejeu de la
+requête ne double ni les points ni les participations.
+
 ## 3. Ordre de priorité
 
 | Priorité | Phase | Résultat attendu | Dépend de |

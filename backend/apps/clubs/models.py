@@ -91,6 +91,7 @@ class ClubEventParticipant(models.Model):
         related_name="club_event_participations",
     )
     joined_at = models.DateTimeField(auto_now_add=True)
+    rewarded_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "club_event_participants"

@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.clubs.models import Club, ClubEventParticipant, ClubMembership
+from apps.clubs.models import Club, ClubEvent, ClubEventParticipant, ClubMembership
 
 
 class ClubApiTests(TestCase):
@@ -119,3 +119,27 @@ class ClubApiTests(TestCase):
         self.assertEqual(joined.status_code, 201)
         self.assertEqual(replay.status_code, 200)
         self.assertEqual(ClubEventParticipant.objects.count(), 1)
+
+    def test_event_completion_awards_points_once_and_rejects_future_close(self):
+        self.client.force_authenticate(self.owner)
+        club = self.client.post("/api/v1/clubs/", {"name": "Close"}, format="json")
+        club_id = club.data["id"]
+        self.client.force_authenticate(self.member)
+        self.client.post(f"/api/v1/clubs/{club_id}/join/")
+        event = ClubEvent.objects.create(
+            club_id=club_id,
+            title="Close me",
+            starts_at=timezone.now() - timedelta(minutes=1),
+            points_reward=25,
+            created_by=self.owner,
+        )
+        ClubEventParticipant.objects.create(event=event, user=self.member)
+        self.client.force_authenticate(self.owner)
+        completed = self.client.post(f"/api/v1/clubs/events/{event.id}/complete/")
+        replay = self.client.post(f"/api/v1/clubs/events/{event.id}/complete/")
+        self.assertEqual(completed.status_code, 200)
+        self.assertEqual(completed.data["awarded_count"], 1)
+        self.assertEqual(replay.data["awarded_count"], 0)
+        self.assertEqual(
+            ClubMembership.objects.get(club_id=club_id, user=self.member).points, 25
+        )
