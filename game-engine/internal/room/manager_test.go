@@ -29,6 +29,38 @@ func TestActionsAreAuthoritativeAndMonotone(t *testing.T) {
 	}
 }
 
+func TestActionReplayByEventIDIsIdempotent(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
+	table := m.CreateTable("poker")
+	if _, err := m.JoinPlayer(table.ID, "p1", "Joueur", 1); err != nil {
+		t.Fatal(err)
+	}
+	first, replayed, err := m.ApplyActionIdempotent(table.ID, "p1", "check", 1, nil, "client-action-1")
+	if err != nil || replayed || first.Sequence != 2 {
+		t.Fatalf("first=%+v replayed=%v err=%v", first, replayed, err)
+	}
+	second, replayed, err := m.ApplyActionIdempotent(table.ID, "p1", "check", 1, nil, "client-action-1")
+	if err != nil || !replayed || second.ID != first.ID || second.Sequence != first.Sequence {
+		t.Fatalf("second=%+v replayed=%v err=%v", second, replayed, err)
+	}
+	if table.Sequence != 2 || len(table.Events) != 2 {
+		t.Fatalf("sequence=%d events=%d", table.Sequence, len(table.Events))
+	}
+}
+
+func TestEventIDCannotBeReusedForAnotherAction(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur", 1)
+	_, _, err := m.ApplyActionIdempotent(table.ID, "p1", "check", 1, nil, "client-action-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := m.ApplyActionIdempotent(table.ID, "p1", "fold", 1, nil, "client-action-1"); err == nil {
+		t.Fatal("event_id was accepted for another action")
+	}
+}
+
 func TestPokerStateValidatesCurrentPlayerAction(t *testing.T) {
 	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
 	table := m.CreateTable("poker")

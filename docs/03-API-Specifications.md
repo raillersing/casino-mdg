@@ -59,7 +59,7 @@ Intervalle client : toutes les 15s
   "table_id": "tbl_abc123",
   "action": "bet",
   "amount": 2000,
-  "request_id": "req_002",  // V2: obligatoire pour idempotence
+  "event_id": "evt_client_002",  // obligatoire pour rejouer sans doubler l'action
   "timestamp": 1723300800
 }
 

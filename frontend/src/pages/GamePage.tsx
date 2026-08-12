@@ -318,10 +318,15 @@ export function GamePage() {
       return;
     }
     setGameConnectionError("");
+    const eventId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     send({
       type: "action",
       table_id: engineTableId,
       action,
+      event_id: eventId,
       sequence,
       payload:
         actionPayload ?? (action === "bet" ? { amount: 800 } : undefined),

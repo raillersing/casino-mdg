@@ -48,8 +48,7 @@ déclaré, analytics de base, feedback pilote, invitations, notifications,
 clubs, tables réservées, événements de club, récompenses idempotentes,
 historique et classement privé.
 
-Les travaux restants sont des consolidations : renforcer les invariants de
-partie, enrichir les KPI du pilote, puis traiter
+Les travaux restants sont des consolidations : enrichir les KPI du pilote, puis traiter
 accessibilité, performance et contrôles de jeu responsable. La démo IA est
 maintenant jouable sur les trois variantes avec une session déterministe,
 une fin explicite, un replay et la mesure `first_game_completed`. Cette section est la référence
@@ -238,7 +237,7 @@ Les bots d’onboarding et le remplissage contrôlé d’une file sont des prati
 - Annuler ou relancer ne crée pas de doublon.
 - Le fallback IA est un choix visible et traçable.
 
-### Phase 4 — Multijoueur robuste — reconnexion client livrée
+### Phase 4 — Multijoueur robuste — reconnexion et idempotence livrées
 
 **Objectif :** rendre une vraie partie jouable sur plusieurs clients et réseau irrégulier.
 
@@ -246,17 +245,23 @@ Les bots d’onboarding et le remplissage contrôlé d’une file sont des prati
 la socket se réabonne après coupure, la séquence reçue est conservée et un
 `sync` est demandé pour reprendre les événements manquants. Le moteur Go
 conserve déjà le siège pendant la grace period et restaure les snapshots.
+Les actions portent maintenant un `event_id` client : un rejeu après coupure
+renvoie l’événement initial sans avancer la séquence ni republier un résultat.
+L’API `GameResult` conserve aussi un crédit unique par `game_id` et rejoue le
+même résultat sans créer de nouvelle transaction.
 
 **Tâches**
 
-- Finaliser les événements WebSocket versionnés et les snapshots de partie.
-- Ajouter reconnexion, heartbeat, grace period et reprise de l’état serveur.
-- Gérer les sièges, le départ de table, le remplacement et la fermeture sans fantôme.
-- Tester deux navigateurs, deux comptes, refresh pendant la partie et coupure réseau.
-- Ajouter un contrôle serveur de tour, de mise et de résultat ; le frontend ne fait jamais foi.
-- Créer une suite E2E avec données isolées et nettoyage transactionnel.
+- Livré : événements WebSocket, snapshots, heartbeat, grace period, reprise de
+  l’état et gestion des sièges sans fantôme.
+- Livré : tests de reconnexion et de parcours E2E avec données isolées.
+- À poursuivre : compléter le contrôle serveur de tour, de mise et de résultat
+  pour chaque variante, puis couvrir les scénarios à deux comptes réels.
 
-**Critères de sortie :** aucune partie ne dépend d’un état local du navigateur ; une reconnexion récupère un état cohérent ; un résultat ne peut être crédité deux fois.
+**Critères de sortie atteints pour ce lot :** une action rejouée est idempotente
+par `event_id`, la séquence et l’état ne progressent qu’une fois, et un résultat
+ne peut être crédité deux fois. Les tests métier et E2E de reconnexion restent
+la couverture de non-régression.
 
 ### Phase 5 — Mesure et pilote fermé
 

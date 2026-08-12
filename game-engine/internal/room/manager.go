@@ -214,37 +214,60 @@ func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, e
 }
 
 func (m *Manager) ApplyAction(tableID, playerID, action string, expectedSequence uint64, payload interface{}) (Event, error) {
+	event, _, err := m.ApplyActionIdempotent(tableID, playerID, action, expectedSequence, payload, "")
+	return event, err
+}
+
+// ApplyActionIdempotent applies an action once. A client may resend the same
+// event_id after a reconnect; in that case the original event is returned and
+// the game state/sequence are left untouched.
+func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expectedSequence uint64, payload interface{}, eventID string) (Event, bool, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
-		return Event{}, fmt.Errorf("table not found")
+		return Event{}, false, fmt.Errorf("table not found")
 	}
 	table.mu.Lock()
 	defer table.mu.Unlock()
 	if _, ok := table.Players[playerID]; !ok {
-		return Event{}, fmt.Errorf("player is not seated")
+		return Event{}, false, fmt.Errorf("player is not seated")
+	}
+	if eventID != "" {
+		for _, event := range table.Events {
+			if event.ID == eventID {
+				if event.PlayerID != playerID || event.Action != action {
+					return Event{}, false, fmt.Errorf("event_id already belongs to another action")
+				}
+				return event, true, nil
+			}
+		}
 	}
 	if expectedSequence != table.Sequence {
-		return Event{}, fmt.Errorf("stale sequence: expected %d", table.Sequence)
+		return Event{}, false, fmt.Errorf("stale sequence: expected %d", table.Sequence)
 	}
 	if !validActionForGame(table.GameType, action) {
-		return Event{}, fmt.Errorf("invalid action")
+		return Event{}, false, fmt.Errorf("invalid action")
 	}
 	if table.GameType == "poker" && table.State != nil {
 		if err := applyPokerAction(table, playerID, action, payload); err != nil {
-			return Event{}, err
+			return Event{}, false, err
 		}
 	}
 	if table.GameType == "belote" && table.State != nil {
 		if err := applyBeloteAction(table, playerID, action, payload); err != nil {
-			return Event{}, err
+			return Event{}, false, err
 		}
 	}
 	if table.GameType == "rami" && table.State != nil {
 		if err := applyRamiAction(table, playerID, action, payload); err != nil {
-			return Event{}, err
+			return Event{}, false, err
 		}
 	}
-	return appendEvent(table, playerID, action, payload), nil
+	event := appendEvent(table, playerID, action, payload)
+	if eventID != "" {
+		event.ID = eventID
+		table.Events[len(table.Events)-1].ID = eventID
+	}
+	return event, false, nil
 }
 
 func (m *Manager) DisconnectPlayer(tableID, playerID string) {

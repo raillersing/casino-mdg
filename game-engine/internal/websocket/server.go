@@ -319,13 +319,20 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		s.sendMessage(client, &Message{Type: MsgError, TableID: client.tableID, Payload: "spectator is read-only", Timestamp: time.Now()})
 		return
 	}
-	event, err := s.roomManager.ApplyAction(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload)
+	event, replayed, err := s.roomManager.ApplyActionIdempotent(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload, msg.EventID)
 	if err != nil {
 		s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
 		return
 	}
-	s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: event.Payload, EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp})
-	if msg.Action == "fold" {
+	actionMessage := &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: event.Payload, EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp}
+	if replayed {
+		// A retry still receives an acknowledgement, but must not make every
+		// player render the same action twice.
+		s.sendMessage(client, actionMessage)
+	} else {
+		s.broadcastToTable(msg.TableID, actionMessage)
+	}
+	if !replayed && msg.Action == "fold" {
 		payouts, finished := s.roomManager.FinishedPokerPayouts(msg.TableID)
 		if finished {
 			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, tableGameType(s.roomManager, msg.TableID), "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
@@ -337,7 +344,7 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			}
 		}
 	}
-	if msg.Action == "play_card" {
+	if !replayed && msg.Action == "play_card" {
 		winners, losers, points, finished := s.roomManager.FinishedBeloteResults(msg.TableID)
 		if finished {
 			for _, playerID := range winners {
@@ -348,7 +355,7 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			}
 		}
 	}
-	if msg.Action == "discard" {
+	if !replayed && msg.Action == "discard" {
 		winnerID, losers, amount, finished := s.roomManager.FinishedRamiResults(msg.TableID)
 		if finished {
 			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": amount, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "win", int(amount))}, Sequence: event.Sequence, Timestamp: time.Now()})
