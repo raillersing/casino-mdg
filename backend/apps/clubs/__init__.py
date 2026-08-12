@@ -1,1 +1,1 @@
-
+# Clubs domain package.
