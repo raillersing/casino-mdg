@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   Copy,
@@ -23,6 +23,7 @@ import { useWebSocket } from "@hooks/useWebSocket";
 export function GamePage() {
   const { t } = useTranslation();
   const { gameType, tableId } = useParams();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const demoAi = searchParams.get("mode") === "demo_ai";
   const spectator = searchParams.get("mode") === "spectator";
@@ -248,10 +249,17 @@ export function GamePage() {
     });
   };
 
+  const leaveTable = () => {
+    if (engineTableId && accessToken && !demoAi && !spectator) {
+      send({ type: "leave", table_id: engineTableId, sequence, timestamp: new Date().toISOString() });
+    }
+    navigate("/lobby");
+  };
+
   return (
     <div className="game-room">
       <div className="game-room-head">
-        <Link to="/lobby" className="back-link">
+        <Link to="/lobby" className="back-link" onClick={(event) => { event.preventDefault(); leaveTable(); }}>
           <ChevronLeft size={17} /> {t("game.leaveTable")}
         </Link>
         <div>
