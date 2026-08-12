@@ -68,3 +68,26 @@ export function getPilotFeedbackSummary(token: string) {
     };
   });
 }
+
+export function getPilotGateSummary(token: string) {
+  return fetch("/api/v1/analytics/pilot-gate/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(payload.detail || `Accès refusé (${response.status}).`);
+    return payload as {
+      window: string;
+      since: string;
+      status: "blocked" | "monitor" | "go_provisional";
+      criteria: Array<{
+        key: string;
+        label: string;
+        observed: number | null;
+        target: number;
+        unit: string;
+        status: "pass" | "pending" | "blocked";
+      }>;
+    };
+  });
+}
