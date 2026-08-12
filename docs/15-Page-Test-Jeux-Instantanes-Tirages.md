@@ -1,4 +1,4 @@
-# MDG Game Club — Page test des jeux instantanés et des tirages
+# MDG Game Club — Page des jeux de hasard instantanés et des tirages
 
 **Version :** 1.0
 **Date :** 11 août 2026
@@ -10,7 +10,7 @@
 
 ## 1. Objectif
 
-Créer une page test unique où l'équipe et les utilisateurs pilotes peuvent découvrir, jouer et comparer les deux familles retenues :
+Créer une page unique où l'équipe et les utilisateurs pilotes peuvent découvrir, jouer et comparer les deux familles de jeux de hasard retenues :
 
 - **jeux instantanés :** résultat en quelques secondes ;
 - **loterie et tirages :** participation avant une clôture et résultat publié à une heure donnée.
@@ -155,7 +155,7 @@ Le joueur ne doit jamais devoir jouer pour découvrir une règle importante.
 ```text
 Accueil / Lobby
       ↓
-Page « Jeux test »
+Page « Jeux de hasard »
       ↓
 Choix : Instantanés | Tirages
       ↓
@@ -196,7 +196,7 @@ Pour les tirages :
 
 ### 5.1 En-tête
 
-- fil d'Ariane : `MDG Game Club / Jeux test` ;
+- fil d'Ariane : `MDG Game Club / Jeux de hasard` ;
 - badge visible `MODE SIMULATION` ;
 - solde SIM actuel ;
 - lien vers portefeuille de simulation ;
@@ -431,7 +431,7 @@ type TestPlayResponse = {
 
 ### 8 bis.1 Décisions verrouillées avant le code
 
-Les éléments suivants doivent être considérés comme décidés pour la page test :
+Les éléments suivants doivent être considérés comme décidés pour la page des jeux de hasard :
 
 | Décision | Choix P0 |
 |---|---|
@@ -644,7 +644,7 @@ Le journal conserve les arbitrages et leurs raisons. Le glossaire fixe les terme
 - affichage FR et MG ;
 - viewport 320 px, 390 px et desktop.
 
-## 11. Métriques de la page test
+## 11. Métriques de la page des jeux de hasard
 
 Événements à instrumenter sans enregistrer de donnée sensible :
 
@@ -689,7 +689,7 @@ Ces métriques servent à améliorer l'interface et la compréhension. Elles ne 
 
 ## 13. Definition of Done
 
-La page test sera considérée terminée lorsque :
+La page des jeux de hasard sera considérée terminée lorsque :
 
 - les lots 1 à 3 sont implémentés et verts ;
 - les quatre jeux instantanés et les deux tirages P0 ont un parcours réel en SIM ;

@@ -13,7 +13,7 @@
     "navigation": "Navigation",
     "wallet": "Portefeuille",
     "profile": "Profil",
-    "testGames": "Jeux test",
+    "testGames": "Jeux de hasard",
     "clubs": "Clubs",
     "login": "Connexion",
     "logout": "Déconnexion"
@@ -84,7 +84,7 @@
       "instant": "Jeux instantanés",
       "draws": "Tirages",
       "simOnly": "Simulation uniquement",
-      "cta": "Ouvrir les jeux test"
+      "cta": "Ouvrir les jeux de hasard"
     },
     "games": {
       "poker": {
@@ -124,7 +124,7 @@
     "connecting": "Connexion…",
     "watch": "Voir la table",
     "privateHint": "Les tables privées apparaissent ici lorsque vos amis vous invitent.",
-    "testGames": "Jeux test",
+    "testGames": "Jeux de hasard",
     "spectate": "Regarder"
   },
   "wallet": {
@@ -246,7 +246,7 @@
     "discardCard": "Défausser"
   },
   "testGames": {
-    "breadcrumb": "Jeux test",
+    "breadcrumb": "Jeux de hasard",
     "simulation": "Laboratoire SIM · sans argent réel",
     "loginTitle": "Connectez-vous pour tester les jeux.",
     "loginBody": "Votre espace SIM et votre historique sont nécessaires pour jouer et vérifier chaque résultat.",
@@ -260,7 +260,7 @@
     "fairTitle": "Chaque résultat est traçable.",
     "fairBody": "Le serveur calcule le résultat, le ledger conserve la transaction et l’animation ne fait que le révéler.",
     "learnMore": "Voir l’équité",
-    "tabsLabel": "Sections des jeux test",
+    "tabsLabel": "Sections des jeux de hasard",
     "tabs": {
       "instant": "Instantanés",
       "draws": "Tirages",

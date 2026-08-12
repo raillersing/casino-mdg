@@ -87,7 +87,7 @@ test("expose spectator and demo AI journeys from the lobby", async ({
     /mode=spectator/,
   );
   await expect(
-    page.getByRole("link", { name: /Jeux test/i }).last(),
+    page.getByRole("link", { name: /Jeux de hasard/i }).last(),
   ).toHaveAttribute("href", /mode=demo_ai/);
 
   await page.getByRole("link", { name: /Regarder/i }).click();

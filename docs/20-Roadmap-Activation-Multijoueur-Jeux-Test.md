@@ -1,9 +1,9 @@
-# MDG Game Club — Roadmap active d’activation
+# MDG Game Club — Roadmap active d’activation des jeux de hasard
 
 **Version :** 2.0 — roadmap active
 **Date :** 12 août 2026
 **Statut :** planification approuvée, implémentation à poursuivre après validation des décisions ouvertes
-**Périmètre :** simulation uniquement, jeux instantanés, tirages et activation du multijoueur
+**Périmètre :** simulation uniquement, jeux instantanés, jeux de tirage et activation du multijoueur
 
 > Cette roadmap remplace la roadmap historique `IMPLEMENTATION-ROADMAP.md` pour l’ordre de livraison. Aucun jeu d’argent réel, paiement ou promesse de gain réel n’est inclus dans ce plan.
 
@@ -25,18 +25,34 @@ Les bots servent à réduire l’attente et à apprendre le jeu, jamais à gonfl
 
 ### Déjà disponible
 
-- `/games/test` existe et propose des jeux instantanés et des tirages en mode simulation.
+- `/games/test` existe techniquement et propose les jeux de hasard instantanés et les jeux de tirage en mode simulation.
 - Les parties test sont persistées côté backend et utilisent le portefeuille de simulation.
 - Les services cœur démarrent localement : backend, frontend, moteur Go, PostgreSQL, Redis, RabbitMQ.
 - Les endpoints `/healthz`, `/readyz`, `/metrics` et le health check du moteur Go répondent correctement.
-- Le lobby contient un accès aux jeux test.
+- Le lobby contient un accès aux jeux de hasard.
 
 ### Gaps restants après activation et multijoueur
 
 - Le pilote fermé reste à exécuter avec de vrais testeurs ; le feedback intégré et les seuils go/no-go sont livrés.
-- Les clubs privés et les notifications contrôlables restent à finaliser.
+- La modération avancée des clubs et le pilote avec de vrais testeurs restent à finaliser.
 - Le tableau de bord produit doit encore être enrichi avec la latence, les erreurs et la rétention D1/D7.
 - La frontière entre simulation, humain, bot et futur argent réel doit rester explicite dans chaque nouveau parcours.
+
+### État consolidé au 12 août 2026
+
+Les lots suivants sont déjà livrés et ne doivent pas être repris comme des
+tâches nouvelles : catalogue et page `/games/test`, accès accueil/lobby/
+navigation, portefeuille SIM, jeux instantanés et tirages persistés, présence
+et heartbeat, file de matchmaking avec annulation, timeout et fallback IA
+déclaré, analytics de base, feedback pilote, invitations, notifications,
+clubs, tables réservées, événements de club, récompenses idempotentes,
+historique et classement privé.
+
+Les travaux restants sont des consolidations : compléter la démo IA sur les
+parcours réellement jouables, renforcer la reconnexion WebSocket et les
+invariants de partie, enrichir les KPI du pilote, puis traiter accessibilité,
+performance et contrôles de jeu responsable. Cette section est la référence
+pour éviter de recréer une fonctionnalité déjà livrée.
 
 Le back-office expose désormais une décision assistée sur sept jours via
 `/api/v1/analytics/pilot-gate/`. Elle vérifie le volume de feedback, la note
@@ -44,7 +60,7 @@ moyenne, les parties terminées observées et les erreurs bloquantes. `GO provis
 ne remplace pas une revue humaine : il indique uniquement que les preuves
 quantitatives minimales sont réunies.
 
-### Lot en cours — Phase 5 : mesure et pilote fermé
+### Lot actif — Phase 5 : exécution du pilote fermé et consolidation
 
 Le socle de télémétrie est désormais implémenté : les événements d’activation sont
 acceptés anonymement ou associés à un compte, dédupliqués par `event_id`, limités
@@ -74,8 +90,8 @@ aucun basculement silencieux vers un bot n’est effectué. Les événements
 Le parcours de salle d’amis est également opérationnel : une table privée peut
 être créée depuis le lobby, elle est exclue de la liste publique et reste
 visible à son créateur et à ses membres. L’invitation existante constitue le
-seul accès de partage ; les clubs persistants et leurs rôles restent un lot
-distinct à planifier.
+seul accès de partage ; les clubs persistants, événements et classements sont
+désormais livrés et ne doivent pas être recréés.
 
 Les préférences de notifications sont persistées par compte et modifiables
 depuis le profil : invitations, matchmaking, tour de jeu et annonces produit
@@ -152,11 +168,11 @@ animer la communauté de simulation.
 
 ### Phase 1 — Découverte et activation
 
-**Objectif :** faire découvrir les jeux test sans lien direct et réduire le temps jusqu’à la première action.
+**Objectif :** faire découvrir les jeux de hasard sans lien direct et réduire le temps jusqu’à la première action.
 
 **Tâches**
 
-- Ajouter sur l’accueil un bloc “Jeux rapides” avec deux entrées : instantané et tirage.
+- Maintenir sur l’accueil un bloc “Jeux de hasard” avec deux entrées : instantané et tirage.
 - Ajouter un accès dans la navigation desktop, mobile, lobby et portefeuille.
 - Afficher une fiche par jeu : durée, coût en jetons simulation, mode disponible, gain simulé et bouton d’action.
 - Ajouter un onboarding en trois écrans maximum : simulation, différence humain/IA, règles responsables.
@@ -327,7 +343,7 @@ Phase 8 + décision externe ── Phase 9
 Ordre d’implémentation :
 
 1. Geler contrats, modes, flags, fixtures et événements.
-2. Rendre les jeux test visibles et le premier parcours mesurable.
+2. Consolider la visibilité des jeux de hasard et le premier parcours mesurable.
 3. Livrer Poker en démo IA, puis Belote et Rami.
 4. Livrer présence, file humaine, invitation et fallback explicite.
 5. Stabiliser WebSocket, reconnexion et invariants wallet.
@@ -357,7 +373,7 @@ Ces KPI mesurent l’activation et la qualité de la simulation ; ils ne doivent
 | Classement | humains uniquement | oui/non |
 | XP et missions IA | progression personnelle, sans classement compétitif | oui/non |
 | Événement tirage | hebdomadaire en simulation | fréquence |
-| Jeux test visibles | accueil, navigation, lobby, portefeuille | oui/non |
+| Jeux de hasard visibles | accueil, navigation, lobby, portefeuille | oui/non |
 
 En l’absence de nouvelle décision, ces valeurs servent de défaut de planification et restent derrière des feature flags.
 

@@ -13,7 +13,7 @@
     "navigation": "Fivezivezena",
     "wallet": "Kitapola",
     "profile": "Mombamomba",
-    "testGames": "Lalao fitsapana",
+    "testGames": "Lalao kisendrasendra",
     "clubs": "Kluby",
     "login": "Miditra",
     "logout": "Mivoaka"
@@ -71,7 +71,7 @@
       "instant": "Lalao haingana",
       "draws": "Tirage",
       "simOnly": "Simulation ihany",
-      "cta": "Sokafy ny lalao fitsapana"
+      "cta": "Sokafy ny lalao kisendrasendra"
     },
     "games": {
       "poker": {
@@ -111,7 +111,7 @@
     "connecting": "Mifandray…",
     "watch": "Jereo ny latabatra",
     "privateHint": "Hiseho eto ny latabatra manokana rehefa manasa anao ny namanao.",
-    "testGames": "Lalao fitsapana"
+    "testGames": "Lalao kisendrasendra"
   },
   "wallet": {
     "balance": "Vola",
@@ -232,7 +232,7 @@
     "discardCard": "Manary"
   },
   "testGames": {
-    "breadcrumb": "Lalao fitsapana",
+    "breadcrumb": "Lalao kisendrasendra",
     "simulation": "Laboratoara SIM · tsy misy vola tena izy",
     "loginTitle": "Midira raha hanandrana ny lalao.",
     "loginBody": "Ilaina ny toerana SIM sy ny tantaranao mba hilalaovana sy hanamarinana ny vokatra tsirairay.",
@@ -246,7 +246,7 @@
     "fairTitle": "Azo arahina ny vokatra.",
     "fairBody": "Ny serveur no manao ny vokatra, ny ledger no mitahiry ny transaction ary ny animation dia mampiseho azy fotsiny.",
     "learnMore": "Jereo ny fahitsiana",
-    "tabsLabel": "Fizarana amin'ny lalao fitsapana",
+    "tabsLabel": "Fizarana amin'ny lalao kisendrasendra",
     "tabs": {
       "instant": "Lalao haingana",
       "draws": "Tirage",

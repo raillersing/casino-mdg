@@ -1,8 +1,12 @@
-# MDG Game Club — Journal des décisions de la page Jeux test
+# MDG Game Club — Journal des décisions de la page Jeux de hasard
 
 **Version :** 1.0
 **Date :** 11 août 2026
 **Statut :** décisions de référence pour l'implémentation SIM
+
+**Terminologie :** « jeux de hasard » est le terme produit affiché. « jeux
+test » reste un identifiant historique réservé aux routes, événements
+analytics et noms de fichiers afin d’éviter une rupture technique.
 
 Ce document évite que le frontend, le backend, le moteur de hasard et la QA appliquent des règles différentes. Toute modification d'une décision doit être ajoutée ici avant modification du code.
 

@@ -1,8 +1,16 @@
-# MDG Game Club — Glossaire des jeux test
+# MDG Game Club — Glossaire des jeux de hasard
 
 **Version :** 1.0
 **Date :** 11 août 2026
 **Usage :** vocabulaire commun produit, UX, API, support et QA
+
+## Terme produit officiel
+
+Dans l’interface et les communications utilisateur, l’ancien terme **jeux
+test** est remplacé par **jeux de hasard**. Le périmètre reste explicitement
+en simulation : crédits SIM sans valeur monétaire, résultats persistés et
+règles visibles. Les routes et identifiants techniques historiques, notamment
+`/games/test` et `test_games_opened`, sont conservés pour compatibilité.
 
 ## Termes métier
 

@@ -35,7 +35,7 @@
 | **12** | **`12-UX-Premium.md`** | **Design system, animations, accessibilité, performance** | **UX/UI, Frontend** |
 | **13** | **`13-Product-10-10.md`** | **Critères de qualité et vision produit finale** | **CEO, PM, CTO, Investors** |
 | **14** | **`14-Implementation-Jeux-Instantanes-Loterie.md`** | **Implémentation des jeux instantanés et tirages, catalogue priorisé et conformité** | **CEO, PM, CTO, Backend, Frontend** |
-| **15** | **`15-Page-Test-Jeux-Instantanes-Tirages.md`** | **Spécification de la page test, UX, contrats, sécurité et critères d'acceptation** | **PM, UX/UI, Backend, Frontend, QA** |
+| **15** | **`15-Page-Test-Jeux-Instantanes-Tirages.md`** | **Spécification de la page des jeux de hasard, UX, contrats, sécurité et critères d'acceptation** | **PM, UX/UI, Backend, Frontend, QA** |
 | **16** | **`DECISIONS-JEUX-TEST.md`** | **Décisions verrouillées et points à confirmer avant pilote** | **PM, CTO, Compliance, QA** |
 | **17** | **`GLOSSAIRE-JEUX-TEST.md`** | **Vocabulaire commun produit, UX, API, support et QA** | **Tous** |
 | **18** | **`BUSINESS-MODEL-CASINO-MDG.md`** | **Modèle de revenus, commissions, sponsoring et white-label** | **CEO, Finance, PM** |
@@ -54,6 +54,13 @@
 ---
 
 ## 🎯 Architecture retenue V3
+
+### Navigation de l’implémentation
+
+La carte Graphify est régénérée après chaque lot et son état de référence est
+suivi dans [`GRAPHIFY-STATUS.md`](GRAPHIFY-STATUS.md). Avant toute nouvelle
+fonctionnalité, consulter ce fichier et le roadmap actif afin de réutiliser les
+routes, services et composants déjà livrés.
 
 ```
 Frontend    : React 18 + TypeScript + Vite + Tailwind + Socket.io + react-i18next (FR/MG)
