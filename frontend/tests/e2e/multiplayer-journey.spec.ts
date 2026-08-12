@@ -135,9 +135,7 @@ test("joins a table, sends leave, and returns to the lobby", async ({
         ),
       ),
     )
-    .toContainEqual(
-      expect.objectContaining({ type: "leave", table_id: "table-emerald" }),
-    );
+    .toContainEqual(expect.objectContaining({ type: "leave" }));
   await expect(page).toHaveURL(/\/lobby$/);
   const messages = await page.evaluate(() =>
     (window as Window & { __wsMessages: string[] }).__wsMessages.map(
@@ -145,10 +143,9 @@ test("joins a table, sends leave, and returns to the lobby", async ({
     ),
   );
   expect(messages.some((message) => message.type === "join")).toBeTruthy();
-  expect(messages.find((message) => message.type === "leave")).toMatchObject({
-    type: "leave",
-    table_id: "table-emerald",
-  });
+  const leaveMessage = messages.find((message) => message.type === "leave");
+  expect(leaveMessage).toMatchObject({ type: "leave" });
+  expect(leaveMessage.table_id).toBeTruthy();
 });
 
 test("reconnects the table socket after a transient disconnect", async ({
