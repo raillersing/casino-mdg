@@ -159,6 +159,26 @@ func (m *Manager) RemoveTable(id string) {
 	delete(m.tables, id)
 }
 
+// LeavePlayer removes a player who explicitly left. Unlike a transport
+// disconnect, an explicit leave does not preserve a grace-period seat.
+func (m *Manager) LeavePlayer(tableID, playerID string) bool {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return false
+	}
+	table.mu.Lock()
+	defer table.mu.Unlock()
+	if _, exists := table.Players[playerID]; !exists {
+		return false
+	}
+	delete(table.Players, playerID)
+	table.UpdatedAt = time.Now()
+	if len(table.Players) == 0 {
+		table.IsActive = false
+	}
+	return true
+}
+
 func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
@@ -166,6 +186,9 @@ func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, e
 	}
 	table.mu.Lock()
 	defer table.mu.Unlock()
+	if !table.IsActive {
+		return Event{}, fmt.Errorf("table is closed")
+	}
 	if existing, ok := table.Players[playerID]; ok {
 		existing.IsActive = true
 		existing.JoinedAt = time.Now()
@@ -244,6 +267,10 @@ func (m *Manager) DisconnectPlayer(tableID, playerID string) {
 		defer table.mu.Unlock()
 		if current, exists := table.Players[playerID]; exists && !current.IsActive && time.Now().After(deadline) {
 			delete(table.Players, playerID)
+			table.UpdatedAt = time.Now()
+			if len(table.Players) == 0 {
+				table.IsActive = false
+			}
 		}
 	}()
 }
