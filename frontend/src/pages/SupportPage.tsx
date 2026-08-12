@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, LifeBuoy, Send } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useGameStore } from "@stores/gameStore";
 import {
   createSupportTicket,
+  createPilotFeedback,
   getSupportTickets,
   type SupportTicket,
 } from "@services/support";
@@ -12,12 +13,17 @@ import { useTranslation } from "react-i18next";
 export function SupportPage() {
   const { t } = useTranslation();
   const token = useGameStore((state) => state.accessToken);
+  const [params] = useSearchParams();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [category, setCategory] = useState("other");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackCategory, setFeedbackCategory] = useState("gameplay");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState("");
   useEffect(() => {
     if (token)
       getSupportTickets(token)
@@ -42,6 +48,31 @@ export function SupportPage() {
       setMessage(error instanceof Error ? error.message : t("support.failed"));
     } finally {
       setLoading(false);
+    }
+  };
+  const submitFeedback = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!token) {
+      setFeedbackStatus(t("support.loginRequired"));
+      return;
+    }
+    try {
+      await createPilotFeedback(
+        token,
+        feedbackRating,
+        feedbackCategory,
+        feedbackMessage,
+        {
+          game_type: params.get("game_type") || undefined,
+          table_id: params.get("table_id") || undefined,
+        },
+      );
+      setFeedbackMessage("");
+      setFeedbackStatus("Merci, votre retour aide à améliorer le pilote.");
+    } catch (error) {
+      setFeedbackStatus(
+        error instanceof Error ? error.message : t("support.failed"),
+      );
     }
   };
   return (
@@ -102,6 +133,56 @@ export function SupportPage() {
             {loading ? t("support.sending") : t("support.send")}
           </button>
           {message && <p className="secure-note">{message}</p>}
+        </form>
+        <form className="payment-card" onSubmit={submitFeedback}>
+          <h3>Retour pilote</h3>
+          <p className="secure-note">
+            Votre avis est associé à votre session de test, sans valeur
+            commerciale.
+          </p>
+          <label className="field-label">
+            Note
+            <select
+              className="auth-name-field"
+              value={feedbackRating}
+              onChange={(event) =>
+                setFeedbackRating(Number(event.target.value))
+              }
+            >
+              {[5, 4, 3, 2, 1].map((value) => (
+                <option value={value} key={value}>
+                  {value} / 5
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-label">
+            Catégorie
+            <select
+              className="auth-name-field"
+              value={feedbackCategory}
+              onChange={(event) => setFeedbackCategory(event.target.value)}
+            >
+              <option value="gameplay">Expérience de jeu</option>
+              <option value="connection">Connexion</option>
+              <option value="clarity">Clarté</option>
+              <option value="other">Autre</option>
+            </select>
+          </label>
+          <label className="field-label">
+            Votre retour
+            <textarea
+              className="auth-name-field"
+              required
+              maxLength={1000}
+              rows={5}
+              value={feedbackMessage}
+              onChange={(event) => setFeedbackMessage(event.target.value)}
+              placeholder="Qu'est-ce qui vous a aidé ou bloqué ?"
+            />
+          </label>
+          <button className="button button-gold">Envoyer le feedback</button>
+          {feedbackStatus && <p className="secure-note">{feedbackStatus}</p>}
         </form>
         <section className="activity-card">
           <div className="chat-head">{t("support.yourTickets")}</div>

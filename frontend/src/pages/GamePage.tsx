@@ -509,6 +509,12 @@ export function GamePage() {
             <strong>100 / 200</strong>
           </div>
         </div>
+        <Link
+          to={`/support?game_type=${gameType || ""}&table_id=${engineTableId}`}
+          className="text-link"
+        >
+          Retour sur la partie
+        </Link>
       </div>
     </div>
   );

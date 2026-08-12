@@ -34,3 +34,16 @@ export function createSupportTicket(
     body: JSON.stringify({ category, subject, description }),
   });
 }
+
+export function createPilotFeedback(
+  token: string,
+  rating: number,
+  category: string,
+  message: string,
+  context: { game_type?: string; table_id?: string } = {},
+) {
+  return request<{ id: number; created: boolean }>("feedback/", token, {
+    method: "POST",
+    body: JSON.stringify({ rating, category, message, ...context }),
+  });
+}
