@@ -139,6 +139,32 @@ func TestDisconnectedPlayerCanReconnectDuringGracePeriod(t *testing.T) {
 	}
 }
 
+func TestExplicitLeaveRemovesPlayerAndClosesEmptyTable(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: time.Second})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur", 1)
+	if !m.LeavePlayer(table.ID, "p1") {
+		t.Fatal("leave was not applied")
+	}
+	if table.IsActive || len(table.Players) != 0 {
+		t.Fatalf("table active=%v players=%d", table.IsActive, len(table.Players))
+	}
+	if m.LeavePlayer(table.ID, "p1") {
+		t.Fatal("second leave should be idempotently ignored")
+	}
+}
+
+func TestGracePeriodExpiryClosesTableWhenLastPlayerIsGone(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 15 * time.Millisecond})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur", 1)
+	m.DisconnectPlayer(table.ID, "p1")
+	time.Sleep(35 * time.Millisecond)
+	if table.IsActive {
+		t.Fatal("empty table remained active after grace period")
+	}
+}
+
 func TestSnapshotRestoresSequenceAndEvents(t *testing.T) {
 	m := NewManager(&config.Config{GracePeriod: time.Second})
 	table := m.CreateTable("poker")

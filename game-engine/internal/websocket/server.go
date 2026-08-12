@@ -207,6 +207,11 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 	}
 
 	client.tableID = msg.TableID
+	if !table.IsActive {
+		s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: "table is closed", Timestamp: time.Now()})
+		client.tableID = ""
+		return
+	}
 	if msg.PlayerID != "" && msg.PlayerID != client.playerID {
 		s.sendMessage(client, &Message{Type: MsgError, Payload: "player identity mismatch", Timestamp: time.Now()})
 		return
@@ -214,7 +219,11 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 	s.addClient(client)
 	client.spectator = roleFromPayload(msg.Payload) == "spectator"
 	if !client.spectator {
-		_, _ = s.roomManager.JoinPlayer(msg.TableID, client.playerID, client.playerID, len(table.Players)+1)
+		if _, err := s.roomManager.JoinPlayer(msg.TableID, client.playerID, client.playerID, len(table.Players)+1); err != nil {
+			s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: err.Error(), Timestamp: time.Now()})
+			client.tableID = ""
+			return
+		}
 	}
 
 	state := map[string]interface{}{
@@ -288,7 +297,12 @@ func validGameType(gameType string) bool {
 }
 
 func (s *Server) handleLeave(client *Client, msg *Message) {
+	if client.tableID != "" && !client.spectator {
+		s.roomManager.LeavePlayer(client.tableID, client.playerID)
+	}
+	client.tableID = ""
 	s.removeClient(client)
+	s.sendMessage(client, &Message{Type: MsgLeave, Payload: map[string]interface{}{"left": true}, Timestamp: time.Now()})
 }
 
 func (s *Server) handleAction(client *Client, msg *Message) {
