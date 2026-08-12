@@ -2826,6 +2826,75 @@ h3 {
   height: 18px;
   accent-color: var(--gold);
 }
+.club-login-card {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 32px;
+}
+.club-login-card h1,
+.club-login-card p {
+  margin: 0;
+}
+.club-login-card p {
+  color: var(--muted);
+}
+.club-empty {
+  min-height: 180px;
+}
+.clubs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.club-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 215px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.club-card-top,
+.club-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.club-mark {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--gold);
+  background: rgba(211, 176, 107, 0.12);
+}
+.club-card h2 {
+  margin: 17px 0 6px;
+  font-size: 18px;
+}
+.club-card p {
+  min-height: 38px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.club-meta {
+  margin: auto 0 13px;
+  color: var(--soft);
+  font-size: 11px;
+}
+.club-role {
+  color: var(--gold);
+  font-size: 12px;
+}
+.create-table-modal textarea.text-input {
+  min-height: 80px;
+  resize: vertical;
+}
 .table-secondary-actions {
   display: flex;
   align-items: center;

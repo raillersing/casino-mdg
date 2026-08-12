@@ -14,6 +14,7 @@
     "wallet": "Portefeuille",
     "profile": "Profil",
     "testGames": "Jeux test",
+    "clubs": "Clubs",
     "login": "Connexion",
     "logout": "Déconnexion"
   },
@@ -330,6 +331,33 @@
   "promo": {
     "title": "Jouez avec vos proches.",
     "body": "Créez une table privée et invitez votre cercle."
+  },
+  "clubs": {
+    "eyebrow": "Communauté",
+    "title": "Les clubs MDG",
+    "intro": "Retrouvez des joueurs proches de vous et créez un cercle de jeu durable.",
+    "loginBody": "Connectez-vous pour découvrir les clubs et gérer vos adhésions.",
+    "create": "Créer un club",
+    "createTitle": "Nouveau club",
+    "name": "Nom du club",
+    "city": "Ville",
+    "description": "Description",
+    "visibility": "Accès",
+    "open": "Ouvert à tous",
+    "inviteOnly": "Sur invitation",
+    "join": "Rejoindre",
+    "empty": "Aucun club disponible pour le moment.",
+    "noDescription": "Un cercle de joueurs MDG.",
+    "anywhere": "Communauté MDG",
+    "cancel": "Annuler",
+    "submit": "Créer le club",
+    "creating": "Création…",
+    "close": "Fermer",
+    "roles": {
+      "owner": "Fondateur",
+      "admin": "Administrateur",
+      "member": "Membre"
+    }
   },
   "profile": {
     "level": "Joueur niveau {{level}}",
