@@ -122,9 +122,7 @@ class ProductEventSummaryView(APIView):
                     if completed
                     else None
                 ),
-                "reconnections_succeeded": counts.get(
-                    "reconnection_succeeded", 0
-                ),
+                "reconnections_succeeded": counts.get("reconnection_succeeded", 0),
                 "heartbeat_latency_ms": {
                     "samples": len(heartbeat_latencies),
                     "average": (
@@ -132,9 +130,9 @@ class ProductEventSummaryView(APIView):
                         if heartbeat_latencies
                         else None
                     ),
-                    "p95": heartbeat_latencies[p95_index]
-                    if heartbeat_latencies
-                    else None,
+                    "p95": (
+                        heartbeat_latencies[p95_index] if heartbeat_latencies else None
+                    ),
                 },
             }
         )

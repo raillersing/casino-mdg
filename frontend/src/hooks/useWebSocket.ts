@@ -105,7 +105,9 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
           (message.type === "pong" || message.type === "heartbeat") &&
           heartbeatSentAt.current !== null
         ) {
-          const latencyMs = Math.round(performance.now() - heartbeatSentAt.current);
+          const latencyMs = Math.round(
+            performance.now() - heartbeatSentAt.current,
+          );
           heartbeatSentAt.current = null;
           void trackEvent("heartbeat_latency", {
             metadata: { latency_ms: latencyMs },
