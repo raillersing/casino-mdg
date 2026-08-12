@@ -127,8 +127,18 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   await expect(page.getByText(/Connecté/)).toBeVisible({ timeout: 10_000 });
 
   await page.getByRole("link", { name: /Quitter la table/i }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as Window & { __wsMessages: string[] }).__wsMessages.map(
+          JSON.parse,
+        ),
+      ),
+    )
+    .toContainEqual(
+      expect.objectContaining({ type: "leave", table_id: "table-emerald" }),
+    );
   await expect(page).toHaveURL(/\/lobby$/);
-
   const messages = await page.evaluate(() =>
     (window as Window & { __wsMessages: string[] }).__wsMessages.map(
       JSON.parse,
