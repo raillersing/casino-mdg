@@ -395,6 +395,16 @@
   "a11y": {
     "changeLanguage": "Changer de langue",
     "notifications": "Notifications",
+    "notificationSettings": "Mes préférences",
+    "notificationInvites": "Invitations de table",
+    "notificationInvitesHint": "Recevoir les invitations de vos amis",
+    "notificationMatchmaking": "Matchmaking",
+    "notificationMatchmakingHint": "Être informé lorsqu’un humain est trouvé",
+    "notificationTurns": "Tour de jeu",
+    "notificationTurnsHint": "Recevoir un rappel quand c’est à vous",
+    "notificationProduct": "Nouveautés du club",
+    "notificationProductHint": "Recevoir les annonces produit non urgentes",
+    "notificationsError": "Impossible d’enregistrer cette préférence.",
     "openProfile": "Ouvrir le profil",
     "openMenu": "Ouvrir le menu",
     "close": "Fermer"

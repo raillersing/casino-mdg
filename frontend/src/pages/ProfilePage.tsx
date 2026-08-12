@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Award,
+  Bell,
   ChevronRight,
   Edit3,
   LogOut,
@@ -18,6 +19,11 @@ import {
   getDailyMissions,
   type DailyMission,
 } from "@services/missions";
+import {
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  type NotificationPreferences,
+} from "@services/notifications";
 
 export function ProfilePage() {
   const { t } = useTranslation();
@@ -36,6 +42,9 @@ export function ProfilePage() {
   const [kyc, setKyc] = useState<KYCStatus | null>(null);
   const [missions, setMissions] = useState<DailyMission[]>([]);
   const [missionError, setMissionError] = useState("");
+  const [notificationPreferences, setNotificationPreferences] =
+    useState<NotificationPreferences | null>(null);
+  const [notificationError, setNotificationError] = useState("");
 
   useEffect(() => {
     if (!accessToken) return;
@@ -56,7 +65,29 @@ export function ProfilePage() {
     getDailyMissions(accessToken)
       .then((payload) => setMissions(payload.missions))
       .catch(() => undefined);
-  }, [accessToken, name]);
+    getNotificationPreferences(accessToken)
+      .then(setNotificationPreferences)
+      .catch(() => setNotificationError(t("profile.notificationsError")));
+  }, [accessToken, name, t]);
+
+  const toggleNotification = async (
+    field: keyof NotificationPreferences,
+    value: boolean,
+  ) => {
+    if (!accessToken || !notificationPreferences) return;
+    const previous = notificationPreferences;
+    setNotificationPreferences({ ...previous, [field]: value });
+    try {
+      const updated = await updateNotificationPreferences(accessToken, {
+        [field]: value,
+      });
+      setNotificationPreferences(updated);
+      setNotificationError("");
+    } catch {
+      setNotificationPreferences(previous);
+      setNotificationError(t("profile.notificationsError"));
+    }
+  };
 
   const claimMission = async (mission: DailyMission) => {
     if (!accessToken) return;
@@ -184,6 +215,42 @@ export function ProfilePage() {
               <ChevronRight size={17} />
             </div>
           </div>
+          <div className="section-heading compact notification-heading">
+            <div>
+              <span className="eyebrow">{t("profile.notifications")}</span>
+              <h2>{t("profile.notificationSettings")}</h2>
+            </div>
+            <Bell size={19} />
+          </div>
+          {notificationPreferences && (
+            <div className="notification-settings">
+              {(
+                [
+                  ["game_invites", "notificationInvites"],
+                  ["matchmaking", "notificationMatchmaking"],
+                  ["table_turns", "notificationTurns"],
+                  ["product_updates", "notificationProduct"],
+                ] as const
+              ).map(([field, label]) => (
+                <label className="notification-setting" key={field}>
+                  <span>
+                    <strong>{t(`profile.${label}`)}</strong>
+                    <small>{t(`profile.${label}Hint`)}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={notificationPreferences[field]}
+                    onChange={(event) =>
+                      void toggleNotification(field, event.target.checked)
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+          )}
+          {notificationError && (
+            <p className="form-error">{notificationError}</p>
+          )}
         </section>
         <aside>
           <section className="activity-card">

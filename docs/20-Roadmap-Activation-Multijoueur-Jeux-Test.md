@@ -77,6 +77,11 @@ visible à son créateur et à ses membres. L’invitation existante constitue l
 seul accès de partage ; les clubs persistants et leurs rôles restent un lot
 distinct à planifier.
 
+Les préférences de notifications sont persistées par compte et modifiables
+depuis le profil : invitations, matchmaking, tour de jeu et annonces produit
+sont séparés. Les annonces produit sont désactivées par défaut ; une erreur de
+sauvegarde restaure immédiatement le choix précédent dans l’interface.
+
 ## 3. Ordre de priorité
 
 | Priorité | Phase | Résultat attendu | Dépend de |

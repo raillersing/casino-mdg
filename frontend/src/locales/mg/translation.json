@@ -394,6 +394,16 @@
   "a11y": {
     "changeLanguage": "Hanova fiteny",
     "notifications": "Fampandrenesana",
+    "notificationSettings": "Safidiko",
+    "notificationInvites": "Fanasana latabatra",
+    "notificationInvitesHint": "Mahazoa fanasana avy amin'ny namana",
+    "notificationMatchmaking": "Matchmaking",
+    "notificationMatchmakingHint": "Ampahafantaro rehefa misy mpilalao tena izy",
+    "notificationTurns": "Anjaranao",
+    "notificationTurnsHint": "Ampahafantaro rehefa anjaranao ny milalao",
+    "notificationProduct": "Vaovao avy amin'ny klioba",
+    "notificationProductHint": "Mahazoa vaovao tsy maika momba ny vokatra",
+    "notificationsError": "Tsy afaka mitahiry ity safidy ity.",
     "openProfile": "Sokafy ny mombamomba",
     "openMenu": "Sokafy ny sakafo",
     "close": "Hakatona"
