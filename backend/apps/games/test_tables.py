@@ -54,6 +54,31 @@ class TableApiTests(TestCase):
         self.assertEqual(rejected.status_code, 409)
         self.assertEqual(table.seats.count(), 2)
 
+    def test_club_table_is_visible_and_joinable_only_by_club_members(self):
+        from apps.clubs.models import Club, ClubMembership
+
+        club = Club.objects.create(name="Club tables", owner=self.user)
+        ClubMembership.objects.create(club=club, user=self.user, role="owner")
+        table = GameTable.objects.create(
+            table_code="club-table-001",
+            name="Table club",
+            game_type="poker",
+            is_private=True,
+            club=club,
+            created_by=self.user,
+        )
+        stranger = User.objects.create_user(
+            email="club-stranger@mdg.local",
+            phone="+261340000099",
+            display_name="Club Stranger",
+        )
+        self.client.force_authenticate(stranger)
+        listed = self.client.get("/api/v1/games/tables/")
+        self.assertNotIn(str(table.id), {item["id"] for item in listed.data["results"]})
+        self.assertEqual(
+            self.client.post(f"/api/v1/games/tables/{table.id}/join/").status_code, 403
+        )
+
     def test_private_table_is_hidden_from_strangers_but_visible_to_owner(self):
         table = GameTable.objects.create(
             table_code="private-001",

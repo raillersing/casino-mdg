@@ -2898,6 +2898,9 @@ h3 {
   justify-content: space-between;
   gap: 10px;
 }
+.club-card-actions {
+  flex-wrap: wrap;
+}
 .club-members-panel {
   padding: 18px;
   border: 1px solid var(--line);

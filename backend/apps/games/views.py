@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.backoffice.services import is_feature_enabled, record_audit
+from apps.clubs.models import ClubMembership
 from apps.wallet.services import credit_simulation_reward, settle_game_win
 
 from .matchmaking import active_presence, cancel_ticket, queue_player
@@ -66,6 +67,8 @@ def table_payload(table, request):
         "max_players": table.max_players,
         "status": table.status,
         "is_private": table.is_private,
+        "club_id": str(table.club_id) if table.club_id else None,
+        "club_name": table.club.name if table.club_id else None,
         "joined": bool(
             request.user.is_authenticated
             and table.seats.filter(user=request.user).exists()
@@ -85,7 +88,11 @@ class TableListCreateView(APIView):
         seed_demo_tables()
         visibility = Q(is_private=False)
         if request.user.is_authenticated:
-            visibility |= Q(created_by=request.user) | Q(seats__user=request.user)
+            visibility |= (
+                Q(created_by=request.user)
+                | Q(seats__user=request.user)
+                | Q(club__memberships__user=request.user)
+            )
         tables = (
             GameTable.objects.exclude(status="finished")
             .filter(visibility)
@@ -113,12 +120,33 @@ class TableListCreateView(APIView):
             return Response(
                 {"detail": "Le nombre de joueurs est invalide."}, status=400
             )
+        club = None
+        club_id = request.data.get("club_id")
+        if club_id:
+            try:
+                club = ClubMembership.objects.select_related("club").get(
+                    club_id=club_id, user=request.user
+                )
+            except ClubMembership.DoesNotExist:
+                return Response(
+                    {
+                        "detail": "Vous devez être membre du club pour créer cette table."
+                    },
+                    status=403,
+                )
+            if club.role not in {"owner", "admin"}:
+                return Response(
+                    {"detail": "Seuls les responsables peuvent créer une table club."},
+                    status=403,
+                )
+            club = club.club
         table = GameTable.objects.create(
             name=str(request.data.get("name", "Ma table"))[:80],
             game_type=game_type,
             stakes=str(request.data.get("stakes", "Gratuit"))[:40],
             max_players=max_players,
-            is_private=bool(request.data.get("is_private", False)),
+            is_private=bool(request.data.get("is_private", False)) or club is not None,
+            club=club,
             created_by=request.user,
             table_code=f"{game_type}-{str(GameTable.objects.count() + 1).zfill(3)}",
         )
@@ -132,9 +160,23 @@ class TableJoinView(APIView):
     def post(self, request, table_id):
         try:
             table = GameTable.objects.get(pk=table_id)
-            if table.is_private and not (
-                table.created_by_id == request.user.pk
-                or table.seats.filter(user=request.user).exists()
+            if (
+                table.club_id
+                and not ClubMembership.objects.filter(
+                    club_id=table.club_id, user=request.user
+                ).exists()
+            ):
+                return Response(
+                    {"detail": "Cette table est réservée aux membres du club."},
+                    status=403,
+                )
+            if (
+                table.is_private
+                and not table.club_id
+                and not (
+                    table.created_by_id == request.user.pk
+                    or table.seats.filter(user=request.user).exists()
+                )
             ):
                 return Response(
                     {"detail": "Cette salle est accessible sur invitation."},
