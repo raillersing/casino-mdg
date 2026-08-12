@@ -8,6 +8,8 @@ export type GameTable = {
   player_count: number;
   status: "open" | "running" | "finished";
   is_private: boolean;
+  club_id: string | null;
+  club_name: string | null;
 };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -33,6 +35,7 @@ export function createTable(
     game_type: "poker" | "belote" | "rami";
     max_players: number;
     is_private: boolean;
+    club_id?: string;
   },
 ) {
   return request<GameTable>("tables/", {

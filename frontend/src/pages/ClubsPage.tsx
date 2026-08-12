@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Lock, Plus, UsersRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useGameStore } from "@stores/gameStore";
@@ -13,10 +13,12 @@ import {
   type Club,
   type ClubMember,
 } from "@services/clubs";
+import { createTable } from "@services/games";
 
 export function ClubsPage() {
   const { t } = useTranslation();
   const accessToken = useGameStore((state) => state.accessToken);
+  const navigate = useNavigate();
   const [clubs, setClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -139,6 +141,21 @@ export function ClubsPage() {
     }
   };
 
+  const createClubTable = async (club: Club) => {
+    try {
+      const table = await createTable(accessToken, {
+        name: `${club.name} · Table`,
+        game_type: "poker",
+        max_players: 4,
+        is_private: true,
+        club_id: club.id,
+      });
+      navigate(`/game/${table.game_type}/${table.table_code}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("app.error"));
+    }
+  };
+
   return (
     <div className="page-stack">
       <div className="page-title-row">
@@ -191,12 +208,20 @@ export function ClubsPage() {
                     {t(`clubs.roles.${club.role}`)}
                   </span>
                   {(club.role === "owner" || club.role === "admin") && (
-                    <button
-                      className="text-link"
-                      onClick={() => void manage(club)}
-                    >
-                      {t("clubs.manage")}
-                    </button>
+                    <>
+                      <button
+                        className="text-link"
+                        onClick={() => void manage(club)}
+                      >
+                        {t("clubs.manage")}
+                      </button>
+                      <button
+                        className="text-link"
+                        onClick={() => void createClubTable(club)}
+                      >
+                        {t("clubs.createTable")}
+                      </button>
+                    </>
                   )}
                 </div>
               ) : (

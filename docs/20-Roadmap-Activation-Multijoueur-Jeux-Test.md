@@ -94,6 +94,12 @@ retrait. Le fondateur est protégé et un administrateur ne peut pas modifier un
 autre administrateur ; ces règles sont contrôlées par l’API et non seulement par
 l’interface.
 
+Les tables réservées sont maintenant rattachables à un club : seuls les
+membres peuvent les voir et les rejoindre, et seuls le fondateur ou un
+administrateur peuvent les créer. Le parcours Clubs propose une création
+rapide de table Poker de simulation ; les variantes, horaires et règles de
+club pourront être ajoutés sans changer le contrôle d’accès serveur.
+
 ## 3. Ordre de priorité
 
 | Priorité | Phase | Résultat attendu | Dépend de |

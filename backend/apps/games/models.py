@@ -15,6 +15,13 @@ class GameTable(models.Model):
     max_players = models.PositiveSmallIntegerField(default=4)
     status = models.CharField(max_length=20, choices=STATUSES, default="open")
     is_private = models.BooleanField(default=False)
+    club = models.ForeignKey(
+        "clubs.Club",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="tables",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
