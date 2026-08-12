@@ -28,6 +28,8 @@ from .models import (
 from .services import join_table, seed_demo_tables
 from .test_games import create_draw_entry, draw_now, ensure_test_catalog, play_instant
 
+MATCHMAKING_TIMEOUT_SECONDS = 20
+
 
 def game_result_signature_payload(game_id, game_type, outcome, amount, metadata):
     return json.dumps(
@@ -139,6 +141,7 @@ class TableJoinView(APIView):
 
 
 def matchmaking_payload(ticket):
+    waiting_seconds = max(0, int((timezone.now() - ticket.created_at).total_seconds()))
     return {
         "ticket_id": str(ticket.id),
         "game_type": ticket.game_type,
@@ -148,6 +151,8 @@ def matchmaking_payload(ticket):
             ticket.matched_table.table_code if ticket.matched_table_id else None
         ),
         "created_at": ticket.created_at.isoformat(),
+        "waiting_seconds": waiting_seconds,
+        "timeout_seconds": MATCHMAKING_TIMEOUT_SECONDS,
     }
 
 
@@ -174,6 +179,12 @@ class MatchmakingStatusView(APIView):
                 "game_type": game_type,
                 "human_online": active.count(),
                 "queued": queued.count(),
+                "estimated_wait_seconds": (
+                    0
+                    if queued.exclude(user=request.user).exists()
+                    else MATCHMAKING_TIMEOUT_SECONDS
+                ),
+                "timeout_seconds": MATCHMAKING_TIMEOUT_SECONDS,
                 "ticket": matchmaking_payload(ticket) if ticket else None,
             }
         )

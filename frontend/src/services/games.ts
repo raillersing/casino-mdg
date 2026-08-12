@@ -33,11 +33,15 @@ export type MatchmakingTicket = {
   table_id: string | null;
   table_code: string | null;
   created_at: string;
+  waiting_seconds: number;
+  timeout_seconds: number;
 };
 export type MatchmakingStatus = {
   game_type: string | null;
   human_online: number;
   queued: number;
+  estimated_wait_seconds: number;
+  timeout_seconds: number;
   ticket: MatchmakingTicket | null;
 };
 

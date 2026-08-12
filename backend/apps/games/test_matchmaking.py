@@ -25,6 +25,7 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(heartbeat.status_code, 200)
         status = self.client.get("/api/v1/games/matchmaking/status/?game_type=poker")
         self.assertEqual(status.data["human_online"], 1)
+        self.assertEqual(status.data["estimated_wait_seconds"], 20)
         self.assertEqual(PlayerPresence.objects.count(), 1)
 
     def test_queue_is_idempotent_and_second_human_gets_a_table(self):
@@ -50,6 +51,23 @@ class MatchmakingApiTests(TestCase):
         table = GameTable.objects.get(pk=matched.data["ticket"]["table_id"])
         self.assertEqual(TableSeat.objects.filter(table=table).count(), 2)
         self.assertEqual(MatchmakingTicket.objects.filter(status="matched").count(), 2)
+
+    def test_status_exposes_waiting_time_and_immediate_estimate_with_another_player(
+        self,
+    ):
+        self.client.force_authenticate(self.first)
+        queued = self.client.post(
+            "/api/v1/games/matchmaking/queue/", {"game_type": "rami"}, format="json"
+        )
+        self.assertEqual(queued.data["ticket"]["waiting_seconds"], 0)
+        self.client.force_authenticate(self.second)
+        self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "rami"},
+            format="json",
+        )
+        status = self.client.get("/api/v1/games/matchmaking/status/?game_type=rami")
+        self.assertEqual(status.data["estimated_wait_seconds"], 0)
 
     def test_cancel_removes_ticket_from_queue(self):
         self.client.force_authenticate(self.first)

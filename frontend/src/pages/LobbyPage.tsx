@@ -37,9 +37,12 @@ export function LobbyPage() {
     "poker" | "belote" | "rami";
   const [matchStatus, setMatchStatus] = useState<{
     human_online: number;
+    estimated_wait_seconds: number;
     ticket: MatchmakingTicket | null;
-  }>({ human_online: 0, ticket: null });
+  }>({ human_online: 0, estimated_wait_seconds: 20, ticket: null });
   const [matchError, setMatchError] = useState("");
+  const [waitingSeconds, setWaitingSeconds] = useState(0);
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -59,6 +62,7 @@ export function LobbyPage() {
         .then(([, status]) =>
           setMatchStatus({
             human_online: status.human_online,
+            estimated_wait_seconds: status.estimated_wait_seconds,
             ticket: status.ticket,
           }),
         )
@@ -75,6 +79,7 @@ export function LobbyPage() {
         .then((status) => {
           setMatchStatus({
             human_online: status.human_online,
+            estimated_wait_seconds: status.estimated_wait_seconds,
             ticket: status.ticket,
           });
           if (status.ticket?.status === "matched" && status.ticket.table_code)
@@ -92,12 +97,41 @@ export function LobbyPage() {
     return () => window.clearInterval(timer);
   }, [accessToken, matchStatus.ticket?.status, matchmakingGame, navigate]);
 
+  useEffect(() => {
+    const ticket = matchStatus.ticket;
+    if (!ticket || ticket.status !== "queued") {
+      setWaitingSeconds(0);
+      return;
+    }
+    const updateWaiting = () => {
+      const elapsed = Math.max(
+        0,
+        Math.floor((Date.now() - Date.parse(ticket.created_at)) / 1000),
+      );
+      setWaitingSeconds(elapsed);
+      if (elapsed >= ticket.timeout_seconds) {
+        setTimedOut((current) => {
+          if (!current)
+            void trackEvent("matchmaking_timeout", {
+              game_type: matchmakingGame,
+            });
+          return true;
+        });
+      }
+    };
+    updateWaiting();
+    const timer = window.setInterval(updateWaiting, 1000);
+    return () => window.clearInterval(timer);
+  }, [matchStatus.ticket, matchmakingGame]);
+
   const findHuman = async () => {
     if (!accessToken) {
       navigate("/auth");
       return;
     }
     setMatchError("");
+    setTimedOut(false);
+    setWaitingSeconds(0);
     try {
       const result = await queueMatch(accessToken, matchmakingGame);
       setMatchStatus((current) => ({ ...current, ticket: result.ticket }));
@@ -105,6 +139,15 @@ export function LobbyPage() {
         game_type: matchmakingGame,
         metadata: { source: "lobby" },
       });
+      if (result.ticket.status === "matched" && result.ticket.table_code) {
+        void trackEvent("human_match_found", {
+          game_type: result.ticket.game_type,
+          metadata: { table_code: result.ticket.table_code },
+        });
+        navigate(
+          `/game/${result.ticket.game_type}/${result.ticket.table_code}`,
+        );
+      }
     } catch (reason) {
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
     }
@@ -115,6 +158,8 @@ export function LobbyPage() {
     try {
       await cancelMatch(accessToken, matchStatus.ticket.ticket_id);
       setMatchStatus((current) => ({ ...current, ticket: null }));
+      setTimedOut(false);
+      setWaitingSeconds(0);
       void trackEvent("matchmaking_cancelled", { game_type: matchmakingGame });
     } catch (reason) {
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
@@ -124,6 +169,7 @@ export function LobbyPage() {
   const shown = tables.filter((table) =>
     table.name.toLowerCase().includes(query.toLowerCase()),
   );
+  const demoTable = tables.find((table) => table.game_type === matchmakingGame);
   const join = async (table: GameTable) => {
     if (!accessToken) return;
     setJoining(table.id);
@@ -204,7 +250,12 @@ export function LobbyPage() {
           </strong>
           <span>
             {matchStatus.ticket?.status === "queued"
-              ? t("searchingHuman")
+              ? timedOut
+                ? t("matchmakingTimedOut", { seconds: waitingSeconds })
+                : t("searchingHuman", {
+                    seconds: waitingSeconds,
+                    estimate: matchStatus.estimated_wait_seconds,
+                  })
               : t("lobby.fillFast")}
           </span>
         </div>
@@ -226,6 +277,47 @@ export function LobbyPage() {
       {matchError && (
         <div className="empty-note">
           <span>{matchError}</span>
+        </div>
+      )}
+      {timedOut && matchStatus.ticket?.status === "queued" && (
+        <div className="matchmaking-timeout" role="status">
+          <div>
+            <strong>{t("matchmakingTimeoutTitle")}</strong>
+            <span>{t("matchmakingTimeoutBody")}</span>
+          </div>
+          <div className="matchmaking-timeout-actions">
+            <button
+              className="button button-small"
+              onClick={() => void cancelSearch()}
+            >
+              {t("cancelSearch")}
+            </button>
+            {demoTable ? (
+              <Link
+                className="button button-outline button-small"
+                to={`/game/${demoTable.game_type}/${demoTable.table_code}?mode=demo_ai`}
+                onClick={() =>
+                  void trackEvent("bot_fallback_started", {
+                    game_type: matchmakingGame,
+                  })
+                }
+              >
+                <Sparkles size={14} /> {t("tryDemo")}
+              </Link>
+            ) : (
+              <Link
+                className="button button-outline button-small"
+                to="/games/test"
+                onClick={() =>
+                  void trackEvent("bot_fallback_started", {
+                    game_type: matchmakingGame,
+                  })
+                }
+              >
+                <Sparkles size={14} /> {t("tryDemo")}
+              </Link>
+            )}
+          </div>
         </div>
       )}
       {error && (

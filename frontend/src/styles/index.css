@@ -2699,6 +2699,35 @@ h3 {
 .matchmaking-actions .button {
   white-space: nowrap;
 }
+.matchmaking-timeout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 17px;
+  border: 1px solid rgba(218, 170, 74, 0.45);
+  border-radius: 8px;
+  background: rgba(218, 170, 74, 0.1);
+}
+.matchmaking-timeout strong,
+.matchmaking-timeout span {
+  display: block;
+}
+.matchmaking-timeout strong {
+  color: var(--gold);
+  font-size: 13px;
+}
+.matchmaking-timeout span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.matchmaking-timeout-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 .table-secondary-actions {
   display: flex;
   align-items: center;

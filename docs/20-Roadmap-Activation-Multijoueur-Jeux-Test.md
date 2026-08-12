@@ -34,7 +34,7 @@ Les bots servent à réduire l’attente et à apprendre le jeu, jamais à gonfl
 ### Gaps restants après activation et multijoueur
 
 - Le pilote fermé reste à exécuter avec de vrais testeurs ; le feedback intégré et les seuils go/no-go sont livrés.
-- L’estimation d’attente et les clubs privés restent à finaliser.
+- Les clubs privés et les notifications contrôlables restent à finaliser.
 - Le tableau de bord produit doit encore être enrichi avec la latence, les erreurs et la rétention D1/D7.
 - La frontière entre simulation, humain, bot et futur argent réel doit rester explicite dans chaque nouveau parcours.
 
@@ -64,6 +64,12 @@ automatiquement sa destination. L’acceptation serveur est atomique, limitée �
 un usage, rejouable sans créer un second siège par le même joueur, auditée et
 mesurée par `invite_sent` / `invite_joined`. Une invitation expirée renvoie un
 statut explicite et ne modifie pas la table.
+
+Le lot matchmaking expose maintenant le nombre de joueurs humains observés,
+une estimation prudente et le temps d’attente courant. Après 20 secondes sans
+match, le lobby affiche un état explicite avec annulation et démo IA déclarée ;
+aucun basculement silencieux vers un bot n’est effectué. Les événements
+`matchmaking_timeout` et `bot_fallback_started` permettent de mesurer ce choix.
 
 ## 3. Ordre de priorité
 
@@ -156,7 +162,7 @@ Les bots d’onboarding et le remplissage contrôlé d’une file sont des prati
 - Afficher l’état : recherche, position approximative, estimation, annulation, match trouvé.
 - Définir un timeout initial recommandé de 20 secondes, configurable par flag.
 - Après timeout, proposer : relancer, inviter un ami ou passer à la démo IA ; ne pas basculer silencieusement.
-- Ajouter les clubs privés et les notifications contrôlables après stabilisation des invitations.
+- Ajouter les clubs privés et les notifications contrôlables après stabilisation du matchmaking.
 - Enregistrer `human_match_found`, `matchmaking_timeout` et `bot_fallback_started`.
 
 **Critères de sortie**
