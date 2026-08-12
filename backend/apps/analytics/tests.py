@@ -1,6 +1,8 @@
 import uuid
+from datetime import timedelta
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -135,6 +137,40 @@ class ProductEventApiTests(TestCase):
         self.assertEqual(response.data["heartbeat_latency_ms"]["samples"], 3)
         self.assertEqual(response.data["heartbeat_latency_ms"]["average"], 200)
         self.assertEqual(response.data["heartbeat_latency_ms"]["p95"], 200)
+
+    def test_summary_calculates_eligible_d1_and_d7_retention(self):
+        now = timezone.now()
+        for event_name, days_ago in (
+            ("activation_viewed", 8),
+            ("test_games_opened", 7),
+            ("test_games_opened", 1),
+        ):
+            event = ProductEvent.objects.create(
+                event_name=event_name,
+                anonymous_id="retention-user",
+                session_id=f"retention-{days_ago}",
+            )
+            ProductEvent.objects.filter(pk=event.pk).update(
+                created_at=now - timedelta(days=days_ago)
+            )
+        recent = ProductEvent.objects.create(
+            event_name="activation_viewed",
+            anonymous_id="recent-user",
+            session_id="recent-session",
+        )
+        ProductEvent.objects.filter(pk=recent.pk).update(created_at=now)
+        staff = User.objects.create_user(
+            email="retention-staff@mdg.local",
+            phone="+261340009995",
+            display_name="Retention Staff",
+            is_staff=True,
+        )
+        self.client.force_authenticate(staff)
+        response = self.client.get("/api/v1/analytics/summary/")
+        self.assertEqual(response.data["retention"]["d1"]["eligible_actors"], 1)
+        self.assertEqual(response.data["retention"]["d1"]["returned_actors"], 1)
+        self.assertEqual(response.data["retention"]["d7"]["eligible_actors"], 1)
+        self.assertEqual(response.data["retention"]["d7"]["returned_actors"], 1)
 
     def test_pilot_gate_requires_data_and_blocks_on_game_errors(self):
         staff = User.objects.create_user(

@@ -35,7 +35,7 @@ Les bots servent à réduire l’attente et à apprendre le jeu, jamais à gonfl
 
 - Le pilote fermé reste à exécuter avec de vrais testeurs ; le feedback intégré et les seuils go/no-go sont livrés.
 - La modération avancée des clubs et le pilote avec de vrais testeurs restent à finaliser.
-- Le tableau de bord produit doit encore être enrichi avec la latence, les erreurs et la rétention D1/D7.
+- Le tableau de bord produit doit encore être enrichi avec la latence et les erreurs ; la rétention D1/D7 est maintenant calculée par cohorte d’activation.
 - La frontière entre simulation, humain, bot et futur argent réel doit rester explicite dans chaque nouveau parcours.
 
 ### État consolidé au 12 août 2026
@@ -278,6 +278,8 @@ la couverture de non-régression.
 - Ajouter un tableau de bord simulation : activation, première partie, completion, erreurs et latence.
 - Livré : collecter les reconnexions réussies et la latence heartbeat côté
   client sans bloquer le jeu ; afficher les agrégats réseau dans le back-office.
+- Livré : calculer D1/D7 sur les acteurs ayant vu `activation_viewed`, en
+  excluant les cohortes trop récentes et en affichant le dénominateur éligible.
 - Recruter un petit groupe de testeurs identifiés, avec feedback intégré.
 - Mettre en place un formulaire de signalement dans le jeu.
 - Documenter chaque incident avec mode, jeu, match, version et reproduction.

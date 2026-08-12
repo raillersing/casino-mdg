@@ -13,6 +13,50 @@ from apps.support.models import PilotFeedback
 
 from .models import ProductEvent
 
+
+def actor_key(event):
+    return (
+        f"user:{event.user_id}" if event.user_id else f"anonymous:{event.anonymous_id}"
+    )
+
+
+def retention_snapshot(events, now):
+    activation = {}
+    active_days = {}
+    for event in events.only("user_id", "anonymous_id", "created_at", "event_name"):
+        actor = actor_key(event)
+        if actor == "anonymous:":
+            continue
+        day = event.created_at.date()
+        if event.event_name == "activation_viewed":
+            activation[actor] = min(day, activation.get(actor, day))
+        active_days.setdefault(actor, set()).add(day)
+    cohorts = {
+        offset: {
+            actor
+            for actor, day in activation.items()
+            if day <= now.date() - timedelta(days=offset)
+        }
+        for offset in (1, 7)
+    }
+    result = {}
+    for offset, cohort in cohorts.items():
+        returned = {
+            actor
+            for actor in cohort
+            if any(
+                day >= activation[actor] + timedelta(days=offset)
+                for day in active_days[actor]
+            )
+        }
+        result[f"d{offset}"] = {
+            "eligible_actors": len(cohort),
+            "returned_actors": len(returned),
+            "rate": round(len(returned) / len(cohort), 4) if cohort else None,
+        }
+    return result
+
+
 EVENT_NAMES = {
     "activation_viewed",
     "test_games_opened",
@@ -78,6 +122,9 @@ class ProductEventSummaryView(APIView):
     def get(self, request):
         since = timezone.now() - timedelta(days=7)
         events = ProductEvent.objects.filter(created_at__gte=since)
+        retention_events = ProductEvent.objects.filter(
+            created_at__gte=timezone.now() - timedelta(days=30)
+        )
         counts = {
             item["event_name"]: item["count"]
             for item in events.values("event_name").annotate(count=Count("id"))
@@ -85,11 +132,7 @@ class ProductEventSummaryView(APIView):
         actors = set()
         sessions = set()
         for event in events.only("user_id", "anonymous_id", "session_id"):
-            actor = (
-                f"user:{event.user_id}"
-                if event.user_id
-                else f"anonymous:{event.anonymous_id}"
-            )
+            actor = actor_key(event)
             if actor != "anonymous:":
                 actors.add(actor)
             if event.session_id:
@@ -134,6 +177,7 @@ class ProductEventSummaryView(APIView):
                         heartbeat_latencies[p95_index] if heartbeat_latencies else None
                     ),
                 },
+                "retention": retention_snapshot(retention_events, timezone.now()),
             }
         )
 

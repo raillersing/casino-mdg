@@ -60,6 +60,14 @@ export function getProductEventSummary(token: string) {
         average: number | null;
         p95: number | null;
       };
+      retention: Record<
+        "d1" | "d7",
+        {
+          eligible_actors: number;
+          returned_actors: number;
+          rate: number | null;
+        }
+      >;
     };
   });
 }
