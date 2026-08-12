@@ -34,7 +34,7 @@ Les bots servent à réduire l’attente et à apprendre le jeu, jamais à gonfl
 ### Gaps restants après activation et multijoueur
 
 - Le pilote fermé reste à exécuter avec de vrais testeurs ; le feedback intégré et les seuils go/no-go sont livrés.
-- Les invitations par lien/code et l’estimation d’attente restent à finaliser.
+- L’estimation d’attente et les clubs privés restent à finaliser.
 - Le tableau de bord produit doit encore être enrichi avec la latence, les erreurs et la rétention D1/D7.
 - La frontière entre simulation, humain, bot et futur argent réel doit rester explicite dans chaque nouveau parcours.
 
@@ -54,8 +54,16 @@ back-office. Les parcours émettent notamment `activation_viewed`,
 `matchmaking_started`, `matchmaking_cancelled` et `human_match_found`.
 
 La télémétrie est volontairement non bloquante : une indisponibilité de l’API
-analytics ne doit jamais empêcher une partie ou une navigation. Le pilote fermé,
-le formulaire de feedback et les seuils go/no-go restent à livrer.
+analytics ne doit jamais empêcher une partie ou une navigation. Le formulaire de
+feedback et les seuils go/no-go sont livrés ; l’exécution du pilote fermé avec de
+vrais testeurs reste la prochaine preuve terrain.
+
+Le lot d’invitations est désormais opérationnel : un joueur autorisé génère un
+lien valable 24 heures, le destinataire est invité à se connecter puis reprend
+automatiquement sa destination. L’acceptation serveur est atomique, limitée à
+un usage, rejouable sans créer un second siège par le même joueur, auditée et
+mesurée par `invite_sent` / `invite_joined`. Une invitation expirée renvoie un
+statut explicite et ne modifie pas la table.
 
 ## 3. Ordre de priorité
 
@@ -148,7 +156,7 @@ Les bots d’onboarding et le remplissage contrôlé d’une file sont des prati
 - Afficher l’état : recherche, position approximative, estimation, annulation, match trouvé.
 - Définir un timeout initial recommandé de 20 secondes, configurable par flag.
 - Après timeout, proposer : relancer, inviter un ami ou passer à la démo IA ; ne pas basculer silencieusement.
-- Ajouter une invitation par lien court ou code de salle avec expiration et protection anti-abus.
+- Ajouter les clubs privés et les notifications contrôlables après stabilisation des invitations.
 - Enregistrer `human_match_found`, `matchmaking_timeout` et `bot_fallback_started`.
 
 **Critères de sortie**
@@ -212,7 +220,7 @@ responsable avant une décision d’élargissement.
 **Tâches**
 
 - Lancer un événement hebdomadaire de tirage simulation avec calendrier et règles visibles.
-- Ajouter invitations, clubs privés et salle d’amis après stabilisation du match humain.
+- Consolider les invitations et ajouter clubs privés, salle d’amis et notifications contrôlables.
 - Ajouter missions non monétaires, plafonnées et clairement optionnelles.
 - Séparer strictement classement humain, classement IA et statistiques personnelles.
 - Ajouter notifications contrôlables et désinscription.

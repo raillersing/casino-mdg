@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   createTableInvitation,
+  acceptTableInvitation,
   getTableChat,
   sendTableMessage,
   type ChatMessage,
@@ -33,10 +34,12 @@ export function GamePage() {
   const [searchParams] = useSearchParams();
   const demoAi = searchParams.get("mode") === "demo_ai";
   const spectator = searchParams.get("mode") === "spectator";
+  const invitation = searchParams.get("invite");
   const [selected, setSelected] = useState("");
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [socialError, setSocialError] = useState("");
+  const [invitationState, setInvitationState] = useState("");
   const [invite, setInvite] = useState("");
   const [sequence, setSequence] = useState(0);
   const [gameConnectionError, setGameConnectionError] = useState("");
@@ -52,10 +55,28 @@ export function GamePage() {
   );
   const [resolvedTableId, setResolvedTableId] = useState("");
   const settled = useRef(false);
+  const invitationHandled = useRef(false);
   const accessToken = useGameStore((state) => state.accessToken);
   const isPoker = gameType === "poker";
   const engineTableId = resolvedTableId || tableId || "";
   const socketUrl = `${import.meta.env.VITE_WS_URL || "ws://localhost:8080"}/ws`;
+
+  useEffect(() => {
+    if (!invitation || !accessToken || invitationHandled.current) return;
+    invitationHandled.current = true;
+    setInvitationState("Invitation en cours de validation…");
+    void acceptTableInvitation(invitation, accessToken)
+      .then((result) => {
+        void trackEvent("invite_joined", {
+          game_type: gameType,
+          metadata: { table_id: result.table_id, created: result.created },
+        });
+        setInvitationState("Invitation acceptée. Vous rejoignez la table.");
+        if (result.table_code && result.table_code !== tableId)
+          navigate(`/game/${gameType}/${result.table_code}`);
+      })
+      .catch((error: Error) => setInvitationState(error.message));
+  }, [accessToken, gameType, invitation, navigate, tableId]);
   const handleSocketMessage = useCallback(
     (event: MessageEvent<string>) => {
       try {
@@ -234,6 +255,10 @@ export function GamePage() {
       const result = await createTableInvitation(tableId, accessToken);
       const link = `${window.location.origin}/game/${gameType}/${tableId}?invite=${result.token}`;
       await navigator.clipboard?.writeText(link);
+      void trackEvent("invite_sent", {
+        game_type: gameType,
+        metadata: { table_id: tableId },
+      });
       setInvite(link);
       setSocialError("");
     } catch (error) {
@@ -341,6 +366,20 @@ export function GamePage() {
         <p className="form-error game-connection-error">
           {gameConnectionError}
         </p>
+      )}
+      {invitation && !accessToken && (
+        <p className="secure-note game-sync-note">
+          Connectez-vous pour accepter cette invitation.{" "}
+          <Link
+            to={`/auth?next=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`}
+            className="text-link"
+          >
+            Se connecter
+          </Link>
+        </p>
+      )}
+      {invitationState && (
+        <p className="secure-note game-sync-note">{invitationState}</p>
       )}
       {demoAi && (
         <p className="secure-note game-sync-note">
