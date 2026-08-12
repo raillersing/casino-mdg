@@ -43,4 +43,5 @@ urlpatterns = [
     path("api/v1/kyc/", include("apps.kyc.urls")),
     path("api/v1/payments/", include("apps.payments.urls")),
     path("api/v1/backoffice/", include("apps.backoffice.urls")),
+    path("api/v1/analytics/", include("apps.analytics.urls")),
 ]

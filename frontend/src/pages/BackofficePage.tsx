@@ -6,6 +6,7 @@ import {
   getAuditEvents,
   getFeatureFlags,
   getPaymentReconciliation,
+  getProductEventSummary,
   type AuditEvent,
   type FeatureFlag,
 } from "@services/backoffice";
@@ -22,6 +23,10 @@ export function BackofficePage() {
     unmatched_webhooks: string[];
   } | null>(null);
   const [error, setError] = useState("");
+  const [productSummary, setProductSummary] = useState<{
+    total: number;
+    events: Record<string, number>;
+  } | null>(null);
   useEffect(() => {
     if (!token) {
       setError("Connexion staff requise.");
@@ -31,11 +36,13 @@ export function BackofficePage() {
       getAuditEvents(token),
       getFeatureFlags(token),
       getPaymentReconciliation(token),
+      getProductEventSummary(token),
     ])
-      .then(([audit, featureFlags, report]) => {
+      .then(([audit, featureFlags, report, summary]) => {
         setEvents(audit.results);
         setFlags(featureFlags.results);
         setReconciliation(report);
+        setProductSummary(summary);
       })
       .catch((reason: Error) => setError(reason.message));
   }, [token]);
@@ -86,8 +93,33 @@ export function BackofficePage() {
           <strong>{reconciliation?.unmatched_webhooks.length ?? "…"}</strong>
           <span>Non rapprochés</span>
         </div>
+        <div>
+          <strong>{productSummary?.total ?? "…"}</strong>
+          <span>Événements produit · 7j</span>
+        </div>
       </div>
       <div className="wallet-layout">
+        <section className="activity-card">
+          <div className="chat-head">Activation · 7 derniers jours</div>
+          {productSummary ? (
+            [
+              "activation_viewed",
+              "test_game_played",
+              "human_match_found",
+              "demo_started",
+            ].map((name) => (
+              <div className="activity-row" key={name}>
+                <div>
+                  <strong>{name}</strong>
+                  <span>Événements reçus</span>
+                </div>
+                <b>{productSummary.events[name] ?? 0}</b>
+              </div>
+            ))
+          ) : (
+            <div className="empty-wallet">Chargement des métriques.</div>
+          )}
+        </section>
         <section className="activity-card">
           <div className="chat-head">Feature flags</div>
           {flags.length ? (

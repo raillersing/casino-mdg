@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -11,6 +12,7 @@ import {
   Ticket,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { trackEvent } from "@services/analytics";
 
 const games = [
   {
@@ -41,6 +43,9 @@ const games = [
 
 export function HomePage() {
   const { t } = useTranslation();
+  useEffect(() => {
+    void trackEvent("activation_viewed", { metadata: { source: "home" } });
+  }, []);
   return (
     <div className="page-stack home-page">
       <section className="hero-panel">
@@ -148,7 +153,15 @@ export function HomePage() {
             </span>
           </div>
         </div>
-        <Link to="/games/test" className="button button-gold">
+        <Link
+          to="/games/test"
+          className="button button-gold"
+          onClick={() =>
+            void trackEvent("test_games_opened", {
+              metadata: { source: "home" },
+            })
+          }
+        >
           {t("home.quickGames.cta")} <ArrowUpRight size={16} />
         </Link>
       </section>

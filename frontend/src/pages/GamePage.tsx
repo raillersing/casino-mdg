@@ -24,6 +24,7 @@ import {
 import { getTables, joinTable, recordGameResult } from "@services/games";
 import { useGameStore } from "@stores/gameStore";
 import { useWebSocket } from "@hooks/useWebSocket";
+import { trackEvent } from "@services/analytics";
 
 export function GamePage() {
   const { t } = useTranslation();
@@ -171,6 +172,14 @@ export function GamePage() {
     if (demoAi) setConnectionState("connected");
     else if (tableId && accessToken) setConnectionState("connecting");
   }, [accessToken, demoAi, tableId]);
+
+  useEffect(() => {
+    if (demoAi)
+      void trackEvent("demo_started", {
+        mode: "DEMO_AI",
+        game_type: gameType,
+      });
+  }, [demoAi, gameType]);
 
   useEffect(() => {
     if (!engineTableId || !accessToken) return;
