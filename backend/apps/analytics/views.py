@@ -80,12 +80,38 @@ class ProductEventSummaryView(APIView):
             item["event_name"]: item["count"]
             for item in events.values("event_name").annotate(count=Count("id"))
         }
+        actors = set()
+        sessions = set()
+        for event in events.only("user_id", "anonymous_id", "session_id"):
+            actor = (
+                f"user:{event.user_id}"
+                if event.user_id
+                else f"anonymous:{event.anonymous_id}"
+            )
+            if actor != "anonymous:":
+                actors.add(actor)
+            if event.session_id:
+                sessions.add(event.session_id)
+        completed = counts.get("first_game_completed", 0)
         return Response(
             {
                 "window": "7d",
                 "since": since.isoformat(),
                 "total": events.count(),
                 "events": counts,
+                "unique_actors": len(actors),
+                "unique_sessions": len(sessions),
+                "funnel": {
+                    "activation_viewed": counts.get("activation_viewed", 0),
+                    "demo_started": counts.get("demo_started", 0),
+                    "test_game_played": counts.get("test_game_played", 0),
+                    "first_game_completed": completed,
+                },
+                "errors_per_completed_game": (
+                    round(counts.get("game_error", 0) / completed, 2)
+                    if completed
+                    else None
+                ),
             }
         )
 

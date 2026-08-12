@@ -62,6 +62,11 @@ quantitatives minimales sont réunies.
 
 ### Lot actif — Phase 5 : exécution du pilote fermé et consolidation
 
+Le résumé staff `/api/v1/analytics/summary/` expose maintenant les acteurs et
+sessions uniques, l’entonnoir activation → démo → partie → completion et le
+ratio d’erreurs par partie terminée. Ces métriques restent descriptives : elles
+ne sont pas présentées comme chiffre d’affaires ni comme preuve de rentabilité.
+
 Le socle de télémétrie est désormais implémenté : les événements d’activation sont
 acceptés anonymement ou associés à un compte, dédupliqués par `event_id`, limités
 à une liste versionnée et consultables sur une fenêtre de sept jours par le

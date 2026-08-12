@@ -43,6 +43,10 @@ export function BackofficePage() {
   const [productSummary, setProductSummary] = useState<{
     total: number;
     events: Record<string, number>;
+    unique_actors: number;
+    unique_sessions: number;
+    funnel: Record<string, number>;
+    errors_per_completed_game: number | null;
   } | null>(null);
   useEffect(() => {
     if (!token) {
@@ -121,6 +125,14 @@ export function BackofficePage() {
         <div>
           <strong>{feedbackSummary?.average_rating?.toFixed(1) ?? "…"}</strong>
           <span>Note pilote</span>
+        </div>
+        <div>
+          <strong>{productSummary?.unique_actors ?? "…"}</strong>
+          <span>Acteurs uniques · 7j</span>
+        </div>
+        <div>
+          <strong>{productSummary?.errors_per_completed_game ?? "—"}</strong>
+          <span>Erreurs / partie terminée</span>
         </div>
       </div>
       <div className="wallet-layout">
