@@ -50,6 +50,10 @@ export function getProductEventSummary(token: string) {
       since: string;
       total: number;
       events: Record<string, number>;
+      unique_actors: number;
+      unique_sessions: number;
+      funnel: Record<string, number>;
+      errors_per_completed_game: number | null;
     };
   });
 }

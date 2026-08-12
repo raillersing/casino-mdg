@@ -69,6 +69,37 @@ class ProductEventApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["events"]["test_games_opened"], 1)
 
+    def test_summary_exposes_pilot_funnel_and_unique_dimensions(self):
+        for event_name in (
+            "activation_viewed",
+            "demo_started",
+            "test_game_played",
+            "first_game_completed",
+            "game_error",
+        ):
+            self.client.post(
+                "/api/v1/analytics/events/",
+                {
+                    "event_id": str(uuid.uuid4()),
+                    "event_name": event_name,
+                    "anonymous_id": "pilot-user",
+                    "session_id": "pilot-session",
+                },
+                format="json",
+            )
+        staff = User.objects.create_user(
+            email="summary-staff@mdg.local",
+            phone="+261340009997",
+            display_name="Summary Staff",
+            is_staff=True,
+        )
+        self.client.force_authenticate(staff)
+        response = self.client.get("/api/v1/analytics/summary/")
+        self.assertEqual(response.data["unique_actors"], 1)
+        self.assertEqual(response.data["unique_sessions"], 1)
+        self.assertEqual(response.data["funnel"]["first_game_completed"], 1)
+        self.assertEqual(response.data["errors_per_completed_game"], 1)
+
     def test_pilot_gate_requires_data_and_blocks_on_game_errors(self):
         staff = User.objects.create_user(
             email="gate-staff@mdg.local",
