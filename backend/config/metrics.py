@@ -12,7 +12,8 @@ def prometheus_metrics():
             lines.append(f"casino_http_requests_total{{{labels}}} {count}")
         lines.extend(
             [
-                "# HELP casino_http_request_duration_seconds_total Cumulative request duration in seconds.",
+                "# HELP casino_http_request_duration_seconds_total Cumulative request "
+                "duration in seconds.",
                 "# TYPE casino_http_request_duration_seconds_total counter",
             ]
         )

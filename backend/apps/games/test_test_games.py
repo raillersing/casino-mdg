@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.games.models import DrawDefinition, DrawResult, InstantPlay
+from apps.games.models import DrawResult, InstantPlay
 from apps.wallet.models import WalletTransaction
 from apps.wallet.services import credit_simulation_bonus
 
