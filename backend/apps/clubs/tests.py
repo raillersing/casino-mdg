@@ -58,3 +58,36 @@ class ClubApiTests(TestCase):
         self.assertEqual(accepted.status_code, 201)
         self.assertTrue(accepted.data["joined"])
         self.assertEqual(Club.objects.get(pk=club_id).memberships.count(), 2)
+
+    def test_owner_can_manage_members_but_member_cannot(self):
+        self.client.force_authenticate(self.owner)
+        created = self.client.post("/api/v1/clubs/", {"name": "Gestion"}, format="json")
+        club_id = created.data["id"]
+        self.client.force_authenticate(self.member)
+        joined = self.client.post(f"/api/v1/clubs/{club_id}/join/")
+        self.assertTrue(joined.data["joined"])
+        self.client.force_authenticate(self.owner)
+        members = self.client.get(f"/api/v1/clubs/{club_id}/members/")
+        target_id = next(
+            item["user_id"]
+            for item in members.data["results"]
+            if item["role"] == "member"
+        )
+        promoted = self.client.patch(
+            f"/api/v1/clubs/{club_id}/members/",
+            {"user_id": target_id, "role": "admin"},
+            format="json",
+        )
+        self.assertEqual(promoted.status_code, 200)
+        self.assertEqual(promoted.data["role"], "admin")
+        removed = self.client.delete(
+            f"/api/v1/clubs/{club_id}/members/",
+            {"user_id": target_id},
+            format="json",
+        )
+        self.assertEqual(removed.status_code, 204)
+        self.assertEqual(ClubMembership.objects.filter(user_id=target_id).count(), 0)
+        self.client.force_authenticate(self.member)
+        self.assertEqual(
+            self.client.get(f"/api/v1/clubs/{club_id}/members/").status_code, 403
+        )

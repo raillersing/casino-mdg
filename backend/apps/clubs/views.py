@@ -29,6 +29,18 @@ def club_payload(club, user):
     }
 
 
+def members_payload(club):
+    return [
+        {
+            "user_id": str(membership.user_id),
+            "display_name": membership.user.display_name,
+            "role": membership.role,
+            "joined_at": membership.joined_at.isoformat(),
+        }
+        for membership in club.memberships.select_related("user").order_by("joined_at")
+    ]
+
+
 class ClubListCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -151,3 +163,63 @@ class ClubInvitationAcceptView(APIView):
                 club_payload(invitation.club, request.user),
                 status=201 if created else 200,
             )
+
+
+class ClubMembersView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_club(self, club_id):
+        try:
+            return Club.objects.get(pk=club_id)
+        except Club.DoesNotExist:
+            return None
+
+    def get(self, request, club_id):
+        club = self.get_club(club_id)
+        if not club:
+            return Response({"detail": "Club introuvable."}, status=404)
+        if not membership_for(club, request.user):
+            return Response(
+                {"detail": "Vous ne faites pas partie de ce club."}, status=403
+            )
+        return Response({"results": members_payload(club)})
+
+    def mutate(self, request, club_id):
+        club = self.get_club(club_id)
+        if not club:
+            return Response({"detail": "Club introuvable."}, status=404)
+        actor = membership_for(club, request.user)
+        if not actor or actor.role not in {"owner", "admin"}:
+            return Response(
+                {"detail": "Permission administrateur requise."}, status=403
+            )
+        try:
+            target = ClubMembership.objects.get(
+                club=club, user_id=request.data.get("user_id")
+            )
+        except ClubMembership.DoesNotExist:
+            return Response({"detail": "Membre introuvable."}, status=404)
+        if target.role == "owner" or target.user_id == request.user.pk:
+            return Response(
+                {"detail": "Le fondateur ne peut pas être modifié ici."}, status=409
+            )
+        if actor.role == "admin" and target.role == "admin":
+            return Response(
+                {"detail": "Seul le fondateur peut gérer un administrateur."},
+                status=403,
+            )
+        if request.method == "PATCH":
+            role = request.data.get("role")
+            if role not in {"admin", "member"}:
+                return Response({"detail": "Rôle invalide."}, status=400)
+            target.role = role
+            target.save(update_fields=["role"])
+            return Response({"user_id": str(target.user_id), "role": target.role})
+        target.delete()
+        return Response(status=204)
+
+    def patch(self, request, club_id):
+        return self.mutate(request, club_id)
+
+    def delete(self, request, club_id):
+        return self.mutate(request, club_id)

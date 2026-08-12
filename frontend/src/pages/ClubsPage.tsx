@@ -3,7 +3,16 @@ import { Link } from "react-router-dom";
 import { Lock, Plus, UsersRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useGameStore } from "@stores/gameStore";
-import { createClub, getClubs, joinClub, type Club } from "@services/clubs";
+import {
+  createClub,
+  getClubMembers,
+  getClubs,
+  joinClub,
+  removeClubMember,
+  updateClubMember,
+  type Club,
+  type ClubMember,
+} from "@services/clubs";
 
 export function ClubsPage() {
   const { t } = useTranslation();
@@ -13,6 +22,9 @@ export function ClubsPage() {
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [managedClub, setManagedClub] = useState<Club | null>(null);
+  const [members, setMembers] = useState<ClubMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
     city: "",
@@ -80,6 +92,53 @@ export function ClubsPage() {
     }
   };
 
+  const manage = async (club: Club) => {
+    setManagedClub(club);
+    setMembersLoading(true);
+    try {
+      const payload = await getClubMembers(accessToken, club.id);
+      setMembers(payload.results);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("app.error"));
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const changeRole = async (member: ClubMember) => {
+    if (!managedClub) return;
+    const role = member.role === "admin" ? "member" : "admin";
+    try {
+      await updateClubMember(accessToken, managedClub.id, member.user_id, role);
+      setMembers((current) =>
+        current.map((item) =>
+          item.user_id === member.user_id ? { ...item, role } : item,
+        ),
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("app.error"));
+    }
+  };
+
+  const removeMember = async (member: ClubMember) => {
+    if (!managedClub) return;
+    try {
+      await removeClubMember(accessToken, managedClub.id, member.user_id);
+      setMembers((current) =>
+        current.filter((item) => item.user_id !== member.user_id),
+      );
+      setClubs((current) =>
+        current.map((item) =>
+          item.id === managedClub.id
+            ? { ...item, member_count: Math.max(0, item.member_count - 1) }
+            : item,
+        ),
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("app.error"));
+    }
+  };
+
   return (
     <div className="page-stack">
       <div className="page-title-row">
@@ -127,9 +186,19 @@ export function ClubsPage() {
                 </span>
               </div>
               {club.joined ? (
-                <span className="club-role">
-                  {t(`clubs.roles.${club.role}`)}
-                </span>
+                <div className="club-card-actions">
+                  <span className="club-role">
+                    {t(`clubs.roles.${club.role}`)}
+                  </span>
+                  {(club.role === "owner" || club.role === "admin") && (
+                    <button
+                      className="text-link"
+                      onClick={() => void manage(club)}
+                    >
+                      {t("clubs.manage")}
+                    </button>
+                  )}
+                </div>
               ) : (
                 <button
                   className="button button-outline"
@@ -141,6 +210,51 @@ export function ClubsPage() {
             </article>
           ))}
         </div>
+      )}
+      {managedClub && (
+        <section className="club-members-panel">
+          <div className="section-heading compact">
+            <div>
+              <span className="eyebrow">{t("clubs.members")}</span>
+              <h2>{managedClub.name}</h2>
+            </div>
+            <button className="text-link" onClick={() => setManagedClub(null)}>
+              {t("clubs.close")}
+            </button>
+          </div>
+          {membersLoading ? (
+            <p className="secure-note">{t("app.loading")}</p>
+          ) : (
+            <div className="club-member-list">
+              {members.map((member) => (
+                <div className="club-member-row" key={member.user_id}>
+                  <div>
+                    <strong>{member.display_name}</strong>
+                    <small>{t(`clubs.roles.${member.role}`)}</small>
+                  </div>
+                  {member.role !== "owner" && (
+                    <div className="club-member-actions">
+                      <button
+                        className="text-link"
+                        onClick={() => void changeRole(member)}
+                      >
+                        {member.role === "admin"
+                          ? t("clubs.demote")
+                          : t("clubs.promote")}
+                      </button>
+                      <button
+                        className="text-link danger-link"
+                        onClick={() => void removeMember(member)}
+                      >
+                        {t("clubs.remove")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       )}
       {showCreate && (
         <div className="modal-backdrop">
