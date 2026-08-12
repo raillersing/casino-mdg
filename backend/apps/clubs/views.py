@@ -6,7 +6,13 @@ from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Club, ClubInvitation, ClubMembership
+from .models import (
+    Club,
+    ClubEvent,
+    ClubEventParticipant,
+    ClubInvitation,
+    ClubMembership,
+)
 
 
 def membership_for(club, user):
@@ -39,6 +45,20 @@ def members_payload(club):
         }
         for membership in club.memberships.select_related("user").order_by("joined_at")
     ]
+
+
+def event_payload(event, user):
+    return {
+        "id": str(event.id),
+        "title": event.title,
+        "description": event.description,
+        "starts_at": event.starts_at.isoformat(),
+        "capacity": event.capacity,
+        "participant_count": event.participants.count(),
+        "points_reward": event.points_reward,
+        "status": event.status,
+        "joined": event.participants.filter(user=user).exists(),
+    }
 
 
 class ClubListCreateView(APIView):
@@ -223,3 +243,78 @@ class ClubMembersView(APIView):
 
     def delete(self, request, club_id):
         return self.mutate(request, club_id)
+
+
+class ClubEventsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_club(self, club_id):
+        try:
+            return Club.objects.get(pk=club_id)
+        except Club.DoesNotExist:
+            return None
+
+    def get(self, request, club_id):
+        club = self.get_club(club_id)
+        if not club or not membership_for(club, request.user):
+            return Response({"detail": "Accès club requis."}, status=403)
+        events = club.events.filter(status="scheduled")
+        return Response(
+            {"results": [event_payload(event, request.user) for event in events]}
+        )
+
+    def post(self, request, club_id):
+        club = self.get_club(club_id)
+        actor = membership_for(club, request.user) if club else None
+        if not club:
+            return Response({"detail": "Club introuvable."}, status=404)
+        if not actor or actor.role not in {"owner", "admin"}:
+            return Response({"detail": "Permission responsable requise."}, status=403)
+        title = str(request.data.get("title", "")).strip()
+        if not title or not request.data.get("starts_at"):
+            return Response({"detail": "Titre et date obligatoires."}, status=400)
+        try:
+            starts_at = timezone.datetime.fromisoformat(str(request.data["starts_at"]))
+            if timezone.is_naive(starts_at):
+                starts_at = timezone.make_aware(starts_at)
+            capacity = min(max(int(request.data.get("capacity", 16)), 2), 250)
+            points_reward = min(max(int(request.data.get("points_reward", 10)), 0), 100)
+        except (TypeError, ValueError):
+            return Response({"detail": "Paramètres d’événement invalides."}, status=400)
+        if starts_at <= timezone.now():
+            return Response({"detail": "La date doit être dans le futur."}, status=400)
+        event = ClubEvent.objects.create(
+            club=club,
+            title=title[:100],
+            description=str(request.data.get("description", ""))[:280],
+            starts_at=starts_at,
+            capacity=capacity,
+            points_reward=points_reward,
+            created_by=request.user,
+        )
+        return Response(event_payload(event, request.user), status=201)
+
+
+class ClubEventJoinView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, event_id):
+        try:
+            event = ClubEvent.objects.select_related("club").get(pk=event_id)
+        except ClubEvent.DoesNotExist:
+            return Response({"detail": "Événement introuvable."}, status=404)
+        if not membership_for(event.club, request.user):
+            return Response(
+                {"detail": "Vous ne faites pas partie de ce club."}, status=403
+            )
+        if event.status != "scheduled" or event.starts_at <= timezone.now():
+            return Response({"detail": "Les inscriptions sont fermées."}, status=409)
+        participant, created = ClubEventParticipant.objects.get_or_create(
+            event=event, user=request.user
+        )
+        if created and event.participants.count() > event.capacity:
+            participant.delete()
+            return Response({"detail": "Cet événement est complet."}, status=409)
+        return Response(
+            event_payload(event, request.user), status=201 if created else 200
+        )

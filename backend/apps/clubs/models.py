@@ -33,6 +33,7 @@ class ClubMembership(models.Model):
         related_name="club_memberships",
     )
     role = models.CharField(max_length=10, choices=ROLES, default="member")
+    points = models.PositiveIntegerField(default=0)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -56,3 +57,45 @@ class ClubInvitation(models.Model):
 
     class Meta:
         db_table = "club_invitations"
+
+
+class ClubEvent(models.Model):
+    STATUSES = [("scheduled", "Planifié"), ("completed", "Terminé")]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="events")
+    title = models.CharField(max_length=100)
+    description = models.CharField(max_length=280, blank=True)
+    starts_at = models.DateTimeField()
+    capacity = models.PositiveIntegerField(default=16)
+    points_reward = models.PositiveIntegerField(default=10)
+    status = models.CharField(max_length=12, choices=STATUSES, default="scheduled")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="club_events_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "club_events"
+        ordering = ["starts_at"]
+
+
+class ClubEventParticipant(models.Model):
+    event = models.ForeignKey(
+        ClubEvent, on_delete=models.CASCADE, related_name="participants"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="club_event_participations",
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "club_event_participants"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "user"], name="unique_club_event_participant"
+            )
+        ]

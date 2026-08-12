@@ -100,6 +100,12 @@ administrateur peuvent les créer. Le parcours Clubs propose une création
 rapide de table Poker de simulation ; les variantes, horaires et règles de
 club pourront être ajoutés sans changer le contrôle d’accès serveur.
 
+Le premier format d’événement de club est cadré en simulation : inscription des
+membres, capacité, date future et récompense plafonnée en points non monétaires.
+Les événements planifiés sont visibles dans le club et l’inscription est
+idempotente ; aucun prix en argent réel ni classement compétitif n’est créé par
+ce lot.
+
 ## 3. Ordre de priorité
 
 | Priorité | Phase | Résultat attendu | Dépend de |

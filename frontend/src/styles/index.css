@@ -2901,6 +2901,27 @@ h3 {
 .club-card-actions {
   flex-wrap: wrap;
 }
+.club-events-mini {
+  display: grid;
+  gap: 7px;
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.club-event-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+}
+.club-event-row > span {
+  display: grid;
+  gap: 3px;
+}
+.club-event-row small {
+  color: var(--muted);
+}
 .club-members-panel {
   padding: 18px;
   border: 1px solid var(--line);

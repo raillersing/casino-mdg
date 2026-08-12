@@ -1,8 +1,11 @@
+from datetime import timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.clubs.models import Club, ClubMembership
+from apps.clubs.models import Club, ClubEventParticipant, ClubMembership
 
 
 class ClubApiTests(TestCase):
@@ -91,3 +94,28 @@ class ClubApiTests(TestCase):
         self.assertEqual(
             self.client.get(f"/api/v1/clubs/{club_id}/members/").status_code, 403
         )
+
+    def test_member_can_register_once_for_future_event_with_capped_points(self):
+        self.client.force_authenticate(self.owner)
+        club = self.client.post("/api/v1/clubs/", {"name": "Events"}, format="json")
+        club_id = club.data["id"]
+        self.client.force_authenticate(self.member)
+        self.client.post(f"/api/v1/clubs/{club_id}/join/")
+        self.client.force_authenticate(self.owner)
+        event = self.client.post(
+            f"/api/v1/clubs/{club_id}/events/",
+            {
+                "title": "Soirée simulation",
+                "starts_at": (timezone.now() + timedelta(days=1)).isoformat(),
+                "points_reward": 999,
+            },
+            format="json",
+        )
+        self.assertEqual(event.status_code, 201)
+        self.assertEqual(event.data["points_reward"], 100)
+        self.client.force_authenticate(self.member)
+        joined = self.client.post(f"/api/v1/clubs/events/{event.data['id']}/join/")
+        replay = self.client.post(f"/api/v1/clubs/events/{event.data['id']}/join/")
+        self.assertEqual(joined.status_code, 201)
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(ClubEventParticipant.objects.count(), 1)

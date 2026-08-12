@@ -16,6 +16,17 @@ export type ClubMember = {
   role: "owner" | "admin" | "member";
   joined_at: string;
 };
+export type ClubEvent = {
+  id: string;
+  title: string;
+  description: string;
+  starts_at: string;
+  capacity: number;
+  participant_count: number;
+  points_reward: number;
+  status: "scheduled" | "completed";
+  joined: boolean;
+};
 
 async function request<T>(
   accessToken: string,
@@ -81,5 +92,15 @@ export function removeClubMember(
   return request<void>(accessToken, `${clubId}/members/`, {
     method: "DELETE",
     body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export function getClubEvents(accessToken: string, clubId: string) {
+  return request<{ results: ClubEvent[] }>(accessToken, `${clubId}/events/`);
+}
+
+export function joinClubEvent(accessToken: string, eventId: string) {
+  return request<ClubEvent>(accessToken, `events/${eventId}/join/`, {
+    method: "POST",
   });
 }

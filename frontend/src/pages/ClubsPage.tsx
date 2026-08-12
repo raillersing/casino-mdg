@@ -5,13 +5,16 @@ import { useTranslation } from "react-i18next";
 import { useGameStore } from "@stores/gameStore";
 import {
   createClub,
+  getClubEvents,
   getClubMembers,
   getClubs,
   joinClub,
+  joinClubEvent,
   removeClubMember,
   updateClubMember,
   type Club,
   type ClubMember,
+  type ClubEvent,
 } from "@services/clubs";
 import { createTable } from "@services/games";
 
@@ -27,6 +30,7 @@ export function ClubsPage() {
   const [managedClub, setManagedClub] = useState<Club | null>(null);
   const [members, setMembers] = useState<ClubMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [clubEvents, setClubEvents] = useState<Record<string, ClubEvent[]>>({});
   const [form, setForm] = useState({
     name: "",
     city: "",
@@ -41,7 +45,22 @@ export function ClubsPage() {
       return;
     }
     getClubs(accessToken)
-      .then((payload) => setClubs(payload.results))
+      .then(async (payload) => {
+        setClubs(payload.results);
+        const entries = await Promise.all(
+          payload.results
+            .filter((club) => club.joined)
+            .map(async (club) => {
+              try {
+                const events = await getClubEvents(accessToken, club.id);
+                return [club.id, events.results] as const;
+              } catch {
+                return [club.id, []] as const;
+              }
+            }),
+        );
+        setClubEvents(Object.fromEntries(entries));
+      })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
   }, [accessToken]);
@@ -156,6 +175,20 @@ export function ClubsPage() {
     }
   };
 
+  const joinEvent = async (clubId: string, event: ClubEvent) => {
+    try {
+      const joined = await joinClubEvent(accessToken, event.id);
+      setClubEvents((current) => ({
+        ...current,
+        [clubId]: (current[clubId] || []).map((item) =>
+          item.id === event.id ? joined : item,
+        ),
+      }));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("app.error"));
+    }
+  };
+
   return (
     <div className="page-stack">
       <div className="page-title-row">
@@ -231,6 +264,32 @@ export function ClubsPage() {
                 >
                   {t("clubs.join")}
                 </button>
+              )}
+              {club.joined && (clubEvents[club.id] || []).length > 0 && (
+                <div className="club-events-mini">
+                  <span className="eyebrow">{t("clubs.events")}</span>
+                  {(clubEvents[club.id] || []).slice(0, 2).map((event) => (
+                    <div className="club-event-row" key={event.id}>
+                      <span>
+                        <strong>{event.title}</strong>
+                        <small>
+                          {new Date(event.starts_at).toLocaleString()} · +
+                          {event.points_reward} pts
+                        </small>
+                      </span>
+                      {event.joined ? (
+                        <small>{t("clubs.registered")}</small>
+                      ) : (
+                        <button
+                          className="text-link"
+                          onClick={() => void joinEvent(club.id, event)}
+                        >
+                          {t("clubs.register")}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </article>
           ))}
