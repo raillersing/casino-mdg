@@ -53,3 +53,18 @@ export function getProductEventSummary(token: string) {
     };
   });
 }
+
+export function getPilotFeedbackSummary(token: string) {
+  return fetch("/api/v1/support/feedback/summary/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(payload.detail || `Accès refusé (${response.status}).`);
+    return payload as {
+      count: number;
+      average_rating: number | null;
+      categories: Record<string, number>;
+    };
+  });
+}

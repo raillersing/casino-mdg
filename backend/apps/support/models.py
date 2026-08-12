@@ -25,3 +25,28 @@ class SupportTicket(models.Model):
     class Meta:
         db_table = "support_tickets"
         ordering = ["-created_at"]
+
+
+class PilotFeedback(models.Model):
+    CATEGORIES = [
+        ("gameplay", "Expérience de jeu"),
+        ("connection", "Connexion"),
+        ("clarity", "Clarté"),
+        ("other", "Autre"),
+    ]
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="pilot_feedback",
+    )
+    rating = models.PositiveSmallIntegerField()
+    category = models.CharField(max_length=20, choices=CATEGORIES)
+    message = models.TextField(max_length=1000)
+    game_type = models.CharField(max_length=40, blank=True)
+    table_id = models.CharField(max_length=120, blank=True)
+    session_id = models.CharField(max_length=128, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "pilot_feedback"
+        ordering = ["-created_at"]

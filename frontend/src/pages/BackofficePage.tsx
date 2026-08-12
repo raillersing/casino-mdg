@@ -7,6 +7,7 @@ import {
   getFeatureFlags,
   getPaymentReconciliation,
   getProductEventSummary,
+  getPilotFeedbackSummary,
   type AuditEvent,
   type FeatureFlag,
 } from "@services/backoffice";
@@ -21,6 +22,10 @@ export function BackofficePage() {
     webhooks_received: number;
     webhooks_processed: number;
     unmatched_webhooks: string[];
+  } | null>(null);
+  const [feedbackSummary, setFeedbackSummary] = useState<{
+    count: number;
+    average_rating: number | null;
   } | null>(null);
   const [error, setError] = useState("");
   const [productSummary, setProductSummary] = useState<{
@@ -37,12 +42,14 @@ export function BackofficePage() {
       getFeatureFlags(token),
       getPaymentReconciliation(token),
       getProductEventSummary(token),
+      getPilotFeedbackSummary(token),
     ])
-      .then(([audit, featureFlags, report, summary]) => {
+      .then(([audit, featureFlags, report, summary, feedback]) => {
         setEvents(audit.results);
         setFlags(featureFlags.results);
         setReconciliation(report);
         setProductSummary(summary);
+        setFeedbackSummary(feedback);
       })
       .catch((reason: Error) => setError(reason.message));
   }, [token]);
@@ -96,6 +103,10 @@ export function BackofficePage() {
         <div>
           <strong>{productSummary?.total ?? "…"}</strong>
           <span>Événements produit · 7j</span>
+        </div>
+        <div>
+          <strong>{feedbackSummary?.average_rating?.toFixed(1) ?? "…"}</strong>
+          <span>Note pilote</span>
         </div>
       </div>
       <div className="wallet-layout">
