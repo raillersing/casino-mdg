@@ -26,6 +26,25 @@ export function getTables(gameType?: string) {
   return request<{ results: GameTable[] }>(`tables/${query}`);
 }
 
+export function createTable(
+  accessToken: string,
+  payload: {
+    name: string;
+    game_type: "poker" | "belote" | "rami";
+    max_players: number;
+    is_private: boolean;
+  },
+) {
+  return request<GameTable>("tables/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 export type MatchmakingTicket = {
   ticket_id: string;
   game_type: "poker" | "belote" | "rami";

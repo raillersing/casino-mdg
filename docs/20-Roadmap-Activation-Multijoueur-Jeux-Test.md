@@ -71,6 +71,12 @@ match, le lobby affiche un état explicite avec annulation et démo IA déclaré
 aucun basculement silencieux vers un bot n’est effectué. Les événements
 `matchmaking_timeout` et `bot_fallback_started` permettent de mesurer ce choix.
 
+Le parcours de salle d’amis est également opérationnel : une table privée peut
+être créée depuis le lobby, elle est exclue de la liste publique et reste
+visible à son créateur et à ses membres. L’invitation existante constitue le
+seul accès de partage ; les clubs persistants et leurs rôles restent un lot
+distinct à planifier.
+
 ## 3. Ordre de priorité
 
 | Priorité | Phase | Résultat attendu | Dépend de |

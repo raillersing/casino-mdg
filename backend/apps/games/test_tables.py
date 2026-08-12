@@ -53,3 +53,35 @@ class TableApiTests(TestCase):
         self.assertEqual(second.data["seat_index"], 1)
         self.assertEqual(rejected.status_code, 409)
         self.assertEqual(table.seats.count(), 2)
+
+    def test_private_table_is_hidden_from_strangers_but_visible_to_owner(self):
+        table = GameTable.objects.create(
+            table_code="private-001",
+            name="Amis",
+            game_type="belote",
+            is_private=True,
+            created_by=self.user,
+        )
+        stranger = User.objects.create_user(
+            email="stranger@mdg.local",
+            phone="+261340000003",
+            display_name="Stranger",
+        )
+
+        self.assertNotIn(
+            str(table.id),
+            {
+                item["id"]
+                for item in self.client.get("/api/v1/games/tables/").data["results"]
+            },
+        )
+        self.client.force_authenticate(self.user)
+        owner_tables = self.client.get("/api/v1/games/tables/").data["results"]
+        self.assertIn(str(table.id), {item["id"] for item in owner_tables})
+        self.client.force_authenticate(stranger)
+        stranger_tables = self.client.get("/api/v1/games/tables/").data["results"]
+        self.assertNotIn(str(table.id), {item["id"] for item in stranger_tables})
+        self.assertEqual(
+            self.client.post(f"/api/v1/games/tables/{table.id}/join/").status_code,
+            403,
+        )
