@@ -30,6 +30,7 @@ import {
   type TestDraw,
 } from "@services/testGames";
 import { useGameStore } from "@stores/gameStore";
+import { trackEvent } from "@services/analytics";
 
 type Tab = "instant" | "draws" | "activity" | "fairness";
 
@@ -92,6 +93,10 @@ export function TestGamesPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    void trackEvent("test_games_opened", { metadata: { source: "direct" } });
+  }, []);
+
   const changeTab = (next: Tab) => {
     setTab(next);
     setParams({ tab: next });
@@ -102,7 +107,12 @@ export function TestGamesPage() {
     setAction(game.slug);
     setError("");
     try {
-      setLastPlay(await playTestGame(accessToken, game.slug, key));
+      const play = await playTestGame(accessToken, game.slug, key);
+      setLastPlay(play);
+      void trackEvent("test_game_played", {
+        mode: "SIMULATION_SOLO",
+        metadata: { game_slug: game.slug, prize: play.prize },
+      });
       await load();
     } catch (reason) {
       setError(

@@ -21,6 +21,7 @@ import {
 } from "@services/games";
 import { useGameStore } from "@stores/gameStore";
 import { useTranslation } from "react-i18next";
+import { trackEvent } from "@services/analytics";
 
 export function LobbyPage() {
   const { t } = useTranslation();
@@ -77,6 +78,11 @@ export function LobbyPage() {
             ticket: status.ticket,
           });
           if (status.ticket?.status === "matched" && status.ticket.table_code)
+            void trackEvent("human_match_found", {
+              game_type: status.ticket.game_type,
+              metadata: { table_code: status.ticket.table_code },
+            });
+          if (status.ticket?.status === "matched" && status.ticket.table_code)
             navigate(
               `/game/${status.ticket.game_type}/${status.ticket.table_code}`,
             );
@@ -95,6 +101,10 @@ export function LobbyPage() {
     try {
       const result = await queueMatch(accessToken, matchmakingGame);
       setMatchStatus((current) => ({ ...current, ticket: result.ticket }));
+      void trackEvent("matchmaking_started", {
+        game_type: matchmakingGame,
+        metadata: { source: "lobby" },
+      });
     } catch (reason) {
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
     }
@@ -105,6 +115,7 @@ export function LobbyPage() {
     try {
       await cancelMatch(accessToken, matchStatus.ticket.ticket_id);
       setMatchStatus((current) => ({ ...current, ticket: null }));
+      void trackEvent("matchmaking_cancelled", { game_type: matchmakingGame });
     } catch (reason) {
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
     }

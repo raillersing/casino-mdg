@@ -31,14 +31,25 @@ Les bots servent à réduire l’attente et à apprendre le jeu, jamais à gonfl
 - Les endpoints `/healthz`, `/readyz`, `/metrics` et le health check du moteur Go répondent correctement.
 - Le lobby contient un accès aux jeux test.
 
-### Gaps qui bloquent l’activation
+### Gaps restants après activation et multijoueur
 
-- Les jeux test ne sont pas assez visibles depuis l’accueil, la navigation mobile et le portefeuille.
-- Les jeux de table n’ont pas encore de mode “jouer contre l’IA” clairement identifié.
-- Il n’existe pas encore de présence fiable, de file d’attente, d’invitation ni d’estimation d’attente.
-- Un tableau peut être vide sans expliquer à l’utilisateur quoi faire ensuite.
-- Les métriques d’activation, de fallback IA et de conversion ne sont pas encore normalisées.
-- La frontière entre simulation, humain, bot et futur argent réel doit être rendue explicite dans l’UX et les contrats.
+- Le pilote fermé, le feedback intégré et les seuils go/no-go ne sont pas encore livrés.
+- Les invitations par lien/code et l’estimation d’attente restent à finaliser.
+- Le tableau de bord produit doit encore être enrichi avec la latence, les erreurs et la rétention D1/D7.
+- La frontière entre simulation, humain, bot et futur argent réel doit rester explicite dans chaque nouveau parcours.
+
+### Lot en cours — Phase 5 : mesure et pilote fermé
+
+Le socle de télémétrie est désormais implémenté : les événements d’activation sont
+acceptés anonymement ou associés à un compte, dédupliqués par `event_id`, limités
+à une liste versionnée et consultables sur une fenêtre de sept jours par le
+back-office. Les parcours émettent notamment `activation_viewed`,
+`test_games_opened`, `test_game_played`, `demo_started`,
+`matchmaking_started`, `matchmaking_cancelled` et `human_match_found`.
+
+La télémétrie est volontairement non bloquante : une indisponibilité de l’API
+analytics ne doit jamais empêcher une partie ou une navigation. Le pilote fermé,
+le formulaire de feedback et les seuils go/no-go restent à livrer.
 
 ## 3. Ordre de priorité
 

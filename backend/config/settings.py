@@ -43,6 +43,7 @@ LOCAL_APPS = [
     "apps.kyc",
     "apps.payments",
     "apps.backoffice",
+    "apps.analytics",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

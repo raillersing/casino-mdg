@@ -37,3 +37,19 @@ export function getPaymentReconciliation(token: string) {
     sandbox: boolean;
   }>("payment-reconciliation/", token);
 }
+
+export function getProductEventSummary(token: string) {
+  return fetch("/api/v1/analytics/summary/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(payload.detail || `Accès refusé (${response.status}).`);
+    return payload as {
+      window: string;
+      since: string;
+      total: number;
+      events: Record<string, number>;
+    };
+  });
+}
