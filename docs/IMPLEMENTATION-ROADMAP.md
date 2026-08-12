@@ -1,8 +1,10 @@
 # MDG Game Club — Roadmap d’implémentation
 
-**Version :** 1.0  
+**Version :** 1.0 — historique
 **Date :** 11 août 2026  
 **Cible :** MVP simulation mobile-first, puis préparation de la phase argent réel
+
+> Cette roadmap est conservée comme référence historique. La roadmap active et l’ordre de livraison actuels sont définis dans [20-Roadmap-Activation-Multijoueur-Jeux-Test.md](20-Roadmap-Activation-Multijoueur-Jeux-Test.md).
 
 ## 1. Point de départ
 
@@ -170,4 +172,3 @@ Lot 3 → Lot 4 → Lot 5 Poker
 - Opérateurs mobile money et statut réglementaire.
 - Niveau de KYC requis par mode et par montant.
 - Modération, support et responsabilité opérationnelle.
-

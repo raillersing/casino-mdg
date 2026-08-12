@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   Copy,
   MessageCircle,
   Send,
   Settings2,
+  Sparkles,
   Users,
 } from "lucide-react";
 import {
@@ -22,6 +23,8 @@ import { useWebSocket } from "@hooks/useWebSocket";
 export function GamePage() {
   const { t } = useTranslation();
   const { gameType, tableId } = useParams();
+  const [searchParams] = useSearchParams();
+  const demoAi = searchParams.get("mode") === "demo_ai";
   const [selected, setSelected] = useState("");
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>([]);
@@ -34,6 +37,7 @@ export function GamePage() {
   >("offline");
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
+  const [demoActionCount, setDemoActionCount] = useState(0);
   const [resultMessage, setResultMessage] = useState("");
   const [gameState, setGameState] = useState<Record<string, unknown> | null>(
     null,
@@ -145,15 +149,16 @@ export function GamePage() {
     [],
   );
   const { send } = useWebSocket(socketUrl, {
-    enabled: Boolean(engineTableId && accessToken),
+    enabled: Boolean(engineTableId && accessToken && !demoAi),
     onOpen: handleSocketOpen,
     onClose: handleSocketClose,
     onMessage: handleSocketMessage,
   });
 
   useEffect(() => {
-    if (tableId && accessToken) setConnectionState("connecting");
-  }, [accessToken, tableId]);
+    if (demoAi) setConnectionState("connected");
+    else if (tableId && accessToken) setConnectionState("connecting");
+  }, [accessToken, demoAi, tableId]);
 
   useEffect(() => {
     if (!engineTableId || !accessToken) return;
@@ -177,11 +182,11 @@ export function GamePage() {
         );
         if (match) {
           setResolvedTableId(match.id);
-          if (accessToken) void joinTable(match.id, accessToken);
+          if (accessToken && !demoAi) void joinTable(match.id, accessToken);
         } else setResolvedTableId(tableId);
       })
       .catch(() => setResolvedTableId(tableId));
-  }, [accessToken, gameType, tableId]);
+  }, [accessToken, demoAi, gameType, tableId]);
 
   useEffect(() => {
     if (!tableId || !accessToken) return;
@@ -216,6 +221,12 @@ export function GamePage() {
   };
 
   const sendGameAction = (action: string, actionPayload?: unknown) => {
+    if (demoAi) {
+      setConnectionState("connected");
+      setLastAction(t("game.demoActionReceived"));
+      setDemoActionCount((count) => count + 1);
+      return;
+    }
     if (!tableId || !accessToken) {
       setGameConnectionError(t("auth.login"));
       return;
@@ -258,12 +269,14 @@ export function GamePage() {
           <Users size={18} />
         </button>
       </div>
+      {demoAi && <div className="demo-mode-banner"><div><strong><Sparkles size={15}/> {t("game.demoTitle")}</strong><span>{t("game.demoBody")}</span></div><Link to="/lobby" className="text-link">{t("game.findHumans")} <ChevronLeft size={14}/></Link></div>}
       {gameConnectionError && (
         <p className="form-error game-connection-error">
           {gameConnectionError}
         </p>
       )}
-      {connectionState === "connected" && (
+      {demoAi && <p className="secure-note game-sync-note">{t("game.demoProgress", { count: demoActionCount })}</p>}
+      {connectionState === "connected" && !demoAi && (
         <p className="secure-note game-sync-note">
           {t("game.syncedPlayers", { count: playerCount })} · {t("game.sequence")} {sequence}
           {lastAction ? ` · ${lastAction}` : ""}
@@ -279,9 +292,9 @@ export function GamePage() {
         <div className="table-brand">
           MDG <small>GAME CLUB</small>
         </div>
-        <PlayerSeat pos="top" name="Tovo" chips="8 420" />
-        <PlayerSeat pos="left" name="Rija" chips="12 100" />
-        <PlayerSeat pos="right" name="Saholy" chips="6 750" />
+        <PlayerSeat pos="top" name={demoAi ? "IA Démo · Tovo" : "Tovo"} chips="8 420" />
+        <PlayerSeat pos="left" name={demoAi ? "IA Démo · Rija" : "Rija"} chips="12 100" />
+        <PlayerSeat pos="right" name={demoAi ? "IA Démo · Saholy" : "Saholy"} chips="6 750" />
         <div className="pot">
             {t("game.pot")} <strong>2 400</strong>
         </div>

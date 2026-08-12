@@ -2,7 +2,7 @@
 
 **Projet** : Casino MDG  
 **Version** : 3.0 (vision complète)  
-**Date** : 2026-08-10  
+**Date** : 2026-08-12
 **Statut** : Phase Fondation — documentation complète, prête pour implémentation
 
 ---
@@ -17,7 +17,7 @@
 
 ---
 
-## 📁 Structure complète (13 documents, ~776KB)
+## 📁 Structure complète (20 documents de travail + README, ~776KB+)
 
 | # | Document | Description | Public cible |
 |---|----------|-------------|--------------|
@@ -33,6 +33,14 @@
 | **10** | **`10-Product-Vision-V3.md`** | **Vision leader : 7 piliers, scoring RICE, parcours utilisateurs** | **CEO, CTO, Investors, PM** |
 | **11** | **`11-Social-Gamification.md`** | **Clubs, missions, streaks, tournois, parrainage viral** | **PM, Frontend, Backend** |
 | **12** | **`12-UX-Premium.md`** | **Design system, animations, accessibilité, performance** | **UX/UI, Frontend** |
+| **13** | **`13-Product-10-10.md`** | **Critères de qualité et vision produit finale** | **CEO, PM, CTO, Investors** |
+| **14** | **`14-Implementation-Jeux-Instantanes-Loterie.md`** | **Implémentation des jeux instantanés et tirages, catalogue priorisé et conformité** | **CEO, PM, CTO, Backend, Frontend** |
+| **15** | **`15-Page-Test-Jeux-Instantanes-Tirages.md`** | **Spécification de la page test, UX, contrats, sécurité et critères d'acceptation** | **PM, UX/UI, Backend, Frontend, QA** |
+| **16** | **`DECISIONS-JEUX-TEST.md`** | **Décisions verrouillées et points à confirmer avant pilote** | **PM, CTO, Compliance, QA** |
+| **17** | **`GLOSSAIRE-JEUX-TEST.md`** | **Vocabulaire commun produit, UX, API, support et QA** | **Tous** |
+| **18** | **`BUSINESS-MODEL-CASINO-MDG.md`** | **Modèle de revenus, commissions, sponsoring et white-label** | **CEO, Finance, PM** |
+| **19** | **`IMPLEMENTATION-ROADMAP.md`** | **Roadmap d'implémentation et critères de sortie MVP** | **PM, CTO, QA** |
+| **20** | **`20-Roadmap-Activation-Multijoueur-Jeux-Test.md`** | **Roadmap active : activation, démo IA, matchmaking humain, pilote et gates conformité** | **PM, CTO, UX, Backend, Frontend, QA** |
 | 00 | `README.md` | Index et guide navigation | Tous |
 
 ## 🏗️ Fichiers projet

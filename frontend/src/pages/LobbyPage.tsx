@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowUpRight, Lock, Plus, Search, SlidersHorizontal, Users } from 'lucide-react'
-import { getTables, joinTable, type GameTable } from '@services/games'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowUpRight, Lock, Plus, Search, SlidersHorizontal, Sparkles, Users } from 'lucide-react'
+import { cancelMatch, getMatchmakingStatus, getTables, joinTable, queueMatch, sendMatchmakingHeartbeat, type GameTable, type MatchmakingTicket } from '@services/games'
 import { useGameStore } from '@stores/gameStore'
 import { useTranslation } from 'react-i18next'
 
@@ -14,11 +14,40 @@ export function LobbyPage() {
   const [error, setError] = useState('')
   const [joining, setJoining] = useState<string | null>(null)
   const accessToken = useGameStore((state) => state.accessToken)
+  const navigate = useNavigate()
+  const matchmakingGame = (filter === 'all' ? 'poker' : filter) as 'poker' | 'belote' | 'rami'
+  const [matchStatus, setMatchStatus] = useState<{ human_online: number; ticket: MatchmakingTicket | null }>({ human_online: 0, ticket: null })
+  const [matchError, setMatchError] = useState('')
 
   useEffect(() => {
     setLoading(true)
     getTables(filter === 'all' ? 'Tous' : filter).then((payload) => setTables(payload.results)).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false))
   }, [filter])
+
+  useEffect(() => {
+    if (!accessToken) return
+    const refresh = () => Promise.all([sendMatchmakingHeartbeat(accessToken, matchmakingGame), getMatchmakingStatus(accessToken, matchmakingGame)]).then(([, status]) => setMatchStatus({ human_online: status.human_online, ticket: status.ticket })).catch(() => undefined)
+    void refresh()
+    const timer = window.setInterval(refresh, 15000)
+    return () => window.clearInterval(timer)
+  }, [accessToken, matchmakingGame])
+
+  useEffect(() => {
+    if (!accessToken || matchStatus.ticket?.status !== 'queued') return
+    const timer = window.setInterval(() => { void getMatchmakingStatus(accessToken, matchmakingGame).then((status) => { setMatchStatus({ human_online: status.human_online, ticket: status.ticket }); if (status.ticket?.status === 'matched' && status.ticket.table_code) navigate(`/game/${status.ticket.game_type}/${status.ticket.table_code}`) }).catch(() => undefined) }, 2500)
+    return () => window.clearInterval(timer)
+  }, [accessToken, matchStatus.ticket?.status, matchmakingGame, navigate])
+
+  const findHuman = async () => {
+    if (!accessToken) { navigate('/auth'); return }
+    setMatchError('')
+    try { const result = await queueMatch(accessToken, matchmakingGame); setMatchStatus((current) => ({ ...current, ticket: result.ticket })) } catch (reason) { setMatchError(reason instanceof Error ? reason.message : t('app.error')) }
+  }
+
+  const cancelSearch = async () => {
+    if (!accessToken || !matchStatus.ticket) return
+    try { await cancelMatch(accessToken, matchStatus.ticket.ticket_id); setMatchStatus((current) => ({ ...current, ticket: null })) } catch (reason) { setMatchError(reason instanceof Error ? reason.message : t('app.error')) }
+  }
 
   const shown = tables.filter((table) => table.name.toLowerCase().includes(query.toLowerCase()))
   const join = async (table: GameTable) => {
@@ -31,10 +60,11 @@ export function LobbyPage() {
   }
 
   return <div className="page-stack">
-  <div className="page-title-row"><div><span className="eyebrow">{t('lobby.open')}</span><h1>{t('lobby.title')} <em>{t('lobby.live')}</em></h1><p>{t('lobby.choose')}</p></div><button className="button button-gold"><Plus size={17}/> {t('games.create')}</button></div>
+  <div className="page-title-row"><div><span className="eyebrow">{t('lobby.open')}</span><h1>{t('lobby.title')} <em>{t('lobby.live')}</em></h1><p>{t('lobby.choose')}</p></div><div className="page-title-actions"><Link to="/games/test" className="button button-outline"><Sparkles size={16}/> {t('lobby.testGames')}</Link><button className="button button-gold"><Plus size={17}/> {t('games.create')}</button></div></div>
   <div className="lobby-toolbar"><div className="tabs">{[{ key: 'all', label: t('lobby.all') }, { key: 'poker', label: t('games.poker') }, { key: 'belote', label: t('games.belote') }, { key: 'rami', label: t('games.rami') }].map((item) => <button className={filter === item.key ? 'active' : ''} onClick={() => setFilter(item.key)} key={item.key}>{item.label}</button>)}</div><label className="search-box"><Search size={17}/><input aria-label={t('lobby.search')} placeholder={t('lobby.search')} value={query} onChange={(e) => setQuery(e.target.value)}/></label><button className="filter-button"><SlidersHorizontal size={17}/> <span>{t('lobby.filters')}</span></button></div>
-  <div className="live-strip"><div className="live-strip-icon"><Users size={18}/></div><div><strong>{t('lobby.online')}</strong><span>{t('lobby.fillFast')}</span></div><div className="avatar-stack"><span>J</span><span>M</span><span>R</span><b>+231</b></div></div>
+  <div className="live-strip"><div className="live-strip-icon"><Users size={18}/></div><div><strong>{accessToken ? t('humanOnline', { count: matchStatus.human_online }) : t('lobby.online')}</strong><span>{matchStatus.ticket?.status === 'queued' ? t('searchingHuman') : t('lobby.fillFast')}</span></div><div className="matchmaking-actions">{matchStatus.ticket?.status === 'queued' ? <button className="text-link" onClick={() => void cancelSearch()}>{t('cancelSearch')}</button> : <button className="button button-small" onClick={() => void findHuman()}>{t('findHuman')}</button>}</div></div>
+  {matchError && <div className="empty-note"><span>{matchError}</span></div>}
   {error && <div className="empty-note"><span>{error}</span></div>}
-  <div className="table-list">{loading ? <div className="empty-note"><span>{t('lobby.loading')}</span></div> : shown.length === 0 ? <div className="empty-note"><span>{t('lobby.empty')}</span></div> : shown.map((table, index) => { const live = table.status === 'running'; return <div className="table-row" key={table.id}><div className={`table-symbol symbol-${table.game_type}`}>{table.game_type === 'poker' ? '♠' : table.game_type === 'belote' ? '♥' : '♦'}</div><div className="table-main"><div><strong>{table.name}</strong>{index === 0 && <span className="hot-tag">{t('lobby.popular')}</span>}</div><span>{t(`games.${table.game_type}`)}</span></div><div className="table-cell"><small>{t('lobby.stakes')}</small><strong>{table.stakes}</strong></div><div className="table-cell"><small>{t('lobby.players')}</small><strong>{table.player_count} / {table.max_players}</strong></div><div className="table-status"><span className={live ? 'status-live' : ''}><i/>{live ? t('lobby.running') : t('lobby.openTable')}</span></div>{accessToken ? <button className="join-button" onClick={() => join(table)} disabled={joining === table.id || table.status === 'finished' || table.player_count >= table.max_players}>{joining === table.id ? t('lobby.connecting') : live ? t('lobby.watch') : t('games.join')} <ArrowUpRight size={16}/></button> : <Link to="/auth" className="join-button">{t('nav.login')} <ArrowUpRight size={16}/></Link>}</div> })}</div>
+  <div className="table-list">{loading ? <div className="empty-note"><span>{t('lobby.loading')}</span></div> : shown.length === 0 ? <div className="empty-note"><span>{t('lobby.empty')}</span></div> : shown.map((table, index) => { const live = table.status === 'running'; return <div className="table-row" key={table.id}><div className={`table-symbol symbol-${table.game_type}`}>{table.game_type === 'poker' ? '♠' : table.game_type === 'belote' ? '♥' : '♦'}</div><div className="table-main"><div><strong>{table.name}</strong>{index === 0 && <span className="hot-tag">{t('lobby.popular')}</span>}</div><span>{t(`games.${table.game_type}`)}</span></div><div className="table-cell"><small>{t('lobby.stakes')}</small><strong>{table.stakes}</strong></div><div className="table-cell"><small>{t('lobby.players')}</small><strong>{table.player_count} / {table.max_players}</strong></div><div className="table-status"><span className={live ? 'status-live' : ''}><i/>{live ? t('lobby.running') : t('lobby.openTable')}</span></div><div className="table-actions">{accessToken ? <button className="join-button" onClick={() => join(table)} disabled={joining === table.id || table.status === 'finished' || table.player_count >= table.max_players}>{joining === table.id ? t('lobby.connecting') : live ? t('lobby.watch') : t('games.join')} <ArrowUpRight size={16}/></button> : <Link to="/auth" className="join-button">{t('nav.login')} <ArrowUpRight size={16}/></Link>}<Link to={`/game/${table.game_type}/${table.table_code}?mode=demo_ai`} className="demo-link"><Sparkles size={13}/> {t('lobby.testGames')}</Link></div></div> })}</div>
   <div className="empty-note"><Lock size={16}/><span>{t('lobby.privateHint')}</span></div>
 </div> }
