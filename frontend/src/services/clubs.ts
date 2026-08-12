@@ -8,6 +8,7 @@ export type Club = {
   member_count: number;
   member_limit: number;
   joined: boolean;
+  rewarded: boolean;
   role: "owner" | "admin" | "member" | null;
 };
 export type ClubMember = {
@@ -103,4 +104,12 @@ export function joinClubEvent(accessToken: string, eventId: string) {
   return request<ClubEvent>(accessToken, `events/${eventId}/join/`, {
     method: "POST",
   });
+}
+
+export function completeClubEvent(accessToken: string, eventId: string) {
+  return request<{ status: "completed"; awarded_count: number }>(
+    accessToken,
+    `events/${eventId}/complete/`,
+    { method: "POST" },
+  );
 }

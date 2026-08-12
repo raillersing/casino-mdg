@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    ClubEventCompleteView,
     ClubEventJoinView,
     ClubEventsView,
     ClubInvitationAcceptView,
@@ -24,6 +25,11 @@ urlpatterns = [
         "events/<uuid:event_id>/join/",
         ClubEventJoinView.as_view(),
         name="club-event-join",
+    ),
+    path(
+        "events/<uuid:event_id>/complete/",
+        ClubEventCompleteView.as_view(),
+        name="club-event-complete",
     ),
     path(
         "invitations/<uuid:token>/accept/",

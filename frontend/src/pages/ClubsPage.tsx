@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useGameStore } from "@stores/gameStore";
 import {
   createClub,
+  completeClubEvent,
   getClubEvents,
   getClubMembers,
   getClubs,
@@ -189,6 +190,18 @@ export function ClubsPage() {
     }
   };
 
+  const completeEvent = async (clubId: string, eventId: string) => {
+    try {
+      await completeClubEvent(accessToken, eventId);
+      setClubEvents((current) => ({
+        ...current,
+        [clubId]: (current[clubId] || []).filter((item) => item.id !== eventId),
+      }));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("app.error"));
+    }
+  };
+
   return (
     <div className="page-stack">
       <div className="page-title-row">
@@ -285,6 +298,14 @@ export function ClubsPage() {
                           onClick={() => void joinEvent(club.id, event)}
                         >
                           {t("clubs.register")}
+                        </button>
+                      )}
+                      {(club.role === "owner" || club.role === "admin") && (
+                        <button
+                          className="text-link"
+                          onClick={() => void completeEvent(club.id, event.id)}
+                        >
+                          {t("clubs.complete")}
                         </button>
                       )}
                     </div>
