@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { NavLink, Link } from 'react-router-dom'
-import { Bell, CircleUserRound, Compass, Home, LogIn, Menu, WalletCards } from 'lucide-react'
+import { Bell, CircleUserRound, Compass, Dices, Home, LogIn, Menu, WalletCards } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useGameStore } from '@stores/gameStore'
 
@@ -10,6 +10,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const navItems = [
     { to: '/', label: t('nav.home'), icon: Home },
     { to: '/lobby', label: t('nav.play'), icon: Compass },
+    { to: '/games/test', label: t('nav.testGames'), icon: Dices },
     { to: '/wallet', label: t('nav.wallet'), icon: WalletCards },
     { to: '/profile', label: t('nav.profile'), icon: CircleUserRound },
   ]
@@ -35,7 +36,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className="main-shell">
         <header className="topbar">
           <div className="mobile-brand"><span className="brand-mark">♠</span><strong>MDG</strong></div>
-          <div className="breadcrumbs"><span>MDG Game Club</span><span className="slash">/</span><span className="current">{location.pathname === '/lobby' ? t('nav.lobby') : location.pathname === '/wallet' ? t('nav.wallet') : location.pathname === '/profile' ? t('nav.profile') : t('nav.home')}</span></div>
+          <div className="breadcrumbs"><span>MDG Game Club</span><span className="slash">/</span><span className="current">{location.pathname === '/lobby' ? t('nav.lobby') : location.pathname === '/wallet' ? t('nav.wallet') : location.pathname === '/profile' ? t('nav.profile') : location.pathname === '/games/test' ? t('testGames.breadcrumb') : t('nav.home')}</span></div>
           <div className="topbar-actions"><button className="language-toggle" onClick={() => void i18n.changeLanguage(language === 'FR' ? 'mg' : 'fr')} aria-label={t('a11y.changeLanguage')}>{language}</button><button className="icon-button" aria-label={t('a11y.notifications')}><Bell size={18} /><i /></button>{user ? <Link to="/profile" className="top-avatar avatar" aria-label={t('a11y.openProfile')}>{user.displayName[0]}</Link> : <Link to="/auth" className="login-link"><LogIn size={16} /> {t('nav.login')}</Link>}<button className="icon-button mobile-menu" aria-label={t('a11y.openMenu')}><Menu size={20} /></button></div>
         </header>
         <main className="content">{children}</main>
