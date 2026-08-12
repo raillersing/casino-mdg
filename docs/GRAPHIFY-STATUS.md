@@ -7,7 +7,7 @@ tests ou la documentation structurante.
 ## Dernière génération
 
 - Date : 12 août 2026
-- Commit analysé : `d293259b`
+- Commit analysé : `3537510`
 - Nœuds : 1 659
 - Relations : 2 600
 - Communautés : 147
