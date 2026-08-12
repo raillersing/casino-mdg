@@ -1,11 +1,12 @@
 """
 URL configuration for Casino MDG backend.
 """
+
 from django.contrib import admin
-from django.urls import path, include
-from django.http import JsonResponse
-from django.http import HttpResponse
 from django.db import connection
+from django.http import HttpResponse, JsonResponse
+from django.urls import include, path
+
 from .metrics import prometheus_metrics
 
 
@@ -19,12 +20,15 @@ def readyz(request):
             cursor.execute("SELECT 1")
             cursor.fetchone()
     except Exception:
-        return JsonResponse({"status": "unready", "database": "unavailable"}, status=503)
+        return JsonResponse(
+            {"status": "unready", "database": "unavailable"}, status=503
+        )
     return JsonResponse({"status": "ok", "database": "ok"})
 
 
 def metrics(request):
     return HttpResponse(prometheus_metrics(), content_type="text/plain; version=0.0.4")
+
 
 urlpatterns = [
     path("healthz/", healthz, name="healthz"),

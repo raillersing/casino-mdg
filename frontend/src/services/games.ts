@@ -26,13 +26,65 @@ export function getTables(gameType?: string) {
   return request<{ results: GameTable[] }>(`tables/${query}`);
 }
 
-export type MatchmakingTicket = { ticket_id: string; game_type: "poker" | "belote" | "rami"; status: "queued" | "matched" | "cancelled"; table_id: string | null; table_code: string | null; created_at: string };
-export type MatchmakingStatus = { game_type: string | null; human_online: number; queued: number; ticket: MatchmakingTicket | null };
+export type MatchmakingTicket = {
+  ticket_id: string;
+  game_type: "poker" | "belote" | "rami";
+  status: "queued" | "matched" | "cancelled";
+  table_id: string | null;
+  table_code: string | null;
+  created_at: string;
+};
+export type MatchmakingStatus = {
+  game_type: string | null;
+  human_online: number;
+  queued: number;
+  ticket: MatchmakingTicket | null;
+};
 
-export function getMatchmakingStatus(accessToken: string, gameType?: string) { return request<MatchmakingStatus>(`matchmaking/status/${gameType ? `?game_type=${gameType}` : ""}`, { headers: { Authorization: `Bearer ${accessToken}` } }); }
-export function sendMatchmakingHeartbeat(accessToken: string, gameType?: string) { return request<{ status: string; game_type: string | null }>("matchmaking/heartbeat/", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ game_type: gameType }) }); }
-export function queueMatch(accessToken: string, gameType: "poker" | "belote" | "rami") { return request<{ ticket: MatchmakingTicket; created: boolean }>("matchmaking/queue/", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ game_type: gameType }) }); }
-export function cancelMatch(accessToken: string, ticketId: string) { return request<{ ticket: MatchmakingTicket }>(`matchmaking/queue/${ticketId}/`, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }); }
+export function getMatchmakingStatus(accessToken: string, gameType?: string) {
+  return request<MatchmakingStatus>(
+    `matchmaking/status/${gameType ? `?game_type=${gameType}` : ""}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+}
+export function sendMatchmakingHeartbeat(
+  accessToken: string,
+  gameType?: string,
+) {
+  return request<{ status: string; game_type: string | null }>(
+    "matchmaking/heartbeat/",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ game_type: gameType }),
+    },
+  );
+}
+export function queueMatch(
+  accessToken: string,
+  gameType: "poker" | "belote" | "rami",
+) {
+  return request<{ ticket: MatchmakingTicket; created: boolean }>(
+    "matchmaking/queue/",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ game_type: gameType }),
+    },
+  );
+}
+export function cancelMatch(accessToken: string, ticketId: string) {
+  return request<{ ticket: MatchmakingTicket }>(
+    `matchmaking/queue/${ticketId}/`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+}
 
 export function joinTable(tableId: string, accessToken: string) {
   return request<{ table: GameTable; created: boolean }>(

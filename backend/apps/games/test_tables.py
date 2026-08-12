@@ -9,7 +9,9 @@ from apps.games.models import GameTable, TableSeat
 class TableApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(email="joueur@mdg.local", phone="+261340000001", display_name="Joueur")
+        self.user = User.objects.create_user(
+            email="joueur@mdg.local", phone="+261340000001", display_name="Joueur"
+        )
 
     def test_public_list_seeds_demo_tables(self):
         response = self.client.get("/api/v1/games/tables/")
@@ -17,18 +19,28 @@ class TableApiTests(TestCase):
         self.assertEqual(len(response.data["results"]), 4)
 
     def test_join_is_idempotent_and_never_duplicates_seat(self):
-        table = GameTable.objects.create(table_code="test-001", name="Test", game_type="poker", max_players=2)
+        table = GameTable.objects.create(
+            table_code="test-001", name="Test", game_type="poker", max_players=2
+        )
         self.client.force_authenticate(self.user)
         first = self.client.post(f"/api/v1/games/tables/{table.pk}/join/")
         second = self.client.post(f"/api/v1/games/tables/{table.pk}/join/")
         self.assertEqual(first.status_code, 201)
         self.assertEqual(second.status_code, 200)
-        self.assertEqual(TableSeat.objects.filter(table=table, user=self.user).count(), 1)
+        self.assertEqual(
+            TableSeat.objects.filter(table=table, user=self.user).count(), 1
+        )
 
     def test_second_player_gets_next_seat_and_full_table_rejects_new_player(self):
-        table = GameTable.objects.create(table_code="test-full", name="Full", game_type="poker", max_players=2)
-        second_user = User.objects.create_user(email="second@mdg.local", phone="+261340000002", display_name="Second")
-        third_user = User.objects.create_user(email="third@mdg.local", phone="+261340000003", display_name="Third")
+        table = GameTable.objects.create(
+            table_code="test-full", name="Full", game_type="poker", max_players=2
+        )
+        second_user = User.objects.create_user(
+            email="second@mdg.local", phone="+261340000002", display_name="Second"
+        )
+        third_user = User.objects.create_user(
+            email="third@mdg.local", phone="+261340000003", display_name="Third"
+        )
 
         self.client.force_authenticate(self.user)
         first = self.client.post(f"/api/v1/games/tables/{table.pk}/join/")

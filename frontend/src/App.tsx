@@ -1,15 +1,15 @@
-import { Routes, Route } from 'react-router-dom'
-import { Layout } from '@components/ui/Layout'
-import { HomePage } from '@pages/HomePage'
-import { LobbyPage } from '@pages/LobbyPage'
-import { GamePage } from '@pages/GamePage'
-import { WalletPage } from '@pages/WalletPage'
-import { ProfilePage } from '@pages/ProfilePage'
-import { AuthPage } from '@pages/AuthPage'
-import { NotFoundPage } from '@pages/NotFoundPage'
-import { SupportPage } from '@pages/SupportPage'
-import { BackofficePage } from '@pages/BackofficePage'
-import { TestGamesPage } from '@pages/TestGamesPage'
+import { Routes, Route } from "react-router-dom";
+import { Layout } from "@components/ui/Layout";
+import { HomePage } from "@pages/HomePage";
+import { LobbyPage } from "@pages/LobbyPage";
+import { GamePage } from "@pages/GamePage";
+import { WalletPage } from "@pages/WalletPage";
+import { ProfilePage } from "@pages/ProfilePage";
+import { AuthPage } from "@pages/AuthPage";
+import { NotFoundPage } from "@pages/NotFoundPage";
+import { SupportPage } from "@pages/SupportPage";
+import { BackofficePage } from "@pages/BackofficePage";
+import { TestGamesPage } from "@pages/TestGamesPage";
 
 function App() {
   return (
@@ -27,7 +27,7 @@ function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>
-  )
+  );
 }
 
-export default App
+export default App;

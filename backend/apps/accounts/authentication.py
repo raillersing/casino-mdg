@@ -10,7 +10,12 @@ from .models import User
 def encode_token(user, token_type="access", lifetime_seconds=900):
     now = datetime.now(timezone.utc)
     return jwt.encode(
-        {"sub": str(user.pk), "type": token_type, "iat": now, "exp": now.timestamp() + lifetime_seconds},
+        {
+            "sub": str(user.pk),
+            "type": token_type,
+            "iat": now,
+            "exp": now.timestamp() + lifetime_seconds,
+        },
         os.getenv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes"),
         algorithm="HS256",
     )
@@ -26,7 +31,11 @@ class JWTAuthentication(authentication.BaseAuthentication):
         if len(header) != 2 or header[0].lower() != self.keyword.lower().encode():
             raise exceptions.AuthenticationFailed("Format Authorization invalide")
         try:
-            payload = jwt.decode(header[1], os.getenv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes"), algorithms=["HS256"])
+            payload = jwt.decode(
+                header[1],
+                os.getenv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes"),
+                algorithms=["HS256"],
+            )
             if payload.get("type") != "access":
                 raise exceptions.AuthenticationFailed("Token non utilisable")
             user = User.objects.get(pk=payload["sub"], is_active=True)

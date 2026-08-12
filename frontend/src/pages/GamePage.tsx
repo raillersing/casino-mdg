@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ChevronLeft,
   Copy,
@@ -107,7 +112,9 @@ export function GamePage() {
             .then((result) =>
               setResultMessage(
                 result.transaction_id
-                  ? t("game.winCredited", { transaction: result.transaction_id })
+                  ? t("game.winCredited", {
+                      transaction: result.transaction_id,
+                    })
                   : t("game.resultSaved"),
               ),
             )
@@ -120,7 +127,7 @@ export function GamePage() {
           setGameConnectionError(
             typeof payload.payload === "string"
               ? payload.payload
-          : t("game.tableConnectionError"),
+              : t("game.tableConnectionError"),
           );
         if (payload.type === "state" || payload.type === "sync")
           setGameConnectionError("");
@@ -138,7 +145,10 @@ export function GamePage() {
           JSON.stringify({
             type: "join",
             table_id: engineTableId,
-            payload: { game_type: gameType || "poker", role: spectator ? "spectator" : "player" },
+            payload: {
+              game_type: gameType || "poker",
+              role: spectator ? "spectator" : "player",
+            },
             sequence: 0,
             timestamp: new Date().toISOString(),
           }),
@@ -251,7 +261,12 @@ export function GamePage() {
 
   const leaveTable = () => {
     if (engineTableId && accessToken && !demoAi && !spectator) {
-      send({ type: "leave", table_id: engineTableId, sequence, timestamp: new Date().toISOString() });
+      send({
+        type: "leave",
+        table_id: engineTableId,
+        sequence,
+        timestamp: new Date().toISOString(),
+      });
     }
     navigate("/lobby");
   };
@@ -259,7 +274,14 @@ export function GamePage() {
   return (
     <div className="game-room">
       <div className="game-room-head">
-        <Link to="/lobby" className="back-link" onClick={(event) => { event.preventDefault(); leaveTable(); }}>
+        <Link
+          to="/lobby"
+          className="back-link"
+          onClick={(event) => {
+            event.preventDefault();
+            leaveTable();
+          }}
+        >
           <ChevronLeft size={17} /> {t("game.leaveTable")}
         </Link>
         <div>
@@ -282,17 +304,44 @@ export function GamePage() {
           <Users size={18} />
         </button>
       </div>
-      {demoAi && <div className="demo-mode-banner"><div><strong><Sparkles size={15}/> {t("game.demoTitle")}</strong><span>{t("game.demoBody")}</span></div><Link to="/lobby" className="text-link">{t("game.findHumans")} <ChevronLeft size={14}/></Link></div>}
-      {spectator && <div className="spectator-mode-banner"><div><strong>{t("spectatorTitle")}</strong><span>{t("spectatorBody")}</span></div><Link to="/lobby" className="text-link">{t("leaveSpectator")} <ChevronLeft size={14}/></Link></div>}
+      {demoAi && (
+        <div className="demo-mode-banner">
+          <div>
+            <strong>
+              <Sparkles size={15} /> {t("game.demoTitle")}
+            </strong>
+            <span>{t("game.demoBody")}</span>
+          </div>
+          <Link to="/lobby" className="text-link">
+            {t("game.findHumans")} <ChevronLeft size={14} />
+          </Link>
+        </div>
+      )}
+      {spectator && (
+        <div className="spectator-mode-banner">
+          <div>
+            <strong>{t("spectatorTitle")}</strong>
+            <span>{t("spectatorBody")}</span>
+          </div>
+          <Link to="/lobby" className="text-link">
+            {t("leaveSpectator")} <ChevronLeft size={14} />
+          </Link>
+        </div>
+      )}
       {gameConnectionError && (
         <p className="form-error game-connection-error">
           {gameConnectionError}
         </p>
       )}
-      {demoAi && <p className="secure-note game-sync-note">{t("game.demoProgress", { count: demoActionCount })}</p>}
+      {demoAi && (
+        <p className="secure-note game-sync-note">
+          {t("game.demoProgress", { count: demoActionCount })}
+        </p>
+      )}
       {connectionState === "connected" && !demoAi && (
         <p className="secure-note game-sync-note">
-          {t("game.syncedPlayers", { count: playerCount })} · {t("game.sequence")} {sequence}
+          {t("game.syncedPlayers", { count: playerCount })} ·{" "}
+          {t("game.sequence")} {sequence}
           {lastAction ? ` · ${lastAction}` : ""}
         </p>
       )}
@@ -306,11 +355,23 @@ export function GamePage() {
         <div className="table-brand">
           MDG <small>GAME CLUB</small>
         </div>
-        <PlayerSeat pos="top" name={demoAi ? "IA Démo · Tovo" : "Tovo"} chips="8 420" />
-        <PlayerSeat pos="left" name={demoAi ? "IA Démo · Rija" : "Rija"} chips="12 100" />
-        <PlayerSeat pos="right" name={demoAi ? "IA Démo · Saholy" : "Saholy"} chips="6 750" />
+        <PlayerSeat
+          pos="top"
+          name={demoAi ? "IA Démo · Tovo" : "Tovo"}
+          chips="8 420"
+        />
+        <PlayerSeat
+          pos="left"
+          name={demoAi ? "IA Démo · Rija" : "Rija"}
+          chips="12 100"
+        />
+        <PlayerSeat
+          pos="right"
+          name={demoAi ? "IA Démo · Saholy" : "Saholy"}
+          chips="6 750"
+        />
         <div className="pot">
-            {t("game.pot")} <strong>2 400</strong>
+          {t("game.pot")} <strong>2 400</strong>
         </div>
         <div className="community-cards">
           <PlayingCard value="A" suit="♠" />
@@ -350,7 +411,11 @@ export function GamePage() {
             <span>{t("game.chooseAction")}</span>
           </div>
         </div>
-        {spectator ? <div className="secure-note game-sync-note">{t("spectatorReadOnly")}</div> : isPoker ? (
+        {spectator ? (
+          <div className="secure-note game-sync-note">
+            {t("spectatorReadOnly")}
+          </div>
+        ) : isPoker ? (
           <div className="action-row">
             <button
               className="action-fold"
@@ -499,15 +564,18 @@ function GameStateSummary({
       : [0, 0];
     return (
       <div className="secure-note game-sync-note">
-        <strong>{t("games.belote")}</strong> · {t("game.trump")} : {String(state.trump ?? "—")} · {t("game.team")} 1 : {String(points[0])} · {t("game.team")} 2 : {String(points[1])} · {t("game.trick")} :{" "}
+        <strong>{t("games.belote")}</strong> · {t("game.trump")} :{" "}
+        {String(state.trump ?? "—")} · {t("game.team")} 1 : {String(points[0])}{" "}
+        · {t("game.team")} 2 : {String(points[1])} · {t("game.trick")} :{" "}
         {Array.isArray(state.trick) ? state.trick.length : 0}/4
       </div>
     );
   }
   return (
     <div className="secure-note game-sync-note">
-      <strong>{t("games.rami")}</strong> · {t("game.activePlayer")} : {String(state.current ?? "—")} ·
-      {t("game.discard")} : {Array.isArray(state.discard) ? state.discard.length : 0} ·
+      <strong>{t("games.rami")}</strong> · {t("game.activePlayer")} :{" "}
+      {String(state.current ?? "—")} ·{t("game.discard")} :{" "}
+      {Array.isArray(state.discard) ? state.discard.length : 0} ·
       {t("lobby.players")} : {players.length}
     </div>
   );

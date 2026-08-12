@@ -160,6 +160,8 @@ func TestGracePeriodExpiryClosesTableWhenLastPlayerIsGone(t *testing.T) {
 	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur", 1)
 	m.DisconnectPlayer(table.ID, "p1")
 	time.Sleep(35 * time.Millisecond)
+	table.mu.RLock()
+	defer table.mu.RUnlock()
 	if table.IsActive {
 		t.Fatal("empty table remained active after grace period")
 	}

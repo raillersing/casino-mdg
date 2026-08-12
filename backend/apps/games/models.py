@@ -15,7 +15,13 @@ class GameTable(models.Model):
     max_players = models.PositiveSmallIntegerField(default=4)
     status = models.CharField(max_length=20, choices=STATUSES, default="open")
     is_private = models.BooleanField(default=False)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_tables")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_tables",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -30,26 +36,40 @@ class GameTable(models.Model):
 
 class TableSeat(models.Model):
     table = models.ForeignKey(GameTable, on_delete=models.CASCADE, related_name="seats")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="table_seats")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="table_seats"
+    )
     seat_index = models.PositiveSmallIntegerField()
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "table_seats"
         constraints = [
-            models.UniqueConstraint(fields=["table", "user"], name="unique_table_player"),
-            models.UniqueConstraint(fields=["table", "seat_index"], name="unique_table_seat"),
+            models.UniqueConstraint(
+                fields=["table", "user"], name="unique_table_player"
+            ),
+            models.UniqueConstraint(
+                fields=["table", "seat_index"], name="unique_table_seat"
+            ),
         ]
 
 
 class GameResult(models.Model):
     OUTCOMES = [("win", "Victoire"), ("loss", "Défaite"), ("draw", "Égalité")]
     game_id = models.UUIDField(unique=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="game_results")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="game_results"
+    )
     game_type = models.CharField(max_length=20, choices=GameTable.GAME_TYPES)
     outcome = models.CharField(max_length=10, choices=OUTCOMES)
     amount = models.PositiveBigIntegerField(default=0)
-    transaction = models.ForeignKey("wallet.WalletTransaction", null=True, blank=True, on_delete=models.PROTECT, related_name="game_results")
+    transaction = models.ForeignKey(
+        "wallet.WalletTransaction",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="game_results",
+    )
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -59,16 +79,29 @@ class GameResult(models.Model):
 
 
 class DailyRewardClaim(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="daily_reward_claims")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="daily_reward_claims",
+    )
     mission_key = models.CharField(max_length=40)
     mission_date = models.DateField()
     amount = models.PositiveBigIntegerField()
-    transaction = models.ForeignKey("wallet.WalletTransaction", on_delete=models.PROTECT, related_name="daily_reward_claims")
+    transaction = models.ForeignKey(
+        "wallet.WalletTransaction",
+        on_delete=models.PROTECT,
+        related_name="daily_reward_claims",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "daily_reward_claims"
-        constraints = [models.UniqueConstraint(fields=["user", "mission_key", "mission_date"], name="unique_daily_reward_claim")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "mission_key", "mission_date"],
+                name="unique_daily_reward_claim",
+            )
+        ]
 
 
 class InstantGameDefinition(models.Model):
@@ -93,15 +126,25 @@ class InstantGameDefinition(models.Model):
 class InstantPlay(models.Model):
     STATUSES = [("completed", "Terminée"), ("failed", "Échouée")]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="instant_plays")
-    game = models.ForeignKey(InstantGameDefinition, on_delete=models.PROTECT, related_name="plays")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="instant_plays"
+    )
+    game = models.ForeignKey(
+        InstantGameDefinition, on_delete=models.PROTECT, related_name="plays"
+    )
     idempotency_key = models.CharField(max_length=120, unique=True)
     status = models.CharField(max_length=20, choices=STATUSES)
     result_kind = models.CharField(max_length=40)
     result_label = models.CharField(max_length=120)
     cost = models.PositiveBigIntegerField(default=0)
     prize = models.PositiveBigIntegerField(default=0)
-    transaction = models.ForeignKey("wallet.WalletTransaction", null=True, blank=True, on_delete=models.PROTECT, related_name="instant_plays")
+    transaction = models.ForeignKey(
+        "wallet.WalletTransaction",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instant_plays",
+    )
     audit = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -112,7 +155,13 @@ class InstantPlay(models.Model):
 
 
 class DrawDefinition(models.Model):
-    STATUSES = [("open", "Ouvert"), ("closed", "Clôturé"), ("drawn", "Tiré"), ("settled", "Réglé"), ("cancelled", "Annulé")]
+    STATUSES = [
+        ("open", "Ouvert"),
+        ("closed", "Clôturé"),
+        ("drawn", "Tiré"),
+        ("settled", "Réglé"),
+        ("cancelled", "Annulé"),
+    ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     slug = models.SlugField(max_length=60, unique=True)
     name = models.CharField(max_length=100)
@@ -132,11 +181,21 @@ class DrawDefinition(models.Model):
 
 class DrawEntry(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    draw = models.ForeignKey(DrawDefinition, on_delete=models.PROTECT, related_name="entries")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="draw_entries")
+    draw = models.ForeignKey(
+        DrawDefinition, on_delete=models.PROTECT, related_name="entries"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="draw_entries"
+    )
     idempotency_key = models.CharField(max_length=120, unique=True)
     numbers = models.JSONField(default=list)
-    transaction = models.ForeignKey("wallet.WalletTransaction", null=True, blank=True, on_delete=models.PROTECT, related_name="draw_entries")
+    transaction = models.ForeignKey(
+        "wallet.WalletTransaction",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="draw_entries",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -146,7 +205,9 @@ class DrawEntry(models.Model):
 
 
 class DrawResult(models.Model):
-    draw = models.OneToOneField(DrawDefinition, on_delete=models.PROTECT, related_name="result")
+    draw = models.OneToOneField(
+        DrawDefinition, on_delete=models.PROTECT, related_name="result"
+    )
     numbers = models.JSONField(default=list)
     commitment = models.CharField(max_length=128)
     proof = models.JSONField(default=dict)
@@ -158,8 +219,12 @@ class DrawResult(models.Model):
 
 class PlayerPresence(models.Model):
     STATUS_CHOICES = [("online", "En ligne"), ("searching", "Recherche")]
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="game_presence")
-    game_type = models.CharField(max_length=20, choices=GameTable.GAME_TYPES, null=True, blank=True)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="game_presence"
+    )
+    game_type = models.CharField(
+        max_length=20, choices=GameTable.GAME_TYPES, null=True, blank=True
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="online")
     last_seen_at = models.DateTimeField()
     updated_at = models.DateTimeField(auto_now=True)
@@ -170,16 +235,36 @@ class PlayerPresence(models.Model):
 
 
 class MatchmakingTicket(models.Model):
-    STATUS_CHOICES = [("queued", "En file"), ("matched", "Associé"), ("cancelled", "Annulé")]
+    STATUS_CHOICES = [
+        ("queued", "En file"),
+        ("matched", "Associé"),
+        ("cancelled", "Annulé"),
+    ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="matchmaking_tickets")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="matchmaking_tickets",
+    )
     game_type = models.CharField(max_length=20, choices=GameTable.GAME_TYPES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="queued")
-    matched_table = models.ForeignKey(GameTable, null=True, blank=True, on_delete=models.SET_NULL, related_name="matchmaking_tickets")
+    matched_table = models.ForeignKey(
+        GameTable,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="matchmaking_tickets",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "matchmaking_tickets"
-        constraints = [models.UniqueConstraint(fields=["user", "game_type"], condition=models.Q(status="queued"), name="one_queued_ticket_per_game")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "game_type"],
+                condition=models.Q(status="queued"),
+                name="one_queued_ticket_per_game",
+            )
+        ]
         indexes = [models.Index(fields=["game_type", "status", "created_at"])]

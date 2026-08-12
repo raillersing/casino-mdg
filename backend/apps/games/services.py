@@ -13,7 +13,19 @@ def seed_demo_tables():
         ("vanilla-01", "Vanille", "rami", "50 / 100", 4, "open"),
         ("ocean-01", "Océan Indien", "poker", "500 / 1K", 9, "open"),
     ]
-    GameTable.objects.bulk_create([GameTable(table_code=code, name=name, game_type=game_type, stakes=stakes, max_players=max_players, status=status) for code, name, game_type, stakes, max_players, status in demo_tables])
+    GameTable.objects.bulk_create(
+        [
+            GameTable(
+                table_code=code,
+                name=name,
+                game_type=game_type,
+                stakes=stakes,
+                max_players=max_players,
+                status=status,
+            )
+            for code, name, game_type, stakes, max_players, status in demo_tables
+        ]
+    )
 
 
 @transaction.atomic
@@ -26,7 +38,9 @@ def join_table(table, user):
         return existing, False
     if table.seats.count() >= table.max_players:
         raise ValueError("Cette table est complète.")
-    seat = TableSeat.objects.create(table=table, user=user, seat_index=table.seats.count())
+    seat = TableSeat.objects.create(
+        table=table, user=user, seat_index=table.seats.count()
+    )
     if table.seats.count() >= table.max_players:
         table.status = "running"
         table.save(update_fields=["status", "updated_at"])

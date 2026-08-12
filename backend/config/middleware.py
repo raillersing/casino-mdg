@@ -1,8 +1,7 @@
-import uuid
 import time
+import uuid
 from collections import Counter
 from threading import Lock
-
 
 REQUEST_COUNTS = Counter()
 REQUEST_DURATION_SECONDS = Counter()
