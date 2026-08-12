@@ -33,10 +33,16 @@ Les bots servent à réduire l’attente et à apprendre le jeu, jamais à gonfl
 
 ### Gaps restants après activation et multijoueur
 
-- Le pilote fermé, le feedback intégré et les seuils go/no-go ne sont pas encore livrés.
+- Le pilote fermé reste à exécuter avec de vrais testeurs ; le feedback intégré et les seuils go/no-go sont livrés.
 - Les invitations par lien/code et l’estimation d’attente restent à finaliser.
 - Le tableau de bord produit doit encore être enrichi avec la latence, les erreurs et la rétention D1/D7.
 - La frontière entre simulation, humain, bot et futur argent réel doit rester explicite dans chaque nouveau parcours.
+
+Le back-office expose désormais une décision assistée sur sept jours via
+`/api/v1/analytics/pilot-gate/`. Elle vérifie le volume de feedback, la note
+moyenne, les parties terminées observées et les erreurs bloquantes. `GO provisoire`
+ne remplace pas une revue humaine : il indique uniquement que les preuves
+quantitatives minimales sont réunies.
 
 ### Lot en cours — Phase 5 : mesure et pilote fermé
 
@@ -184,6 +190,20 @@ Les bots d’onboarding et le remplissage contrôlé d’une file sont des prati
 - Les parcours critiques ont une preuve E2E et une preuve après rechargement.
 - Les erreurs bloquantes et doubles mutations sont à zéro sur le pilote.
 - Le taux de fallback IA et le taux de match humain sont connus par jeu.
+
+### Critères go/no-go implémentés
+
+| Critère | Cible par défaut | Effet |
+|---|---:|---|
+| Feedback pilote | 5 retours minimum | reste `À surveiller` si insuffisant |
+| Note moyenne | au moins 4/5 | reste `À surveiller` si insuffisant |
+| Parties terminées | 5 événements `first_game_completed` | reste `À surveiller` si insuffisant |
+| Erreurs bloquantes | 0 événement `game_error` | passe immédiatement à `Bloqué` |
+
+Les seuils sont des garde-fous de pilote simulation, pas des objectifs de
+rentabilité ni une autorisation d’argent réel. Le statut affiché peut être
+`GO provisoire`, `À surveiller` ou `Bloqué`, et doit toujours être relu par un
+responsable avant une décision d’élargissement.
 
 ### Phase 6 — Rétention et communauté
 

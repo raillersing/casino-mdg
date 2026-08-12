@@ -2,12 +2,14 @@ import json
 import uuid
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import models, transaction
 from django.db.models import Count
 from django.utils import timezone
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from apps.support.models import PilotFeedback
 
 from .models import ProductEvent
 
@@ -84,5 +86,77 @@ class ProductEventSummaryView(APIView):
                 "since": since.isoformat(),
                 "total": events.count(),
                 "events": counts,
+            }
+        )
+
+
+class PilotGateSummaryView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        since = timezone.now() - timedelta(days=7)
+        events = ProductEvent.objects.filter(created_at__gte=since)
+        feedback = PilotFeedback.objects.filter(created_at__gte=since)
+        counts = {
+            item["event_name"]: item["count"]
+            for item in events.values("event_name").annotate(count=Count("id"))
+        }
+        feedback_count = feedback.count()
+        average_rating = feedback.aggregate(value=models.Avg("rating"))["value"]
+        criteria = [
+            {
+                "key": "feedback_volume",
+                "label": "Feedback pilote suffisant",
+                "observed": feedback_count,
+                "target": 5,
+                "unit": "retours",
+                "status": "pass" if feedback_count >= 5 else "pending",
+            },
+            {
+                "key": "feedback_rating",
+                "label": "Note moyenne satisfaisante",
+                "observed": round(float(average_rating), 2) if average_rating else None,
+                "target": 4,
+                "unit": "/ 5",
+                "status": (
+                    "pass"
+                    if average_rating is not None and average_rating >= 4
+                    else "pending"
+                ),
+            },
+            {
+                "key": "completed_games",
+                "label": "Parties terminées observées",
+                "observed": counts.get("first_game_completed", 0),
+                "target": 5,
+                "unit": "parties",
+                "status": (
+                    "pass" if counts.get("first_game_completed", 0) >= 5 else "pending"
+                ),
+            },
+            {
+                "key": "blocking_errors",
+                "label": "Erreurs bloquantes",
+                "observed": counts.get("game_error", 0),
+                "target": 0,
+                "unit": "erreurs",
+                "status": "pass" if counts.get("game_error", 0) == 0 else "blocked",
+            },
+        ]
+        status = (
+            "blocked"
+            if any(item["status"] == "blocked" for item in criteria)
+            else (
+                "go_provisional"
+                if all(item["status"] == "pass" for item in criteria)
+                else "monitor"
+            )
+        )
+        return Response(
+            {
+                "window": "7d",
+                "since": since.isoformat(),
+                "status": status,
+                "criteria": criteria,
             }
         )

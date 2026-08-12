@@ -8,6 +8,7 @@ import {
   getPaymentReconciliation,
   getProductEventSummary,
   getPilotFeedbackSummary,
+  getPilotGateSummary,
   type AuditEvent,
   type FeatureFlag,
 } from "@services/backoffice";
@@ -22,6 +23,17 @@ export function BackofficePage() {
     webhooks_received: number;
     webhooks_processed: number;
     unmatched_webhooks: string[];
+  } | null>(null);
+  const [pilotGate, setPilotGate] = useState<{
+    status: "blocked" | "monitor" | "go_provisional";
+    criteria: Array<{
+      key: string;
+      label: string;
+      observed: number | null;
+      target: number;
+      unit: string;
+      status: "pass" | "pending" | "blocked";
+    }>;
   } | null>(null);
   const [feedbackSummary, setFeedbackSummary] = useState<{
     count: number;
@@ -43,13 +55,15 @@ export function BackofficePage() {
       getPaymentReconciliation(token),
       getProductEventSummary(token),
       getPilotFeedbackSummary(token),
+      getPilotGateSummary(token),
     ])
-      .then(([audit, featureFlags, report, summary, feedback]) => {
+      .then(([audit, featureFlags, report, summary, feedback, gate]) => {
         setEvents(audit.results);
         setFlags(featureFlags.results);
         setReconciliation(report);
         setProductSummary(summary);
         setFeedbackSummary(feedback);
+        setPilotGate(gate);
       })
       .catch((reason: Error) => setError(reason.message));
   }, [token]);
@@ -110,6 +124,47 @@ export function BackofficePage() {
         </div>
       </div>
       <div className="wallet-layout">
+        <section className="activity-card">
+          <div className="chat-head">Décision pilote · fenêtre 7 jours</div>
+          {pilotGate ? (
+            <>
+              <div className="activity-row">
+                <div>
+                  <strong>
+                    {pilotGate.status === "go_provisional"
+                      ? "GO provisoire"
+                      : pilotGate.status === "blocked"
+                        ? "Bloqué"
+                        : "À surveiller"}
+                  </strong>
+                  <span>Décision assistée par les preuves disponibles</span>
+                </div>
+                <b>
+                  {
+                    pilotGate.criteria.filter((item) => item.status === "pass")
+                      .length
+                  }
+                  /{pilotGate.criteria.length}
+                </b>
+              </div>
+              {pilotGate.criteria.map((criterion) => (
+                <div className="activity-row" key={criterion.key}>
+                  <div>
+                    <strong>{criterion.label}</strong>
+                    <span>
+                      Objectif : {criterion.target} {criterion.unit}
+                    </span>
+                  </div>
+                  <b>
+                    {criterion.observed ?? "—"} · {criterion.status}
+                  </b>
+                </div>
+              ))}
+            </>
+          ) : (
+            <div className="empty-wallet">Chargement des critères.</div>
+          )}
+        </section>
         <section className="activity-card">
           <div className="chat-head">Activation · 7 derniers jours</div>
           {productSummary ? (
