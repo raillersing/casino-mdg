@@ -7,7 +7,9 @@ from apps.wallet.services import SIMULATION_STARTING_BONUS, credit_simulation_bo
 
 class SimulationWalletTests(TestCase):
     def test_welcome_bonus_is_idempotent_and_balanced(self):
-        user = User.objects.create_user(email="034000000@mdg.local", phone="+261340000000", display_name="Miora")
+        user = User.objects.create_user(
+            email="034000000@mdg.local", phone="+261340000000", display_name="Miora"
+        )
         account, first, created = credit_simulation_bonus(user)
         same_account, same_transaction, created_again = credit_simulation_bonus(user)
         self.assertTrue(created)

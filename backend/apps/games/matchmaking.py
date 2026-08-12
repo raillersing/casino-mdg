@@ -56,15 +56,21 @@ def queue_player(user, game_type):
         ticket.status = "matched"
         ticket.matched_table = table
         ticket.save(update_fields=["status", "matched_table", "updated_at"])
-        PlayerPresence.objects.filter(user__in=[user, opponent.user]).update(status="online", last_seen_at=now)
+        PlayerPresence.objects.filter(user__in=[user, opponent.user]).update(
+            status="online", last_seen_at=now
+        )
     return ticket, created
 
 
 def cancel_ticket(user, ticket_id):
     with transaction.atomic():
-        ticket = MatchmakingTicket.objects.select_for_update().get(id=ticket_id, user=user)
+        ticket = MatchmakingTicket.objects.select_for_update().get(
+            id=ticket_id, user=user
+        )
         if ticket.status == "queued":
             ticket.status = "cancelled"
             ticket.save(update_fields=["status", "updated_at"])
-        PlayerPresence.objects.filter(user=user).update(status="online", last_seen_at=timezone.now())
+        PlayerPresence.objects.filter(user=user).update(
+            status="online", last_seen_at=timezone.now()
+        )
         return ticket

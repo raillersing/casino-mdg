@@ -32,7 +32,7 @@ func main() {
 	mux.HandleFunc("/ws", wsServer.HandleConnection)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok","service":"game-engine","version":"1.0.0"}`))
+		_, _ = w.Write([]byte(`{"status":"ok","service":"game-engine","version":"1.0.0"}`))
 	})
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		stats := rm.Stats()

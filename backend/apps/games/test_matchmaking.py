@@ -8,12 +8,20 @@ from apps.games.models import GameTable, MatchmakingTicket, PlayerPresence, Tabl
 class MatchmakingApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.first = User.objects.create_user(email="match-first@mdg.local", phone="+261340001001", display_name="First")
-        self.second = User.objects.create_user(email="match-second@mdg.local", phone="+261340001002", display_name="Second")
+        self.first = User.objects.create_user(
+            email="match-first@mdg.local", phone="+261340001001", display_name="First"
+        )
+        self.second = User.objects.create_user(
+            email="match-second@mdg.local", phone="+261340001002", display_name="Second"
+        )
 
     def test_heartbeat_and_status_count_only_fresh_humans(self):
         self.client.force_authenticate(self.first)
-        heartbeat = self.client.post("/api/v1/games/matchmaking/heartbeat/", {"game_type": "poker"}, format="json")
+        heartbeat = self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "poker"},
+            format="json",
+        )
         self.assertEqual(heartbeat.status_code, 200)
         status = self.client.get("/api/v1/games/matchmaking/status/?game_type=poker")
         self.assertEqual(status.data["human_online"], 1)
@@ -21,14 +29,22 @@ class MatchmakingApiTests(TestCase):
 
     def test_queue_is_idempotent_and_second_human_gets_a_table(self):
         self.client.force_authenticate(self.first)
-        first = self.client.post("/api/v1/games/matchmaking/queue/", {"game_type": "poker"}, format="json")
-        retry = self.client.post("/api/v1/games/matchmaking/queue/", {"game_type": "poker"}, format="json")
+        first = self.client.post(
+            "/api/v1/games/matchmaking/queue/", {"game_type": "poker"}, format="json"
+        )
+        retry = self.client.post(
+            "/api/v1/games/matchmaking/queue/", {"game_type": "poker"}, format="json"
+        )
         self.assertEqual(first.status_code, 201)
         self.assertEqual(retry.status_code, 200)
-        self.assertEqual(first.data["ticket"]["ticket_id"], retry.data["ticket"]["ticket_id"])
+        self.assertEqual(
+            first.data["ticket"]["ticket_id"], retry.data["ticket"]["ticket_id"]
+        )
 
         self.client.force_authenticate(self.second)
-        matched = self.client.post("/api/v1/games/matchmaking/queue/", {"game_type": "poker"}, format="json")
+        matched = self.client.post(
+            "/api/v1/games/matchmaking/queue/", {"game_type": "poker"}, format="json"
+        )
         self.assertEqual(matched.status_code, 201)
         self.assertEqual(matched.data["ticket"]["status"], "matched")
         table = GameTable.objects.get(pk=matched.data["ticket"]["table_id"])
@@ -37,7 +53,9 @@ class MatchmakingApiTests(TestCase):
 
     def test_cancel_removes_ticket_from_queue(self):
         self.client.force_authenticate(self.first)
-        queued = self.client.post("/api/v1/games/matchmaking/queue/", {"game_type": "belote"}, format="json")
+        queued = self.client.post(
+            "/api/v1/games/matchmaking/queue/", {"game_type": "belote"}, format="json"
+        )
         ticket_id = queued.data["ticket"]["ticket_id"]
         cancelled = self.client.delete(f"/api/v1/games/matchmaking/queue/{ticket_id}/")
         self.assertEqual(cancelled.status_code, 200)

@@ -15,4 +15,6 @@ class HealthEndpointTests(TestCase):
         response = self.client.get("/readyz/")
 
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.json(), {"status": "unready", "database": "unavailable"})
+        self.assertEqual(
+            response.json(), {"status": "unready", "database": "unavailable"}
+        )

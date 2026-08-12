@@ -13,8 +13,18 @@ from rest_framework.views import APIView
 from apps.backoffice.services import is_feature_enabled, record_audit
 from apps.wallet.services import credit_simulation_reward, settle_game_win
 
-from .models import DailyRewardClaim, DrawDefinition, DrawEntry, DrawResult, InstantGameDefinition, InstantPlay, GameResult, GameTable, MatchmakingTicket
 from .matchmaking import active_presence, cancel_ticket, queue_player
+from .models import (
+    DailyRewardClaim,
+    DrawDefinition,
+    DrawEntry,
+    DrawResult,
+    GameResult,
+    GameTable,
+    InstantGameDefinition,
+    InstantPlay,
+    MatchmakingTicket,
+)
 from .services import join_table, seed_demo_tables
 from .test_games import create_draw_entry, draw_now, ensure_test_catalog, play_instant
 
@@ -134,7 +144,9 @@ def matchmaking_payload(ticket):
         "game_type": ticket.game_type,
         "status": ticket.status,
         "table_id": str(ticket.matched_table_id) if ticket.matched_table_id else None,
-        "table_code": ticket.matched_table.table_code if ticket.matched_table_id else None,
+        "table_code": (
+            ticket.matched_table.table_code if ticket.matched_table_id else None
+        ),
         "created_at": ticket.created_at.isoformat(),
     }
 
@@ -150,8 +162,21 @@ class MatchmakingStatusView(APIView):
         queued = MatchmakingTicket.objects.filter(status="queued")
         if game_type:
             queued = queued.filter(game_type=game_type)
-        ticket = MatchmakingTicket.objects.filter(user=request.user, status__in=["queued", "matched"]).order_by("-created_at").first()
-        return Response({"game_type": game_type, "human_online": active.count(), "queued": queued.count(), "ticket": matchmaking_payload(ticket) if ticket else None})
+        ticket = (
+            MatchmakingTicket.objects.filter(
+                user=request.user, status__in=["queued", "matched"]
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        return Response(
+            {
+                "game_type": game_type,
+                "human_online": active.count(),
+                "queued": queued.count(),
+                "ticket": matchmaking_payload(ticket) if ticket else None,
+            }
+        )
 
 
 class MatchmakingHeartbeatView(APIView):
@@ -161,10 +186,25 @@ class MatchmakingHeartbeatView(APIView):
         game_type = request.data.get("game_type")
         if game_type and game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
-        from .models import PlayerPresence
         from django.utils import timezone
-        presence, _ = PlayerPresence.objects.update_or_create(user=request.user, defaults={"game_type": game_type, "status": "online", "last_seen_at": timezone.now()})
-        return Response({"status": presence.status, "game_type": presence.game_type, "last_seen_at": presence.last_seen_at.isoformat()})
+
+        from .models import PlayerPresence
+
+        presence, _ = PlayerPresence.objects.update_or_create(
+            user=request.user,
+            defaults={
+                "game_type": game_type,
+                "status": "online",
+                "last_seen_at": timezone.now(),
+            },
+        )
+        return Response(
+            {
+                "status": presence.status,
+                "game_type": presence.game_type,
+                "last_seen_at": presence.last_seen_at.isoformat(),
+            }
+        )
 
 
 class MatchmakingQueueView(APIView):
@@ -175,7 +215,10 @@ class MatchmakingQueueView(APIView):
         if game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
         ticket, created = queue_player(request.user, game_type)
-        return Response({"ticket": matchmaking_payload(ticket), "created": created}, status=201 if created else 200)
+        return Response(
+            {"ticket": matchmaking_payload(ticket), "created": created},
+            status=201 if created else 200,
+        )
 
 
 class MatchmakingCancelView(APIView):
@@ -390,7 +433,12 @@ class TestGamesCatalogView(APIView):
     def get(self, request):
         ensure_test_catalog()
         games = InstantGameDefinition.objects.filter(status="active")
-        return Response({"currency": "SIM", "results": [instant_game_payload(game, request.user) for game in games]})
+        return Response(
+            {
+                "currency": "SIM",
+                "results": [instant_game_payload(game, request.user) for game in games],
+            }
+        )
 
 
 class TestInstantPlayView(APIView):
@@ -398,17 +446,33 @@ class TestInstantPlayView(APIView):
 
     def post(self, request, slug):
         if not is_feature_enabled("instant_games"):
-            return Response({"detail": "Les jeux instantanés sont temporairement suspendus."}, status=503)
+            return Response(
+                {"detail": "Les jeux instantanés sont temporairement suspendus."},
+                status=503,
+            )
         ensure_test_catalog()
         try:
             game = InstantGameDefinition.objects.get(slug=slug, status="active")
         except InstantGameDefinition.DoesNotExist:
             return Response({"detail": "Jeu instantané introuvable."}, status=404)
-        idempotency_key = str(request.headers.get("Idempotency-Key") or request.data.get("idempotency_key") or "")[:120]
+        idempotency_key = str(
+            request.headers.get("Idempotency-Key")
+            or request.data.get("idempotency_key")
+            or ""
+        )[:120]
         if not idempotency_key:
-            return Response({"detail": "Une clé d'idempotence est requise."}, status=400)
-        if game.slug == "roue-mdg" and InstantPlay.objects.filter(user=request.user, game=game, created_at__date=timezone.localdate()).exists():
-            return Response({"detail": "La roue quotidienne a déjà été utilisée."}, status=409)
+            return Response(
+                {"detail": "Une clé d'idempotence est requise."}, status=400
+            )
+        if (
+            game.slug == "roue-mdg"
+            and InstantPlay.objects.filter(
+                user=request.user, game=game, created_at__date=timezone.localdate()
+            ).exists()
+        ):
+            return Response(
+                {"detail": "La roue quotidienne a déjà été utilisée."}, status=409
+            )
         try:
             play, created = play_instant(request.user, game, idempotency_key)
         except ValueError as exc:
@@ -420,12 +484,28 @@ class TestGamesActivityView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        plays = InstantPlay.objects.filter(user=request.user).select_related("game", "transaction")[:30]
-        entries = DrawEntry.objects.filter(user=request.user).select_related("draw", "transaction")[:30]
-        return Response({
-            "plays": [instant_play_payload(play) for play in plays],
-            "entries": [{"entry_id": str(entry.id), "draw_slug": entry.draw.slug, "draw_name": entry.draw.name, "numbers": entry.numbers, "transaction_id": str(entry.transaction_id), "created_at": entry.created_at.isoformat()} for entry in entries],
-        })
+        plays = InstantPlay.objects.filter(user=request.user).select_related(
+            "game", "transaction"
+        )[:30]
+        entries = DrawEntry.objects.filter(user=request.user).select_related(
+            "draw", "transaction"
+        )[:30]
+        return Response(
+            {
+                "plays": [instant_play_payload(play) for play in plays],
+                "entries": [
+                    {
+                        "entry_id": str(entry.id),
+                        "draw_slug": entry.draw.slug,
+                        "draw_name": entry.draw.name,
+                        "numbers": entry.numbers,
+                        "transaction_id": str(entry.transaction_id),
+                        "created_at": entry.created_at.isoformat(),
+                    }
+                    for entry in entries
+                ],
+            }
+        )
 
 
 def draw_payload(draw, result=None, can_simulate=False):
@@ -439,7 +519,16 @@ def draw_payload(draw, result=None, can_simulate=False):
         "closes_at": draw.closes_at.isoformat(),
         "rules": draw.rules,
         "can_simulate": can_simulate,
-        "result": {"numbers": result.numbers, "commitment": result.commitment, "proof": result.proof, "created_at": result.created_at.isoformat()} if result else None,
+        "result": (
+            {
+                "numbers": result.numbers,
+                "commitment": result.commitment,
+                "proof": result.proof,
+                "created_at": result.created_at.isoformat(),
+            }
+            if result
+            else None
+        ),
     }
 
 
@@ -453,7 +542,17 @@ class TestDrawListView(APIView):
             if draw.status == "open" and draw.closes_at <= timezone.now():
                 draw.status = "closed"
                 draw.save(update_fields=["status", "updated_at"])
-        return Response({"currency": "SIM", "results": [draw_payload(draw, getattr(draw, "result", None), request.user.is_staff) for draw in draws]})
+        return Response(
+            {
+                "currency": "SIM",
+                "results": [
+                    draw_payload(
+                        draw, getattr(draw, "result", None), request.user.is_staff
+                    )
+                    for draw in draws
+                ],
+            }
+        )
 
 
 class TestDrawEntryView(APIView):
@@ -461,21 +560,40 @@ class TestDrawEntryView(APIView):
 
     def post(self, request, slug):
         if not is_feature_enabled("draws"):
-            return Response({"detail": "Les tirages sont temporairement suspendus."}, status=503)
+            return Response(
+                {"detail": "Les tirages sont temporairement suspendus."}, status=503
+            )
         ensure_test_catalog()
         try:
             draw = DrawDefinition.objects.get(slug=slug)
             numbers = [int(number) for number in request.data.get("numbers", [])]
         except (DrawDefinition.DoesNotExist, TypeError, ValueError):
             return Response({"detail": "Sélection de tirage invalide."}, status=400)
-        idempotency_key = str(request.headers.get("Idempotency-Key") or request.data.get("idempotency_key") or "")[:120]
+        idempotency_key = str(
+            request.headers.get("Idempotency-Key")
+            or request.data.get("idempotency_key")
+            or ""
+        )[:120]
         if not idempotency_key:
-            return Response({"detail": "Une clé d'idempotence est requise."}, status=400)
+            return Response(
+                {"detail": "Une clé d'idempotence est requise."}, status=400
+            )
         try:
-            entry, created = create_draw_entry(request.user, draw, numbers, idempotency_key)
+            entry, created = create_draw_entry(
+                request.user, draw, numbers, idempotency_key
+            )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=409)
-        return Response({"entry_id": str(entry.id), "draw_slug": entry.draw.slug, "numbers": entry.numbers, "transaction_id": str(entry.transaction_id), "created": created}, status=201 if created else 200)
+        return Response(
+            {
+                "entry_id": str(entry.id),
+                "draw_slug": entry.draw.slug,
+                "numbers": entry.numbers,
+                "transaction_id": str(entry.transaction_id),
+                "created": created,
+            },
+            status=201 if created else 200,
+        )
 
 
 class TestDrawResultView(APIView):
@@ -491,7 +609,9 @@ class TestDrawResultView(APIView):
 
     def post(self, request, slug):
         if not request.user.is_staff:
-            return Response({"detail": "Seul le back-office peut simuler un tirage."}, status=403)
+            return Response(
+                {"detail": "Seul le back-office peut simuler un tirage."}, status=403
+            )
         try:
             draw = DrawDefinition.objects.get(slug=slug)
         except DrawDefinition.DoesNotExist:
@@ -500,11 +620,25 @@ class TestDrawResultView(APIView):
             result, created = draw_now(draw)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=409)
-        return Response({**draw_payload(result.draw, result), "created": created}, status=201 if created else 200)
+        return Response(
+            {**draw_payload(result.draw, result), "created": created},
+            status=201 if created else 200,
+        )
+
 
 MISSIONS = {
-    "play_daily": {"title": "Jouer aujourd’hui", "goal": 1, "reward": 100, "outcome": None},
-    "win_daily": {"title": "Gagner aujourd’hui", "goal": 1, "reward": 250, "outcome": "win"},
+    "play_daily": {
+        "title": "Jouer aujourd’hui",
+        "goal": 1,
+        "reward": 100,
+        "outcome": None,
+    },
+    "win_daily": {
+        "title": "Gagner aujourd’hui",
+        "goal": 1,
+        "reward": 250,
+        "outcome": "win",
+    },
 }
 
 
@@ -514,11 +648,29 @@ class DailyMissionsView(APIView):
     def _payload(self, user):
         today = timezone.localdate()
         results = GameResult.objects.filter(user=user, created_at__date=today)
-        claims = set(DailyRewardClaim.objects.filter(user=user, mission_date=today).values_list("mission_key", flat=True))
+        claims = set(
+            DailyRewardClaim.objects.filter(user=user, mission_date=today).values_list(
+                "mission_key", flat=True
+            )
+        )
         payload = []
         for key, mission in MISSIONS.items():
-            progress = results.filter(outcome=mission["outcome"]).count() if mission["outcome"] else results.count()
-            payload.append({"key": key, "title": mission["title"], "progress": min(progress, mission["goal"]), "goal": mission["goal"], "reward": mission["reward"], "claimed": key in claims, "claimable": progress >= mission["goal"] and key not in claims})
+            progress = (
+                results.filter(outcome=mission["outcome"]).count()
+                if mission["outcome"]
+                else results.count()
+            )
+            payload.append(
+                {
+                    "key": key,
+                    "title": mission["title"],
+                    "progress": min(progress, mission["goal"]),
+                    "goal": mission["goal"],
+                    "reward": mission["reward"],
+                    "claimed": key in claims,
+                    "claimable": progress >= mission["goal"] and key not in claims,
+                }
+            )
         return {"date": today.isoformat(), "missions": payload}
 
     def get(self, request):
@@ -531,17 +683,57 @@ class DailyMissionsView(APIView):
             return Response({"detail": "Mission inconnue."}, status=400)
         today = timezone.localdate()
         results = GameResult.objects.filter(user=request.user, created_at__date=today)
-        progress = results.filter(outcome=mission["outcome"]).count() if mission["outcome"] else results.count()
+        progress = (
+            results.filter(outcome=mission["outcome"]).count()
+            if mission["outcome"]
+            else results.count()
+        )
         if progress < mission["goal"]:
             return Response({"detail": "Mission non terminée."}, status=409)
         try:
             with transaction.atomic():
-                claim = DailyRewardClaim.objects.select_for_update().filter(user=request.user, mission_key=key, mission_date=today).first()
+                claim = (
+                    DailyRewardClaim.objects.select_for_update()
+                    .filter(user=request.user, mission_key=key, mission_date=today)
+                    .first()
+                )
                 if claim:
-                    return Response({"claimed": True, "transaction_id": str(claim.transaction_id), "duplicate": True})
-                wallet_transaction, _ = credit_simulation_reward(request.user, f"daily-reward:{request.user.pk}:{today}:{key}", mission["reward"], mission["title"])
-                claim = DailyRewardClaim.objects.create(user=request.user, mission_key=key, mission_date=today, amount=mission["reward"], transaction=wallet_transaction)
+                    return Response(
+                        {
+                            "claimed": True,
+                            "transaction_id": str(claim.transaction_id),
+                            "duplicate": True,
+                        }
+                    )
+                wallet_transaction, _ = credit_simulation_reward(
+                    request.user,
+                    f"daily-reward:{request.user.pk}:{today}:{key}",
+                    mission["reward"],
+                    mission["title"],
+                )
+                claim = DailyRewardClaim.objects.create(
+                    user=request.user,
+                    mission_key=key,
+                    mission_date=today,
+                    amount=mission["reward"],
+                    transaction=wallet_transaction,
+                )
         except IntegrityError:
-            claim = DailyRewardClaim.objects.get(user=request.user, mission_key=key, mission_date=today)
-            return Response({"claimed": True, "transaction_id": str(claim.transaction_id), "duplicate": True})
-        return Response({"claimed": True, "transaction_id": str(claim.transaction_id), "duplicate": False}, status=201)
+            claim = DailyRewardClaim.objects.get(
+                user=request.user, mission_key=key, mission_date=today
+            )
+            return Response(
+                {
+                    "claimed": True,
+                    "transaction_id": str(claim.transaction_id),
+                    "duplicate": True,
+                }
+            )
+        return Response(
+            {
+                "claimed": True,
+                "transaction_id": str(claim.transaction_id),
+                "duplicate": False,
+            },
+            status=201,
+        )

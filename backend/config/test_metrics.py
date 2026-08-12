@@ -10,4 +10,4 @@ class MetricsEndpointTests(TestCase):
         self.assertIn("X-Request-Duration-Ms", response)
         self.assertEqual(metrics.status_code, 200)
         self.assertIn("casino_http_requests_total", metrics.content.decode())
-        self.assertIn('path=\"/healthz/\"', metrics.content.decode())
+        self.assertIn('path="/healthz/"', metrics.content.decode())

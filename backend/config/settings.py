@@ -1,8 +1,10 @@
 """
 Django settings for Casino MDG backend.
 """
+
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -160,8 +162,12 @@ CORS_ALLOWED_ORIGINS = os.getenv(
 
 # ─── Game Engine WebSocket ──────────────────────────────────
 GAME_ENGINE_WS_URL = os.getenv("GAME_ENGINE_WS_URL", "ws://localhost:8080")
-GAME_ENGINE_RESULT_SECRET = os.getenv("GAME_ENGINE_RESULT_SECRET", "dev-game-engine-result-secret-change-me")
-PAYMENT_WEBHOOK_SECRET = os.getenv("PAYMENT_WEBHOOK_SECRET", "dev-webhook-secret-change-me")
+GAME_ENGINE_RESULT_SECRET = os.getenv(
+    "GAME_ENGINE_RESULT_SECRET", "dev-game-engine-result-secret-change-me"
+)
+PAYMENT_WEBHOOK_SECRET = os.getenv(
+    "PAYMENT_WEBHOOK_SECRET", "dev-webhook-secret-change-me"
+)
 
 # ─── Default primary key ─────────────────────────────────────
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

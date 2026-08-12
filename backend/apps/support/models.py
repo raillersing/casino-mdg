@@ -4,8 +4,17 @@ from django.db import models
 
 class SupportTicket(models.Model):
     STATUSES = [("open", "Ouvert"), ("in_progress", "En cours"), ("closed", "Fermé")]
-    CATEGORIES = [("account", "Compte"), ("wallet", "Wallet"), ("game", "Partie"), ("other", "Autre")]
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="support_tickets")
+    CATEGORIES = [
+        ("account", "Compte"),
+        ("wallet", "Wallet"),
+        ("game", "Partie"),
+        ("other", "Autre"),
+    ]
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="support_tickets",
+    )
     category = models.CharField(max_length=20, choices=CATEGORIES)
     subject = models.CharField(max_length=120)
     description = models.TextField(max_length=2000)

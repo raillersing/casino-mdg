@@ -18,7 +18,6 @@ import (
 	"github.com/casino-mdg/game-engine/internal/game/rami"
 	"github.com/casino-mdg/game-engine/internal/room"
 	"github.com/casino-mdg/game-engine/internal/state"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -118,9 +117,13 @@ func (s *Server) readPump(client *Client) {
 		client.conn.Close()
 	}()
 
-	client.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	if err := client.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+		return
+	}
 	client.conn.SetPongHandler(func(string) error {
-		client.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		if err := client.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+			return err
+		}
 		client.lastPong = time.Now()
 		return nil
 	})
@@ -151,14 +154,20 @@ func (s *Server) writePump(client *Client) {
 		select {
 		case message, ok := <-client.send:
 			if !ok {
-				client.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				_ = client.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			client.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-			client.conn.WriteMessage(websocket.TextMessage, message)
+			if err := client.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+				return
+			}
+			if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				return
+			}
 
 		case <-ticker.C:
-			client.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := client.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+				return
+			}
 			if err := client.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
@@ -429,10 +438,6 @@ func (s *Server) broadcastToTable(tableID string, msg *Message) {
 			}
 		}
 	}
-}
-
-func generateEventID() string {
-	return time.Now().Format("20060102T150405.000") + "-" + uuid.New().String()[:8]
 }
 
 func authenticate(token, secret string) (string, bool) {
