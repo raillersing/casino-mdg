@@ -8,7 +8,6 @@ export type Club = {
   member_count: number;
   member_limit: number;
   joined: boolean;
-  rewarded: boolean;
   role: "owner" | "admin" | "member" | null;
 };
 export type ClubMember = {
@@ -27,6 +26,13 @@ export type ClubEvent = {
   points_reward: number;
   status: "scheduled" | "completed";
   joined: boolean;
+  rewarded: boolean;
+};
+export type ClubLeaderboardEntry = {
+  rank: number;
+  user_id: string;
+  display_name: string;
+  points: number;
 };
 
 async function request<T>(
@@ -98,6 +104,13 @@ export function removeClubMember(
 
 export function getClubEvents(accessToken: string, clubId: string) {
   return request<{ results: ClubEvent[] }>(accessToken, `${clubId}/events/`);
+}
+
+export function getClubLeaderboard(accessToken: string, clubId: string) {
+  return request<{ results: ClubLeaderboardEntry[] }>(
+    accessToken,
+    `${clubId}/leaderboard/`,
+  );
 }
 
 export function joinClubEvent(accessToken: string, eventId: string) {

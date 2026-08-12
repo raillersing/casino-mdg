@@ -7,6 +7,7 @@ import {
   createClub,
   completeClubEvent,
   getClubEvents,
+  getClubLeaderboard,
   getClubMembers,
   getClubs,
   joinClub,
@@ -16,6 +17,7 @@ import {
   type Club,
   type ClubMember,
   type ClubEvent,
+  type ClubLeaderboardEntry,
 } from "@services/clubs";
 import { createTable } from "@services/games";
 
@@ -32,6 +34,9 @@ export function ClubsPage() {
   const [members, setMembers] = useState<ClubMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [clubEvents, setClubEvents] = useState<Record<string, ClubEvent[]>>({});
+  const [clubLeaderboards, setClubLeaderboards] = useState<
+    Record<string, ClubLeaderboardEntry[]>
+  >({});
   const [form, setForm] = useState({
     name: "",
     city: "",
@@ -53,14 +58,28 @@ export function ClubsPage() {
             .filter((club) => club.joined)
             .map(async (club) => {
               try {
-                const events = await getClubEvents(accessToken, club.id);
-                return [club.id, events.results] as const;
+                const [events, leaderboard] = await Promise.all([
+                  getClubEvents(accessToken, club.id),
+                  getClubLeaderboard(accessToken, club.id),
+                ]);
+                return {
+                  id: club.id,
+                  events: events.results,
+                  leaderboard: leaderboard.results,
+                };
               } catch {
-                return [club.id, []] as const;
+                return { id: club.id, events: [], leaderboard: [] };
               }
             }),
         );
-        setClubEvents(Object.fromEntries(entries));
+        setClubEvents(
+          Object.fromEntries(entries.map((entry) => [entry.id, entry.events])),
+        );
+        setClubLeaderboards(
+          Object.fromEntries(
+            entries.map((entry) => [entry.id, entry.leaderboard]),
+          ),
+        );
       })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
@@ -280,8 +299,8 @@ export function ClubsPage() {
               )}
               {club.joined && (clubEvents[club.id] || []).length > 0 && (
                 <div className="club-events-mini">
-                  <span className="eyebrow">{t("clubs.events")}</span>
-                  {(clubEvents[club.id] || []).slice(0, 2).map((event) => (
+                  <span className="eyebrow">{t("clubs.eventHistory")}</span>
+                  {(clubEvents[club.id] || []).slice(0, 3).map((event) => (
                     <div className="club-event-row" key={event.id}>
                       <span>
                         <strong>{event.title}</strong>
@@ -290,7 +309,9 @@ export function ClubsPage() {
                           {event.points_reward} pts
                         </small>
                       </span>
-                      {event.joined ? (
+                      {event.status === "completed" ? (
+                        <small>{t("clubs.completed")}</small>
+                      ) : event.joined ? (
                         <small>{t("clubs.registered")}</small>
                       ) : (
                         <button
@@ -300,16 +321,34 @@ export function ClubsPage() {
                           {t("clubs.register")}
                         </button>
                       )}
-                      {(club.role === "owner" || club.role === "admin") && (
-                        <button
-                          className="text-link"
-                          onClick={() => void completeEvent(club.id, event.id)}
-                        >
-                          {t("clubs.complete")}
-                        </button>
-                      )}
+                      {event.status === "scheduled" &&
+                        (club.role === "owner" || club.role === "admin") && (
+                          <button
+                            className="text-link"
+                            onClick={() =>
+                              void completeEvent(club.id, event.id)
+                            }
+                          >
+                            {t("clubs.complete")}
+                          </button>
+                        )}
                     </div>
                   ))}
+                </div>
+              )}
+              {club.joined && (clubLeaderboards[club.id] || []).length > 0 && (
+                <div className="club-leaderboard">
+                  <span className="eyebrow">{t("clubs.leaderboard")}</span>
+                  {(clubLeaderboards[club.id] || [])
+                    .slice(0, 3)
+                    .map((entry) => (
+                      <div className="club-ranking-row" key={entry.user_id}>
+                        <span>
+                          <strong>#{entry.rank}</strong> {entry.display_name}
+                        </span>
+                        <small>{entry.points} pts</small>
+                      </div>
+                    ))}
                 </div>
               )}
             </article>

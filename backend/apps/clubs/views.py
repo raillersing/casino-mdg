@@ -64,6 +64,21 @@ def event_payload(event, user):
     }
 
 
+def leaderboard_payload(club):
+    return [
+        {
+            "rank": rank,
+            "user_id": str(membership.user_id),
+            "display_name": membership.user.display_name,
+            "points": membership.points,
+        }
+        for rank, membership in enumerate(
+            club.memberships.select_related("user").order_by("-points", "joined_at"),
+            start=1,
+        )
+    ]
+
+
 class ClubListCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -261,7 +276,7 @@ class ClubEventsView(APIView):
         club = self.get_club(club_id)
         if not club or not membership_for(club, request.user):
             return Response({"detail": "Accès club requis."}, status=403)
-        events = club.events.filter(status="scheduled")
+        events = club.events.all()
         return Response(
             {"results": [event_payload(event, request.user) for event in events]}
         )
@@ -363,3 +378,16 @@ class ClubEventCompleteView(APIView):
             event.status = "completed"
             event.save(update_fields=["status"])
             return Response({"status": "completed", "awarded_count": awarded_count})
+
+
+class ClubLeaderboardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, club_id):
+        try:
+            club = Club.objects.get(pk=club_id)
+        except Club.DoesNotExist:
+            return Response({"detail": "Club introuvable."}, status=404)
+        if not membership_for(club, request.user):
+            return Response({"detail": "Accès club requis."}, status=403)
+        return Response({"results": leaderboard_payload(club)})

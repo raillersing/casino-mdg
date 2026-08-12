@@ -111,6 +111,11 @@ transaction : elle refuse une date future, crédite une seule fois les points
 aux participants inscrits, puis marque l’événement terminé. Un rejeu de la
 requête ne double ni les points ni les participations.
 
+Les membres peuvent désormais consulter l’historique des événements terminés
+et un classement privé des points du club. Ce classement est limité aux
+membres du club, ne représente pas de valeur monétaire et sert uniquement à
+animer la communauté de simulation.
+
 ## 3. Ordre de priorité
 
 | Priorité | Phase | Résultat attendu | Dépend de |

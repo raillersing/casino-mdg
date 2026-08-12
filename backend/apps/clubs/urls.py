@@ -7,6 +7,7 @@ from .views import (
     ClubInvitationAcceptView,
     ClubInvitationView,
     ClubJoinView,
+    ClubLeaderboardView,
     ClubListCreateView,
     ClubMembersView,
 )
@@ -21,6 +22,11 @@ urlpatterns = [
     ),
     path("<uuid:club_id>/members/", ClubMembersView.as_view(), name="club-members"),
     path("<uuid:club_id>/events/", ClubEventsView.as_view(), name="club-events"),
+    path(
+        "<uuid:club_id>/leaderboard/",
+        ClubLeaderboardView.as_view(),
+        name="club-leaderboard",
+    ),
     path(
         "events/<uuid:event_id>/join/",
         ClubEventJoinView.as_view(),
