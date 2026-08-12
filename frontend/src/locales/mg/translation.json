@@ -18,6 +18,7 @@
     "logout": "Mivoaka"
   },
   "humanOnline": "Mpilalao tena izy {{count}} azo alaina", "findHuman": "Mitady mpilalao tena izy", "searchingHuman": "Mitady… mbola azo ampiasaina ny démo IA rehefa tapitra ny fotoana.", "cancelSearch": "Ajanony ny fikarohana", "demoTitle": "Démo miaraka amin'ny IA", "demoBody": "Bot voamarika mazava ireo mpifanandrina. Tsy isaina ho mpilalao tena izy na classement fifaninanana ity lalao ity.", "demoProgress": "Hetsika démo : {{count}}", "demoActionReceived": "Hetsika simulée", "findHumans": "Mitady mpilalao tena izy",
+  "spectatorTitle": "Mode mpijery", "spectatorBody": "Jerenao ity latabatra ity amin'ny famakiana ihany. Tsy isaina ho mpilalao ianao ary tsy misy hetsika alefa.", "spectatorReadOnly": "Famakiana ihany: tsy afaka milalao ny mpijery.", "leaveSpectator": "Miverina amin'ny lobby",
   "games": {
     "poker": "Poker Texas Hold'em",
     "belote": "Belote",

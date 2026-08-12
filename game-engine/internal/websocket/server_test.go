@@ -259,4 +259,44 @@ func TestOldConnectionCloseDoesNotRemoveReplacement(t *testing.T) {
 	}
 }
 
+func TestSpectatorReceivesStateButCannotAct(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	manager := room.NewManager(cfg)
+	table := manager.CreateTableWithID("spectator-table", "poker")
+	_, _ = manager.JoinPlayer(table.ID, "player-1", "Player", 1)
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testToken("spectator-1", cfg.JWTSecret)
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("dial failed: %v", err)
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID, Payload: map[string]interface{}{"role": "spectator"}}); err != nil {
+		t.Fatal(err)
+	}
+	var state Message
+	if err := conn.ReadJSON(&state); err != nil {
+		t.Fatal(err)
+	}
+	payload, ok := state.Payload.(map[string]interface{})
+	if !ok || payload["spectator"] != true {
+		t.Fatalf("payload=%v", state.Payload)
+	}
+	if err := conn.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "check", Sequence: state.Sequence}); err != nil {
+		t.Fatal(err)
+	}
+	var rejected Message
+	if err := conn.ReadJSON(&rejected); err != nil {
+		t.Fatal(err)
+	}
+	if rejected.Type != MsgError {
+		t.Fatalf("message=%+v", rejected)
+	}
+	if _, ok := table.Players["spectator-1"]; ok {
+		t.Fatal("spectator was added as a player")
+	}
+}
+
 func serverHandler(server *Server) http.Handler { return http.HandlerFunc(server.HandleConnection) }

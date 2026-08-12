@@ -25,6 +25,7 @@ export function GamePage() {
   const { gameType, tableId } = useParams();
   const [searchParams] = useSearchParams();
   const demoAi = searchParams.get("mode") === "demo_ai";
+  const spectator = searchParams.get("mode") === "spectator";
   const [selected, setSelected] = useState("");
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>([]);
@@ -136,13 +137,13 @@ export function GamePage() {
           JSON.stringify({
             type: "join",
             table_id: engineTableId,
-            payload: { game_type: gameType || "poker" },
+            payload: { game_type: gameType || "poker", role: spectator ? "spectator" : "player" },
             sequence: 0,
             timestamp: new Date().toISOString(),
           }),
         );
     },
-    [engineTableId, gameType],
+    [engineTableId, gameType, spectator],
   );
   const handleSocketClose = useCallback(
     () => setConnectionState("offline"),
@@ -227,6 +228,10 @@ export function GamePage() {
       setDemoActionCount((count) => count + 1);
       return;
     }
+    if (spectator) {
+      setGameConnectionError(t("spectatorReadOnly"));
+      return;
+    }
     if (!tableId || !accessToken) {
       setGameConnectionError(t("auth.login"));
       return;
@@ -270,6 +275,7 @@ export function GamePage() {
         </button>
       </div>
       {demoAi && <div className="demo-mode-banner"><div><strong><Sparkles size={15}/> {t("game.demoTitle")}</strong><span>{t("game.demoBody")}</span></div><Link to="/lobby" className="text-link">{t("game.findHumans")} <ChevronLeft size={14}/></Link></div>}
+      {spectator && <div className="spectator-mode-banner"><div><strong>{t("spectatorTitle")}</strong><span>{t("spectatorBody")}</span></div><Link to="/lobby" className="text-link">{t("leaveSpectator")} <ChevronLeft size={14}/></Link></div>}
       {gameConnectionError && (
         <p className="form-error game-connection-error">
           {gameConnectionError}
@@ -336,7 +342,7 @@ export function GamePage() {
             <span>{t("game.chooseAction")}</span>
           </div>
         </div>
-        {isPoker ? (
+        {spectator ? <div className="secure-note game-sync-note">{t("spectatorReadOnly")}</div> : isPoker ? (
           <div className="action-row">
             <button
               className="action-fold"
