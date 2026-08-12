@@ -40,6 +40,11 @@
     "belote": "Belote",
     "rami": "Rami",
     "join": "Rejoindre",
+    "manage": "Gérer",
+    "members": "Membres",
+    "promote": "Promouvoir",
+    "demote": "Rétrograder",
+    "remove": "Retirer",
     "create": "Créer une table",
     "spectate": "Regarder"
   },

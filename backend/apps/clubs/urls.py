@@ -5,6 +5,7 @@ from .views import (
     ClubInvitationView,
     ClubJoinView,
     ClubListCreateView,
+    ClubMembersView,
 )
 
 urlpatterns = [
@@ -15,6 +16,7 @@ urlpatterns = [
         ClubInvitationView.as_view(),
         name="club-invitation",
     ),
+    path("<uuid:club_id>/members/", ClubMembersView.as_view(), name="club-members"),
     path(
         "invitations/<uuid:token>/accept/",
         ClubInvitationAcceptView.as_view(),

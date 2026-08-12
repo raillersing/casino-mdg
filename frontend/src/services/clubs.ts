@@ -10,6 +10,12 @@ export type Club = {
   joined: boolean;
   role: "owner" | "admin" | "member" | null;
 };
+export type ClubMember = {
+  user_id: string;
+  display_name: string;
+  role: "owner" | "admin" | "member";
+  joined_at: string;
+};
 
 async function request<T>(
   accessToken: string,
@@ -48,4 +54,32 @@ export function createClub(
 
 export function joinClub(accessToken: string, clubId: string) {
   return request<Club>(accessToken, `${clubId}/join/`, { method: "POST" });
+}
+
+export function getClubMembers(accessToken: string, clubId: string) {
+  return request<{ results: ClubMember[] }>(accessToken, `${clubId}/members/`);
+}
+
+export function updateClubMember(
+  accessToken: string,
+  clubId: string,
+  userId: string,
+  role: "admin" | "member",
+) {
+  return request<{ user_id: string; role: "admin" | "member" }>(
+    accessToken,
+    `${clubId}/members/`,
+    { method: "PATCH", body: JSON.stringify({ user_id: userId, role }) },
+  );
+}
+
+export function removeClubMember(
+  accessToken: string,
+  clubId: string,
+  userId: string,
+) {
+  return request<void>(accessToken, `${clubId}/members/`, {
+    method: "DELETE",
+    body: JSON.stringify({ user_id: userId }),
+  });
 }

@@ -2891,6 +2891,45 @@ h3 {
   color: var(--gold);
   font-size: 12px;
 }
+.club-card-actions,
+.club-member-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.club-members-panel {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.club-member-list {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line);
+}
+.club-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--panel);
+}
+.club-member-row div:first-child {
+  display: grid;
+  gap: 4px;
+}
+.club-member-row small {
+  color: var(--muted);
+}
+.danger-link {
+  color: var(--red);
+}
 .create-table-modal textarea.text-input {
   min-height: 80px;
   resize: vertical;

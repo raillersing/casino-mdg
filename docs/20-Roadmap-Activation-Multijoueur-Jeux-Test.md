@@ -88,6 +88,12 @@ clubs fermés et invitation dédiée valable 72 heures. Les rôles fondateur,
 administrateur et membre sont persistés ; la modération avancée, les tables
 réservées et les événements de club restent des extensions séparées.
 
+La gestion des membres est maintenant disponible pour les responsables :
+consultation de la liste, promotion membre/administrateur, rétrogradation et
+retrait. Le fondateur est protégé et un administrateur ne peut pas modifier un
+autre administrateur ; ces règles sont contrôlées par l’API et non seulement par
+l’interface.
+
 ## 3. Ordre de priorité
 
 | Priorité | Phase | Résultat attendu | Dépend de |
