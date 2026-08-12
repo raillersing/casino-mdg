@@ -181,7 +181,7 @@ func (s *Server) handleMessage(client *Client, msg *Message) {
 	case MsgSync:
 		s.handleSync(client, msg)
 	default:
-		client.conn.WriteJSON(Message{Type: MsgError, Payload: "unknown message type", Timestamp: time.Now()})
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "unknown message type", Timestamp: time.Now()})
 	}
 }
 
@@ -192,14 +192,14 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		if err := s.snapshots.GetSnapshotInto(msg.TableID, &snapshot); err != nil {
 			gameType := gameTypeFromPayload(msg.Payload)
 			if !validGameType(gameType) {
-				client.conn.WriteJSON(Message{Type: MsgError, Payload: "invalid game type", Timestamp: time.Now()})
+				s.sendMessage(client, &Message{Type: MsgError, Payload: "invalid game type", Timestamp: time.Now()})
 				return
 			}
 			table = s.roomManager.CreateTableWithID(msg.TableID, gameType)
 		} else {
 			restored, restoreErr := s.roomManager.RestoreSnapshot(snapshot)
 			if restoreErr != nil {
-				client.conn.WriteJSON(Message{Type: MsgError, Payload: "invalid table snapshot", Timestamp: time.Now()})
+				s.sendMessage(client, &Message{Type: MsgError, Payload: "invalid table snapshot", Timestamp: time.Now()})
 				return
 			}
 			table = restored
@@ -208,7 +208,7 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 
 	client.tableID = msg.TableID
 	if msg.PlayerID != "" && msg.PlayerID != client.playerID {
-		client.conn.WriteJSON(Message{Type: MsgError, Payload: "player identity mismatch", Timestamp: time.Now()})
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "player identity mismatch", Timestamp: time.Now()})
 		return
 	}
 	s.addClient(client)
@@ -224,7 +224,7 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		"game_state": publicGameState(table.State, client.playerID),
 		"spectator":  client.spectator,
 	}
-	client.conn.WriteJSON(Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
+	s.sendMessage(client, &Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
 	s.persistSnapshot(msg.TableID)
 }
 
@@ -298,7 +298,7 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 	}
 	event, err := s.roomManager.ApplyAction(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload)
 	if err != nil {
-		client.conn.WriteJSON(Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
+		s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
 		return
 	}
 	s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: event.Payload, EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp})
@@ -366,10 +366,10 @@ func (s *Server) persistSnapshot(tableID string) {
 func (s *Server) handleSync(client *Client, msg *Message) {
 	events, err := s.roomManager.EventsSince(client.tableID, msg.Sequence)
 	if err != nil {
-		client.conn.WriteJSON(Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
+		s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
 		return
 	}
-	client.conn.WriteJSON(Message{Type: MsgSync, TableID: client.tableID, Payload: events, Sequence: msg.Sequence, Timestamp: time.Now()})
+	s.sendMessage(client, &Message{Type: MsgSync, TableID: client.tableID, Payload: events, Sequence: msg.Sequence, Timestamp: time.Now()})
 }
 
 func (s *Server) addClient(client *Client) {
