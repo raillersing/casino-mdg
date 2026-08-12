@@ -29,6 +29,8 @@
   "demoTitle": "Démo contre l’IA",
   "demoBody": "Les adversaires sont des bots déclarés. Cette partie ne compte pas comme présence humaine ni comme classement compétitif.",
   "demoProgress": "Actions de démonstration : {{count}}",
+  "demoCompleted": "Démo terminée · aucun joueur humain ni gain réel",
+  "demoReplay": "Rejouer la démo",
   "demoActionReceived": "Action simulée",
   "findHumans": "Rechercher des humains",
   "spectatorTitle": "Mode spectateur",
@@ -202,6 +204,13 @@
     "chat": "Chat"
   },
   "game": {
+    "demoTitle": "Démo contre l’IA",
+    "demoBody": "Les adversaires sont des bots déclarés. Cette partie ne compte pas comme présence humaine ni comme classement compétitif.",
+    "demoProgress": "Actions de démonstration : {{count}}",
+    "demoCompleted": "Démo terminée · aucun joueur humain ni gain réel",
+    "demoReplay": "Rejouer la démo",
+    "demoActionReceived": "Action simulée",
+    "findHumans": "Rechercher des humains",
     "fold": "Se coucher",
     "check": "Checker",
     "call": "Suivre",

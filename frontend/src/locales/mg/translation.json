@@ -29,6 +29,8 @@
   "demoTitle": "Démo miaraka amin'ny IA",
   "demoBody": "Bot voamarika mazava ireo mpifanandrina. Tsy isaina ho mpilalao tena izy na classement fifaninanana ity lalao ity.",
   "demoProgress": "Hetsika démo : {{count}}",
+  "demoCompleted": "Vita ny démo · tsy misy mpilalao tena izy na vola tena izy",
+  "demoReplay": "Avereno ny démo",
   "demoActionReceived": "Hetsika simulée",
   "findHumans": "Mitady mpilalao tena izy",
   "spectatorTitle": "Mode mpijery",
@@ -188,6 +190,13 @@
     "chat": "Chat"
   },
   "game": {
+    "demoTitle": "Démo miaraka amin'ny IA",
+    "demoBody": "Bot voamarika mazava ireo mpifanandrina. Tsy isaina ho mpilalao tena izy na classement fifaninanana ity lalao ity.",
+    "demoProgress": "Hetsika démo : {{count}}",
+    "demoCompleted": "Vita ny démo · tsy misy mpilalao tena izy na vola tena izy",
+    "demoReplay": "Avereno ny démo",
+    "demoActionReceived": "Hetsika simulée",
+    "findHumans": "Mitady mpilalao tena izy",
     "fold": "Manao fold",
     "check": "Manao check",
     "call": "Manao call",

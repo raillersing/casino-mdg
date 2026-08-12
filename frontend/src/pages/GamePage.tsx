@@ -49,6 +49,7 @@ export function GamePage() {
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
   const [demoActionCount, setDemoActionCount] = useState(0);
+  const [demoCompleted, setDemoCompleted] = useState(false);
   const [resultMessage, setResultMessage] = useState("");
   const [gameState, setGameState] = useState<Record<string, unknown> | null>(
     null,
@@ -202,6 +203,18 @@ export function GamePage() {
       });
   }, [demoAi, gameType]);
 
+  const resetDemo = () => {
+    setDemoActionCount(0);
+    setDemoCompleted(false);
+    setLastAction("");
+    setResultMessage("");
+    void trackEvent("demo_started", {
+      mode: "DEMO_AI",
+      game_type: gameType,
+      metadata: { replay: true },
+    });
+  };
+
   useEffect(() => {
     if (!engineTableId || !accessToken) return;
     const heartbeat = window.setInterval(() => {
@@ -268,9 +281,21 @@ export function GamePage() {
 
   const sendGameAction = (action: string, actionPayload?: unknown) => {
     if (demoAi) {
+      if (demoCompleted) return;
       setConnectionState("connected");
       setLastAction(t("game.demoActionReceived"));
-      setDemoActionCount((count) => count + 1);
+      setDemoActionCount((count) => {
+        const nextCount = count + 1;
+        if (nextCount >= 3) {
+          setDemoCompleted(true);
+          void trackEvent("first_game_completed", {
+            mode: "DEMO_AI",
+            game_type: gameType,
+            metadata: { actions: nextCount },
+          });
+        }
+        return nextCount;
+      });
       return;
     }
     if (spectator) {
@@ -382,9 +407,18 @@ export function GamePage() {
         <p className="secure-note game-sync-note">{invitationState}</p>
       )}
       {demoAi && (
-        <p className="secure-note game-sync-note">
-          {t("game.demoProgress", { count: demoActionCount })}
-        </p>
+        <div className="secure-note game-sync-note demo-progress-row">
+          <span>
+            {demoCompleted
+              ? t("game.demoCompleted")
+              : t("game.demoProgress", { count: demoActionCount })}
+          </span>
+          {demoCompleted && (
+            <button className="text-link" onClick={resetDemo}>
+              {t("game.demoReplay")}
+            </button>
+          )}
+        </div>
       )}
       {connectionState === "connected" && !demoAi && (
         <p className="secure-note game-sync-note">
@@ -488,6 +522,7 @@ export function GamePage() {
           <GameSpecificControls
             gameType={gameType || ""}
             state={gameState}
+            demoAi={demoAi}
             onAction={sendGameAction}
           />
         )}
@@ -638,13 +673,26 @@ function GameStateSummary({
 function GameSpecificControls({
   gameType,
   state,
+  demoAi,
   onAction,
 }: {
   gameType: string;
   state: Record<string, unknown> | null;
+  demoAi: boolean;
   onAction: (action: string, payload?: unknown) => void;
 }) {
   const { t } = useTranslation();
+  if (demoAi)
+    return (
+      <div className="action-row">
+        <button className="action-check" onClick={() => onAction("demo_turn")}>
+          {gameType === "belote" ? t("game.play") : t("game.draw")}
+        </button>
+        <button className="action-bet" onClick={() => onAction("demo_action")}>
+          {gameType === "rami" ? t("game.discardCard") : t("game.check")}
+        </button>
+      </div>
+    );
   const players =
     state && Array.isArray(state.players)
       ? (state.players as Array<Record<string, unknown>>)
