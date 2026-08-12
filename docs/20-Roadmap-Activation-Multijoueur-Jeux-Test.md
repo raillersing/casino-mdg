@@ -48,10 +48,11 @@ déclaré, analytics de base, feedback pilote, invitations, notifications,
 clubs, tables réservées, événements de club, récompenses idempotentes,
 historique et classement privé.
 
-Les travaux restants sont des consolidations : compléter la démo IA sur les
-parcours réellement jouables, renforcer la reconnexion WebSocket et les
-invariants de partie, enrichir les KPI du pilote, puis traiter accessibilité,
-performance et contrôles de jeu responsable. Cette section est la référence
+Les travaux restants sont des consolidations : renforcer la reconnexion
+WebSocket et les invariants de partie, enrichir les KPI du pilote, puis traiter
+accessibilité, performance et contrôles de jeu responsable. La démo IA est
+maintenant jouable sur les trois variantes avec une session déterministe,
+une fin explicite, un replay et la mesure `first_game_completed`. Cette section est la référence
 pour éviter de recréer une fonctionnalité déjà livrée.
 
 Le back-office expose désormais une décision assistée sur sept jours via
@@ -187,9 +188,13 @@ animer la communauté de simulation.
 - Le mode affiché est visible avant la mise et avant le résultat.
 - Les tests de navigation et de deep-link passent après rechargement.
 
-### Phase 2 — Mode solo et démo IA transparente
+### Phase 2 — Mode solo et démo IA transparente — livrée
 
 **Objectif :** rendre les jeux de table jouables sans attendre un humain.
+
+**État :** livré pour Poker, Belote et Rami en mode `DEMO_AI`. Les bots sont
+déclarés, exclus des compteurs humains et la session se termine après trois
+actions déterministes rejouables.
 
 **Tâches**
 

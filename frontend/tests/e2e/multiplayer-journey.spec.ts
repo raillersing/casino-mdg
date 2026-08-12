@@ -99,6 +99,26 @@ test("expose spectator and demo AI journeys from the lobby", async ({
   ).toHaveCount(0);
 });
 
+test("completes and replays a declared demo AI session", async ({ page }) => {
+  await stubGameApis(page);
+  await page.goto("/lobby");
+  await page
+    .getByRole("link", { name: /Jeux de hasard/i })
+    .last()
+    .click();
+  await expect(page.getByText("Démo contre l’IA")).toBeVisible();
+  await page.getByRole("button", { name: /Checker/i }).click();
+  await page.getByRole("button", { name: /Checker/i }).click();
+  await page.getByRole("button", { name: /Checker/i }).click();
+  await expect(
+    page.getByText(/Démo terminée · aucun joueur humain/i),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Rejouer la démo/i }).click();
+  await expect(
+    page.getByText(/Actions de démonstration\s*:\s*0/i),
+  ).toBeVisible();
+});
+
 test("joins a table, sends leave, and returns to the lobby", async ({
   page,
 }) => {
