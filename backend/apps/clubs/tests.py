@@ -143,3 +143,32 @@ class ClubApiTests(TestCase):
         self.assertEqual(
             ClubMembership.objects.get(club_id=club_id, user=self.member).points, 25
         )
+
+    def test_members_can_read_event_history_and_private_points_leaderboard(self):
+        self.client.force_authenticate(self.owner)
+        club = self.client.post("/api/v1/clubs/", {"name": "Ranking"}, format="json")
+        club_id = club.data["id"]
+        self.client.force_authenticate(self.member)
+        self.client.post(f"/api/v1/clubs/{club_id}/join/")
+        ClubMembership.objects.filter(club_id=club_id, user=self.member).update(
+            points=40
+        )
+        event = ClubEvent.objects.create(
+            club_id=club_id,
+            title="Historique",
+            starts_at=timezone.now() - timedelta(minutes=1),
+            status="completed",
+            created_by=self.owner,
+        )
+        self.client.force_authenticate(self.member)
+        history = self.client.get(f"/api/v1/clubs/{club_id}/events/")
+        leaderboard = self.client.get(f"/api/v1/clubs/{club_id}/leaderboard/")
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.data["results"][0]["id"], str(event.id))
+        self.assertEqual(leaderboard.status_code, 200)
+        self.assertEqual(leaderboard.data["results"][0]["display_name"], "Member")
+        self.assertEqual(leaderboard.data["results"][0]["points"], 40)
+        self.client.force_authenticate(self.stranger)
+        self.assertEqual(
+            self.client.get(f"/api/v1/clubs/{club_id}/leaderboard/").status_code, 403
+        )
