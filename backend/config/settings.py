@@ -40,6 +40,7 @@ LOCAL_APPS = [
     "apps.social",
     "apps.support",
     "apps.notifications",
+    "apps.clubs",
     "apps.kyc",
     "apps.payments",
     "apps.backoffice",

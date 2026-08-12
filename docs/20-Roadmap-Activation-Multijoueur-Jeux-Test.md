@@ -82,6 +82,12 @@ depuis le profil : invitations, matchmaking, tour de jeu et annonces produit
 sont séparés. Les annonces produit sont désactivées par défaut ; une erreur de
 sauvegarde restaure immédiatement le choix précédent dans l’interface.
 
+Le socle des clubs persistants est livré : création d’un club ouvert ou sur
+invitation, adhésion idempotente, visibilité réservée aux membres pour les
+clubs fermés et invitation dédiée valable 72 heures. Les rôles fondateur,
+administrateur et membre sont persistés ; la modération avancée, les tables
+réservées et les événements de club restent des extensions séparées.
+
 ## 3. Ordre de priorité
 
 | Priorité | Phase | Résultat attendu | Dépend de |

@@ -10,6 +10,7 @@ import { NotFoundPage } from "@pages/NotFoundPage";
 import { SupportPage } from "@pages/SupportPage";
 import { BackofficePage } from "@pages/BackofficePage";
 import { TestGamesPage } from "@pages/TestGamesPage";
+import { ClubsPage } from "@pages/ClubsPage";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/support" element={<SupportPage />} />
         <Route path="/backoffice" element={<BackofficePage />} />
         <Route path="/games/test" element={<TestGamesPage />} />
+        <Route path="/clubs" element={<ClubsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>

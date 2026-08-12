@@ -14,6 +14,7 @@
     "wallet": "Kitapola",
     "profile": "Mombamomba",
     "testGames": "Lalao fitsapana",
+    "clubs": "Kluby",
     "login": "Miditra",
     "logout": "Mivoaka"
   },
@@ -329,6 +330,33 @@
   "promo": {
     "title": "Milalaova miaraka amin'ny namanao.",
     "body": "Mamorona latabatra manokana ary asao ny namanao."
+  },
+  "clubs": {
+    "eyebrow": "Fiarahamonina",
+    "title": "Ny kluby MDG",
+    "intro": "Mitadiava mpilalao akaiky anao ary manorena vondrona maharitra.",
+    "loginBody": "Midira raha hijery ny kluby sy hitantana ny fidiranao.",
+    "create": "Mamorona kluby",
+    "createTitle": "Kluby vaovao",
+    "name": "Anaran'ny kluby",
+    "city": "Tanàna",
+    "description": "Fanazavana",
+    "visibility": "Fidirana",
+    "open": "Misokatra ho an'ny rehetra",
+    "inviteOnly": "Amin'ny fanasana",
+    "join": "Midira",
+    "empty": "Tsy mbola misy kluby.",
+    "noDescription": "Vondron'ny mpilalao MDG.",
+    "anywhere": "Fiarahamonina MDG",
+    "cancel": "Aoka",
+    "submit": "Mamorona kluby",
+    "creating": "Mamorona…",
+    "close": "Hidio",
+    "roles": {
+      "owner": "Mpanorina",
+      "admin": "Administratera",
+      "member": "Mpikambana"
+    }
   },
   "profile": {
     "level": "Mpilalao ambaratonga {{level}}",

@@ -4,6 +4,7 @@ import {
   Bell,
   CircleUserRound,
   Compass,
+  UsersRound,
   Dices,
   Home,
   LogIn,
@@ -19,6 +20,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const navItems = [
     { to: "/", label: t("nav.home"), icon: Home },
     { to: "/lobby", label: t("nav.play"), icon: Compass },
+    { to: "/clubs", label: t("nav.clubs"), icon: UsersRound },
     { to: "/games/test", label: t("nav.testGames"), icon: Dices },
     { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
     { to: "/profile", label: t("nav.profile"), icon: CircleUserRound },
