@@ -125,6 +125,17 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   await stubGameApis(page);
   await page.goto("/game/poker/EMERALD-01");
   await expect(page.getByText(/Connecté/)).toBeVisible({ timeout: 10_000 });
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as Window & { __wsMessages: string[] }).__wsMessages.map(
+          JSON.parse,
+        ),
+      ),
+    )
+    .toContainEqual(
+      expect.objectContaining({ type: "join", table_id: "table-emerald" }),
+    );
 
   await page.getByRole("link", { name: /Quitter la table/i }).click();
   await expect
