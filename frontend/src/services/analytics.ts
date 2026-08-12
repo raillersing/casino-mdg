@@ -6,7 +6,9 @@ export type ProductEventName =
   | "matchmaking_cancelled"
   | "human_match_found"
   | "test_game_played"
-  | "game_error";
+  | "game_error"
+  | "invite_sent"
+  | "invite_joined";
 
 type EventContext = {
   mode?: string;

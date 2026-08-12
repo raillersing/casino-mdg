@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import permissions
 from rest_framework.response import Response
@@ -7,6 +8,7 @@ from rest_framework.views import APIView
 
 from apps.backoffice.services import record_audit
 from apps.games.models import GameTable, TableSeat
+from apps.games.services import join_table
 
 from .models import ChatMessage, TableInvitation
 
@@ -109,3 +111,53 @@ class TableInvitationView(APIView):
             },
             status=201,
         )
+
+
+class TableInvitationAcceptView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, token):
+        with transaction.atomic():
+            try:
+                invitation = (
+                    TableInvitation.objects.select_for_update()
+                    .select_related("table")
+                    .get(token=token)
+                )
+            except TableInvitation.DoesNotExist:
+                return Response({"detail": "Invitation introuvable."}, status=404)
+            now = timezone.now()
+            if invitation.expires_at <= now:
+                if invitation.status == "pending":
+                    invitation.status = "expired"
+                    invitation.save(update_fields=["status"])
+                return Response({"detail": "Cette invitation a expiré."}, status=410)
+            if invitation.status == "accepted":
+                if invitation.invitee_id == request.user.pk:
+                    return Response(
+                        {"table_id": str(invitation.table_id), "created": False},
+                        status=200,
+                    )
+                return Response({"detail": "Invitation déjà utilisée."}, status=409)
+            try:
+                seat, created = join_table(invitation.table, request.user)
+            except ValueError as exc:
+                return Response({"detail": str(exc)}, status=409)
+            invitation.invitee = request.user
+            invitation.status = "accepted"
+            invitation.save(update_fields=["invitee", "status"])
+            record_audit(
+                request.user,
+                "table.invitation.accepted",
+                invitation,
+                {"table_id": str(invitation.table_id), "created": created},
+            )
+            return Response(
+                {
+                    "table_id": str(invitation.table_id),
+                    "table_code": invitation.table.table_code,
+                    "seat_index": seat.seat_index,
+                    "created": created,
+                },
+                status=201,
+            )

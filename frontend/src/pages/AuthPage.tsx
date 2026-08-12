@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,6 +21,7 @@ export function AuthPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const setUser = useGameStore((state) => state.setUser);
   const setAuthenticated = useGameStore((state) => state.setAuthenticated);
   const setSession = useGameStore((state) => state.setSession);
@@ -59,7 +60,7 @@ export function AuthPage() {
       setSession(result.access, result.refresh);
       setAuthenticated(true);
       setStep("done");
-      window.setTimeout(() => navigate("/"), 700);
+      window.setTimeout(() => navigate(searchParams.get("next") || "/"), 700);
     } catch (verifyError) {
       setError(
         verifyError instanceof Error ? verifyError.message : "Code invalide.",

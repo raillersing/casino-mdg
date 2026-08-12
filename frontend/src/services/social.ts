@@ -47,3 +47,12 @@ export function createTableInvitation(tableId: string, accessToken: string) {
     { method: "POST" },
   );
 }
+
+export function acceptTableInvitation(token: string, accessToken: string) {
+  return request<{
+    table_id: string;
+    table_code?: string;
+    seat_index?: number;
+    created: boolean;
+  }>(`invitations/${token}/accept/`, accessToken, { method: "POST" });
+}
