@@ -54,6 +54,12 @@ export function getProductEventSummary(token: string) {
       unique_sessions: number;
       funnel: Record<string, number>;
       errors_per_completed_game: number | null;
+      reconnections_succeeded: number;
+      heartbeat_latency_ms: {
+        samples: number;
+        average: number | null;
+        p95: number | null;
+      };
     };
   });
 }

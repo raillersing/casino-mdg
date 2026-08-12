@@ -47,6 +47,12 @@ export function BackofficePage() {
     unique_sessions: number;
     funnel: Record<string, number>;
     errors_per_completed_game: number | null;
+    reconnections_succeeded: number;
+    heartbeat_latency_ms: {
+      samples: number;
+      average: number | null;
+      p95: number | null;
+    };
   } | null>(null);
   useEffect(() => {
     if (!token) {
@@ -133,6 +139,14 @@ export function BackofficePage() {
         <div>
           <strong>{productSummary?.errors_per_completed_game ?? "—"}</strong>
           <span>Erreurs / partie terminée</span>
+        </div>
+        <div>
+          <strong>{productSummary?.reconnections_succeeded ?? "…"}</strong>
+          <span>Reconnexions réussies · 7j</span>
+        </div>
+        <div>
+          <strong>{productSummary?.heartbeat_latency_ms.p95 ?? "—"}</strong>
+          <span>Latence réseau p95 · ms</span>
         </div>
       </div>
       <div className="wallet-layout">

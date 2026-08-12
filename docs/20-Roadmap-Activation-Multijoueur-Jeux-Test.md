@@ -63,9 +63,10 @@ quantitatives minimales sont réunies.
 ### Lot actif — Phase 5 : exécution du pilote fermé et consolidation
 
 Le résumé staff `/api/v1/analytics/summary/` expose maintenant les acteurs et
-sessions uniques, l’entonnoir activation → démo → partie → completion et le
-ratio d’erreurs par partie terminée. Ces métriques restent descriptives : elles
-ne sont pas présentées comme chiffre d’affaires ni comme preuve de rentabilité.
+sessions uniques, l’entonnoir activation → démo → partie → completion, le
+ratio d’erreurs par partie terminée, les reconnexions réussies et la latence
+heartbeat moyenne/p95. Ces métriques restent descriptives : elles ne sont pas
+présentées comme chiffre d’affaires ni comme preuve de rentabilité.
 
 Le socle de télémétrie est désormais implémenté : les événements d’activation sont
 acceptés anonymement ou associés à un compte, dédupliqués par `event_id`, limités
@@ -275,6 +276,8 @@ la couverture de non-régression.
 **Tâches**
 
 - Ajouter un tableau de bord simulation : activation, première partie, completion, erreurs et latence.
+- Livré : collecter les reconnexions réussies et la latence heartbeat côté
+  client sans bloquer le jeu ; afficher les agrégats réseau dans le back-office.
 - Recruter un petit groupe de testeurs identifiés, avec feedback intégré.
 - Mettre en place un formulaire de signalement dans le jeu.
 - Documenter chaque incident avec mode, jeu, match, version et reproduction.

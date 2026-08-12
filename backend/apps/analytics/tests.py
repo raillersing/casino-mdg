@@ -100,6 +100,42 @@ class ProductEventApiTests(TestCase):
         self.assertEqual(response.data["funnel"]["first_game_completed"], 1)
         self.assertEqual(response.data["errors_per_completed_game"], 1)
 
+    def test_summary_exposes_reconnects_and_heartbeat_latency(self):
+        for latency in (100, 200, 300):
+            self.client.post(
+                "/api/v1/analytics/events/",
+                {
+                    "event_id": str(uuid.uuid4()),
+                    "event_name": "heartbeat_latency",
+                    "anonymous_id": "pilot-user",
+                    "session_id": "pilot-session",
+                    "metadata": {"latency_ms": latency},
+                },
+                format="json",
+            )
+        self.client.post(
+            "/api/v1/analytics/events/",
+            {
+                "event_id": str(uuid.uuid4()),
+                "event_name": "reconnection_succeeded",
+                "anonymous_id": "pilot-user",
+                "session_id": "pilot-session",
+            },
+            format="json",
+        )
+        staff = User.objects.create_user(
+            email="network-staff@mdg.local",
+            phone="+261340009996",
+            display_name="Network Staff",
+            is_staff=True,
+        )
+        self.client.force_authenticate(staff)
+        response = self.client.get("/api/v1/analytics/summary/")
+        self.assertEqual(response.data["reconnections_succeeded"], 1)
+        self.assertEqual(response.data["heartbeat_latency_ms"]["samples"], 3)
+        self.assertEqual(response.data["heartbeat_latency_ms"]["average"], 200)
+        self.assertEqual(response.data["heartbeat_latency_ms"]["p95"], 200)
+
     def test_pilot_gate_requires_data_and_blocks_on_game_errors(self):
         staff = User.objects.create_user(
             email="gate-staff@mdg.local",
