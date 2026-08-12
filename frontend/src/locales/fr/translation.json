@@ -18,6 +18,7 @@
     "logout": "Déconnexion"
   },
   "humanOnline": "{{count}} joueur(s) humain(s) disponible(s)", "findHuman": "Trouver des humains", "searchingHuman": "Recherche en cours… la démo IA reste disponible après expiration.", "cancelSearch": "Annuler la recherche", "demoTitle": "Démo contre l’IA", "demoBody": "Les adversaires sont des bots déclarés. Cette partie ne compte pas comme présence humaine ni comme classement compétitif.", "demoProgress": "Actions de démonstration : {{count}}", "demoActionReceived": "Action simulée", "findHumans": "Rechercher des humains",
+  "spectatorTitle": "Mode spectateur", "spectatorBody": "Vous observez cette table en lecture seule. Vous ne comptez pas comme joueur et aucune action ne sera envoyée.", "spectatorReadOnly": "Lecture seule : les spectateurs ne peuvent pas jouer.", "leaveSpectator": "Retour au lobby",
   "games": {
     "poker": "Poker Texas Hold'em",
     "belote": "Belote",

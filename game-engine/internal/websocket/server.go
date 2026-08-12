@@ -68,11 +68,12 @@ type Server struct {
 func (s *Server) ClientCount() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.clients) }
 
 type Client struct {
-	conn     *websocket.Conn
-	playerID string
-	tableID  string
-	send     chan []byte
-	lastPong time.Time
+	conn      *websocket.Conn
+	playerID  string
+	tableID   string
+	spectator bool
+	send      chan []byte
+	lastPong  time.Time
 }
 
 func NewServer(cfg *config.Config, rm *room.Manager) *Server {
@@ -111,7 +112,7 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 func (s *Server) readPump(client *Client) {
 	defer func() {
 		wasCurrent := s.removeClient(client)
-		if wasCurrent && client.tableID != "" {
+		if wasCurrent && client.tableID != "" && !client.spectator {
 			s.roomManager.DisconnectPlayer(client.tableID, client.playerID)
 		}
 		client.conn.Close()
@@ -211,13 +212,17 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		return
 	}
 	s.addClient(client)
-	_, _ = s.roomManager.JoinPlayer(msg.TableID, client.playerID, client.playerID, len(table.Players)+1)
+	client.spectator = roleFromPayload(msg.Payload) == "spectator"
+	if !client.spectator {
+		_, _ = s.roomManager.JoinPlayer(msg.TableID, client.playerID, client.playerID, len(table.Players)+1)
+	}
 
 	state := map[string]interface{}{
 		"table_id":   table.ID,
 		"game_type":  table.GameType,
 		"players":    table.Players,
 		"game_state": publicGameState(table.State, client.playerID),
+		"spectator":  client.spectator,
 	}
 	client.conn.WriteJSON(Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
 	s.persistSnapshot(msg.TableID)
@@ -269,6 +274,15 @@ func gameTypeFromPayload(payload interface{}) string {
 	return gameType
 }
 
+func roleFromPayload(payload interface{}) string {
+	values, ok := payload.(map[string]interface{})
+	if !ok {
+		return "player"
+	}
+	role, _ := values["role"].(string)
+	return role
+}
+
 func validGameType(gameType string) bool {
 	return gameType == "poker" || gameType == "belote" || gameType == "rami"
 }
@@ -278,6 +292,10 @@ func (s *Server) handleLeave(client *Client, msg *Message) {
 }
 
 func (s *Server) handleAction(client *Client, msg *Message) {
+	if client.spectator {
+		s.sendMessage(client, &Message{Type: MsgError, TableID: client.tableID, Payload: "spectator is read-only", Timestamp: time.Now()})
+		return
+	}
 	event, err := s.roomManager.ApplyAction(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload)
 	if err != nil {
 		client.conn.WriteJSON(Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
