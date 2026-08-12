@@ -240,4 +240,23 @@ func TestAuthenticatedWebSocketProvisionsRoomFromJoinPayload(t *testing.T) {
 	}
 }
 
+func TestOldConnectionCloseDoesNotRemoveReplacement(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0"}
+	server := NewServer(cfg, room.NewManager(cfg))
+	oldClient := &Client{playerID: "player-1"}
+	newClient := &Client{playerID: "player-1"}
+	server.addClient(oldClient)
+	server.addClient(newClient)
+	server.removeClient(oldClient)
+	server.mu.RLock()
+	current := server.clients["player-1"]
+	server.mu.RUnlock()
+	if current != newClient {
+		t.Fatalf("replacement client was removed: current=%p want=%p", current, newClient)
+	}
+	if server.removeClient(oldClient) {
+		t.Fatal("stale connection was reported as current")
+	}
+}
+
 func serverHandler(server *Server) http.Handler { return http.HandlerFunc(server.HandleConnection) }

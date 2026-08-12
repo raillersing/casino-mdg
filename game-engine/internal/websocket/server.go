@@ -110,8 +110,8 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) readPump(client *Client) {
 	defer func() {
-		s.removeClient(client)
-		if client.tableID != "" {
+		wasCurrent := s.removeClient(client)
+		if wasCurrent && client.tableID != "" {
 			s.roomManager.DisconnectPlayer(client.tableID, client.playerID)
 		}
 		client.conn.Close()
@@ -174,9 +174,9 @@ func (s *Server) handleMessage(client *Client, msg *Message) {
 	case MsgAction:
 		s.handleAction(client, msg)
 	case MsgPing:
-		client.conn.WriteJSON(Message{Type: MsgPong, Timestamp: time.Now()})
+		s.sendMessage(client, &Message{Type: MsgPong, Timestamp: time.Now()})
 	case MsgHeartbeat:
-		client.conn.WriteJSON(Message{Type: MsgHeartbeat, TableID: client.tableID, Sequence: msg.Sequence, Timestamp: time.Now()})
+		s.sendMessage(client, &Message{Type: MsgHeartbeat, TableID: client.tableID, Sequence: msg.Sequence, Timestamp: time.Now()})
 	case MsgSync:
 		s.handleSync(client, msg)
 	default:
@@ -360,10 +360,28 @@ func (s *Server) addClient(client *Client) {
 	s.clients[client.playerID] = client
 }
 
-func (s *Server) removeClient(client *Client) {
+func (s *Server) removeClient(client *Client) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.clients, client.playerID)
+	// A reconnect replaces the previous socket for the same player. The old
+	// socket may close after the new one is registered and must not remove it.
+	if current, ok := s.clients[client.playerID]; ok && current == client {
+		delete(s.clients, client.playerID)
+		return true
+	}
+	return false
+}
+
+func (s *Server) sendMessage(client *Client, message *Message) {
+	data, err := json.Marshal(message)
+	if err != nil {
+		return
+	}
+	select {
+	case client.send <- data:
+	default:
+		log.Printf("websocket send queue full player=%s table=%s", client.playerID, client.tableID)
+	}
 }
 
 func (s *Server) broadcastToTable(tableID string, msg *Message) {
