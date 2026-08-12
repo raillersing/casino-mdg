@@ -312,6 +312,21 @@
     "pauseTitle": "Pause et contrôle",
     "pauseBody": "Les animations sont réduites et les limites sont visibles avant l’action."
   },
+  "createTable": {
+    "eyebrow": "Salle d’amis",
+    "title": "Créer une table",
+    "body": "Votre salle est privée par défaut. Seuls vous et les joueurs qui utilisent votre invitation peuvent la voir et la rejoindre.",
+    "name": "Nom de la salle",
+    "namePlaceholder": "Ex. Belote du vendredi",
+    "game": "Jeu",
+    "players": "Nombre de places",
+    "private": "Salle privée",
+    "privateHint": "Invisible dans le lobby public",
+    "cancel": "Annuler",
+    "submit": "Créer la salle",
+    "creating": "Création…",
+    "close": "Fermer"
+  },
   "promo": {
     "title": "Jouez avec vos proches.",
     "body": "Créez une table privée et invitez votre cercle."

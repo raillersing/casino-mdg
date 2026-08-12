@@ -311,6 +311,21 @@
     "pauseTitle": "Fiatoana sy fanaraha-maso",
     "pauseBody": "Ahena ny animation ary hita mialoha ny fetra."
   },
+  "createTable": {
+    "eyebrow": "Efitran'ny namana",
+    "title": "Mamorona latabatra",
+    "body": "Manokana ho azy ny efitranonao. Ianao sy ireo mpilalao mampiasa ny fanasanao ihany no afaka mahita sy miditra.",
+    "name": "Anaran'ny efitra",
+    "namePlaceholder": "Ohatra: Belote zoma",
+    "game": "Lalao",
+    "players": "Isan'ny toerana",
+    "private": "Efitra manokana",
+    "privateHint": "Tsy hita ao amin'ny lobby public",
+    "cancel": "Aoka",
+    "submit": "Mamorona efitra",
+    "creating": "Mamorona…",
+    "close": "Hidio"
+  },
   "promo": {
     "title": "Milalaova miaraka amin'ny namanao.",
     "body": "Mamorona latabatra manokana ary asao ny namanao."

@@ -4,7 +4,7 @@ import json
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -83,7 +83,15 @@ class TableListCreateView(APIView):
 
     def get(self, request):
         seed_demo_tables()
-        tables = GameTable.objects.exclude(status="finished").prefetch_related("seats")
+        visibility = Q(is_private=False)
+        if request.user.is_authenticated:
+            visibility |= Q(created_by=request.user) | Q(seats__user=request.user)
+        tables = (
+            GameTable.objects.exclude(status="finished")
+            .filter(visibility)
+            .distinct()
+            .prefetch_related("seats")
+        )
         if request.query_params.get("game_type"):
             tables = tables.filter(game_type=request.query_params["game_type"])
         return Response(
@@ -124,6 +132,14 @@ class TableJoinView(APIView):
     def post(self, request, table_id):
         try:
             table = GameTable.objects.get(pk=table_id)
+            if table.is_private and not (
+                table.created_by_id == request.user.pk
+                or table.seats.filter(user=request.user).exists()
+            ):
+                return Response(
+                    {"detail": "Cette salle est accessible sur invitation."},
+                    status=403,
+                )
             seat, created = join_table(table, request.user)
         except GameTable.DoesNotExist:
             return Response({"detail": "Table introuvable."}, status=404)

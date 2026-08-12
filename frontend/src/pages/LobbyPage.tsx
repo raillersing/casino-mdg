@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import {
   cancelMatch,
+  createTable,
   getMatchmakingStatus,
   getTables,
   joinTable,
@@ -43,6 +44,14 @@ export function LobbyPage() {
   const [matchError, setMatchError] = useState("");
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
+  const [showCreateTable, setShowCreateTable] = useState(false);
+  const [creatingTable, setCreatingTable] = useState(false);
+  const [tableForm, setTableForm] = useState({
+    name: "",
+    game_type: "poker" as "poker" | "belote" | "rami",
+    max_players: 4,
+    is_private: true,
+  });
 
   useEffect(() => {
     setLoading(true);
@@ -189,6 +198,27 @@ export function LobbyPage() {
     }
   };
 
+  const submitTable = async () => {
+    if (!accessToken) {
+      navigate("/auth");
+      return;
+    }
+    setCreatingTable(true);
+    setError("");
+    try {
+      const table = await createTable(accessToken, {
+        ...tableForm,
+        name: tableForm.name.trim() || t("createTable.defaultName"),
+      });
+      setShowCreateTable(false);
+      navigate(`/game/${table.game_type}/${table.table_code}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("app.error"));
+    } finally {
+      setCreatingTable(false);
+    }
+  };
+
   return (
     <div className="page-stack">
       <div className="page-title-row">
@@ -203,7 +233,13 @@ export function LobbyPage() {
           <Link to="/games/test" className="button button-outline">
             <Sparkles size={16} /> {t("lobby.testGames")}
           </Link>
-          <button className="button button-gold">
+          <button
+            className="button button-gold"
+            onClick={() => {
+              if (!accessToken) navigate("/auth");
+              else setShowCreateTable(true);
+            }}
+          >
             <Plus size={17} /> {t("games.create")}
           </button>
         </div>
@@ -323,6 +359,117 @@ export function LobbyPage() {
       {error && (
         <div className="empty-note">
           <span>{error}</span>
+        </div>
+      )}
+      {showCreateTable && (
+        <div className="modal-backdrop" role="presentation">
+          <section
+            className="create-table-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-table-title"
+          >
+            <div className="modal-heading">
+              <div>
+                <span className="eyebrow">{t("createTable.eyebrow")}</span>
+                <h2 id="create-table-title">{t("createTable.title")}</h2>
+              </div>
+              <button
+                className="icon-button"
+                aria-label={t("createTable.close")}
+                onClick={() => setShowCreateTable(false)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="modal-intro">{t("createTable.body")}</p>
+            <label className="field-label" htmlFor="table-name">
+              {t("createTable.name")}
+            </label>
+            <input
+              id="table-name"
+              className="text-input"
+              value={tableForm.name}
+              placeholder={t("createTable.namePlaceholder")}
+              onChange={(event) =>
+                setTableForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
+            />
+            <label className="field-label" htmlFor="table-game">
+              {t("createTable.game")}
+            </label>
+            <select
+              id="table-game"
+              className="text-input"
+              value={tableForm.game_type}
+              onChange={(event) =>
+                setTableForm((current) => ({
+                  ...current,
+                  game_type: event.target.value as typeof current.game_type,
+                }))
+              }
+            >
+              <option value="poker">{t("games.poker")}</option>
+              <option value="belote">{t("games.belote")}</option>
+              <option value="rami">{t("games.rami")}</option>
+            </select>
+            <label className="field-label" htmlFor="table-players">
+              {t("createTable.players")}
+            </label>
+            <select
+              id="table-players"
+              className="text-input"
+              value={tableForm.max_players}
+              onChange={(event) =>
+                setTableForm((current) => ({
+                  ...current,
+                  max_players: Number(event.target.value),
+                }))
+              }
+            >
+              {[2, 4, 6, 9].map((players) => (
+                <option value={players} key={players}>
+                  {players}
+                </option>
+              ))}
+            </select>
+            <label className="private-toggle">
+              <input
+                type="checkbox"
+                checked={tableForm.is_private}
+                onChange={(event) =>
+                  setTableForm((current) => ({
+                    ...current,
+                    is_private: event.target.checked,
+                  }))
+                }
+              />
+              <span>
+                <strong>{t("createTable.private")}</strong>
+                <small>{t("createTable.privateHint")}</small>
+              </span>
+            </label>
+            <div className="modal-actions">
+              <button
+                className="button button-outline"
+                onClick={() => setShowCreateTable(false)}
+              >
+                {t("createTable.cancel")}
+              </button>
+              <button
+                className="button button-gold"
+                disabled={creatingTable}
+                onClick={() => void submitTable()}
+              >
+                {creatingTable
+                  ? t("createTable.creating")
+                  : t("createTable.submit")}
+              </button>
+            </div>
+          </section>
         </div>
       )}
       <div className="table-list">
