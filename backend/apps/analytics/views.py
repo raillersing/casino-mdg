@@ -25,6 +25,8 @@ EVENT_NAMES = {
     "bot_fallback_started",
     "invite_sent",
     "invite_joined",
+    "reconnection_succeeded",
+    "heartbeat_latency",
     "test_game_played",
     "first_game_completed",
     "session_paused",
@@ -93,6 +95,14 @@ class ProductEventSummaryView(APIView):
             if event.session_id:
                 sessions.add(event.session_id)
         completed = counts.get("first_game_completed", 0)
+        heartbeat_latencies = sorted(
+            float(event.metadata["latency_ms"])
+            for event in events.filter(event_name="heartbeat_latency")
+            if isinstance(event.metadata, dict)
+            and isinstance(event.metadata.get("latency_ms"), (int, float))
+            and 0 <= float(event.metadata["latency_ms"]) <= 120000
+        )
+        p95_index = max(0, int(len(heartbeat_latencies) * 0.95) - 1)
         return Response(
             {
                 "window": "7d",
@@ -112,6 +122,20 @@ class ProductEventSummaryView(APIView):
                     if completed
                     else None
                 ),
+                "reconnections_succeeded": counts.get(
+                    "reconnection_succeeded", 0
+                ),
+                "heartbeat_latency_ms": {
+                    "samples": len(heartbeat_latencies),
+                    "average": (
+                        round(sum(heartbeat_latencies) / len(heartbeat_latencies), 2)
+                        if heartbeat_latencies
+                        else None
+                    ),
+                    "p95": heartbeat_latencies[p95_index]
+                    if heartbeat_latencies
+                    else None,
+                },
             }
         )
 

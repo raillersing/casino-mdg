@@ -13,7 +13,9 @@ export type ProductEventName =
   | "session_paused"
   | "game_error"
   | "invite_sent"
-  | "invite_joined";
+  | "invite_joined"
+  | "reconnection_succeeded"
+  | "heartbeat_latency";
 
 type EventContext = {
   mode?: string;
