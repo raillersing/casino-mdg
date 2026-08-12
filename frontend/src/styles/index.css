@@ -2794,6 +2794,38 @@ h3 {
   gap: 9px;
   margin-top: 24px;
 }
+.notification-heading {
+  margin-top: 28px;
+}
+.notification-settings {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line);
+}
+.notification-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 14px;
+  background: var(--panel);
+}
+.notification-setting span {
+  display: grid;
+  gap: 4px;
+}
+.notification-setting small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.notification-setting input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold);
+}
 .table-secondary-actions {
   display: flex;
   align-items: center;
