@@ -48,8 +48,8 @@ déclaré, analytics de base, feedback pilote, invitations, notifications,
 clubs, tables réservées, événements de club, récompenses idempotentes,
 historique et classement privé.
 
-Les travaux restants sont des consolidations : renforcer la reconnexion
-WebSocket et les invariants de partie, enrichir les KPI du pilote, puis traiter
+Les travaux restants sont des consolidations : renforcer les invariants de
+partie, enrichir les KPI du pilote, puis traiter
 accessibilité, performance et contrôles de jeu responsable. La démo IA est
 maintenant jouable sur les trois variantes avec une session déterministe,
 une fin explicite, un replay et la mesure `first_game_completed`. Cette section est la référence
@@ -238,9 +238,14 @@ Les bots d’onboarding et le remplissage contrôlé d’une file sont des prati
 - Annuler ou relancer ne crée pas de doublon.
 - Le fallback IA est un choix visible et traçable.
 
-### Phase 4 — Multijoueur robuste
+### Phase 4 — Multijoueur robuste — reconnexion client livrée
 
 **Objectif :** rendre une vraie partie jouable sur plusieurs clients et réseau irrégulier.
+
+**État :** la reconnexion client est livrée : l’état de connexion est exposé,
+la socket se réabonne après coupure, la séquence reçue est conservée et un
+`sync` est demandé pour reprendre les événements manquants. Le moteur Go
+conserve déjà le siège pendant la grace period et restaure les snapshots.
 
 **Tâches**
 

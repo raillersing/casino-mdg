@@ -39,13 +39,14 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     );
 
     const separator = url.includes("?") ? "&" : "?";
-    ws.current = new WebSocket(
+    const socket = new WebSocket(
       accessToken
         ? `${url}${separator}token=${encodeURIComponent(accessToken)}`
         : url,
     );
+    ws.current = socket;
 
-    ws.current.onopen = () => {
+    socket.onopen = () => {
       reconnectAttempts.current = 0;
       setReconnecting(false);
       onConnectionStateChange?.("connected");
@@ -60,10 +61,11 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
             }),
           );
       }, HEARTBEAT_INTERVAL);
-      onOpen?.(ws.current!);
+      onOpen?.(socket);
     };
 
-    ws.current.onclose = () => {
+    socket.onclose = () => {
+      if (ws.current !== socket) return;
       if (heartbeatTimer.current !== null) {
         window.clearInterval(heartbeatTimer.current);
         heartbeatTimer.current = null;
@@ -86,10 +88,10 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       }
     };
 
-    ws.current.onerror = (error) => {
+    socket.onerror = (error) => {
       console.error("WebSocket error:", error);
     };
-    ws.current.onmessage = (event) => onMessage?.(event);
+    socket.onmessage = (event) => onMessage?.(event);
   }, [
     accessToken,
     onClose,

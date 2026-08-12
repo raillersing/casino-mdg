@@ -175,4 +175,8 @@ test("reconnects the table socket after a transient disconnect", async ({
   expect(
     messages.filter((message) => message.type === "join").length,
   ).toBeGreaterThanOrEqual(2);
+  expect(messages.some((message) => message.type === "sync")).toBeTruthy();
+  expect(
+    messages.filter((message) => message.type === "join").at(-1),
+  ).toMatchObject({ sequence: 0 });
 });

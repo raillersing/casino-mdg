@@ -44,7 +44,7 @@ export function GamePage() {
   const [sequence, setSequence] = useState(0);
   const [gameConnectionError, setGameConnectionError] = useState("");
   const [connectionState, setConnectionState] = useState<
-    "offline" | "connecting" | "connected"
+    "offline" | "connecting" | "reconnecting" | "connected"
   >("offline");
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
@@ -55,6 +55,7 @@ export function GamePage() {
     null,
   );
   const [resolvedTableId, setResolvedTableId] = useState("");
+  const sequenceRef = useRef(0);
   const settled = useRef(false);
   const invitationHandled = useRef(false);
   const accessToken = useGameStore((state) => state.accessToken);
@@ -89,7 +90,10 @@ export function GamePage() {
           sequence?: number;
           payload?: unknown;
         };
-        if (typeof payload.sequence === "number") setSequence(payload.sequence);
+        if (typeof payload.sequence === "number") {
+          sequenceRef.current = payload.sequence;
+          setSequence(payload.sequence);
+        }
         if (payload.type === "state") {
           const state = payload.payload as
             | { players?: unknown; game_state?: Record<string, unknown> }
@@ -172,21 +176,28 @@ export function GamePage() {
               game_type: gameType || "poker",
               role: spectator ? "spectator" : "player",
             },
-            sequence: 0,
+            sequence: sequenceRef.current,
+            timestamp: new Date().toISOString(),
+          }),
+        );
+      if (engineTableId)
+        socket.send(
+          JSON.stringify({
+            type: "sync",
+            table_id: engineTableId,
+            sequence: sequenceRef.current,
             timestamp: new Date().toISOString(),
           }),
         );
     },
     [engineTableId, gameType, spectator],
   );
-  const handleSocketClose = useCallback(
-    () => setConnectionState("offline"),
-    [],
-  );
   const { send } = useWebSocket(socketUrl, {
     enabled: Boolean(engineTableId && accessToken && !demoAi),
     onOpen: handleSocketOpen,
-    onClose: handleSocketClose,
+    onConnectionStateChange: (state) => {
+      setConnectionState(state === "closed" ? "offline" : state);
+    },
     onMessage: handleSocketMessage,
   });
 
@@ -426,6 +437,9 @@ export function GamePage() {
           {t("game.sequence")} {sequence}
           {lastAction ? ` · ${lastAction}` : ""}
         </p>
+      )}
+      {connectionState === "reconnecting" && (
+        <p className="secure-note game-sync-note">{t("game.reconnecting")}</p>
       )}
       {resultMessage && (
         <p className="secure-note game-sync-note">{resultMessage}</p>

@@ -124,6 +124,7 @@
     "running": "En cours",
     "openTable": "Ouverte",
     "connecting": "Connexion…",
+    "reconnecting": "Reconnexion…",
     "watch": "Voir la table",
     "privateHint": "Les tables privées apparaissent ici lorsque vos amis vous invitent.",
     "testGames": "Jeux de hasard",
