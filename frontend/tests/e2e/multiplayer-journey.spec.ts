@@ -56,9 +56,24 @@ async function stubGameApis(page: Page) {
                     table_id: payload.table_id,
                     game_type: "poker",
                     players: [
-                      { id: "e2e-user", name: "Miora", stack: 10000, is_bot: false },
-                      { id: "poker-bot-1", name: "IA Démo · Tovo", stack: 10000, is_bot: true },
-                      { id: "poker-bot-2", name: "IA Démo · Rija", stack: 10000, is_bot: true },
+                      {
+                        id: "e2e-user",
+                        name: "Miora",
+                        stack: 10000,
+                        is_bot: false,
+                      },
+                      {
+                        id: "poker-bot-1",
+                        name: "IA Démo · Tovo",
+                        stack: 10000,
+                        is_bot: true,
+                      },
+                      {
+                        id: "poker-bot-2",
+                        name: "IA Démo · Rija",
+                        stack: 10000,
+                        is_bot: true,
+                      },
                     ],
                     game_state: {
                       players: [],
@@ -94,6 +109,20 @@ async function stubGameApis(page: Page) {
     localStorage.setItem("mdg_access_token", "e2e-token");
     localStorage.setItem("mdg_refresh_token", "e2e-refresh");
   });
+  await page.route("**/api/v1/auth/me/", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "e2e-user",
+        display_name: "Miora",
+        phone: "340000000",
+        xp: 0,
+        level: 1,
+        is_staff: false,
+      }),
+    }),
+  );
   await page.route("**/api/v1/games/tables/**", (route) =>
     route.fulfill({
       status: 200,
@@ -121,9 +150,27 @@ async function stubGameApis(page: Page) {
         profile: "balanced",
         status: "running",
         bots: [
-          { bot_key: "poker-bot-1", display_name: "IA Démo · Tovo", seat_index: 1, profile: "balanced", is_bot: true },
-          { bot_key: "poker-bot-2", display_name: "IA Démo · Rija", seat_index: 2, profile: "balanced", is_bot: true },
-          { bot_key: "poker-bot-3", display_name: "IA Démo · Saholy", seat_index: 3, profile: "balanced", is_bot: true },
+          {
+            bot_key: "poker-bot-1",
+            display_name: "IA Démo · Tovo",
+            seat_index: 1,
+            profile: "balanced",
+            is_bot: true,
+          },
+          {
+            bot_key: "poker-bot-2",
+            display_name: "IA Démo · Rija",
+            seat_index: 2,
+            profile: "balanced",
+            is_bot: true,
+          },
+          {
+            bot_key: "poker-bot-3",
+            display_name: "IA Démo · Saholy",
+            seat_index: 3,
+            profile: "balanced",
+            is_bot: true,
+          },
         ],
         created_at: "2026-08-13T10:00:00Z",
       }),
@@ -138,7 +185,10 @@ async function stubGameApis(page: Page) {
   );
 }
 
-async function expectCanonicalJoin(page: Page, expectedTableId = "table-emerald") {
+async function expectCanonicalJoin(
+  page: Page,
+  expectedTableId = "table-emerald",
+) {
   await expect
     .poll(
       () =>
@@ -197,13 +247,17 @@ test("expose spectator and demo AI journeys from the lobby", async ({
   ).toHaveCount(0);
 });
 
-test("starts a real declared demo AI session from the lobby", async ({ page }) => {
+test("starts a real declared demo AI session from the lobby", async ({
+  page,
+}) => {
   await stubGameApis(page);
   await page.goto("/lobby");
   await page.getByRole("button", { name: /Lancer une partie IA/i }).click();
   await expect(page).toHaveURL(/\/game\/poker\/BOT-POKER-001\?mode=demo_ai/);
   await expect(page.getByText("Démo contre l’IA")).toBeVisible();
-  await expectCanonicalJoin(page, "BOT-POKER-001");
+  // The URL keeps the human-readable table code; the socket uses the
+  // engine-owned table id returned by the simulation API.
+  await expectCanonicalJoin(page, "table-bot");
   await expect(page.getByText(/IA Démo · Tovo/i)).toBeVisible();
   await expect(page.locator(".game-room")).toBeVisible();
 });
@@ -266,7 +320,7 @@ test("reconnects the table socket after a transient disconnect", async ({
     const instances = (
       window as Window & { __wsInstances: Array<{ close: () => void }> }
     ).__wsInstances;
-    instances[0]?.close();
+    instances.at(-1)?.close();
   });
   await expect
     .poll(

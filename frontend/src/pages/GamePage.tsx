@@ -65,7 +65,10 @@ export function GamePage() {
   const userId =
     useGameStore((state) => state.user?.id || "") || tokenSubject(accessToken);
   const isPoker = gameType === "poker";
-  const engineTableId = resolvedTableId || demoTableId || tableId || "";
+  // A public table code must be resolved to the engine UUID before opening
+  // the socket. Demo sessions already provide their engine table id.
+  const engineTableId =
+    demoTableId || resolvedTableId || (demoAi ? tableId : "") || "";
   const statePlayers =
     gameState && Array.isArray(gameState.players)
       ? (gameState.players as Array<Record<string, unknown>>)
