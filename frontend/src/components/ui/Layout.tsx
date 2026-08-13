@@ -13,7 +13,7 @@ import {
   LifeBuoy,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getCurrentUser } from "@services/auth";
 import { useGameStore } from "@stores/gameStore";
 
@@ -23,6 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const setUser = useGameStore((state) => state.setUser);
   const logout = useGameStore((state) => state.logout);
   const { i18n, t } = useTranslation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navItems = [
     { to: "/", label: t("nav.home"), icon: Home },
     { to: "/lobby", label: t("nav.play"), icon: Compass },
@@ -33,6 +34,15 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: "/support", label: t("nav.support"), icon: LifeBuoy },
   ];
   const language = i18n.language.startsWith("mg") ? "MG" : "FR";
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     if (!accessToken || user) return;
@@ -62,7 +72,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </span>
         </Link>
         <div className="sidebar-label">{t("nav.navigation")}</div>
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label={t("a11y.primaryNavigation")}>
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -159,19 +169,37 @@ export function Layout({ children }: { children: ReactNode }) {
             )}
             <button
               className="icon-button mobile-menu"
-              aria-label={t("a11y.openMenu")}
+              aria-label={
+                mobileMenuOpen ? t("a11y.closeMenu") : t("a11y.openMenu")
+              }
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
+              onClick={() => setMobileMenuOpen((open) => !open)}
             >
               <Menu size={20} />
             </button>
           </div>
         </header>
         <main className="content">{children}</main>
-        <nav className="mobile-nav">
+        {mobileMenuOpen && (
+          <button
+            type="button"
+            className="mobile-menu-backdrop"
+            aria-label={t("a11y.closeMenu")}
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+        <nav
+          id="mobile-navigation"
+          className={`mobile-nav ${mobileMenuOpen ? "open" : ""}`}
+          aria-label={t("a11y.primaryNavigation")}
+        >
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
+              onClick={() => setMobileMenuOpen(false)}
               className={({ isActive }) => (isActive ? "active" : "")}
             >
               <Icon size={19} />

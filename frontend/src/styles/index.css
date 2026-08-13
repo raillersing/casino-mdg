@@ -262,6 +262,9 @@ a {
 .mobile-nav {
   display: none;
 }
+.mobile-menu-backdrop {
+  display: none;
+}
 .page-stack {
   display: grid;
   gap: 54px;
@@ -2042,6 +2045,35 @@ h3 {
     background: rgba(17, 22, 30, 0.94);
     backdrop-filter: blur(14px);
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.4);
+  }
+  .mobile-menu-backdrop {
+    display: block;
+    position: fixed;
+    z-index: 19;
+    inset: 64px 0 0;
+    border: 0;
+    background: rgba(0, 0, 0, 0.42);
+  }
+  .mobile-nav.open {
+    z-index: 21;
+    bottom: 78px;
+    display: grid;
+    justify-content: stretch;
+    gap: 4px;
+    padding: 10px;
+    border-radius: 13px;
+  }
+  .mobile-nav.open a {
+    display: flex;
+    align-items: center;
+    justify-items: initial;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .mobile-nav.open a.active {
+    background: rgba(211, 176, 107, 0.12);
   }
   .mobile-nav a {
     display: grid;
