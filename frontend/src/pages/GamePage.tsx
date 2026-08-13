@@ -355,7 +355,7 @@ export function GamePage() {
         ws.current.send(JSON.stringify(leaveMessage));
       else send(leaveMessage);
     }
-    navigate("/lobby");
+    window.setTimeout(() => navigate("/lobby"), 50);
   };
 
   return (
