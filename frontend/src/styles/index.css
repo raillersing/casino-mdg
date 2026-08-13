@@ -1663,14 +1663,32 @@ h3 {
   gap: 16px;
   border: 1px solid rgba(211, 176, 107, 0.48);
   border-radius: 10px;
-  background: linear-gradient(110deg, rgba(211, 176, 107, 0.16), rgba(18, 36, 31, 0.72));
+  background: linear-gradient(
+    110deg,
+    rgba(211, 176, 107, 0.16),
+    rgba(18, 36, 31, 0.72)
+  );
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
 }
 .showdown-panel strong,
-.showdown-panel span { display: block; }
-.showdown-panel strong { margin-top: 3px; color: var(--gold); font-size: 13px; }
-.showdown-panel span { color: var(--muted); font-size: 10px; }
-.showdown-kicker { color: var(--gold); font: 10px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+.showdown-panel span {
+  display: block;
+}
+.showdown-panel strong {
+  margin-top: 3px;
+  color: var(--gold);
+  font-size: 13px;
+}
+.showdown-panel span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.showdown-kicker {
+  color: var(--gold);
+  font: 10px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
 .turn-state {
   display: flex;
   align-items: center;
@@ -1715,12 +1733,24 @@ h3 {
   animation: state-pulse 0.45s ease;
 }
 @keyframes card-deal {
-  from { opacity: 0; transform: translateY(-12px) scale(0.92); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 @keyframes state-pulse {
-  from { opacity: 0.45; transform: translateY(-2px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0.45;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .action-row .action-bet {
   background: var(--gold);
@@ -1734,8 +1764,14 @@ h3 {
   color: var(--muted);
   font: 10px var(--mono);
 }
-.wager-control input { width: 92px; accent-color: var(--gold); }
-.wager-control output { min-width: 38px; color: var(--gold); }
+.wager-control input {
+  width: 92px;
+  accent-color: var(--gold);
+}
+.wager-control output {
+  min-width: 38px;
+  color: var(--gold);
+}
 .game-bottom {
   max-width: 850px;
   margin: 22px auto;

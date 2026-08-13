@@ -47,7 +47,9 @@ export function LobbyPage() {
   const [timedOut, setTimedOut] = useState(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
   const [creatingTable, setCreatingTable] = useState(false);
-  const [startingSimulation, setStartingSimulation] = useState<string | null>(null);
+  const [startingSimulation, setStartingSimulation] = useState<string | null>(
+    null,
+  );
   const [tableForm, setTableForm] = useState({
     name: "",
     game_type: "poker" as "poker" | "belote" | "rami",
@@ -374,9 +376,7 @@ export function LobbyPage() {
             {demoTable ? (
               <button
                 className="button button-outline button-small"
-                onClick={() =>
-                  void launchSimulation(demoTable.game_type)
-                }
+                onClick={() => void launchSimulation(demoTable.game_type)}
                 disabled={startingSimulation !== null}
               >
                 <Sparkles size={14} /> {t("tryDemo")}

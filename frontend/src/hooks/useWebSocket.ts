@@ -23,10 +23,12 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   const reconnectTimer = useRef<number | null>(null);
   const heartbeatTimer = useRef<number | null>(null);
   const heartbeatSentAt = useRef<number | null>(null);
-  const callbacks = useRef<Pick<
-    WebSocketOptions,
-    "onOpen" | "onClose" | "onMessage" | "onConnectionStateChange"
-  >>({});
+  const callbacks = useRef<
+    Pick<
+      WebSocketOptions,
+      "onOpen" | "onClose" | "onMessage" | "onConnectionStateChange"
+    >
+  >({});
   const setReconnecting = useGameStore((state) => state.setReconnecting);
   const accessToken = useGameStore((state) => state.accessToken);
   const {
@@ -128,11 +130,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
         // Application message parsing remains owned by the page callback.
       }
     };
-  }, [
-    accessToken,
-    setReconnecting,
-    url,
-  ]);
+  }, [accessToken, setReconnecting, url]);
 
   const send = useCallback((data: object) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
