@@ -378,17 +378,11 @@ func publicGameState(state interface{}, playerID string) interface{} {
 	switch game := state.(type) {
 	case *poker.Hand:
 		players := make([]map[string]interface{}, 0, len(game.Players))
-		winners := make([]string, 0)
 		revealedCards := make(map[string][]poker.Card)
 		handRanks := make(map[string]string)
 		payouts := map[string]int64{}
 		pots := []poker.Pot{}
 		if game.Phase == "showdown" {
-			if resolved, ok := game.Winners(); ok {
-				for _, player := range resolved {
-					winners = append(winners, player.ID)
-				}
-			}
 			for _, player := range game.Players {
 				if !player.Folded {
 					revealedCards[player.ID] = player.Cards
