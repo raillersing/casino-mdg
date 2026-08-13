@@ -9,9 +9,10 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.backoffice.services import record_audit
 from apps.support.models import PilotFeedback
 
-from .models import ProductEvent
+from .models import PilotParticipant, ProductEvent
 
 
 def actor_key(event):
@@ -252,3 +253,81 @@ class PilotGateSummaryView(APIView):
                 "criteria": criteria,
             }
         )
+
+
+class PilotParticipantsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        since = timezone.now() - timedelta(days=30)
+        events = ProductEvent.objects.filter(
+            created_at__gte=since, user_id__isnull=False
+        )
+        by_user = {}
+        for event in events.only("user_id", "event_name"):
+            by_user.setdefault(event.user_id, set()).add(event.event_name)
+        results = []
+        for participant in PilotParticipant.objects.select_related("user"):
+            names = by_user.get(participant.user_id, set())
+            results.append(
+                {
+                    "id": participant.pk,
+                    "user_id": participant.user_id,
+                    "display_name": participant.user.display_name,
+                    "email": participant.user.email,
+                    "status": participant.status,
+                    "invited_at": participant.invited_at.isoformat(),
+                    "progress": {
+                        "activated": "activation_viewed" in names,
+                        "played": "test_game_played" in names,
+                        "completed": "first_game_completed" in names,
+                    },
+                }
+            )
+        return Response({"results": results})
+
+    def post(self, request):
+        email = str(request.data.get("email", "")).strip().lower()
+        if not email:
+            return Response({"detail": "Email requis."}, status=400)
+        from apps.accounts.models import User
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"detail": "Utilisateur introuvable."}, status=404)
+        participant, created = PilotParticipant.objects.get_or_create(user=user)
+        if created:
+            record_audit(
+                request.user,
+                "pilot_participant.created",
+                participant,
+                {"user_id": user.pk},
+            )
+        return Response(
+            {"id": participant.pk, "created": created},
+            status=201 if created else 200,
+        )
+
+
+class PilotParticipantStatusView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, participant_id):
+        try:
+            participant = PilotParticipant.objects.get(pk=participant_id)
+        except PilotParticipant.DoesNotExist:
+            return Response({"detail": "Participant introuvable."}, status=404)
+        status = str(request.data.get("status", "")).strip()
+        if status not in dict(PilotParticipant.STATUSES):
+            return Response({"detail": "Statut de participant invalide."}, status=400)
+        previous_status = participant.status
+        participant.status = status
+        participant.save(update_fields=["status", "updated_at"])
+        record_audit(
+            request.user,
+            "pilot_participant.status_updated",
+            participant,
+            {"from": previous_status, "to": status},
+        )
+        return Response({"id": participant.pk, "status": participant.status})

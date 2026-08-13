@@ -99,6 +99,13 @@ visible à son créateur et à ses membres. L’invitation existante constitue l
 seul accès de partage ; les clubs persistants, événements et classements sont
 désormais livrés et ne doivent pas être recréés.
 
+Le registre de cohorte pilote est maintenant opérationnel pour le staff : un
+utilisateur existant peut être inscrit sans créer de nouveau compte, puis
+suivi selon les événements réels `activation_viewed`, `test_game_played` et
+`first_game_completed`. Les statuts `Invité`, `Actif`, `Terminé` et `Retiré`
+sont persistés et les ajouts ou transitions sont audités. Ce registre complète
+les invitations déjà livrées ; il ne remplace ni ne duplique leur parcours.
+
 Les préférences de notifications sont persistées par compte et modifiables
 depuis le profil : invitations, matchmaking, tour de jeu et annonces produit
 sont séparés. Les annonces produit sont désactivées par défaut ; une erreur de
@@ -293,6 +300,7 @@ la couverture de non-régression.
   l’audit avec les statuts source et cible.
 - Documenter chaque incident avec mode, jeu, match, version et reproduction.
 - Définir un go/no-go hebdomadaire fondé sur les métriques et les erreurs, pas sur des compteurs artificiels.
+- Livré : inscrire les comptes du pilote dans une cohorte staff et suivre leur progression réelle sans recréer les invitations.
 
 **Critères de sortie recommandés**
 

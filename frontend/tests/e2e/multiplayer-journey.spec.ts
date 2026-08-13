@@ -176,8 +176,15 @@ test("joins a table, sends leave, and returns to the lobby", async ({
 
   await page.getByRole("link", { name: /Quitter la table/i }).click();
   await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("e2e_last_leave")))
-    .not.toBeNull();
+    .poll(() =>
+      page.evaluate(() => {
+        const messages = (
+          window as Window & { __wsMessages: string[] }
+        ).__wsMessages.map(JSON.parse) as Array<{ type?: string }>;
+        return messages.filter((message) => message.type === "leave").length;
+      }),
+    )
+    .toBeGreaterThan(0);
   await expect(page).toHaveURL(/\/lobby$/);
   const messages = await page.evaluate(() =>
     (window as Window & { __wsMessages: string[] }).__wsMessages.map(
@@ -186,7 +193,17 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   );
   expect(messages.some((message) => message.type === "join")).toBeTruthy();
   const leaveMessage = JSON.parse(
-    await page.evaluate(() => localStorage.getItem("e2e_last_leave")),
+    await page.evaluate(() => {
+      const messages = (
+        window as Window & { __wsMessages: string[] }
+      ).__wsMessages.map(JSON.parse) as Array<{
+        type?: string;
+        table_id?: string;
+      }>;
+      return JSON.stringify(
+        messages.findLast((message) => message.type === "leave"),
+      );
+    }),
   );
   expect(leaveMessage).toMatchObject({ type: "leave" });
   expect(leaveMessage.table_id).toBeTruthy();

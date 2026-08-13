@@ -27,3 +27,24 @@ class ProductEvent(models.Model):
             models.Index(fields=["event_name", "created_at"]),
             models.Index(fields=["session_id", "created_at"]),
         ]
+
+
+class PilotParticipant(models.Model):
+    STATUSES = [
+        ("invited", "Invité"),
+        ("active", "Actif"),
+        ("completed", "Terminé"),
+        ("withdrawn", "Retiré"),
+    ]
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="pilot_participation",
+    )
+    status = models.CharField(max_length=12, choices=STATUSES, default="invited")
+    invited_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "pilot_participants"
+        ordering = ["-invited_at"]
