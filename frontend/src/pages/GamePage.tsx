@@ -48,8 +48,9 @@ export function GamePage() {
   >("offline");
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
-  const [demoActionCount, setDemoActionCount] = useState(0);
-  const [demoCompleted, setDemoCompleted] = useState(false);
+  const [tablePlayers, setTablePlayers] = useState<
+    Array<Record<string, unknown>>
+  >([]);
   const [resultMessage, setResultMessage] = useState("");
   const [gameState, setGameState] = useState<Record<string, unknown> | null>(
     null,
@@ -101,7 +102,19 @@ export function GamePage() {
             | undefined;
           if (state && Array.isArray(state.players))
             setPlayerCount(state.players.length);
+          if (state && Array.isArray(state.players))
+            setTablePlayers(state.players as Array<Record<string, unknown>>);
           if (state?.game_state) setGameState(state.game_state);
+          if (
+            demoAi &&
+            state?.game_state &&
+            (state.game_state.finished === true ||
+              state.game_state.phase === "showdown")
+          )
+            void trackEvent("bot_simulation_completed", {
+              mode: "DEMO_AI",
+              game_type: gameType,
+            });
           setConnectionState("connected");
         }
         if (payload.type === "action") {
@@ -163,7 +176,7 @@ export function GamePage() {
         setGameConnectionError(t("game.invalidTableResponse"));
       }
     },
-    [accessToken, engineTableId, gameType, t],
+    [accessToken, demoAi, engineTableId, gameType, t],
   );
   const handleSocketOpen = useCallback(
     (socket: WebSocket) => {
@@ -194,7 +207,7 @@ export function GamePage() {
     [engineTableId, gameType, spectator],
   );
   const { ws, send } = useWebSocket(socketUrl, {
-    enabled: Boolean(engineTableId && accessToken && !demoAi),
+    enabled: Boolean(engineTableId && accessToken),
     onOpen: handleSocketOpen,
     onConnectionStateChange: (state) => {
       setConnectionState(state === "closed" ? "offline" : state);
@@ -209,23 +222,11 @@ export function GamePage() {
 
   useEffect(() => {
     if (demoAi)
-      void trackEvent("demo_started", {
+      void trackEvent("demo_connected", {
         mode: "DEMO_AI",
         game_type: gameType,
       });
   }, [demoAi, gameType]);
-
-  const resetDemo = () => {
-    setDemoActionCount(0);
-    setDemoCompleted(false);
-    setLastAction("");
-    setResultMessage("");
-    void trackEvent("demo_started", {
-      mode: "DEMO_AI",
-      game_type: gameType,
-      metadata: { replay: true },
-    });
-  };
 
   useEffect(() => {
     if (!engineTableId || !accessToken) return;
@@ -299,24 +300,6 @@ export function GamePage() {
   };
 
   const sendGameAction = (action: string, actionPayload?: unknown) => {
-    if (demoAi) {
-      if (demoCompleted) return;
-      setConnectionState("connected");
-      setLastAction(t("game.demoActionReceived"));
-      setDemoActionCount((count) => {
-        const nextCount = count + 1;
-        if (nextCount >= 3) {
-          setDemoCompleted(true);
-          void trackEvent("first_game_completed", {
-            mode: "DEMO_AI",
-            game_type: gameType,
-            metadata: { actions: nextCount },
-          });
-        }
-        return nextCount;
-      });
-      return;
-    }
     if (spectator) {
       setGameConnectionError(t("spectatorReadOnly"));
       return;
@@ -441,21 +424,7 @@ export function GamePage() {
       {invitationState && (
         <p className="secure-note game-sync-note">{invitationState}</p>
       )}
-      {demoAi && (
-        <div className="secure-note game-sync-note demo-progress-row">
-          <span>
-            {demoCompleted
-              ? t("game.demoCompleted")
-              : t("game.demoProgress", { count: demoActionCount })}
-          </span>
-          {demoCompleted && (
-            <button className="text-link" onClick={resetDemo}>
-              {t("game.demoReplay")}
-            </button>
-          )}
-        </div>
-      )}
-      {connectionState === "connected" && !demoAi && (
+      {connectionState === "connected" && (
         <p className="secure-note game-sync-note">
           {t("game.syncedPlayers", { count: playerCount })} ·{" "}
           {t("game.sequence")} {sequence}
@@ -477,18 +446,18 @@ export function GamePage() {
         </div>
         <PlayerSeat
           pos="top"
-          name={demoAi ? "IA Démo · Tovo" : "Tovo"}
-          chips="8 420"
+          name={String(tablePlayers[0]?.name || (demoAi ? "IA Démo · Tovo" : "Tovo"))}
+          chips={String(tablePlayers[0]?.stack || "8 420")}
         />
         <PlayerSeat
           pos="left"
-          name={demoAi ? "IA Démo · Rija" : "Rija"}
-          chips="12 100"
+          name={String(tablePlayers[1]?.name || (demoAi ? "IA Démo · Rija" : "Rija"))}
+          chips={String(tablePlayers[1]?.stack || "12 100")}
         />
         <PlayerSeat
           pos="right"
-          name={demoAi ? "IA Démo · Saholy" : "Saholy"}
-          chips="6 750"
+          name={String(tablePlayers[2]?.name || (demoAi ? "IA Démo · Saholy" : "Saholy"))}
+          chips={String(tablePlayers[2]?.stack || "6 750")}
         />
         <div className="pot">
           {t("game.pot")} <strong>2 400</strong>
@@ -560,7 +529,6 @@ export function GamePage() {
           <GameSpecificControls
             gameType={gameType || ""}
             state={gameState}
-            demoAi={demoAi}
             onAction={sendGameAction}
           />
         )}
@@ -711,26 +679,13 @@ function GameStateSummary({
 function GameSpecificControls({
   gameType,
   state,
-  demoAi,
   onAction,
 }: {
   gameType: string;
   state: Record<string, unknown> | null;
-  demoAi: boolean;
   onAction: (action: string, payload?: unknown) => void;
 }) {
   const { t } = useTranslation();
-  if (demoAi)
-    return (
-      <div className="action-row">
-        <button className="action-check" onClick={() => onAction("demo_turn")}>
-          {gameType === "belote" ? t("game.play") : t("game.draw")}
-        </button>
-        <button className="action-bet" onClick={() => onAction("demo_action")}>
-          {gameType === "rami" ? t("game.discardCard") : t("game.check")}
-        </button>
-      </div>
-    );
   const players =
     state && Array.isArray(state.players)
       ? (state.players as Array<Record<string, unknown>>)

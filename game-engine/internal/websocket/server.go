@@ -298,6 +298,12 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 			client.tableID = ""
 			return
 		}
+		if !client.isBot {
+			if err := s.roomManager.StartTable(msg.TableID); err != nil {
+				s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: err.Error(), Timestamp: time.Now()})
+				return
+			}
+		}
 	}
 
 	state := map[string]interface{}{

@@ -191,17 +191,17 @@ func (m *Manager) LeavePlayer(tableID, playerID string) bool {
 }
 
 func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, error) {
-	return m.joinPlayer(tableID, playerID, name, seat, false)
+	return m.joinPlayer(tableID, playerID, name, seat, false, true)
 }
 
 // JoinBotPlayer is reserved for the authenticated internal bot connection.
 // Keeping it separate from JoinPlayer prevents a public client from opting
 // into bot identity through the regular JWT/WebSocket path.
 func (m *Manager) JoinBotPlayer(tableID, playerID, name string, seat int) (Event, error) {
-	return m.joinPlayer(tableID, playerID, name, seat, true)
+	return m.joinPlayer(tableID, playerID, name, seat, true, false)
 }
 
-func (m *Manager) joinPlayer(tableID, playerID, name string, seat int, isBot bool) (Event, error) {
+func (m *Manager) joinPlayer(tableID, playerID, name string, seat int, isBot, initialize bool) (Event, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
 		return Event{}, fmt.Errorf("table not found")
@@ -217,17 +217,17 @@ func (m *Manager) joinPlayer(tableID, playerID, name string, seat int, isBot boo
 		return Event{TableID: tableID, PlayerID: playerID, Action: "reconnected", Sequence: table.Sequence}, nil
 	}
 	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, IsBot: isBot, JoinedAt: time.Now()}
-	if table.GameType == "poker" && len(table.Players) >= 2 && table.State == nil {
+	if initialize && table.GameType == "poker" && len(table.Players) >= 2 && table.State == nil {
 		if err := initializePokerHand(table); err != nil {
 			return Event{}, err
 		}
 	}
-	if table.GameType == "belote" && len(table.Players) >= 4 && table.State == nil {
+	if initialize && table.GameType == "belote" && len(table.Players) >= 4 && table.State == nil {
 		if err := initializeBeloteRound(table); err != nil {
 			return Event{}, err
 		}
 	}
-	if table.GameType == "rami" && len(table.Players) >= 2 && table.State == nil {
+	if initialize && table.GameType == "rami" && len(table.Players) >= 2 && table.State == nil {
 		if err := initializeRamiGame(table); err != nil {
 			return Event{}, err
 		}
@@ -308,6 +308,31 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 	default:
 		return BotTurn{}, false
 	}
+}
+
+// StartTable initializes the game only after the human owner has joined. Bot
+// seats may be attached beforehand without allowing a complete bot-only hand
+// to start behind the user's back.
+func (m *Manager) StartTable(tableID string) error {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return fmt.Errorf("table not found")
+	}
+	table.mu.Lock()
+	defer table.mu.Unlock()
+	if table.State != nil {
+		return nil
+	}
+	if table.GameType == "poker" && len(table.Players) >= 2 {
+		return initializePokerHand(table)
+	}
+	if table.GameType == "belote" && len(table.Players) >= 4 {
+		return initializeBeloteRound(table)
+	}
+	if table.GameType == "rami" && len(table.Players) >= 2 {
+		return initializeRamiGame(table)
+	}
+	return nil
 }
 
 func hasBeloteSuit(hand []belote.Card, suit int) bool {
