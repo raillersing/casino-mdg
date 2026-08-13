@@ -360,14 +360,22 @@ export function BackofficePage() {
               <div className="activity-row" key={action.id}>
                 <div>
                   <strong>{action.title}</strong>
-                  <span>{action.source} · {action.incident_id ? `incident #${action.incident_id}` : "sans incident"}</span>
+                  <span>
+                    {action.source} ·{" "}
+                    {action.incident_id
+                      ? `incident #${action.incident_id}`
+                      : "sans incident"}
+                  </span>
                   <small>{action.description || "Sans description"}</small>
                 </div>
                 <select
                   aria-label={`Statut de l’action ${action.title}`}
                   value={action.status}
                   onChange={(event) =>
-                    void updateActionStatus(action.id, event.target.value as PilotAction["status"])
+                    void updateActionStatus(
+                      action.id,
+                      event.target.value as PilotAction["status"],
+                    )
                   }
                 >
                   <option value="todo">À faire</option>
@@ -377,7 +385,9 @@ export function BackofficePage() {
               </div>
             ))
           ) : (
-            <div className="empty-wallet">Aucune action corrective enregistrée.</div>
+            <div className="empty-wallet">
+              Aucune action corrective enregistrée.
+            </div>
           )}
         </section>
         <section className="activity-card">
