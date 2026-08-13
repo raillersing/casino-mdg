@@ -282,6 +282,9 @@ la couverture de non-régression.
   excluant les cohortes trop récentes et en affichant le dénominateur éligible.
 - Recruter un petit groupe de testeurs identifiés, avec feedback intégré.
 - Mettre en place un formulaire de signalement dans le jeu.
+- Livré : le lien de signalement depuis une partie transmet jeu, table, session
+  et version d’interface au ticket support, afin de rendre la reproduction
+  exploitable par l’équipe pilote.
 - Documenter chaque incident avec mode, jeu, match, version et reproduction.
 - Définir un go/no-go hebdomadaire fondé sur les métriques et les erreurs, pas sur des compteurs artificiels.
 
