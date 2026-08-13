@@ -7,6 +7,7 @@ export type GameTable = {
   max_players: number;
   player_count: number;
   status: "open" | "running" | "finished";
+  mode: "SIMULATION_SOLO" | "DEMO_AI" | "HUMAN_MATCH" | "REAL_MONEY";
   is_private: boolean;
   club_id: string | null;
   club_name: string | null;
@@ -15,6 +16,7 @@ export type GameTable = {
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1/games/${path}`, options);
   const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) throw new Error("AUTH_REQUIRED");
   if (!response.ok)
     throw new Error(payload.detail || "Impossible de charger les tables.");
   return payload as T;
@@ -26,6 +28,52 @@ export function getTables(gameType?: string) {
       ? `?game_type=${gameType.toLowerCase()}`
       : "";
   return request<{ results: GameTable[] }>(`tables/${query}`);
+}
+
+export type BotSimulation = {
+  session_id: string;
+  table_id: string;
+  table_code: string;
+  game_type: "poker" | "belote" | "rami";
+  mode: "DEMO_AI";
+  profile: "tutorial" | "balanced" | "expert";
+  status: "queued" | "running" | "completed" | "cancelled";
+  bots: Array<{
+    bot_key: string;
+    display_name: string;
+    seat_index: number;
+    profile: string;
+    is_bot: true;
+  }>;
+  created_at: string;
+};
+
+export function startBotSimulation(
+  accessToken: string,
+  gameType: BotSimulation["game_type"],
+  profile: BotSimulation["profile"],
+  idempotencyKey: string,
+) {
+  return request<BotSimulation>("bot-simulations/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify({
+      game_type: gameType,
+      profile,
+      idempotency_key: idempotencyKey,
+    }),
+  });
+}
+
+export function cancelBotSimulation(accessToken: string, sessionId: string) {
+  return request<BotSimulation>(`bot-simulations/${sessionId}/`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }
 
 export function createTable(

@@ -15,6 +15,7 @@ import {
   getMatchmakingStatus,
   getTables,
   joinTable,
+  startBotSimulation,
   queueMatch,
   sendMatchmakingHeartbeat,
   type GameTable,
@@ -46,6 +47,9 @@ export function LobbyPage() {
   const [timedOut, setTimedOut] = useState(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
   const [creatingTable, setCreatingTable] = useState(false);
+  const [startingSimulation, setStartingSimulation] = useState<string | null>(
+    null,
+  );
   const [tableForm, setTableForm] = useState({
     name: "",
     game_type: "poker" as "poker" | "belote" | "rami",
@@ -179,6 +183,37 @@ export function LobbyPage() {
     table.name.toLowerCase().includes(query.toLowerCase()),
   );
   const demoTable = tables.find((table) => table.game_type === matchmakingGame);
+  const launchSimulation = async (gameType: "poker" | "belote" | "rami") => {
+    if (!accessToken) {
+      navigate("/auth");
+      return;
+    }
+    setStartingSimulation(gameType);
+    setMatchError("");
+    const idempotencyKey = `lobby-${gameType}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    try {
+      const session = await startBotSimulation(
+        accessToken,
+        gameType,
+        "balanced",
+        idempotencyKey,
+      );
+      void trackEvent("bot_simulation_started", {
+        mode: session.mode,
+        game_type: gameType,
+        metadata: { session_id: session.session_id, source: "lobby" },
+      });
+      navigate(
+        `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}`,
+      );
+    } catch (reason) {
+      setMatchError(
+        reason instanceof Error ? reason.message : t("simulationUnavailable"),
+      );
+    } finally {
+      setStartingSimulation(null);
+    }
+  };
   const join = async (table: GameTable) => {
     if (!accessToken) return;
     setJoining(table.id);
@@ -233,6 +268,16 @@ export function LobbyPage() {
           <Link to="/games/test" className="button button-outline">
             <Sparkles size={16} /> {t("lobby.testGames")}
           </Link>
+          <button
+            className="button button-outline"
+            onClick={() => void launchSimulation(matchmakingGame)}
+            disabled={startingSimulation !== null}
+          >
+            <Sparkles size={16} />
+            {startingSimulation === matchmakingGame
+              ? t("startingSimulation")
+              : t("tryDemo")}
+          </button>
           <button
             className="button button-gold"
             onClick={() => {
@@ -329,17 +374,13 @@ export function LobbyPage() {
               {t("cancelSearch")}
             </button>
             {demoTable ? (
-              <Link
+              <button
                 className="button button-outline button-small"
-                to={`/game/${demoTable.game_type}/${demoTable.table_code}?mode=demo_ai`}
-                onClick={() =>
-                  void trackEvent("bot_fallback_started", {
-                    game_type: matchmakingGame,
-                  })
-                }
+                onClick={() => void launchSimulation(demoTable.game_type)}
+                disabled={startingSimulation !== null}
               >
                 <Sparkles size={14} /> {t("tryDemo")}
-              </Link>
+              </button>
             ) : (
               <Link
                 className="button button-outline button-small"
@@ -548,12 +589,14 @@ export function LobbyPage() {
                     >
                       <Users size={13} /> {t("lobby.spectate")}
                     </Link>
-                    <Link
-                      to={`/game/${table.game_type}/${table.table_code}?mode=demo_ai`}
+                    <button
+                      type="button"
                       className="demo-link"
+                      onClick={() => void launchSimulation(table.game_type)}
+                      disabled={startingSimulation !== null}
                     >
                       <Sparkles size={13} /> {t("lobby.testGames")}
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>

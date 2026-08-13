@@ -18,11 +18,14 @@ func Intn(n int) int {
 	if n <= 0 {
 		panic("n must be positive")
 	}
-	// Rejection sampling for uniform distribution
+	// Rejection sampling for a uniform value in [0,n). Comparing the raw
+	// uint32 directly to n would make normal card-deck draws practically loop
+	// forever.
+	limit := ^uint32(0) - (^uint32(0) % uint32(n))
 	for {
 		v := Uint32()
-		if int(v) < n {
-			return int(v)
+		if v < limit {
+			return int(v % uint32(n))
 		}
 	}
 }

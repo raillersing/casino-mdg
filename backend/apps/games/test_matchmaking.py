@@ -1,8 +1,16 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.games.models import GameTable, MatchmakingTicket, PlayerPresence, TableSeat
+from apps.games.models import (
+    BotSimulationSession,
+    GameTable,
+    MatchmakingTicket,
+    PlayerPresence,
+    TableSeat,
+)
 
 
 class MatchmakingApiTests(TestCase):
@@ -78,3 +86,28 @@ class MatchmakingApiTests(TestCase):
         cancelled = self.client.delete(f"/api/v1/games/matchmaking/queue/{ticket_id}/")
         self.assertEqual(cancelled.status_code, 200)
         self.assertEqual(cancelled.data["ticket"]["status"], "cancelled")
+
+    @patch("apps.games.views.requests.post")
+    def test_bot_simulation_session_is_idempotent_and_declares_bots(self, post):
+        post.return_value.raise_for_status.return_value = None
+        self.client.force_authenticate(self.first)
+        headers = {"HTTP_IDEMPOTENCY_KEY": "bot-session-001"}
+        first = self.client.post(
+            "/api/v1/games/bot-simulations/",
+            {"game_type": "belote", "profile": "balanced"},
+            format="json",
+            **headers,
+        )
+        retry = self.client.post(
+            "/api/v1/games/bot-simulations/",
+            {"game_type": "poker", "profile": "expert"},
+            format="json",
+            **headers,
+        )
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(retry.status_code, 200)
+        self.assertEqual(first.data["session_id"], retry.data["session_id"])
+        self.assertEqual(first.data["mode"], "DEMO_AI")
+        self.assertEqual(len(first.data["bots"]), 3)
+        self.assertTrue(all(bot["is_bot"] for bot in first.data["bots"]))
+        self.assertEqual(BotSimulationSession.objects.count(), 1)

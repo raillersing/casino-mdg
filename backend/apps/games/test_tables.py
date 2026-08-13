@@ -17,6 +17,9 @@ class TableApiTests(TestCase):
         response = self.client.get("/api/v1/games/tables/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 4)
+        self.assertEqual(
+            {item["mode"] for item in response.data["results"]}, {"HUMAN_MATCH"}
+        )
 
     def test_join_is_idempotent_and_never_duplicates_seat(self):
         table = GameTable.objects.create(

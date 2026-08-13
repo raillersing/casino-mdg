@@ -81,9 +81,14 @@ export function TestGamesPage() {
       setEntries(activity.entries);
       setBalance(wallet);
     } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : t("testGames.loadError"),
-      );
+      if (reason instanceof Error && reason.message === "AUTH_REQUIRED") {
+        useGameStore.getState().logout();
+        setError(t("testGames.sessionExpired"));
+      } else {
+        setError(
+          reason instanceof Error ? reason.message : t("testGames.loadError"),
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -115,9 +120,14 @@ export function TestGamesPage() {
       });
       await load();
     } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : t("testGames.playError"),
-      );
+      if (reason instanceof Error && reason.message === "AUTH_REQUIRED") {
+        useGameStore.getState().logout();
+        setError(t("testGames.sessionExpired"));
+      } else {
+        setError(
+          reason instanceof Error ? reason.message : t("testGames.playError"),
+        );
+      }
     } finally {
       setAction("");
     }
@@ -148,9 +158,14 @@ export function TestGamesPage() {
       setSelectedDraw(null);
       await load();
     } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : t("testGames.entryError"),
-      );
+      if (reason instanceof Error && reason.message === "AUTH_REQUIRED") {
+        useGameStore.getState().logout();
+        setError(t("testGames.sessionExpired"));
+      } else {
+        setError(
+          reason instanceof Error ? reason.message : t("testGames.entryError"),
+        );
+      }
     } finally {
       setAction("");
     }
@@ -165,9 +180,14 @@ export function TestGamesPage() {
         current.map((item) => (item.slug === draw.slug ? result : item)),
       );
     } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : t("testGames.drawError"),
-      );
+      if (reason instanceof Error && reason.message === "AUTH_REQUIRED") {
+        useGameStore.getState().logout();
+        setError(t("testGames.sessionExpired"));
+      } else {
+        setError(
+          reason instanceof Error ? reason.message : t("testGames.drawError"),
+        );
+      }
     } finally {
       setAction("");
     }

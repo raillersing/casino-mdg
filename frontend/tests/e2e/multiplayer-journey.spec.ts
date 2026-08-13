@@ -46,6 +46,31 @@ async function stubGameApis(page: Page) {
           if (payload.type === "join") {
             this.joined = true;
             localStorage.setItem("e2e_last_join_instance", String(this.id));
+            this.onmessage?.(
+              new MessageEvent("message", {
+                data: JSON.stringify({
+                  type: "state",
+                  table_id: payload.table_id,
+                  sequence: 4,
+                  payload: {
+                    table_id: payload.table_id,
+                    game_type: "poker",
+                    players: [
+                      { id: "e2e-user", name: "Miora", stack: 10000, is_bot: false },
+                      { id: "poker-bot-1", name: "IA Démo · Tovo", stack: 10000, is_bot: true },
+                      { id: "poker-bot-2", name: "IA Démo · Rija", stack: 10000, is_bot: true },
+                    ],
+                    game_state: {
+                      players: [],
+                      community: [],
+                      pot: 0,
+                      current: 0,
+                      phase: "preflop",
+                    },
+                  },
+                }),
+              }),
+            );
           }
           if (payload.type === "leave")
             localStorage.setItem("e2e_last_leave", message);
@@ -83,6 +108,27 @@ async function stubGameApis(page: Page) {
       body: JSON.stringify({ table, created: false }),
     }),
   );
+  await page.route("**/api/v1/games/bot-simulations/", (route) =>
+    route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        session_id: "session-1",
+        table_id: "table-bot",
+        table_code: "BOT-POKER-001",
+        game_type: "poker",
+        mode: "DEMO_AI",
+        profile: "balanced",
+        status: "running",
+        bots: [
+          { bot_key: "poker-bot-1", display_name: "IA Démo · Tovo", seat_index: 1, profile: "balanced", is_bot: true },
+          { bot_key: "poker-bot-2", display_name: "IA Démo · Rija", seat_index: 2, profile: "balanced", is_bot: true },
+          { bot_key: "poker-bot-3", display_name: "IA Démo · Saholy", seat_index: 3, profile: "balanced", is_bot: true },
+        ],
+        created_at: "2026-08-13T10:00:00Z",
+      }),
+    }),
+  );
   await page.route("**/api/v1/social/tables/**/chat/", (route) =>
     route.fulfill({
       status: 200,
@@ -92,7 +138,7 @@ async function stubGameApis(page: Page) {
   );
 }
 
-async function expectCanonicalJoin(page: Page) {
+async function expectCanonicalJoin(page: Page, expectedTableId = "table-emerald") {
   await expect
     .poll(
       () =>
@@ -124,7 +170,7 @@ async function expectCanonicalJoin(page: Page) {
     .toMatchObject({
       activeSocketOpen: true,
       activeSocketJoined: true,
-      latestJoin: { type: "join", table_id: "table-emerald" },
+      latestJoin: { type: "join", table_id: expectedTableId },
     });
 }
 
@@ -139,8 +185,8 @@ test("expose spectator and demo AI journeys from the lobby", async ({
     /mode=spectator/,
   );
   await expect(
-    page.getByRole("link", { name: /Jeux de hasard/i }).last(),
-  ).toHaveAttribute("href", /mode=demo_ai/);
+    page.getByRole("button", { name: /Jeux de hasard/i }).last(),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: /Regarder/i }).click();
   await expect(page).toHaveURL(/mode=spectator/);
@@ -151,24 +197,15 @@ test("expose spectator and demo AI journeys from the lobby", async ({
   ).toHaveCount(0);
 });
 
-test("completes and replays a declared demo AI session", async ({ page }) => {
+test("starts a real declared demo AI session from the lobby", async ({ page }) => {
   await stubGameApis(page);
   await page.goto("/lobby");
-  await page
-    .getByRole("link", { name: /Jeux de hasard/i })
-    .last()
-    .click();
+  await page.getByRole("button", { name: /Lancer une partie IA/i }).click();
+  await expect(page).toHaveURL(/\/game\/poker\/BOT-POKER-001\?mode=demo_ai/);
   await expect(page.getByText("Démo contre l’IA")).toBeVisible();
-  await page.getByRole("button", { name: /Checker/i }).click();
-  await page.getByRole("button", { name: /Checker/i }).click();
-  await page.getByRole("button", { name: /Checker/i }).click();
-  await expect(
-    page.getByText(/Démo terminée · aucun joueur humain/i),
-  ).toBeVisible();
-  await page.getByRole("button", { name: /Rejouer la démo/i }).click();
-  await expect(
-    page.getByText(/Actions de démonstration\s*:\s*0/i),
-  ).toBeVisible();
+  await expectCanonicalJoin(page, "BOT-POKER-001");
+  await expect(page.getByText(/IA Démo · Tovo/i)).toBeVisible();
+  await expect(page.locator(".game-room")).toBeVisible();
 });
 
 test("joins a table, sends leave, and returns to the lobby", async ({
@@ -182,6 +219,7 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   await page
     .getByRole("link", { name: /Quitter la table/i })
     .click({ noWaitAfter: true });
+  await expect(page).toHaveURL(/\/lobby$/, { timeout: 5_000 });
   await expect
     .poll(
       () =>
@@ -191,10 +229,9 @@ test("joins a table, sends leave, and returns to the lobby", async ({
           ).__wsMessages.map(JSON.parse) as Array<{ type?: string }>;
           return messages.filter((message) => message.type === "leave").length;
         }),
-      { timeout: 12_000 },
+      { timeout: 5_000 },
     )
     .toBeGreaterThan(0);
-  await expect(page).toHaveURL(/\/lobby$/);
   const messages = await page.evaluate(() =>
     (window as Window & { __wsMessages: string[] }).__wsMessages.map(
       JSON.parse,
@@ -255,5 +292,5 @@ test("reconnects the table socket after a transient disconnect", async ({
   expect(messages.some((message) => message.type === "sync")).toBeTruthy();
   expect(
     messages.filter((message) => message.type === "join").at(-1),
-  ).toMatchObject({ sequence: 0 });
+  ).toMatchObject({ sequence: 4 });
 });

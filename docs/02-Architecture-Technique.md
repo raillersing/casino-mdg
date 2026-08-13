@@ -156,6 +156,41 @@ Le Game Engine ne touche **jamais** directement au wallet. Il publie des événe
 
 ## 5. Résilience réseau — Contexte Madagascar
 
+### 5.0 Simulation contrôlée par bots
+
+Les simulations de parties utilisent une identité de service distincte des
+comptes joueurs. Le backend orchestre une session `DEMO_AI`, puis ouvre une
+connexion WebSocket par bot avec un jeton HMAC court, lié à `table_id`,
+`bot_id`, `name` et `exp`. Le secret `GAME_ENGINE_BOT_SECRET` n'est jamais
+envoyé au navigateur et doit être différent par environnement.
+
+Le moteur accepte :
+
+- un JWT utilisateur dans `?token=...` ;
+- un jeton interne dans `?bot_token=...&table_id=...`.
+
+Un payload public `role: bot` ou `is_bot: true` ne suffit jamais à obtenir une
+identité bot. Le moteur vérifie la signature, l'expiration et la table avant
+de créer le siège, puis publie `is_bot: true` dans l'état de table. Cette
+séparation permet d'afficher les bots dans l'interface de démonstration sans
+les confondre avec des joueurs humains ni ouvrir cette capacité aux clients.
+
+### 5.1 Contrôle statistique des Jeux de hasard
+
+Le endpoint back-office `POST /api/v1/games/chance-simulations/` exécute une
+simulation pure en mémoire. Il accepte `slug`, `rounds` (1 à 100 000) et
+`seed`. Il ne crée ni `InstantPlay`, ni `DrawEntry`, ni transaction wallet.
+Pour les jeux instantanés, la réponse expose la distribution observée, le
+coût total, le gain total, le RTP attendu et observé ainsi qu'un intervalle de
+contrôle à trois erreurs standards. Pour les tirages, elle expose les
+fréquences et les écarts relatifs. Le champ `anomaly` est un signal de revue,
+pas une preuve de fraude : toute alerte doit être rejouée avec la même seed,
+puis analysée avec un échantillon plus large.
+
+Cette route est réservée aux utilisateurs staff et reste hors du parcours
+joueur. Les résultats sont reproductibles, mais ne constituent pas un tirage
+réel et ne doivent jamais créditer le portefeuille.
+
 ### Problème réel
 - Connexions 3G/4G intermittentes
 - Coupure électrique fréquentes (jirama)

@@ -36,6 +36,9 @@ class TestGamesApiTests(TestCase):
             {"coffre-mada", "roue-mdg"},
         )
         self.assertEqual(response.data["currency"], "SIM")
+        self.assertEqual(
+            {item["mode"] for item in response.data["results"]}, {"SIMULATION_SOLO"}
+        )
 
     def test_instant_play_is_idempotent_and_ledgered(self):
         first = self.client.post(
@@ -108,3 +111,47 @@ class TestGamesApiTests(TestCase):
         self.assertEqual(first.status_code, 201)
         self.assertEqual(second.status_code, 200)
         self.assertEqual(DrawResult.objects.filter(draw__slug="jackpot-mdg").count(), 1)
+
+    def test_chance_simulation_is_staff_only_reproducible_and_does_not_ledger(self):
+        transaction_count = WalletTransaction.objects.count()
+        self.client.get("/api/v1/games/test-games/catalog/")
+        forbidden = self.client.post(
+            "/api/v1/games/chance-simulations/",
+            {"slug": "coffre-mada", "rounds": 2000, "seed": "audit-001"},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, 403)
+        self.client.force_authenticate(self.staff)
+        first = self.client.post(
+            "/api/v1/games/chance-simulations/",
+            {"slug": "coffre-mada", "rounds": 2000, "seed": "audit-001"},
+            format="json",
+        )
+        second = self.client.post(
+            "/api/v1/games/chance-simulations/",
+            {"slug": "coffre-mada", "rounds": 2000, "seed": "audit-001"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.data, second.data)
+        self.assertEqual(first.data["rounds"], 2000)
+        self.assertIn("observed_rtp", first.data["control"])
+        self.assertEqual(InstantPlay.objects.count(), 0)
+        self.assertEqual(WalletTransaction.objects.count(), transaction_count)
+
+    def test_chance_simulation_validates_round_limit_and_draws(self):
+        self.client.force_authenticate(self.staff)
+        too_many = self.client.post(
+            "/api/v1/games/chance-simulations/",
+            {"slug": "jackpot-mdg", "rounds": 100001},
+            format="json",
+        )
+        self.assertEqual(too_many.status_code, 400)
+        response = self.client.post(
+            "/api/v1/games/chance-simulations/",
+            {"slug": "jackpot-mdg", "rounds": 100, "seed": "draw-001"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["kind"], "draw")
+        self.assertEqual(response.data["rounds"], 100)

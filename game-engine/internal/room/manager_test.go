@@ -92,6 +92,31 @@ func TestPokerFoldFinishesHeadsUpAndExposesWinner(t *testing.T) {
 	}
 }
 
+func TestPokerNewHandRotatesButtonAndCarriesPayouts(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur 1", 1)
+	_, _ = m.JoinPlayer(table.ID, "p2", "Joueur 2", 2)
+	if _, err := m.ApplyAction(table.ID, "p2", "fold", 2, nil); err != nil {
+		t.Fatal(err)
+	}
+	event, replayed, err := m.ApplyActionIdempotent(table.ID, "p1", "new_hand", 3, nil, "new-hand-1")
+	if err != nil || replayed || event.Sequence != 4 {
+		t.Fatalf("event=%+v replayed=%v err=%v", event, replayed, err)
+	}
+	hand, ok := table.State.(*poker.Hand)
+	if !ok || hand.Phase != "preflop" || hand.Button != 1 {
+		t.Fatalf("state=%T phase=%q button=%d", table.State, hand.Phase, hand.Button)
+	}
+	if table.Players["p1"].Stack != 10050 {
+		t.Fatalf("p1 stack=%d, expected payout-adjusted stack", table.Players["p1"].Stack)
+	}
+	_, replayed, err = m.ApplyActionIdempotent(table.ID, "p1", "new_hand", 3, nil, "new-hand-1")
+	if err != nil || !replayed || table.Sequence != 4 {
+		t.Fatalf("replay=%v err=%v sequence=%d", replayed, err, table.Sequence)
+	}
+}
+
 func TestBeloteRoundIsCreatedAtFourPlayers(t *testing.T) {
 	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true})
 	table := m.CreateTable("belote")

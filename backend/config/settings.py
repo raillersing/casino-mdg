@@ -164,6 +164,12 @@ CORS_ALLOWED_ORIGINS = os.getenv(
 
 # ─── Game Engine WebSocket ──────────────────────────────────
 GAME_ENGINE_WS_URL = os.getenv("GAME_ENGINE_WS_URL", "ws://localhost:8080")
+GAME_ENGINE_INTERNAL_URL = os.getenv(
+    "GAME_ENGINE_INTERNAL_URL", "http://game-engine:8080"
+)
+GAME_ENGINE_BOT_SECRET = os.getenv(
+    "GAME_ENGINE_BOT_SECRET", "dev-game-engine-bot-secret-change-me"
+)
 GAME_ENGINE_RESULT_SECRET = os.getenv(
     "GAME_ENGINE_RESULT_SECRET", "dev-game-engine-result-secret-change-me"
 )

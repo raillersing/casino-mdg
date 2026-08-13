@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import transaction
 
 from .models import GameTable, TableSeat
+from .modes import HUMAN_MATCH
 
 
 def seed_demo_tables():
@@ -22,6 +23,7 @@ def seed_demo_tables():
                 stakes=stakes,
                 max_players=max_players,
                 status=status,
+                mode=HUMAN_MATCH,
             )
             for code, name, game_type, stakes, max_players, status in demo_tables
         ]
