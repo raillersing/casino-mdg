@@ -4,6 +4,8 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.backoffice.services import record_audit
+
 from .models import PilotFeedback, SupportTicket
 
 
@@ -86,6 +88,26 @@ class SupportTicketStaffView(APIView):
                 ]
             }
         )
+
+    def patch(self, request, ticket_id=None):
+        try:
+            ticket = SupportTicket.objects.get(pk=ticket_id)
+        except (SupportTicket.DoesNotExist, TypeError, ValueError):
+            return Response({"detail": "Incident introuvable."}, status=404)
+        status = str(request.data.get("status", "")).strip()
+        allowed = dict(SupportTicket.STATUSES)
+        if status not in allowed:
+            return Response({"detail": "Statut d’incident invalide."}, status=400)
+        previous_status = ticket.status
+        ticket.status = status
+        ticket.save(update_fields=["status", "updated_at"])
+        record_audit(
+            request.user,
+            "support_ticket.status_updated",
+            ticket,
+            {"from": previous_status, "to": status},
+        )
+        return Response({"id": ticket.pk, "status": ticket.status})
 
 
 class PilotFeedbackView(APIView):

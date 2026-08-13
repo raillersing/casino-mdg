@@ -288,6 +288,9 @@ la couverture de non-régression.
 - Livré : le back-office staff expose les 100 derniers incidents avec joueur,
   statut et contexte de reproduction ; les changements de statut restent un
   lot distinct et audité.
+- Livré : le staff peut faire évoluer un incident entre `Ouvert`, `En cours`
+  et `Fermé` ; chaque transition est refusée si invalide et enregistrée dans
+  l’audit avec les statuts source et cible.
 - Documenter chaque incident avec mode, jeu, match, version et reproduction.
 - Définir un go/no-go hebdomadaire fondé sur les métriques et les erreurs, pas sur des compteurs artificiels.
 
