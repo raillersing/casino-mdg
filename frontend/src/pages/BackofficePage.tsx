@@ -10,6 +10,7 @@ import {
   getPilotFeedbackSummary,
   getPilotGateSummary,
   getPilotIncidents,
+  updatePilotIncidentStatus,
   type PilotIncident,
   type AuditEvent,
   type FeatureFlag,
@@ -42,6 +43,7 @@ export function BackofficePage() {
     average_rating: number | null;
   } | null>(null);
   const [incidents, setIncidents] = useState<PilotIncident[]>([]);
+  const [incidentUpdateError, setIncidentUpdateError] = useState("");
   const [error, setError] = useState("");
   const [productSummary, setProductSummary] = useState<{
     total: number;
@@ -92,6 +94,24 @@ export function BackofficePage() {
       )
       .catch((reason: Error) => setError(reason.message));
   }, [token]);
+  const updateIncidentStatus = async (ticketId: number, status: string) => {
+    if (!token) return;
+    setIncidentUpdateError("");
+    try {
+      const updated = await updatePilotIncidentStatus(token, ticketId, status);
+      setIncidents((current) =>
+        current.map((incident) =>
+          incident.id === ticketId
+            ? { ...incident, status: updated.status }
+            : incident,
+        ),
+      );
+    } catch (reason) {
+      setIncidentUpdateError(
+        reason instanceof Error ? reason.message : "Statut non mis à jour.",
+      );
+    }
+  };
   if (error)
     return (
       <div className="page-stack">
@@ -200,6 +220,17 @@ export function BackofficePage() {
                     {incident.session_id || "—"} ·{" "}
                     {incident.app_version || "version inconnue"}
                   </small>
+                  <select
+                    aria-label={`Statut de ${incident.subject}`}
+                    value={incident.status}
+                    onChange={(event) =>
+                      void updateIncidentStatus(incident.id, event.target.value)
+                    }
+                  >
+                    <option value="open">Ouvert</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="closed">Fermé</option>
+                  </select>
                 </div>
                 <small>
                   {new Date(incident.created_at).toLocaleDateString("fr-FR")}
@@ -208,6 +239,9 @@ export function BackofficePage() {
             ))
           ) : (
             <div className="empty-wallet">Aucun incident signalé.</div>
+          )}
+          {incidentUpdateError && (
+            <small className="form-error">{incidentUpdateError}</small>
           )}
         </section>
         <section className="activity-card">

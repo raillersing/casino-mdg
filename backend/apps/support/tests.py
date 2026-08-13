@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
+from apps.backoffice.models import AuditEvent
 from apps.support.models import PilotFeedback, SupportTicket
 
 
@@ -36,6 +37,47 @@ class SupportTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["player"], "Incident Player")
         self.assertEqual(response.data["results"][0]["table_id"], "table-emerald")
+
+    def test_staff_can_update_incident_status_and_change_is_audited(self):
+        player = User.objects.create_user(
+            email="status-player@mdg.local",
+            phone="+261340000031",
+            display_name="Status Player",
+        )
+        ticket = SupportTicket.objects.create(
+            user=player,
+            category="game",
+            subject="Test statut",
+            description="Test transition.",
+        )
+        staff = User.objects.create_user(
+            email="status-staff@mdg.local",
+            phone="+261340000032",
+            display_name="Status Staff",
+            is_staff=True,
+        )
+        client = APIClient()
+        client.force_authenticate(staff)
+        response = client.patch(
+            f"/api/v1/support/tickets/staff/{ticket.pk}/",
+            {"status": "in_progress"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "in_progress")
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                action="support_ticket.status_updated",
+                target_id=str(ticket.pk),
+                metadata={"from": "open", "to": "in_progress"},
+            ).exists()
+        )
+        invalid = client.patch(
+            f"/api/v1/support/tickets/staff/{ticket.pk}/",
+            {"status": "deleted"},
+            format="json",
+        )
+        self.assertEqual(invalid.status_code, 400)
 
     def test_user_can_create_and_list_only_own_tickets(self):
         user = User.objects.create_user(

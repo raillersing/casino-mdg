@@ -134,3 +134,25 @@ export function getPilotIncidents(token: string) {
     return payload as { results: PilotIncident[] };
   });
 }
+
+export function updatePilotIncidentStatus(
+  token: string,
+  ticketId: number,
+  status: string,
+) {
+  return fetch(`/api/v1/support/tickets/staff/${ticketId}/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ status }),
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(
+        payload.detail || `Mise à jour refusée (${response.status}).`,
+      );
+    return payload as { id: number; status: string };
+  });
+}

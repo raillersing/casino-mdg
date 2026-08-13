@@ -20,6 +20,7 @@ async function stubGameApis(page: Page) {
     class MockWebSocket {
       static OPEN = 1;
       static instances: MockWebSocket[] = [];
+      id = MockWebSocket.instances.length;
       onopen: (() => void) | null = null;
       onclose: (() => void) | null = null;
       onerror: (() => void) | null = null;
@@ -37,7 +38,12 @@ async function stubGameApis(page: Page) {
       send(message: string) {
         messages.push(message);
         try {
-          const payload = JSON.parse(message) as { type?: string };
+          const payload = JSON.parse(message) as {
+            type?: string;
+            table_id?: string;
+          };
+          if (payload.type === "join")
+            localStorage.setItem("e2e_last_join_instance", String(this.id));
           if (payload.type === "leave")
             localStorage.setItem("e2e_last_leave", message);
         } catch {
@@ -95,11 +101,16 @@ async function expectCanonicalJoin(page: Page) {
             table_id?: string;
           }>;
           const instances = (
-            window as Window & { __wsInstances: Array<{ readyState: number }> }
+            window as Window & {
+              __wsInstances: Array<{ readyState: number; id: number }>;
+            }
           ).__wsInstances;
           const joins = messages.filter((message) => message.type === "join");
           return {
             activeSocketOpen: instances.at(-1)?.readyState === 1,
+            activeSocketJoined:
+              String(instances.at(-1)?.id) ===
+              localStorage.getItem("e2e_last_join_instance"),
             latestJoin: joins.at(-1),
           };
         }),
@@ -107,6 +118,7 @@ async function expectCanonicalJoin(page: Page) {
     )
     .toMatchObject({
       activeSocketOpen: true,
+      activeSocketJoined: true,
       latestJoin: { type: "join", table_id: "table-emerald" },
     });
 }
@@ -160,6 +172,7 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   await stubGameApis(page);
   await page.goto("/game/poker/EMERALD-01");
   await expectCanonicalJoin(page);
+  await page.waitForTimeout(250);
 
   await page.getByRole("link", { name: /Quitter la table/i }).click();
   await expect
