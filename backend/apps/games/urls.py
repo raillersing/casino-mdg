@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    BotSimulationCancelView,
+    BotSimulationView,
     DailyMissionsView,
     GameLeaderboardView,
     GameResultCreateView,
@@ -19,6 +21,12 @@ from .views import (
 )
 
 urlpatterns = [
+    path("bot-simulations/", BotSimulationView.as_view(), name="bot-simulation"),
+    path(
+        "bot-simulations/<uuid:session_id>/",
+        BotSimulationCancelView.as_view(),
+        name="bot-simulation-cancel",
+    ),
     path("tables/", TableListCreateView.as_view(), name="table-list-create"),
     path("tables/<uuid:table_id>/join/", TableJoinView.as_view(), name="table-join"),
     path(

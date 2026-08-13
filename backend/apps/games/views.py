@@ -15,8 +15,9 @@ from apps.clubs.models import ClubMembership
 from apps.wallet.services import credit_simulation_reward, settle_game_win
 
 from .matchmaking import active_presence, cancel_ticket, queue_player
-from .modes import SIMULATION_SOLO
 from .models import (
+    BotSimulationParticipant,
+    BotSimulationSession,
     DailyRewardClaim,
     DrawDefinition,
     DrawEntry,
@@ -27,6 +28,7 @@ from .models import (
     InstantPlay,
     MatchmakingTicket,
 )
+from .modes import DEMO_AI, SIMULATION_SOLO
 from .services import join_table, seed_demo_tables
 from .test_games import create_draw_entry, draw_now, ensure_test_catalog, play_instant
 
@@ -76,6 +78,109 @@ def table_payload(table, request):
             and table.seats.filter(user=request.user).exists()
         ),
     }
+
+
+def bot_simulation_payload(session):
+    return {
+        "session_id": str(session.id),
+        "table_id": str(session.table_id),
+        "table_code": session.table.table_code,
+        "game_type": session.game_type,
+        "mode": DEMO_AI,
+        "profile": session.profile,
+        "status": session.status,
+        "bots": [
+            {
+                "bot_key": bot.bot_key,
+                "display_name": bot.display_name,
+                "seat_index": bot.seat_index,
+                "profile": bot.profile,
+                "is_bot": bot.is_bot,
+            }
+            for bot in session.bots.all().order_by("seat_index")
+        ],
+        "created_at": session.created_at.isoformat(),
+    }
+
+
+class BotSimulationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        game_type = str(request.data.get("game_type", "poker"))
+        profile = str(request.data.get("profile", "balanced"))
+        idempotency_key = str(
+            request.headers.get("Idempotency-Key")
+            or request.data.get("idempotency_key")
+            or ""
+        )[:120]
+        if game_type not in dict(GameTable.GAME_TYPES):
+            return Response({"detail": "Jeu inconnu."}, status=400)
+        if profile not in dict(BotSimulationSession.PROFILE_CHOICES):
+            return Response({"detail": "Profil bot inconnu."}, status=400)
+        if not idempotency_key:
+            return Response(
+                {"detail": "Une clé d'idempotence est requise."}, status=400
+            )
+        existing = BotSimulationSession.objects.filter(
+            owner=request.user, idempotency_key=idempotency_key
+        ).first()
+        if existing:
+            return Response(bot_simulation_payload(existing))
+        with transaction.atomic():
+            table = GameTable.objects.create(
+                table_code=f"bot-{game_type}-{str(GameTable.objects.count() + 1).zfill(3)}",
+                name=f"Simulation IA · {game_type.title()}",
+                game_type=game_type,
+                max_players=4,
+                status="open",
+                mode=DEMO_AI,
+                is_private=True,
+                created_by=request.user,
+            )
+            session = BotSimulationSession.objects.create(
+                owner=request.user,
+                table=table,
+                game_type=game_type,
+                profile=profile,
+                idempotency_key=idempotency_key,
+                status="queued",
+            )
+            for seat, name in enumerate(("Tovo", "Rija", "Saholy"), start=1):
+                BotSimulationParticipant.objects.create(
+                    session=session,
+                    bot_key=f"{game_type}-bot-{seat}",
+                    display_name=f"IA Démo · {name}",
+                    seat_index=seat,
+                    profile=profile,
+                )
+        return Response(bot_simulation_payload(session), status=201)
+
+    def get(self, request):
+        sessions = BotSimulationSession.objects.filter(
+            owner=request.user
+        ).select_related("table")
+        return Response(
+            {"results": [bot_simulation_payload(item) for item in sessions]}
+        )
+
+
+class BotSimulationCancelView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, session_id):
+        try:
+            session = BotSimulationSession.objects.get(
+                pk=session_id, owner=request.user
+            )
+        except BotSimulationSession.DoesNotExist:
+            return Response(
+                {"detail": "Session de simulation introuvable."}, status=404
+            )
+        if session.status in {"queued", "running"}:
+            session.status = "cancelled"
+            session.save(update_fields=["status"])
+        return Response(bot_simulation_payload(session))
 
 
 class TableListCreateView(APIView):

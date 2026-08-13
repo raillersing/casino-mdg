@@ -64,6 +64,72 @@ class TableSeat(models.Model):
         ]
 
 
+class BotSimulationSession(models.Model):
+    STATUS_CHOICES = [
+        ("queued", "En attente"),
+        ("running", "En cours"),
+        ("completed", "Terminée"),
+        ("cancelled", "Annulée"),
+    ]
+    PROFILE_CHOICES = [
+        ("tutorial", "Tutoriel"),
+        ("balanced", "Équilibré"),
+        ("expert", "Expert"),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bot_simulation_sessions",
+    )
+    table = models.OneToOneField(
+        "GameTable", on_delete=models.CASCADE, related_name="bot_simulation"
+    )
+    game_type = models.CharField(max_length=20, choices=GameTable.GAME_TYPES)
+    profile = models.CharField(
+        max_length=20, choices=PROFILE_CHOICES, default="balanced"
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="queued")
+    idempotency_key = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "bot_simulation_sessions"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "idempotency_key"],
+                name="unique_bot_simulation_request",
+            )
+        ]
+
+
+class BotSimulationParticipant(models.Model):
+    session = models.ForeignKey(
+        BotSimulationSession, on_delete=models.CASCADE, related_name="bots"
+    )
+    bot_key = models.CharField(max_length=40)
+    display_name = models.CharField(max_length=80)
+    seat_index = models.PositiveSmallIntegerField()
+    profile = models.CharField(
+        max_length=20, choices=BotSimulationSession.PROFILE_CHOICES
+    )
+    is_bot = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "bot_simulation_participants"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["session", "seat_index"], name="unique_bot_simulation_seat"
+            ),
+            models.UniqueConstraint(
+                fields=["session", "bot_key"], name="unique_bot_simulation_bot"
+            ),
+        ]
+
+
 class GameResult(models.Model):
     OUTCOMES = [("win", "Victoire"), ("loss", "Défaite"), ("draw", "Égalité")]
     game_id = models.UUIDField(unique=True)

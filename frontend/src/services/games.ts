@@ -29,6 +29,52 @@ export function getTables(gameType?: string) {
   return request<{ results: GameTable[] }>(`tables/${query}`);
 }
 
+export type BotSimulation = {
+  session_id: string;
+  table_id: string;
+  table_code: string;
+  game_type: "poker" | "belote" | "rami";
+  mode: "DEMO_AI";
+  profile: "tutorial" | "balanced" | "expert";
+  status: "queued" | "running" | "completed" | "cancelled";
+  bots: Array<{
+    bot_key: string;
+    display_name: string;
+    seat_index: number;
+    profile: string;
+    is_bot: true;
+  }>;
+  created_at: string;
+};
+
+export function startBotSimulation(
+  accessToken: string,
+  gameType: BotSimulation["game_type"],
+  profile: BotSimulation["profile"],
+  idempotencyKey: string,
+) {
+  return request<BotSimulation>("bot-simulations/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify({
+      game_type: gameType,
+      profile,
+      idempotency_key: idempotencyKey,
+    }),
+  });
+}
+
+export function cancelBotSimulation(accessToken: string, sessionId: string) {
+  return request<BotSimulation>(`bot-simulations/${sessionId}/`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
 export function createTable(
   accessToken: string,
   payload: {
