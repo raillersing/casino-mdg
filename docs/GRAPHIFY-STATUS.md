@@ -6,11 +6,11 @@ tests ou la documentation structurante.
 
 ## Dernière génération
 
-- Date : 12 août 2026
-- Commit analysé : `76c6ecd`
-- Nœuds : 1 667
-- Relations : 2 614
-- Communautés : 148
+- Date : 13 août 2026
+- Commit analysé : `ade4fa2`
+- Nœuds : 1 672
+- Relations : 2 625
+- Communautés : 147
 - Commande : `graphify update .`
 - Rapport local : `graphify-out/GRAPH_REPORT.md`
 
