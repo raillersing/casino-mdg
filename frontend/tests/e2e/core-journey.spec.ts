@@ -114,6 +114,20 @@ test("opens an auditable wallet transaction from history", async ({ page }) => {
     localStorage.setItem("mdg_access_token", "wallet-token");
     localStorage.setItem("mdg_refresh_token", "wallet-refresh");
   });
+  await page.route("**/api/v1/auth/me/", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "wallet-user",
+        display_name: "Miora",
+        phone: "340000000",
+        xp: 0,
+        level: 1,
+        is_staff: false,
+      }),
+    }),
+  );
   await page.route("**/api/v1/wallet/balance/", (route) =>
     route.fulfill({
       status: 200,
@@ -202,6 +216,20 @@ test("opens an auditable wallet transaction from history", async ({ page }) => {
 test("claims a completed daily mission from the profile", async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem("mdg_access_token", "mission-token"),
+  );
+  await page.route("**/api/v1/auth/me/", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "mission-user",
+        display_name: "Miora",
+        phone: "340000000",
+        xp: 0,
+        level: 1,
+        is_staff: false,
+      }),
+    }),
   );
   await page.route("**/api/v1/games/results/", (route) =>
     route.fulfill({
