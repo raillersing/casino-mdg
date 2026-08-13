@@ -9,7 +9,9 @@ from .views import (
 
 urlpatterns = [
     path("tickets/", SupportTicketView.as_view(), name="support-tickets"),
-    path("tickets/staff/", SupportTicketStaffView.as_view(), name="support-tickets-staff"),
+    path(
+        "tickets/staff/", SupportTicketStaffView.as_view(), name="support-tickets-staff"
+    ),
     path("feedback/", PilotFeedbackView.as_view(), name="pilot-feedback"),
     path(
         "feedback/summary/",
