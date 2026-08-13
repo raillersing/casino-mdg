@@ -179,7 +179,9 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   await expectCanonicalJoin(page);
   await page.waitForTimeout(250);
 
-  await page.getByRole("link", { name: /Quitter la table/i }).click();
+  await page
+    .getByRole("link", { name: /Quitter la table/i })
+    .click({ noWaitAfter: true });
   await expect
     .poll(
       () =>
