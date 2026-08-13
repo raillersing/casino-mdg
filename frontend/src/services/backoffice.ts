@@ -109,3 +109,28 @@ export function getPilotGateSummary(token: string) {
     };
   });
 }
+
+export type PilotIncident = {
+  id: number;
+  player: string;
+  category: string;
+  subject: string;
+  description: string;
+  game_type: string;
+  table_id: string;
+  session_id: string;
+  app_version: string;
+  status: string;
+  created_at: string;
+};
+
+export function getPilotIncidents(token: string) {
+  return fetch("/api/v1/support/tickets/staff/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(payload.detail || `Accès refusé (${response.status}).`);
+    return payload as { results: PilotIncident[] };
+  });
+}

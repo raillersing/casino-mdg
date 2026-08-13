@@ -9,6 +9,8 @@ import {
   getProductEventSummary,
   getPilotFeedbackSummary,
   getPilotGateSummary,
+  getPilotIncidents,
+  type PilotIncident,
   type AuditEvent,
   type FeatureFlag,
 } from "@services/backoffice";
@@ -39,6 +41,7 @@ export function BackofficePage() {
     count: number;
     average_rating: number | null;
   } | null>(null);
+  const [incidents, setIncidents] = useState<PilotIncident[]>([]);
   const [error, setError] = useState("");
   const [productSummary, setProductSummary] = useState<{
     total: number;
@@ -74,15 +77,19 @@ export function BackofficePage() {
       getProductEventSummary(token),
       getPilotFeedbackSummary(token),
       getPilotGateSummary(token),
+      getPilotIncidents(token),
     ])
-      .then(([audit, featureFlags, report, summary, feedback, gate]) => {
-        setEvents(audit.results);
-        setFlags(featureFlags.results);
-        setReconciliation(report);
-        setProductSummary(summary);
-        setFeedbackSummary(feedback);
-        setPilotGate(gate);
-      })
+      .then(
+        ([audit, featureFlags, report, summary, feedback, gate, tickets]) => {
+          setEvents(audit.results);
+          setFlags(featureFlags.results);
+          setReconciliation(report);
+          setProductSummary(summary);
+          setFeedbackSummary(feedback);
+          setPilotGate(gate);
+          setIncidents(tickets.results);
+        },
+      )
       .catch((reason: Error) => setError(reason.message));
   }, [token]);
   if (error)
@@ -176,6 +183,33 @@ export function BackofficePage() {
         </div>
       </div>
       <div className="wallet-layout">
+        <section className="activity-card">
+          <div className="chat-head">Incidents pilote · reproduction</div>
+          {incidents.length ? (
+            incidents.slice(0, 8).map((incident) => (
+              <div className="activity-row" key={incident.id}>
+                <div>
+                  <strong>{incident.subject}</strong>
+                  <span>
+                    {incident.player} ·{" "}
+                    {incident.game_type || "jeu non précisé"} ·{" "}
+                    {incident.status}
+                  </span>
+                  <small>
+                    Table {incident.table_id || "—"} · session{" "}
+                    {incident.session_id || "—"} ·{" "}
+                    {incident.app_version || "version inconnue"}
+                  </small>
+                </div>
+                <small>
+                  {new Date(incident.created_at).toLocaleDateString("fr-FR")}
+                </small>
+              </div>
+            ))
+          ) : (
+            <div className="empty-wallet">Aucun incident signalé.</div>
+          )}
+        </section>
         <section className="activity-card">
           <div className="chat-head">Décision pilote · fenêtre 7 jours</div>
           {pilotGate ? (

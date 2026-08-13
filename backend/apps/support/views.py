@@ -61,6 +61,33 @@ class SupportTicketView(APIView):
         return Response({"id": ticket.pk, "status": ticket.status}, status=201)
 
 
+class SupportTicketStaffView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        tickets = SupportTicket.objects.select_related("user")[:100]
+        return Response(
+            {
+                "results": [
+                    {
+                        "id": item.pk,
+                        "player": item.user.display_name,
+                        "category": item.category,
+                        "subject": item.subject,
+                        "description": item.description,
+                        "game_type": item.game_type,
+                        "table_id": item.table_id,
+                        "session_id": item.session_id,
+                        "app_version": item.app_version,
+                        "status": item.status,
+                        "created_at": item.created_at.isoformat(),
+                    }
+                    for item in tickets
+                ]
+            }
+        )
+
+
 class PilotFeedbackView(APIView):
     permission_classes = [IsAuthenticated]
 
