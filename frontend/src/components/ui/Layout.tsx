@@ -10,12 +10,17 @@ import {
   LogIn,
   Menu,
   WalletCards,
+  LifeBuoy,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useEffect } from "react";
+import { getCurrentUser } from "@services/auth";
 import { useGameStore } from "@stores/gameStore";
 
 export function Layout({ children }: { children: ReactNode }) {
   const user = useGameStore((state) => state.user);
+  const accessToken = useGameStore((state) => state.accessToken);
+  const setUser = useGameStore((state) => state.setUser);
   const { i18n, t } = useTranslation();
   const navItems = [
     { to: "/", label: t("nav.home"), icon: Home },
@@ -24,8 +29,26 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: "/games/test", label: t("nav.testGames"), icon: Dices },
     { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
     { to: "/profile", label: t("nav.profile"), icon: CircleUserRound },
+    { to: "/support", label: t("nav.support"), icon: LifeBuoy },
   ];
   const language = i18n.language.startsWith("mg") ? "MG" : "FR";
+
+  useEffect(() => {
+    if (!accessToken || user) return;
+    getCurrentUser(accessToken)
+      .then((current) =>
+        setUser({
+          id: current.id,
+          displayName: current.display_name,
+          email: `${current.phone}@mdg.local`,
+          xp: current.xp,
+          level: current.level,
+          balance: 0,
+          isStaff: current.is_staff,
+        }),
+      )
+      .catch(() => undefined);
+  }, [accessToken, setUser, user]);
 
   return (
     <div className="app-shell">

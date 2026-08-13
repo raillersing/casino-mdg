@@ -56,6 +56,7 @@ export function AuthPage() {
         xp: result.user.xp,
         level: result.user.level,
         balance: result.wallet.balance,
+        isStaff: result.user.is_staff,
       });
       setSession(result.access, result.refresh);
       setAuthenticated(true);

@@ -122,6 +122,24 @@ export function ProfilePage() {
           <Edit3 size={15} /> {t("profile.edit")}
         </button>
       </div>
+      {user?.isStaff && (
+        <section className="activity-card staff-access-card">
+          <div className="section-heading compact">
+            <div>
+              <span className="eyebrow gold">Accès équipe</span>
+              <h2>Back-office pilote</h2>
+            </div>
+            <ShieldCheck size={19} />
+          </div>
+          <p>
+            Suivez la cohorte, les sessions, la modération et les actions
+            correctives.
+          </p>
+          <Link to="/backoffice" className="button button-outline">
+            Ouvrir le back-office
+          </Link>
+        </section>
+      )}
       <div className="profile-grid">
         <section>
           <div className="level-card">

@@ -13,6 +13,7 @@ type AuthResponse = {
     phone: string;
     xp: number;
     level: number;
+    is_staff: boolean;
   };
   wallet: { balance: number; currency: string };
 };
@@ -37,5 +38,22 @@ export function verifyOtp(phone: string, code: string, displayName: string) {
     phone,
     code,
     display_name: displayName,
+  });
+}
+
+export function getCurrentUser(token: string) {
+  return fetch("/api/v1/auth/me/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || "Session expirée.");
+    return payload as {
+      id: string;
+      display_name: string;
+      phone: string;
+      xp: number;
+      level: number;
+      is_staff: boolean;
+    };
   });
 }

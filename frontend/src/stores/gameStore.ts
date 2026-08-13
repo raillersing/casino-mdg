@@ -8,6 +8,7 @@ interface User {
   xp: number;
   level: number;
   balance: number;
+  isStaff?: boolean;
 }
 
 interface GameState {

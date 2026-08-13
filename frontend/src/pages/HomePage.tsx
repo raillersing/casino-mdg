@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   Sparkles,
   Ticket,
+  LifeBuoy,
+  UsersRound,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { trackEvent } from "@services/analytics";
@@ -164,6 +166,71 @@ export function HomePage() {
         >
           {t("home.quickGames.cta")} <ArrowUpRight size={16} />
         </Link>
+      </section>
+      <section className="section-block discover-block">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">{t("home.discover.eyebrow")}</span>
+            <h2>{t("home.discover.title")}</h2>
+            <p className="section-lede">{t("home.discover.body")}</p>
+          </div>
+        </div>
+        <div className="game-grid discover-grid">
+          <Link to="/lobby" className="game-card discover-card">
+            <div className="game-card-top">
+              <span className="game-icon">♠</span>
+            </div>
+            <div className="game-card-bottom">
+              <div>
+                <h3>{t("home.discover.playTitle")}</h3>
+                <p>{t("home.discover.playBody")}</p>
+              </div>
+              <ArrowUpRight size={17} />
+            </div>
+          </Link>
+          <Link to="/games/test" className="game-card discover-card">
+            <div className="game-card-top">
+              <span className="game-icon">
+                <Dices size={24} />
+              </span>
+            </div>
+            <div className="game-card-bottom">
+              <div>
+                <h3>{t("home.discover.chanceTitle")}</h3>
+                <p>{t("home.discover.chanceBody")}</p>
+              </div>
+              <ArrowUpRight size={17} />
+            </div>
+          </Link>
+          <Link to="/clubs" className="game-card discover-card">
+            <div className="game-card-top">
+              <span className="game-icon">
+                <UsersRound size={24} />
+              </span>
+            </div>
+            <div className="game-card-bottom">
+              <div>
+                <h3>{t("home.discover.clubTitle")}</h3>
+                <p>{t("home.discover.clubBody")}</p>
+              </div>
+              <ArrowUpRight size={17} />
+            </div>
+          </Link>
+          <Link to="/support" className="game-card discover-card">
+            <div className="game-card-top">
+              <span className="game-icon">
+                <LifeBuoy size={24} />
+              </span>
+            </div>
+            <div className="game-card-bottom">
+              <div>
+                <h3>{t("home.discover.supportTitle")}</h3>
+                <p>{t("home.discover.supportBody")}</p>
+              </div>
+              <ArrowUpRight size={17} />
+            </div>
+          </Link>
+        </div>
       </section>
       <section className="lower-grid">
         <div className="resume-card">
