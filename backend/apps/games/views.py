@@ -15,6 +15,7 @@ from apps.clubs.models import ClubMembership
 from apps.wallet.services import credit_simulation_reward, settle_game_win
 
 from .matchmaking import active_presence, cancel_ticket, queue_player
+from .modes import SIMULATION_SOLO
 from .models import (
     DailyRewardClaim,
     DrawDefinition,
@@ -66,6 +67,7 @@ def table_payload(table, request):
         "player_count": table.seats.count(),
         "max_players": table.max_players,
         "status": table.status,
+        "mode": table.mode,
         "is_private": table.is_private,
         "club_id": str(table.club_id) if table.club_id else None,
         "club_name": table.club.name if table.club_id else None,
@@ -476,6 +478,7 @@ def instant_game_payload(game, user=None):
         "cost": game.cost,
         "max_prize": game.max_prize,
         "status": game.status,
+        "mode": SIMULATION_SOLO,
         "rules": game.rules,
     }
 
@@ -584,6 +587,7 @@ def draw_payload(draw, result=None, can_simulate=False):
         "draw_type": draw.draw_type,
         "version": draw.version,
         "status": draw.status,
+        "mode": SIMULATION_SOLO,
         "entry_cost": draw.entry_cost,
         "closes_at": draw.closes_at.isoformat(),
         "rules": draw.rules,

@@ -6,6 +6,7 @@ export type InstantGame = {
   cost: number;
   max_prize: number;
   status: "active" | "paused";
+  mode: "SIMULATION_SOLO";
   rules: Record<string, unknown>;
 };
 
@@ -29,6 +30,7 @@ export type TestDraw = {
   draw_type: "three_digits" | "five_numbers";
   version: string;
   status: "open" | "closed" | "drawn" | "settled" | "cancelled";
+  mode: "SIMULATION_SOLO";
   entry_cost: number;
   closes_at: string;
   rules: Record<string, unknown>;

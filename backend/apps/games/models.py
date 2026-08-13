@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from .modes import GAME_MODES, HUMAN_MATCH
+
 
 class GameTable(models.Model):
     GAME_TYPES = [("poker", "Poker"), ("belote", "Belote"), ("rami", "Rami")]
@@ -14,6 +16,7 @@ class GameTable(models.Model):
     stakes = models.CharField(max_length=40, default="Gratuit")
     max_players = models.PositiveSmallIntegerField(default=4)
     status = models.CharField(max_length=20, choices=STATUSES, default="open")
+    mode = models.CharField(max_length=24, choices=GAME_MODES, default=HUMAN_MATCH)
     is_private = models.BooleanField(default=False)
     club = models.ForeignKey(
         "clubs.Club",

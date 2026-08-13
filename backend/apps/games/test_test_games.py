@@ -36,6 +36,9 @@ class TestGamesApiTests(TestCase):
             {"coffre-mada", "roue-mdg"},
         )
         self.assertEqual(response.data["currency"], "SIM")
+        self.assertEqual(
+            {item["mode"] for item in response.data["results"]}, {"SIMULATION_SOLO"}
+        )
 
     def test_instant_play_is_idempotent_and_ledgered(self):
         first = self.client.post(

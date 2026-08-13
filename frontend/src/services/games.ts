@@ -7,6 +7,7 @@ export type GameTable = {
   max_players: number;
   player_count: number;
   status: "open" | "running" | "finished";
+  mode: "SIMULATION_SOLO" | "DEMO_AI" | "HUMAN_MATCH" | "REAL_MONEY";
   is_private: boolean;
   club_id: string | null;
   club_name: string | null;
