@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import User
 from apps.analytics.models import PilotParticipant, ProductEvent
 from apps.backoffice.models import AuditEvent
+from apps.support.models import PilotFeedback
 
 
 class ProductEventApiTests(TestCase):
@@ -174,6 +175,12 @@ class ProductEventApiTests(TestCase):
         self.assertEqual(response.data["retention"]["d7"]["returned_actors"], 1)
 
     def test_pilot_gate_requires_data_and_blocks_on_game_errors(self):
+        player = User.objects.create_user(
+            email="gate-player@mdg.local",
+            phone="+261340009993",
+            display_name="Gate Player",
+        )
+        PilotParticipant.objects.create(user=player)
         staff = User.objects.create_user(
             email="gate-staff@mdg.local",
             phone="+261340009998",
@@ -184,7 +191,7 @@ class ProductEventApiTests(TestCase):
         pending = self.client.get("/api/v1/analytics/pilot-gate/")
         self.assertEqual(pending.status_code, 200)
         self.assertEqual(pending.data["status"], "monitor")
-        self.client.force_authenticate(None)
+        self.client.force_authenticate(player)
         self.client.post(
             "/api/v1/analytics/events/",
             {
@@ -197,6 +204,34 @@ class ProductEventApiTests(TestCase):
         self.client.force_authenticate(staff)
         blocked = self.client.get("/api/v1/analytics/pilot-gate/")
         self.assertEqual(blocked.data["status"], "blocked")
+
+    def test_pilot_gate_ignores_events_and_feedback_outside_cohort(self):
+        outsider = User.objects.create_user(
+            email="outsider@mdg.local",
+            phone="+261340009987",
+            display_name="Outsider",
+        )
+        for event_name in ("first_game_completed", "game_error"):
+            ProductEvent.objects.create(event_name=event_name, user=outsider)
+        PilotFeedback.objects.create(
+            user=outsider,
+            rating=5,
+            category="gameplay",
+            message="Outside cohort",
+        )
+        staff = User.objects.create_user(
+            email="cohort-gate-staff@mdg.local",
+            phone="+261340009986",
+            display_name="Cohort Gate Staff",
+            is_staff=True,
+        )
+        self.client.force_authenticate(staff)
+        response = self.client.get("/api/v1/analytics/pilot-gate/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["scope"], "pilot_cohort")
+        self.assertEqual(response.data["participants"], 0)
+        self.assertEqual(response.data["status"], "monitor")
+        self.assertEqual(response.data["criteria"][2]["observed"], 0)
 
     def test_staff_can_register_and_track_pilot_participant_progress(self):
         player = User.objects.create_user(

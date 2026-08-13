@@ -112,6 +112,11 @@ avec jeu, mode, volume d’événements, fin de partie et présence d’erreur. 
 vue sert à organiser les sessions réelles et leur débrief ; elle ne fabrique
 aucune activité et ne compte pas les utilisateurs hors cohorte.
 
+La décision go/no-go est maintenant calculée exclusivement sur les utilisateurs
+inscrits dans la cohorte pilote. L’API expose `scope: pilot_cohort` et le nombre
+de participants inclus, afin qu’une activité extérieure au pilote ne puisse pas
+faire artificiellement passer les seuils.
+
 Les préférences de notifications sont persistées par compte et modifiables
 depuis le profil : invitations, matchmaking, tour de jeu et annonces produit
 sont séparés. Les annonces produit sont désactivées par défaut ; une erreur de
@@ -308,6 +313,7 @@ la couverture de non-régression.
 - Définir un go/no-go hebdomadaire fondé sur les métriques et les erreurs, pas sur des compteurs artificiels.
 - Livré : inscrire les comptes du pilote dans une cohorte staff et suivre leur progression réelle sans recréer les invitations.
 - Livré : regrouper les sessions des participants à partir de la télémétrie existante pour préparer le débrief du pilote.
+- Livré : limiter le calcul go/no-go aux participants de la cohorte et exposer ce périmètre dans le back-office.
 
 **Critères de sortie recommandés**
 
