@@ -87,16 +87,28 @@ async function expectCanonicalJoin(page: Page) {
   await expect
     .poll(
       () =>
-        page.evaluate(() =>
-          (window as Window & { __wsMessages: string[] }).__wsMessages.map(
-            JSON.parse,
-          ),
-        ),
+        page.evaluate(() => {
+          const messages = (
+            window as Window & { __wsMessages: string[] }
+          ).__wsMessages.map(JSON.parse) as Array<{
+            type?: string;
+            table_id?: string;
+          }>;
+          const instances = (
+            window as Window & { __wsInstances: Array<{ readyState: number }> }
+          ).__wsInstances;
+          const joins = messages.filter((message) => message.type === "join");
+          return {
+            activeSocketOpen: instances.at(-1)?.readyState === 1,
+            latestJoin: joins.at(-1),
+          };
+        }),
       { timeout: 12_000 },
     )
-    .toContainEqual(
-      expect.objectContaining({ type: "join", table_id: "table-emerald" }),
-    );
+    .toMatchObject({
+      activeSocketOpen: true,
+      latestJoin: { type: "join", table_id: "table-emerald" },
+    });
 }
 
 test("expose spectator and demo AI journeys from the lobby", async ({
