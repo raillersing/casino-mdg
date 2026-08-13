@@ -2,6 +2,7 @@ import re
 import secrets
 from datetime import timedelta
 
+import jwt
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
@@ -12,7 +13,7 @@ from rest_framework.views import APIView
 
 from apps.backoffice.services import record_audit
 
-from .authentication import encode_token
+from .authentication import decode_refresh_token, encode_token
 from .models import OTPChallenge, User, UserDevice
 from .throttles import OTPRequestThrottle, OTPVerifyThrottle
 
@@ -138,6 +139,24 @@ class MeView(APIView):
                 "xp": user.xp,
                 "level": user.level,
                 "is_staff": user.is_staff,
+            }
+        )
+
+
+class RefreshTokenView(APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        try:
+            payload = decode_refresh_token(str(request.data.get("refresh", "")))
+            user = User.objects.get(pk=payload["sub"], is_active=True)
+        except (jwt.InvalidTokenError, User.DoesNotExist, KeyError, TypeError):
+            return Response({"detail": "Session expirée."}, status=401)
+        return Response(
+            {
+                "access": encode_token(user),
+                "refresh": encode_token(user, "refresh", 60 * 60 * 24 * 30),
             }
         )
 

@@ -249,7 +249,7 @@ services:
       retries: 6
     environment:
       VITE_API_URL: http://localhost:${BACKEND_PORT:-8001}/api/v1
-      VITE_WS_URL: ws://localhost:8080
+      VITE_WS_URL: /ws
     networks:
       - casino-mdg
 

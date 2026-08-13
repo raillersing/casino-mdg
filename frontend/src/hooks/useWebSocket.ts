@@ -53,12 +53,12 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       reconnectAttempts.current ? "reconnecting" : "connecting",
     );
 
-    const separator = url.includes("?") ? "&" : "?";
-    const socket = new WebSocket(
-      accessToken
-        ? `${url}${separator}token=${encodeURIComponent(accessToken)}`
-        : url,
-    );
+    const socketUrl = new URL(url, window.location.href);
+    socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    if (accessToken) {
+      socketUrl.searchParams.set("token", accessToken);
+    }
+    const socket = new WebSocket(socketUrl.toString());
     ws.current = socket;
 
     socket.onopen = () => {

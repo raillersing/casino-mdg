@@ -21,6 +21,17 @@ def encode_token(user, token_type="access", lifetime_seconds=900):
     )
 
 
+def decode_refresh_token(token):
+    payload = jwt.decode(
+        token,
+        os.getenv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes"),
+        algorithms=["HS256"],
+    )
+    if payload.get("type") != "refresh":
+        raise jwt.InvalidTokenError("refresh token required")
+    return payload
+
+
 class JWTAuthentication(authentication.BaseAuthentication):
     keyword = "Bearer"
 
