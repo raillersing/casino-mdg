@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -85,7 +87,9 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(cancelled.status_code, 200)
         self.assertEqual(cancelled.data["ticket"]["status"], "cancelled")
 
-    def test_bot_simulation_session_is_idempotent_and_declares_bots(self):
+    @patch("apps.games.views.requests.post")
+    def test_bot_simulation_session_is_idempotent_and_declares_bots(self, post):
+        post.return_value.raise_for_status.return_value = None
         self.client.force_authenticate(self.first)
         headers = {"HTTP_IDEMPOTENCY_KEY": "bot-session-001"}
         first = self.client.post(

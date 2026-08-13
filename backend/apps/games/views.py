@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 
+import requests
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
@@ -154,6 +155,31 @@ class BotSimulationView(APIView):
                     seat_index=seat,
                     profile=profile,
                 )
+        try:
+            response = requests.post(
+                f"{settings.GAME_ENGINE_INTERNAL_URL}/internal/bots/attach",
+                headers={"X-Game-Engine-Bot-Secret": settings.GAME_ENGINE_BOT_SECRET},
+                json={
+                    "table_id": str(table.id),
+                    "game_type": game_type,
+                    "bots": [
+                        {"id": bot.bot_key, "name": bot.display_name}
+                        for bot in session.bots.all().order_by("seat_index")
+                    ],
+                },
+                timeout=3,
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            session.status = "cancelled"
+            session.save(update_fields=["status"])
+            return Response(
+                {"detail": "Le moteur de jeu est indisponible."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        session.status = "running"
+        session.started_at = timezone.now()
+        session.save(update_fields=["status", "started_at"])
         return Response(bot_simulation_payload(session), status=201)
 
     def get(self, request):

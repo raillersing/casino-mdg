@@ -30,6 +30,7 @@ func main() {
 	// HTTP routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", wsServer.HandleConnection)
+	mux.HandleFunc("/internal/bots/attach", wsServer.AttachBots)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok","service":"game-engine","version":"1.0.0"}`))

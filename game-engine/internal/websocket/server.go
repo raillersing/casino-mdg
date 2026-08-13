@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -62,9 +63,52 @@ type Server struct {
 	clients     map[string]*Client
 	snapshots   *state.SnapshotManager
 	mu          sync.RWMutex
+	botRuns     map[string]bool
 }
 
 func (s *Server) ClientCount() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.clients) }
+
+// AttachBots is used by the backend service after creating a DEMO_AI
+// session. It is intentionally not exposed through the public WebSocket path.
+func (s *Server) AttachBots(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("X-Game-Engine-Bot-Secret") == "" || !hmac.Equal([]byte(r.Header.Get("X-Game-Engine-Bot-Secret")), []byte(s.config.BotServiceSecret)) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var request struct {
+		TableID  string `json:"table_id"`
+		GameType string `json:"game_type"`
+		Bots     []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"bots"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil || request.TableID == "" || !validGameType(request.GameType) || len(request.Bots) == 0 {
+		http.Error(w, "invalid bot session", http.StatusBadRequest)
+		return
+	}
+	table, exists := s.roomManager.GetTable(request.TableID)
+	if !exists {
+		table = s.roomManager.CreateTableWithID(request.TableID, request.GameType)
+	}
+	if table.GameType != request.GameType {
+		http.Error(w, "game type mismatch", http.StatusConflict)
+		return
+	}
+	for _, bot := range request.Bots {
+		if bot.ID == "" || bot.Name == "" {
+			http.Error(w, "invalid bot", http.StatusBadRequest)
+			return
+		}
+		if _, err := s.roomManager.JoinBotPlayer(request.TableID, bot.ID, bot.Name, len(table.Players)+1); err != nil {
+			http.Error(w, fmt.Sprintf("attach bot: %v", err), http.StatusConflict)
+			return
+		}
+	}
+	s.startBotTurns(request.TableID)
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"status":"attached"}`))
+}
 
 type Client struct {
 	conn       *websocket.Conn
@@ -83,6 +127,7 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 		config:      cfg,
 		roomManager: rm,
 		clients:     make(map[string]*Client),
+		botRuns:     make(map[string]bool),
 		snapshots:   state.NewSnapshotManager(cfg.RedisURL),
 	}
 }
@@ -264,6 +309,33 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 	}
 	s.sendMessage(client, &Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
 	s.persistSnapshot(msg.TableID)
+	s.startBotTurns(msg.TableID)
+}
+
+func (s *Server) startBotTurns(tableID string) {
+	s.mu.Lock()
+	if s.botRuns[tableID] {
+		s.mu.Unlock()
+		return
+	}
+	s.botRuns[tableID] = true
+	s.mu.Unlock()
+	go func() {
+		defer func() {
+			s.mu.Lock()
+			delete(s.botRuns, tableID)
+			s.mu.Unlock()
+		}()
+		for steps := 0; steps < 512; steps++ {
+			turn, ok := s.roomManager.NextBotTurn(tableID)
+			if !ok {
+				return
+			}
+			client := &Client{playerID: turn.PlayerID, tableID: tableID}
+			s.handleAction(client, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: turn.Action, Payload: turn.Payload, Sequence: turn.Sequence})
+			time.Sleep(25 * time.Millisecond)
+		}
+	}()
 }
 
 func publicGameState(state interface{}, playerID string) interface{} {

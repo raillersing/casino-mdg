@@ -74,6 +74,16 @@ type Stats struct {
 	EventsTotal   uint64
 }
 
+// BotTurn is the smallest command needed by the websocket orchestrator to
+// advance a bot-controlled table. Sequence is returned under the same lock as
+// the decision so the action remains optimistic-concurrency safe.
+type BotTurn struct {
+	PlayerID string
+	Action   string
+	Payload  interface{}
+	Sequence uint64
+}
+
 func NewManager(cfg *config.Config) *Manager {
 	return &Manager{
 		config: cfg,
@@ -228,6 +238,85 @@ func (m *Manager) joinPlayer(tableID, playerID, name string, seat int, isBot boo
 func (m *Manager) ApplyAction(tableID, playerID, action string, expectedSequence uint64, payload interface{}) (Event, error) {
 	event, _, err := m.ApplyActionIdempotent(tableID, playerID, action, expectedSequence, payload, "")
 	return event, err
+}
+
+// NextBotTurn selects a deterministic legal action only when the current seat
+// belongs to a bot. It deliberately contains no random policy: repeatable
+// demo sessions are easier to test, explain and replay.
+func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return BotTurn{}, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	switch game := table.State.(type) {
+	case *poker.Hand:
+		if game.Phase == "showdown" || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		gamePlayer := game.Players[game.Current]
+		seat, exists := table.Players[gamePlayer.ID]
+		if !exists || !seat.IsBot {
+			return BotTurn{}, false
+		}
+		highest := int64(0)
+		for _, player := range game.Players {
+			if player.Bet > highest {
+				highest = player.Bet
+			}
+		}
+		toCall := highest - gamePlayer.Bet
+		if toCall == 0 {
+			return BotTurn{PlayerID: gamePlayer.ID, Action: "check", Sequence: table.Sequence}, true
+		}
+		if toCall <= gamePlayer.Stack {
+			return BotTurn{PlayerID: gamePlayer.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: table.Sequence}, true
+		}
+		return BotTurn{PlayerID: gamePlayer.ID, Action: "fold", Sequence: table.Sequence}, true
+	case *belote.Round:
+		if game.Finished() || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		gamePlayer := game.Players[game.Current]
+		seat, exists := table.Players[gamePlayer.ID]
+		if !exists || !seat.IsBot || len(gamePlayer.Hand) == 0 {
+			return BotTurn{}, false
+		}
+		card := gamePlayer.Hand[0]
+		for _, candidate := range gamePlayer.Hand {
+			if game.LeadSuit < 0 || candidate.Suit == game.LeadSuit || !hasBeloteSuit(gamePlayer.Hand, game.LeadSuit) {
+				card = candidate
+				break
+			}
+		}
+		return BotTurn{PlayerID: gamePlayer.ID, Action: "play_card", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": card.Suit, "rank": card.Rank}}, Sequence: table.Sequence}, true
+	case *rami.Game:
+		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		gamePlayer := game.Players[game.Current]
+		seat, exists := table.Players[gamePlayer.ID]
+		if !exists || !seat.IsBot {
+			return BotTurn{}, false
+		}
+		if len(gamePlayer.Hand) <= 7 {
+			return BotTurn{PlayerID: gamePlayer.ID, Action: "draw", Payload: map[string]interface{}{}, Sequence: table.Sequence}, true
+		}
+		card := gamePlayer.Hand[len(gamePlayer.Hand)-1]
+		return BotTurn{PlayerID: gamePlayer.ID, Action: "discard", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": card.Suit, "rank": card.Rank}}, Sequence: table.Sequence}, true
+	default:
+		return BotTurn{}, false
+	}
+}
+
+func hasBeloteSuit(hand []belote.Card, suit int) bool {
+	for _, card := range hand {
+		if card.Suit == suit {
+			return true
+		}
+	}
+	return false
 }
 
 // ApplyActionIdempotent applies an action once. A client may resend the same
