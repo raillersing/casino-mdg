@@ -7,10 +7,10 @@ tests ou la documentation structurante.
 ## Dernière génération
 
 - Date : 12 août 2026
-- Commit analysé : `6307f5c`
-- Nœuds : 1 664
-- Relations : 2 612
-- Communautés : 147
+- Commit analysé : `76c6ecd`
+- Nœuds : 1 667
+- Relations : 2 614
+- Communautés : 148
 - Commande : `graphify update .`
 - Rapport local : `graphify-out/GRAPH_REPORT.md`
 
