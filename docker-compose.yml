@@ -209,6 +209,7 @@ services:
       GAME_ENGINE_ADDR: :8080
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me-32-bytes}
+      GAME_ENGINE_BOT_SECRET: ${GAME_ENGINE_BOT_SECRET:-dev-game-engine-bot-secret-change-me}
       GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET:-dev-game-engine-result-secret-change-me}
     ports:
       - "8080:8080"

@@ -67,12 +67,15 @@ type Server struct {
 func (s *Server) ClientCount() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.clients) }
 
 type Client struct {
-	conn      *websocket.Conn
-	playerID  string
-	tableID   string
-	spectator bool
-	send      chan []byte
-	lastPong  time.Time
+	conn       *websocket.Conn
+	playerID   string
+	tableID    string
+	spectator  bool
+	isBot      bool
+	name       string
+	botTableID string
+	send       chan []byte
+	lastPong   time.Time
 }
 
 func NewServer(cfg *config.Config, rm *room.Manager) *Server {
@@ -85,7 +88,7 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 }
 
 func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
-	playerID, ok := authenticate(r.URL.Query().Get("token"), s.config.JWTSecret)
+	playerID, isBot, name, botTableID, ok := authenticateConnection(r, s.config)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -98,10 +101,13 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	client := &Client{
-		conn:     conn,
-		send:     make(chan []byte, 256),
-		lastPong: time.Now(),
-		playerID: playerID,
+		conn:       conn,
+		send:       make(chan []byte, 256),
+		lastPong:   time.Now(),
+		playerID:   playerID,
+		isBot:      isBot,
+		name:       name,
+		botTableID: botTableID,
 	}
 
 	go s.writePump(client)
@@ -195,6 +201,10 @@ func (s *Server) handleMessage(client *Client, msg *Message) {
 }
 
 func (s *Server) handleJoin(client *Client, msg *Message) {
+	if client.isBot && msg.TableID != client.botTableID {
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "bot token is bound to another table", Timestamp: time.Now()})
+		return
+	}
 	table, ok := s.roomManager.GetTable(msg.TableID)
 	if !ok {
 		var snapshot room.TableSnapshot
@@ -226,9 +236,19 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		return
 	}
 	s.addClient(client)
-	client.spectator = roleFromPayload(msg.Payload) == "spectator"
+	client.spectator = !client.isBot && roleFromPayload(msg.Payload) == "spectator"
 	if !client.spectator {
-		if _, err := s.roomManager.JoinPlayer(msg.TableID, client.playerID, client.playerID, len(table.Players)+1); err != nil {
+		name := client.name
+		if name == "" {
+			name = client.playerID
+		}
+		var err error
+		if client.isBot {
+			_, err = s.roomManager.JoinBotPlayer(msg.TableID, client.playerID, name, len(table.Players)+1)
+		} else {
+			_, err = s.roomManager.JoinPlayer(msg.TableID, client.playerID, name, len(table.Players)+1)
+		}
+		if err != nil {
 			s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: err.Error(), Timestamp: time.Now()})
 			client.tableID = ""
 			return
@@ -466,4 +486,56 @@ func authenticate(token, secret string) (string, bool) {
 		return "", false
 	}
 	return claims.Sub, true
+}
+
+type botTokenClaims struct {
+	BotID   string `json:"bot_id"`
+	TableID string `json:"table_id"`
+	Name    string `json:"name"`
+	Expires int64  `json:"exp"`
+}
+
+// authenticateConnection accepts normal user JWTs or a short-lived internal
+// bot token. The bot token is bound to a single table and never accepted from
+// the regular `token` query parameter.
+func authenticateConnection(r *http.Request, cfg *config.Config) (string, bool, string, string, bool) {
+	if botToken := r.URL.Query().Get("bot_token"); botToken != "" {
+		claims, ok := authenticateBot(botToken, r.URL.Query().Get("table_id"), cfg.BotServiceSecret)
+		if !ok {
+			return "", false, "", "", false
+		}
+		return claims.BotID, true, claims.Name, claims.TableID, true
+	}
+	playerID, ok := authenticate(r.URL.Query().Get("token"), cfg.JWTSecret)
+	return playerID, false, "", "", ok
+}
+
+func authenticateBot(token, tableID, secret string) (botTokenClaims, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 2 || secret == "" {
+		return botTokenClaims{}, false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return botTokenClaims{}, false
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(parts[0]))
+	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil || !hmac.Equal(mac.Sum(nil), signature) {
+		return botTokenClaims{}, false
+	}
+	var claims botTokenClaims
+	if json.Unmarshal(payload, &claims) != nil || claims.BotID == "" || claims.TableID == "" || claims.Name == "" || claims.Expires <= time.Now().Unix() || claims.TableID != tableID {
+		return botTokenClaims{}, false
+	}
+	return claims, true
+}
+
+func signBotToken(claims botTokenClaims, secret string) string {
+	payload, _ := json.Marshal(claims)
+	encoded := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(encoded))
+	return encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }

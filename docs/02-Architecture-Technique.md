@@ -156,6 +156,25 @@ Le Game Engine ne touche **jamais** directement au wallet. Il publie des événe
 
 ## 5. Résilience réseau — Contexte Madagascar
 
+### 5.0 Simulation contrôlée par bots
+
+Les simulations de parties utilisent une identité de service distincte des
+comptes joueurs. Le backend orchestre une session `DEMO_AI`, puis ouvre une
+connexion WebSocket par bot avec un jeton HMAC court, lié à `table_id`,
+`bot_id`, `name` et `exp`. Le secret `GAME_ENGINE_BOT_SECRET` n'est jamais
+envoyé au navigateur et doit être différent par environnement.
+
+Le moteur accepte :
+
+- un JWT utilisateur dans `?token=...` ;
+- un jeton interne dans `?bot_token=...&table_id=...`.
+
+Un payload public `role: bot` ou `is_bot: true` ne suffit jamais à obtenir une
+identité bot. Le moteur vérifie la signature, l'expiration et la table avant
+de créer le siège, puis publie `is_bot: true` dans l'état de table. Cette
+séparation permet d'afficher les bots dans l'interface de démonstration sans
+les confondre avec des joueurs humains ni ouvrir cette capacité aux clients.
+
 ### Problème réel
 - Connexions 3G/4G intermittentes
 - Coupure électrique fréquentes (jirama)

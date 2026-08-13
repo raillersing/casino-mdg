@@ -53,12 +53,13 @@ type TableSnapshot struct {
 }
 
 type Player struct {
-	ID       string
-	Name     string
-	Stack    int64
-	Seat     int
-	IsActive bool
-	JoinedAt time.Time
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Stack    int64     `json:"stack"`
+	Seat     int       `json:"seat"`
+	IsActive bool      `json:"is_active"`
+	IsBot    bool      `json:"is_bot"`
+	JoinedAt time.Time `json:"joined_at"`
 }
 
 type Manager struct {
@@ -180,6 +181,17 @@ func (m *Manager) LeavePlayer(tableID, playerID string) bool {
 }
 
 func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, error) {
+	return m.joinPlayer(tableID, playerID, name, seat, false)
+}
+
+// JoinBotPlayer is reserved for the authenticated internal bot connection.
+// Keeping it separate from JoinPlayer prevents a public client from opting
+// into bot identity through the regular JWT/WebSocket path.
+func (m *Manager) JoinBotPlayer(tableID, playerID, name string, seat int) (Event, error) {
+	return m.joinPlayer(tableID, playerID, name, seat, true)
+}
+
+func (m *Manager) joinPlayer(tableID, playerID, name string, seat int, isBot bool) (Event, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
 		return Event{}, fmt.Errorf("table not found")
@@ -194,7 +206,7 @@ func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, e
 		existing.JoinedAt = time.Now()
 		return Event{TableID: tableID, PlayerID: playerID, Action: "reconnected", Sequence: table.Sequence}, nil
 	}
-	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, JoinedAt: time.Now()}
+	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, IsBot: isBot, JoinedAt: time.Now()}
 	if table.GameType == "poker" && len(table.Players) >= 2 && table.State == nil {
 		if err := initializePokerHand(table); err != nil {
 			return Event{}, err

@@ -213,6 +213,59 @@ func TestWebSocketRejectsMissingToken(t *testing.T) {
 	}
 }
 
+func TestInternalBotTokenJoinsAsBotAndCannotBeForgedByPayload(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", BotServiceSecret: "bot-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	manager := room.NewManager(cfg)
+	table := manager.CreateTable("poker")
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+	claims := botTokenClaims{BotID: "bot-1", TableID: table.ID, Name: "IA Démo", Expires: time.Now().Add(time.Minute).Unix()}
+	token := signBotToken(claims, cfg.BotServiceSecret)
+	url := "ws" + httpServer.URL[len("http"):]
+	conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?bot_token="+token+"&table_id="+table.ID, nil)
+	if err != nil {
+		t.Fatalf("bot dial failed: %v", err)
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID, PlayerID: "bot-1", Payload: map[string]interface{}{"role": "spectator"}}); err != nil {
+		t.Fatal(err)
+	}
+	var state Message
+	if err := conn.ReadJSON(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state.Type != MsgState {
+		t.Fatalf("message=%+v", state)
+	}
+	player, ok := table.Players["bot-1"]
+	if !ok || !player.IsBot || player.Name != "IA Démo" {
+		t.Fatalf("bot player=%+v", player)
+	}
+	payload := state.Payload.(map[string]interface{})
+	players := payload["players"].(map[string]interface{})
+	serialized := players["bot-1"].(map[string]interface{})
+	if serialized["is_bot"] != true {
+		t.Fatalf("bot marker missing from state: %v", serialized)
+	}
+}
+
+func TestInternalBotTokenRejectsWrongTableAndExpiredToken(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", BotServiceSecret: "bot-secret", RedisURL: "redis://localhost:6379/0"}
+	server := NewServer(cfg, room.NewManager(cfg))
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+	claims := botTokenClaims{BotID: "bot-1", TableID: "table-a", Name: "IA Démo", Expires: time.Now().Add(-time.Minute).Unix()}
+	token := signBotToken(claims, cfg.BotServiceSecret)
+	_, response, err := websocket.DefaultDialer.Dial("ws"+httpServer.URL[len("http"):]+"/ws?bot_token="+token+"&table_id=table-a", nil)
+	if err == nil {
+		t.Fatal("expired bot token was accepted")
+	}
+	if response == nil || response.StatusCode != 401 {
+		t.Fatalf("response=%v", response)
+	}
+}
+
 func TestAuthenticatedWebSocketProvisionsRoomFromJoinPayload(t *testing.T) {
 	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
 	server := NewServer(cfg, room.NewManager(cfg))

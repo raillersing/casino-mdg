@@ -9,6 +9,7 @@ type Config struct {
 	ServerAddr         string
 	RedisURL           string
 	JWTSecret          string
+	BotServiceSecret   string
 	ResultSecret       string
 	GracePeriod        time.Duration
 	SnapshotInterval   time.Duration
@@ -23,6 +24,7 @@ func Load() (*Config, error) {
 		ServerAddr:         getEnv("GAME_ENGINE_ADDR", ":8080"),
 		RedisURL:           getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		JWTSecret:          getEnv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes"),
+		BotServiceSecret:   getEnv("GAME_ENGINE_BOT_SECRET", "dev-game-engine-bot-secret-change-me"),
 		ResultSecret:       getEnv("GAME_ENGINE_RESULT_SECRET", "dev-game-engine-result-secret-change-me"),
 		GracePeriod:        30 * time.Second,
 		SnapshotInterval:   5 * time.Second,
