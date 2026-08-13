@@ -87,7 +87,16 @@ export function BackofficePage() {
       getPilotParticipants(token),
     ])
       .then(
-        ([audit, featureFlags, report, summary, feedback, gate, tickets, pilot]) => {
+        ([
+          audit,
+          featureFlags,
+          report,
+          summary,
+          feedback,
+          gate,
+          tickets,
+          pilot,
+        ]) => {
           setEvents(audit.results);
           setFlags(featureFlags.results);
           setReconciliation(report);
@@ -124,7 +133,11 @@ export function BackofficePage() {
   ) => {
     if (!token) return;
     try {
-      const updated = await updatePilotParticipantStatus(token, participantId, status);
+      const updated = await updatePilotParticipantStatus(
+        token,
+        participantId,
+        status,
+      );
       setParticipants((current) =>
         current.map((participant) =>
           participant.id === participantId
@@ -133,7 +146,11 @@ export function BackofficePage() {
         ),
       );
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Participant non mis à jour.");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Participant non mis à jour.",
+      );
     }
   };
   if (error)
@@ -236,7 +253,9 @@ export function BackofficePage() {
                   <strong>{participant.display_name}</strong>
                   <span>{participant.email}</span>
                   <small>
-                    Activation {participant.progress.activated ? "✓" : "—"} · Partie {participant.progress.played ? "✓" : "—"} · Finie {participant.progress.completed ? "✓" : "—"}
+                    Activation {participant.progress.activated ? "✓" : "—"} ·
+                    Partie {participant.progress.played ? "✓" : "—"} · Finie{" "}
+                    {participant.progress.completed ? "✓" : "—"}
                   </small>
                 </div>
                 <select

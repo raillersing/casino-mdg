@@ -150,7 +150,9 @@ export function updatePilotParticipantStatus(
   }).then(async (response) => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok)
-      throw new Error(payload.detail || `Mise à jour refusée (${response.status}).`);
+      throw new Error(
+        payload.detail || `Mise à jour refusée (${response.status}).`,
+      );
     return payload as { id: number; status: PilotParticipant["status"] };
   });
 }
