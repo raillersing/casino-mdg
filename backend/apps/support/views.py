@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from apps.backoffice.services import record_audit
 
-from .models import PilotFeedback, SupportTicket
+from .models import PilotAction, PilotFeedback, SupportTicket
 
 
 class SupportTicketView(APIView):
@@ -176,3 +176,74 @@ class PilotFeedbackSummaryView(APIView):
                 "categories": categories,
             }
         )
+
+
+class PilotActionView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        actions = PilotAction.objects.select_related("incident", "created_by")[:100]
+        return Response(
+            {
+                "results": [
+                    {
+                        "id": item.pk,
+                        "title": item.title,
+                        "description": item.description,
+                        "source": item.source,
+                        "status": item.status,
+                        "incident_id": item.incident_id,
+                        "created_by": item.created_by.display_name,
+                        "created_at": item.created_at.isoformat(),
+                    }
+                    for item in actions
+                ]
+            }
+        )
+
+    def post(self, request):
+        title = str(request.data.get("title", "")).strip()
+        source = str(request.data.get("source", "incident")).strip()
+        description = str(request.data.get("description", "")).strip()
+        if not title or len(title) > 160 or source not in dict(PilotAction.SOURCES):
+            return Response({"detail": "Action pilote invalide."}, status=400)
+        incident = None
+        incident_id = request.data.get("incident_id")
+        if incident_id not in (None, ""):
+            try:
+                incident = SupportTicket.objects.get(pk=incident_id)
+            except (SupportTicket.DoesNotExist, TypeError, ValueError):
+                return Response({"detail": "Incident introuvable."}, status=404)
+        action = PilotAction.objects.create(
+            title=title,
+            description=description[:1000],
+            source=source,
+            incident=incident,
+            created_by=request.user,
+        )
+        record_audit(
+            request.user,
+            "pilot_action.created",
+            action,
+            {"source": source, "incident_id": incident.pk if incident else None},
+        )
+        return Response({"id": action.pk, "status": action.status}, status=201)
+
+    def patch(self, request, action_id=None):
+        try:
+            action = PilotAction.objects.get(pk=action_id)
+        except (PilotAction.DoesNotExist, TypeError, ValueError):
+            return Response({"detail": "Action introuvable."}, status=404)
+        status = str(request.data.get("status", "")).strip()
+        if status not in dict(PilotAction.STATUSES):
+            return Response({"detail": "Statut d’action invalide."}, status=400)
+        previous = action.status
+        action.status = status
+        action.save(update_fields=["status", "updated_at"])
+        record_audit(
+            request.user,
+            "pilot_action.status_updated",
+            action,
+            {"from": previous, "to": status},
+        )
+        return Response({"id": action.pk, "status": action.status})

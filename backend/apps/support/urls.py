@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    PilotActionView,
     PilotFeedbackSummaryView,
     PilotFeedbackView,
     SupportTicketStaffView,
@@ -22,5 +23,11 @@ urlpatterns = [
         "feedback/summary/",
         PilotFeedbackSummaryView.as_view(),
         name="pilot-feedback-summary",
+    ),
+    path("pilot-actions/", PilotActionView.as_view(), name="pilot-actions"),
+    path(
+        "pilot-actions/<int:action_id>/",
+        PilotActionView.as_view(),
+        name="pilot-action-status",
     ),
 ]

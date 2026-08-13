@@ -70,6 +70,46 @@ export function setModerationMessage(
   });
 }
 
+export type PilotAction = {
+  id: number;
+  title: string;
+  description: string;
+  source: "incident" | "feedback";
+  status: "todo" | "in_progress" | "done";
+  incident_id: number | null;
+  created_by: string;
+  created_at: string;
+};
+
+export function getPilotActions(token: string) {
+  return fetch("/api/v1/support/pilot-actions/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || "Accès refusé.");
+    return payload as { results: PilotAction[] };
+  });
+}
+
+export function updatePilotActionStatus(
+  token: string,
+  actionId: number,
+  status: PilotAction["status"],
+) {
+  return fetch(`/api/v1/support/pilot-actions/${actionId}/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ status }),
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || "Action refusée.");
+    return payload as { id: number; status: PilotAction["status"] };
+  });
+}
+
 export function getProductEventSummary(token: string) {
   return fetch("/api/v1/analytics/summary/", {
     headers: { Authorization: `Bearer ${token}` },
