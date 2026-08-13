@@ -20,6 +20,10 @@ class SupportTicketView(APIView):
                         "category": item.category,
                         "subject": item.subject,
                         "description": item.description,
+                        "game_type": item.game_type,
+                        "table_id": item.table_id,
+                        "session_id": item.session_id,
+                        "app_version": item.app_version,
                         "status": item.status,
                         "created_at": item.created_at.isoformat(),
                     }
@@ -40,11 +44,19 @@ class SupportTicketView(APIView):
             or len(description) > 2000
         ):
             return Response({"detail": "Ticket invalide."}, status=400)
+        game_type = str(request.data.get("game_type", ""))[:40]
+        table_id = str(request.data.get("table_id", ""))[:120]
+        session_id = str(request.data.get("session_id", ""))[:128]
+        app_version = str(request.data.get("app_version", ""))[:40]
         ticket = SupportTicket.objects.create(
             user=request.user,
             category=category,
             subject=subject,
             description=description,
+            game_type=game_type,
+            table_id=table_id,
+            session_id=session_id,
+            app_version=app_version,
         )
         return Response({"id": ticket.pk, "status": ticket.status}, status=201)
 

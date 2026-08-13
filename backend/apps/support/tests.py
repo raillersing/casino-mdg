@@ -18,6 +18,10 @@ class SupportTests(TestCase):
                 "category": "wallet",
                 "subject": "Solde",
                 "description": "Je souhaite comprendre mon historique.",
+                "game_type": "poker",
+                "table_id": "table-emerald",
+                "session_id": "support-session",
+                "app_version": "web-test",
             },
             format="json",
         )
@@ -26,6 +30,11 @@ class SupportTests(TestCase):
         self.assertEqual(listed.status_code, 200)
         self.assertEqual(len(listed.data["results"]), 1)
         self.assertEqual(SupportTicket.objects.count(), 1)
+        ticket = SupportTicket.objects.get()
+        self.assertEqual(ticket.game_type, "poker")
+        self.assertEqual(ticket.table_id, "table-emerald")
+        self.assertEqual(ticket.session_id, "support-session")
+        self.assertEqual(ticket.app_version, "web-test")
 
     def test_user_can_submit_pilot_feedback_and_staff_can_read_summary(self):
         user = User.objects.create_user(

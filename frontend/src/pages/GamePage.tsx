@@ -603,10 +603,10 @@ export function GamePage() {
           </div>
         </div>
         <Link
-          to={`/support?game_type=${gameType || ""}&table_id=${engineTableId}`}
+          to={`/support?mode=incident&game_type=${gameType || ""}&table_id=${engineTableId}`}
           className="text-link"
         >
-          Retour sur la partie
+          Signaler un problème
         </Link>
       </div>
     </div>

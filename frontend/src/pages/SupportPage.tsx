@@ -24,6 +24,12 @@ export function SupportPage() {
   const [feedbackCategory, setFeedbackCategory] = useState("gameplay");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
+  const incidentMode = params.get("mode") === "incident";
+  const gameContext = params.get("game_type") || undefined;
+  const tableContext = params.get("table_id") || undefined;
+  const sessionContext =
+    localStorage.getItem("mdg_analytics_session_id") || undefined;
+  const appVersion = import.meta.env.VITE_APP_VERSION || "web-dev";
   useEffect(() => {
     if (token)
       getSupportTickets(token)
@@ -38,7 +44,12 @@ export function SupportPage() {
     }
     setLoading(true);
     try {
-      await createSupportTicket(token, category, subject, description);
+      await createSupportTicket(token, category, subject, description, {
+        game_type: gameContext,
+        table_id: tableContext,
+        session_id: sessionContext,
+        app_version: appVersion,
+      });
       setMessage(t("support.sent"));
       setSubject("");
       setDescription("");
@@ -91,7 +102,17 @@ export function SupportPage() {
       </div>
       <div className="wallet-layout">
         <form className="payment-card" onSubmit={submit}>
-          <h3>{t("support.openTicket")}</h3>
+          <h3>
+            {incidentMode
+              ? "Signaler un problème de partie"
+              : t("support.openTicket")}
+          </h3>
+          {incidentMode && (
+            <p className="secure-note">
+              Le contexte de la partie est joint automatiquement pour faciliter
+              la reproduction.
+            </p>
+          )}
           <label className="field-label">
             {t("support.category")}
             <select

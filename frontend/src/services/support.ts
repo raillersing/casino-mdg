@@ -3,6 +3,10 @@ export type SupportTicket = {
   category: string;
   subject: string;
   description: string;
+  game_type: string;
+  table_id: string;
+  session_id: string;
+  app_version: string;
   status: string;
   created_at: string;
 };
@@ -28,10 +32,16 @@ export function createSupportTicket(
   category: string,
   subject: string,
   description: string,
+  context: {
+    game_type?: string;
+    table_id?: string;
+    session_id?: string;
+    app_version?: string;
+  } = {},
 ) {
   return request<{ id: number; status: string }>("tickets/", token, {
     method: "POST",
-    body: JSON.stringify({ category, subject, description }),
+    body: JSON.stringify({ category, subject, description, ...context }),
   });
 }
 
