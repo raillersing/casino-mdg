@@ -101,7 +101,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
           RECONNECT_DELAY * reconnectAttempts.current,
         );
       } else if (closed.current) {
-        onConnectionStateChange?.("closed");
+        callbacks.current.onConnectionStateChange?.("closed");
       }
     };
 
