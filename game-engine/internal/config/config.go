@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"time"
 )
@@ -17,6 +18,7 @@ type Config struct {
 	MaxPlayersPerTable int
 	Deterministic      bool
 	Blinds             bool
+	BotActionDelay     time.Duration
 }
 
 func Load() (*Config, error) {
@@ -31,7 +33,23 @@ func Load() (*Config, error) {
 		MaxTables:          10000,
 		MaxPlayersPerTable: 9,
 		Blinds:             true,
+		BotActionDelay:     botActionDelay(),
 	}, nil
+}
+
+func botActionDelay() time.Duration {
+	if os.Getenv("GAME_ENGINE_DETERMINISTIC") == "true" {
+		return 0
+	}
+	value := os.Getenv("GAME_ENGINE_BOT_DELAY_MS")
+	if value == "" {
+		return 1100 * time.Millisecond
+	}
+	var milliseconds int
+	if _, err := fmt.Sscanf(value, "%d", &milliseconds); err != nil || milliseconds < 0 {
+		return 1100 * time.Millisecond
+	}
+	return time.Duration(milliseconds) * time.Millisecond
 }
 
 func getEnv(key, fallback string) string {
