@@ -36,6 +36,13 @@ async function stubGameApis(page: Page) {
 
       send(message: string) {
         messages.push(message);
+        try {
+          const payload = JSON.parse(message) as { type?: string };
+          if (payload.type === "leave")
+            localStorage.setItem("e2e_last_leave", message);
+        } catch {
+          // Ignore malformed test messages; the in-memory log still captures them.
+        }
       }
 
       close() {
@@ -144,14 +151,8 @@ test("joins a table, sends leave, and returns to the lobby", async ({
 
   await page.getByRole("link", { name: /Quitter la table/i }).click();
   await expect
-    .poll(() =>
-      page.evaluate(() =>
-        (window as Window & { __wsMessages: string[] }).__wsMessages.map(
-          JSON.parse,
-        ),
-      ),
-    )
-    .toContainEqual(expect.objectContaining({ type: "leave" }));
+    .poll(() => page.evaluate(() => localStorage.getItem("e2e_last_leave")))
+    .not.toBeNull();
   await expect(page).toHaveURL(/\/lobby$/);
   const messages = await page.evaluate(() =>
     (window as Window & { __wsMessages: string[] }).__wsMessages.map(
@@ -159,7 +160,9 @@ test("joins a table, sends leave, and returns to the lobby", async ({
     ),
   );
   expect(messages.some((message) => message.type === "join")).toBeTruthy();
-  const leaveMessage = messages.find((message) => message.type === "leave");
+  const leaveMessage = JSON.parse(
+    await page.evaluate(() => localStorage.getItem("e2e_last_leave")),
+  );
   expect(leaveMessage).toMatchObject({ type: "leave" });
   expect(leaveMessage.table_id).toBeTruthy();
 });
