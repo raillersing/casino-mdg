@@ -321,8 +321,6 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		"spectator":  client.spectator,
 	}
 	s.sendMessage(client, &Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
-	s.sendPokerLifecycle(client, table.ID)
-	s.sendPokerDeal(client, table.ID)
 	s.persistSnapshot(msg.TableID)
 	s.startBotTurns(msg.TableID)
 }
