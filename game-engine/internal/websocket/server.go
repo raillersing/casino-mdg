@@ -378,16 +378,11 @@ func publicGameState(state interface{}, playerID string) interface{} {
 	switch game := state.(type) {
 	case *poker.Hand:
 		players := make([]map[string]interface{}, 0, len(game.Players))
-		winners := make([]string, 0)
 		revealedCards := make(map[string][]poker.Card)
 		handRanks := make(map[string]string)
 		payouts := map[string]int64{}
+		pots := []poker.Pot{}
 		if game.Phase == "showdown" {
-			if resolved, ok := game.Winners(); ok {
-				for _, player := range resolved {
-					winners = append(winners, player.ID)
-				}
-			}
 			for _, player := range game.Players {
 				if !player.Folded {
 					revealedCards[player.ID] = player.Cards
@@ -395,6 +390,7 @@ func publicGameState(state interface{}, playerID string) interface{} {
 				}
 			}
 			payouts = game.Payouts()
+			pots = poker.CalculatePots(game.Players)
 		}
 		for _, player := range game.Players {
 			cards := interface{}(nil)
@@ -403,7 +399,7 @@ func publicGameState(state interface{}, playerID string) interface{} {
 			}
 			players = append(players, map[string]interface{}{"id": player.ID, "stack": player.Stack, "bet": player.Bet, "cards": cards, "folded": player.Folded, "all_in": player.AllIn})
 		}
-		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "current": game.Current, "phase": game.Phase, "winners": winners, "revealed_cards": revealedCards, "hand_ranks": handRanks, "payouts": payouts}
+		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "pots": pots, "current": game.Current, "phase": game.Phase, "button": game.Button, "small_blind": game.SmallBlind, "big_blind": game.BigBlind, "revealed_cards": revealedCards, "hand_ranks": handRanks, "payouts": payouts}
 	case *belote.Round:
 		players := make([]map[string]interface{}, 0, len(game.Players))
 		for _, player := range game.Players {

@@ -7,10 +7,10 @@ tests ou la documentation structurante.
 ## Dernière génération
 
 - Date : 13 août 2026
-- Commit analysé : `workspace-uncommitted-animation-lot`
-- Nœuds : 1 788
-- Relations : 2 991
-- Communautés : 154
+- Commit analysé : `workspace-uncommitted-table-feel-2`
+- Nœuds : 1 789
+- Relations : 2 994
+- Communautés : 153
 - Commande : `graphify update .`
 - Rapport local : `graphify-out/GRAPH_REPORT.md`
 
