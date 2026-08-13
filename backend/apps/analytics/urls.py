@@ -5,7 +5,6 @@ from .views import (
     PilotParticipantStatusView,
     PilotParticipantsView,
     PilotSessionsView,
-    PilotSessionsView,
     ProductEventCreateView,
     ProductEventSummaryView,
 )
