@@ -289,13 +289,27 @@ export function BackofficePage() {
           <div className="chat-head">Sessions pilote · 30 derniers jours</div>
           {sessions.length ? (
             sessions.slice(0, 8).map((session) => (
-              <div className="activity-row" key={`${session.user_id}-${session.session_id}`}>
+              <div
+                className="activity-row"
+                key={`${session.user_id}-${session.session_id}`}
+              >
                 <div>
                   <strong>{session.display_name}</strong>
-                  <span>{session.game_types.join(", ") || "Jeu non précisé"} · {session.modes.join(", ") || "Mode non précisé"}</span>
-                  <small>{session.events} événements · {session.completed ? "partie terminée" : "partie non terminée"}{session.errors ? " · erreur détectée" : ""}</small>
+                  <span>
+                    {session.game_types.join(", ") || "Jeu non précisé"} ·{" "}
+                    {session.modes.join(", ") || "Mode non précisé"}
+                  </span>
+                  <small>
+                    {session.events} événements ·{" "}
+                    {session.completed
+                      ? "partie terminée"
+                      : "partie non terminée"}
+                    {session.errors ? " · erreur détectée" : ""}
+                  </small>
                 </div>
-                <small>{new Date(session.last_event_at).toLocaleDateString("fr-FR")}</small>
+                <small>
+                  {new Date(session.last_event_at).toLocaleDateString("fr-FR")}
+                </small>
               </div>
             ))
           ) : (
