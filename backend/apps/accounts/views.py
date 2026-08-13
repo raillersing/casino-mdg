@@ -114,6 +114,7 @@ class VerifyOTPView(APIView):
                     "phone": user.phone,
                     "xp": user.xp,
                     "level": user.level,
+                    "is_staff": user.is_staff,
                 },
                 "wallet": {
                     "balance": account.balance,
@@ -136,6 +137,7 @@ class MeView(APIView):
                 "phone": user.phone,
                 "xp": user.xp,
                 "level": user.level,
+                "is_staff": user.is_staff,
             }
         )
 
