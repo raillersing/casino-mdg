@@ -131,8 +131,13 @@ export function ProfilePage() {
             </div>
             <ShieldCheck size={19} />
           </div>
-          <p>Suivez la cohorte, les sessions, la modération et les actions correctives.</p>
-          <Link to="/backoffice" className="button button-outline">Ouvrir le back-office</Link>
+          <p>
+            Suivez la cohorte, les sessions, la modération et les actions
+            correctives.
+          </p>
+          <Link to="/backoffice" className="button button-outline">
+            Ouvrir le back-office
+          </Link>
         </section>
       )}
       <div className="profile-grid">
