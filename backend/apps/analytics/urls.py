@@ -4,6 +4,8 @@ from .views import (
     PilotGateSummaryView,
     PilotParticipantStatusView,
     PilotParticipantsView,
+    PilotSessionsView,
+    PilotSessionsView,
     ProductEventCreateView,
     ProductEventSummaryView,
 )
@@ -17,6 +19,7 @@ urlpatterns = [
         PilotParticipantsView.as_view(),
         name="pilot-participants",
     ),
+    path("pilot-sessions/", PilotSessionsView.as_view(), name="pilot-sessions"),
     path(
         "pilot-participants/<int:participant_id>/",
         PilotParticipantStatusView.as_view(),

@@ -157,6 +157,31 @@ export function updatePilotParticipantStatus(
   });
 }
 
+export type PilotSession = {
+  user_id: number;
+  display_name: string;
+  session_id: string;
+  started_at: string;
+  last_event_at: string;
+  events: number;
+  game_types: string[];
+  modes: string[];
+  completed: boolean;
+  errors: boolean;
+  event_names: string[];
+};
+
+export function getPilotSessions(token: string) {
+  return fetch("/api/v1/analytics/pilot-sessions/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(payload.detail || `Accès refusé (${response.status}).`);
+    return payload as { window: string; results: PilotSession[] };
+  });
+}
+
 export type PilotIncident = {
   id: number;
   player: string;

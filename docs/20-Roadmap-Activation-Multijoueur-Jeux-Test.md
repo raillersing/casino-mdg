@@ -106,6 +106,12 @@ suivi selon les événements réels `activation_viewed`, `test_game_played` et
 sont persistés et les ajouts ou transitions sont audités. Ce registre complète
 les invitations déjà livrées ; il ne remplace ni ne duplique leur parcours.
 
+Le relevé de sessions pilote est également disponible sur une fenêtre de 30
+jours. Il regroupe les événements déjà collectés par participant et session,
+avec jeu, mode, volume d’événements, fin de partie et présence d’erreur. Cette
+vue sert à organiser les sessions réelles et leur débrief ; elle ne fabrique
+aucune activité et ne compte pas les utilisateurs hors cohorte.
+
 Les préférences de notifications sont persistées par compte et modifiables
 depuis le profil : invitations, matchmaking, tour de jeu et annonces produit
 sont séparés. Les annonces produit sont désactivées par défaut ; une erreur de
@@ -301,6 +307,7 @@ la couverture de non-régression.
 - Documenter chaque incident avec mode, jeu, match, version et reproduction.
 - Définir un go/no-go hebdomadaire fondé sur les métriques et les erreurs, pas sur des compteurs artificiels.
 - Livré : inscrire les comptes du pilote dans une cohorte staff et suivre leur progression réelle sans recréer les invitations.
+- Livré : regrouper les sessions des participants à partir de la télémétrie existante pour préparer le débrief du pilote.
 
 **Critères de sortie recommandés**
 

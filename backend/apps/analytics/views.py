@@ -9,6 +9,7 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import User
 from apps.backoffice.services import record_audit
 from apps.support.models import PilotFeedback
 
@@ -331,3 +332,66 @@ class PilotParticipantStatusView(APIView):
             {"from": previous_status, "to": status},
         )
         return Response({"id": participant.pk, "status": participant.status})
+
+
+class PilotSessionsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        since = timezone.now() - timedelta(days=30)
+        participant_ids = set(
+            PilotParticipant.objects.values_list("user_id", flat=True)
+        )
+        events = ProductEvent.objects.filter(
+            created_at__gte=since, user_id__in=participant_ids
+        ).order_by("created_at")
+        grouped = {}
+        for event in events:
+            if not event.session_id:
+                continue
+            key = (event.user_id, event.session_id)
+            session = grouped.setdefault(
+                key,
+                {
+                    "user_id": event.user_id,
+                    "session_id": event.session_id,
+                    "started_at": event.created_at,
+                    "last_event_at": event.created_at,
+                    "events": 0,
+                    "event_names": set(),
+                    "game_types": set(),
+                    "modes": set(),
+                },
+            )
+            session["last_event_at"] = event.created_at
+            session["events"] += 1
+            session["event_names"].add(event.event_name)
+            if event.game_type:
+                session["game_types"].add(event.game_type)
+            if event.mode:
+                session["modes"].add(event.mode)
+        user_ids = {key[0] for key in grouped}
+        users = {
+            user.pk: user.display_name for user in User.objects.filter(pk__in=user_ids)
+        }
+        results = []
+        for session in sorted(
+            grouped.values(), key=lambda item: item["last_event_at"], reverse=True
+        )[:100]:
+            names = session["event_names"]
+            results.append(
+                {
+                    "user_id": session["user_id"],
+                    "display_name": users.get(session["user_id"], "Utilisateur"),
+                    "session_id": session["session_id"],
+                    "started_at": session["started_at"].isoformat(),
+                    "last_event_at": session["last_event_at"].isoformat(),
+                    "events": session["events"],
+                    "game_types": sorted(session["game_types"]),
+                    "modes": sorted(session["modes"]),
+                    "completed": "first_game_completed" in names,
+                    "errors": "game_error" in names,
+                    "event_names": sorted(names),
+                }
+            )
+        return Response({"window": "30d", "results": results})
