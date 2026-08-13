@@ -61,6 +61,16 @@ export function GamePage() {
   const [actionLog, setActionLog] = useState<TableAction[]>([]);
   const [showActionHistory, setShowActionHistory] = useState(false);
   const [thinkingPlayer, setThinkingPlayer] = useState("");
+  const [visibleCommunityCount, setVisibleCommunityCount] = useState(0);
+  const [visibleHoleCardCount, setVisibleHoleCardCount] = useState(0);
+  const [dealPulse, setDealPulse] = useState(0);
+  const [potPulse, setPotPulse] = useState(0);
+  const [turnSeconds, setTurnSeconds] = useState(18);
+  const [showdownRanks, setShowdownRanks] = useState<Record<string, string>>(
+    {},
+  );
+  const [payouts, setPayouts] = useState<Record<string, number>>({});
+  const [potAwarded, setPotAwarded] = useState(false);
   const [tablePlayers, setTablePlayers] = useState<
     Array<Record<string, unknown>>
   >([]);
@@ -74,6 +84,9 @@ export function GamePage() {
   const previousPokerPhase = useRef<string | null>(null);
   const settled = useRef(false);
   const invitationHandled = useRef(false);
+  const dealTimers = useRef<number[]>([]);
+  const holeDealTimers = useRef<number[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const accessToken = useGameStore((state) => state.accessToken);
   const userId =
     useGameStore((state) => state.user?.id || "") || tokenSubject(accessToken);
@@ -108,6 +121,7 @@ export function GamePage() {
   const holeCards = Array.isArray(myPokerPlayer?.cards)
     ? (myPokerPlayer.cards as Array<{ rank: number; suit: number }>)
     : [];
+  const renderedHoleCards = holeCards.slice(0, visibleHoleCardCount);
   const pokerWinners = Array.isArray(gameState?.winners)
     ? (gameState.winners as string[])
     : [];
@@ -120,6 +134,7 @@ export function GamePage() {
       : {};
   const revealedPlayers = Object.entries(revealedCards);
   const isPokerShowdown = isPoker && gameState?.phase === "showdown";
+  const renderedCommunityCards = communityCards.slice(0, visibleCommunityCount);
   const winnerNames = pokerWinners.map((winnerId) => {
     const player = tablePlayers.find(
       (item) => String(item.id || "") === winnerId,
@@ -143,6 +158,24 @@ export function GamePage() {
   const socketUrl =
     import.meta.env.VITE_WS_URL ||
     `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
+
+  const playFeedback = useCallback((kind: "deal" | "chip" | "win") => {
+    if (typeof window === "undefined" || !window.AudioContext) return;
+    const context =
+      audioContextRef.current || (audioContextRef.current = new AudioContext());
+    if (context.state === "suspended") void context.resume();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const frequencies = { deal: 520, chip: 180, win: 760 };
+    oscillator.frequency.value = frequencies[kind];
+    oscillator.type = kind === "chip" ? "triangle" : "sine";
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.035, context.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.13);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.14);
+  }, []);
 
   useEffect(() => {
     if (!invitation || !accessToken || invitationHandled.current) return;
@@ -195,6 +228,78 @@ export function GamePage() {
           if (state?.game_state) {
             const phase = String(state.game_state.phase || "");
             setGameState(state.game_state);
+            if (phase === "showdown") {
+              setShowdownRanks(
+                (state.game_state.hand_ranks as Record<string, string>) || {},
+              );
+              setPayouts(
+                (state.game_state.payouts as Record<string, number>) || {},
+              );
+            }
+            if (
+              phase === "preflop" &&
+              previousPokerPhase.current === "showdown"
+            ) {
+              setShowdownRanks({});
+              setPayouts({});
+              setPotAwarded(false);
+            }
+            const nextHoleLength = Array.isArray(
+              (
+                state.game_state.players as
+                  Array<Record<string, unknown>> | undefined
+              )?.find((player) => String(player.id || "") === userId)?.cards,
+            )
+              ? (
+                  (
+                    state.game_state.players as Array<Record<string, unknown>>
+                  ).find((player) => String(player.id || "") === userId)
+                    ?.cards as unknown[]
+                ).length
+              : 0;
+            if (
+              previousPokerPhase.current === "showdown" &&
+              phase === "preflop"
+            ) {
+              dealTimers.current.forEach((timer) => window.clearTimeout(timer));
+              dealTimers.current = [];
+              setVisibleCommunityCount(0);
+              holeDealTimers.current.forEach((timer) =>
+                window.clearTimeout(timer),
+              );
+              holeDealTimers.current = [];
+              setVisibleHoleCardCount(0);
+            } else if (previousPokerPhase.current === null) {
+              setVisibleCommunityCount(0);
+              setVisibleHoleCardCount(0);
+              for (let index = 0; index < nextHoleLength; index += 1) {
+                const timer = window.setTimeout(
+                  () => {
+                    setVisibleHoleCardCount(index + 1);
+                  },
+                  300 * (index + 1),
+                );
+                holeDealTimers.current.push(timer);
+              }
+            } else if (
+              phase === "preflop" &&
+              nextHoleLength > visibleHoleCardCount
+            ) {
+              holeDealTimers.current.forEach((timer) =>
+                window.clearTimeout(timer),
+              );
+              holeDealTimers.current = [];
+              setVisibleHoleCardCount(0);
+              for (let index = 0; index < nextHoleLength; index += 1) {
+                const timer = window.setTimeout(
+                  () => {
+                    setVisibleHoleCardCount(index + 1);
+                  },
+                  300 * (index + 1),
+                );
+                holeDealTimers.current.push(timer);
+              }
+            }
             if (phase !== "showdown") {
               settled.current = false;
               if (
@@ -219,6 +324,33 @@ export function GamePage() {
             });
           setConnectionState("connected");
         }
+        if (payload.type === "sync" && Array.isArray(payload.payload)) {
+          const missed = payload.payload as Array<{
+            action?: string;
+            player_id?: string;
+            sequence?: number;
+            payload?: { amount?: number; phase?: string; pot_after?: number };
+          }>;
+          setActionLog((current) => {
+            const existing = new Set(current.map((entry) => entry.id));
+            const replayed = missed
+              .filter(
+                (event) => !["result", "thinking"].includes(event.action || ""),
+              )
+              .map((event) => ({
+                id: `${event.sequence || Date.now()}-${event.player_id || "table"}`,
+                playerId: event.player_id || "",
+                action: event.action || "action",
+                amount: event.payload?.amount,
+                phase: event.payload?.phase,
+                potAfter: event.payload?.pot_after,
+              }))
+              .filter((entry) => !existing.has(entry.id));
+            return [...current, ...replayed].slice(-8);
+          });
+          setLastAction("Reprise de la table");
+          setGameConnectionError("");
+        }
         if (payload.type === "action") {
           const details = (
             payload.payload && typeof payload.payload === "object"
@@ -231,14 +363,66 @@ export function GamePage() {
             pot_after?: number;
             winners?: string[];
             pot?: number;
+            community?: Array<{ rank: number; suit: number }>;
+            hand_ranks?: Record<string, string>;
+            payouts?: Record<string, number>;
           };
           const action = payload.action || details.action || "action";
+          const presentationOnly = [
+            "private_card_dealt",
+            "hand_started",
+            "dealer_button_moved",
+            "blind_posted",
+          ].includes(action);
+          if (action === "private_card_dealt" && payload.player_id === userId) {
+            const index = Number(
+              (details as { index?: number }).index ?? visibleHoleCardCount,
+            );
+            setVisibleHoleCardCount((current) => Math.max(current, index + 1));
+            setDealPulse((value) => value + 1);
+            playFeedback("deal");
+          }
+          if (action === "showdown") {
+            setShowdownRanks(details.hand_ranks || {});
+            setPayouts(details.payouts || {});
+            setPotAwarded(false);
+            window.setTimeout(() => setPotAwarded(true), 900);
+          }
+          if (action === "new_hand") {
+            setShowdownRanks({});
+            setPayouts({});
+            setPotAwarded(false);
+          }
           if (action === "thinking") {
             setThinkingPlayer(payload.player_id || "");
           } else {
             setThinkingPlayer("");
             setLastAction(actionLabel(action));
-            if (action !== "result") {
+            if (action === "street_changed") {
+              const dealtCount = Array.isArray(details.community)
+                ? details.community.length
+                : 0;
+              const startCount = Math.min(visibleCommunityCount, dealtCount);
+              dealTimers.current.forEach((timer) => window.clearTimeout(timer));
+              dealTimers.current = [];
+              setVisibleCommunityCount(startCount);
+              setDealPulse((value) => value + 1);
+              for (let index = startCount; index < dealtCount; index += 1) {
+                const timer = window.setTimeout(
+                  () => {
+                    setVisibleCommunityCount(index + 1);
+                  },
+                  260 * (index - startCount + 1),
+                );
+                dealTimers.current.push(timer);
+              }
+            }
+            if (["bet", "raise", "call", "all_in"].includes(action)) {
+              setPotPulse((value) => value + 1);
+              playFeedback("chip");
+            }
+            if (action === "showdown") playFeedback("win");
+            if (action !== "result" && !presentationOnly) {
               setActionLog((current) => [
                 ...current.slice(-7),
                 {
@@ -310,8 +494,34 @@ export function GamePage() {
         setGameConnectionError(t("game.invalidTableResponse"));
       }
     },
-    [accessToken, demoAi, engineTableId, gameType, t, userId],
+    [
+      accessToken,
+      demoAi,
+      engineTableId,
+      gameType,
+      t,
+      userId,
+      visibleCommunityCount,
+      visibleHoleCardCount,
+      playFeedback,
+    ],
   );
+
+  useEffect(() => {
+    return () => {
+      dealTimers.current.forEach((timer) => window.clearTimeout(timer));
+      holeDealTimers.current.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  useEffect(() => {
+    setTurnSeconds(isMyTurn ? 18 : 12);
+    if (!isMyTurn || !gameState || isPokerShowdown) return;
+    const timer = window.setInterval(() => {
+      setTurnSeconds((seconds) => (seconds <= 1 ? 0 : seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [gameState, isMyTurn, isPokerShowdown, currentPlayerId]);
   const handleSocketOpen = useCallback(
     (socket: WebSocket) => {
       setConnectionState("connected");
@@ -611,7 +821,12 @@ export function GamePage() {
             <div className="showdown-hands">
               {revealedPlayers.map(([playerId, cards]) => (
                 <div className="showdown-hand" key={playerId}>
-                  <strong>{nameForPlayer(playerId)}</strong>
+                  <strong>
+                    {nameForPlayer(playerId)}
+                    {showdownRanks[playerId]
+                      ? ` · ${showdownRanks[playerId]}`
+                      : ""}
+                  </strong>
                   <div className="showdown-cards">
                     {cards.map((card, index) => (
                       <PlayingCard
@@ -620,6 +835,11 @@ export function GamePage() {
                       />
                     ))}
                   </div>
+                  {payouts[playerId] ? (
+                    <span className="showdown-payout">
+                      +{payouts[playerId]} jetons
+                    </span>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -737,7 +957,7 @@ export function GamePage() {
             tablePlayers[0]?.name || (demoAi ? "IA Démo · Tovo" : "Tovo"),
           )}
           chips={String(tablePlayers[0]?.stack || "8 420")}
-          active={currentPlayerIndex === 0}
+          active={currentPlayerId === String(tablePlayers[0]?.id || "")}
           folded={Boolean(tablePlayers[0]?.folded)}
         />
         <PlayerSeat
@@ -746,7 +966,7 @@ export function GamePage() {
             tablePlayers[1]?.name || (demoAi ? "IA Démo · Rija" : "Rija"),
           )}
           chips={String(tablePlayers[1]?.stack || "12 100")}
-          active={currentPlayerIndex === 1}
+          active={currentPlayerId === String(tablePlayers[1]?.id || "")}
           folded={Boolean(tablePlayers[1]?.folded)}
         />
         <PlayerSeat
@@ -755,26 +975,40 @@ export function GamePage() {
             tablePlayers[2]?.name || (demoAi ? "IA Démo · Saholy" : "Saholy"),
           )}
           chips={String(tablePlayers[2]?.stack || "6 750")}
-          active={currentPlayerIndex === 2}
+          active={currentPlayerId === String(tablePlayers[2]?.id || "")}
           folded={Boolean(tablePlayers[2]?.folded)}
         />
-        <div className="pot">
+        <div
+          className={`pot ${potPulse ? "pot-pulse" : ""} ${potAwarded ? "pot-awarded" : ""}`}
+          key={`pot-${potPulse}-${potAwarded}`}
+        >
           {t("game.pot")} <strong>{String(gameState?.pot ?? 0)}</strong>
         </div>
-        <div className="community-cards">
-          {(communityCards.length
-            ? communityCards
+        <div
+          className={`community-cards ${dealPulse ? "community-dealing" : ""}`}
+          key={`deal-${dealPulse}`}
+        >
+          {(renderedCommunityCards.length
+            ? renderedCommunityCards
             : [null, null, null, null, null]
-          ).map((card, index) =>
-            card ? (
-              <PlayingCard
-                key={`${card.suit}-${card.rank}-${index}`}
-                {...cardView(card)}
-              />
-            ) : (
-              <PlayingCard key={`empty-${index}`} value="?" suit="" hidden />
-            ),
-          )}
+          )
+            .concat(
+              Array.from(
+                { length: Math.max(0, 5 - renderedCommunityCards.length) },
+                () => null,
+              ),
+            )
+            .slice(0, 5)
+            .map((card, index) =>
+              card ? (
+                <PlayingCard
+                  key={`${card.suit}-${card.rank}-${index}`}
+                  {...cardView(card)}
+                />
+              ) : (
+                <PlayingCard key={`empty-${index}`} value="?" suit="" hidden />
+              ),
+            )}
         </div>
         <div className="you-seat">
           <div className="you-avatar">M</div>
@@ -784,8 +1018,8 @@ export function GamePage() {
           </div>
         </div>
         <div className="hole-cards">
-          {(holeCards.length
-            ? holeCards
+          {(renderedHoleCards.length
+            ? renderedHoleCards
             : [
                 { rank: 0, suit: 0 },
                 { rank: 0, suit: 0 },
@@ -804,7 +1038,9 @@ export function GamePage() {
       </div>
       <div className="game-controls">
         <div className="turn-state">
-          <span className="timer">00:18</span>
+          <span className={`timer ${turnSeconds <= 5 ? "timer-warning" : ""}`}>
+            00:{String(turnSeconds).padStart(2, "0")}
+          </span>
           <div>
             <strong>
               {isMyTurn ? t("game.yourTurnAction") : "Tour des bots"}

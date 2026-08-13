@@ -1555,6 +1555,9 @@ h3 {
   margin-top: 4px;
   color: #fff;
 }
+.pot-pulse strong {
+  animation: pot-pulse 0.55s ease;
+}
 .community-cards {
   position: absolute;
   top: 191px;
@@ -1562,6 +1565,9 @@ h3 {
   transform: translateX(-50%);
   display: flex;
   gap: 6px;
+}
+.community-dealing .playing-card {
+  animation: card-deal 0.42s cubic-bezier(0.2, 0.8, 0.25, 1) both;
 }
 .playing-card {
   display: grid;
@@ -1633,6 +1639,21 @@ h3 {
 }
 .hole-cards .playing-card:first-child {
   transform: rotate(-8deg);
+}
+.hole-cards .playing-card:nth-child(2) {
+  animation-delay: 0.28s;
+}
+.hole-cards::before {
+  content: "";
+  position: absolute;
+  width: 36px;
+  height: 54px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #29475a, #132635);
+  border: 1px solid rgba(211, 176, 107, 0.42);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  pointer-events: none;
 }
 .hole-cards .playing-card:hover,
 .playing-card.selected {
@@ -1859,6 +1880,12 @@ h3 {
 .showdown-cards .playing-card b {
   font-size: 10px;
 }
+.showdown-payout {
+  display: block;
+  margin-top: 4px;
+  color: var(--green) !important;
+  font: 10px var(--mono) !important;
+}
 .showdown-hands {
   display: grid;
   gap: 8px;
@@ -1886,6 +1913,10 @@ h3 {
   background: rgba(211, 176, 107, 0.12);
   color: var(--gold) !important;
   font: 12px var(--mono) !important;
+}
+.timer-warning {
+  color: #f08d74 !important;
+  animation: timer-warning 0.8s ease-in-out infinite;
 }
 .action-row {
   display: flex;
@@ -1915,6 +1946,43 @@ h3 {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+@keyframes timer-warning {
+  50% {
+    transform: scale(1.08);
+    background: rgba(240, 141, 116, 0.18);
+  }
+}
+@keyframes pot-pulse {
+  0% {
+    transform: scale(1);
+    color: #fff;
+  }
+  45% {
+    transform: scale(1.16);
+    color: var(--gold);
+  }
+  100% {
+    transform: scale(1);
+    color: #fff;
+  }
+}
+@keyframes pot-awarded {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    color: var(--gold);
+  }
+  100% {
+    transform: scale(0.96);
+    opacity: 0.75;
+  }
+}
+.pot-awarded strong {
+  animation: pot-awarded 0.9s ease;
 }
 @keyframes state-pulse {
   from {

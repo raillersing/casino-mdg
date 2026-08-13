@@ -133,6 +133,12 @@ func (h *Hand) blindSeats() (small, big int) {
 	return (h.Button + 1) % len(h.Players), (h.Button + 2) % len(h.Players)
 }
 
+// BlindSeatsForPresentation exposes the already-calculated blind positions to
+// the websocket presentation layer without duplicating seat rules there.
+func (h *Hand) BlindSeatsForPresentation() (small, big int) {
+	return h.blindSeats()
+}
+
 func NewShuffledHand(players []*Player) (*Hand, error) {
 	return NewHand(players, func(deck []Card) { rng.Shuffle(len(deck), func(i, j int) { deck[i], deck[j] = deck[j], deck[i] }) })
 }
@@ -390,6 +396,31 @@ func BestRank(cards []Card) int {
 		}
 	}
 	return best
+}
+
+// HandRankName returns the human-readable category represented by the
+// comparable category score used by the evaluator.
+func HandRankName(cards []Card) string {
+	switch BestRank(cards) {
+	case 8:
+		return "Quinte flush"
+	case 7:
+		return "Carré"
+	case 6:
+		return "Full"
+	case 5:
+		return "Couleur"
+	case 4:
+		return "Quinte"
+	case 3:
+		return "Brelan"
+	case 2:
+		return "Double paire"
+	case 1:
+		return "Paire"
+	default:
+		return "Carte haute"
+	}
 }
 func makeDeck() []Card {
 	deck := make([]Card, 0, 52)
