@@ -193,7 +193,7 @@ export function GamePage() {
     },
     [engineTableId, gameType, spectator],
   );
-  const { send } = useWebSocket(socketUrl, {
+  const { ws, send } = useWebSocket(socketUrl, {
     enabled: Boolean(engineTableId && accessToken && !demoAi),
     onOpen: handleSocketOpen,
     onConnectionStateChange: (state) => {
@@ -345,12 +345,15 @@ export function GamePage() {
   const leaveTable = () => {
     const leaveTableId = resolvedTableIdRef.current || engineTableId;
     if (leaveTableId && accessToken && !demoAi && !spectator) {
-      send({
+      const leaveMessage = {
         type: "leave",
         table_id: leaveTableId,
         sequence,
         timestamp: new Date().toISOString(),
-      });
+      };
+      if (ws.current?.readyState === WebSocket.OPEN)
+        ws.current.send(JSON.stringify(leaveMessage));
+      else send(leaveMessage);
     }
     navigate("/lobby");
   };
