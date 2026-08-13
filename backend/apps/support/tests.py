@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import User
 from apps.backoffice.models import AuditEvent
-from apps.support.models import PilotFeedback, SupportTicket
+from apps.support.models import PilotAction, PilotFeedback, SupportTicket
 
 
 class SupportTests(TestCase):
@@ -138,3 +138,49 @@ class SupportTests(TestCase):
         summary = client.get("/api/v1/support/feedback/summary/")
         self.assertEqual(summary.status_code, 200)
         self.assertEqual(summary.data["average_rating"], 5.0)
+
+    def test_staff_can_track_pilot_action_and_audit_status(self):
+        player = User.objects.create_user(
+            email="action-player@mdg.local",
+            phone="+261340000033",
+            display_name="Action Player",
+        )
+        ticket = SupportTicket.objects.create(
+            user=player,
+            category="game",
+            subject="Action liée",
+            description="Incident à traiter",
+        )
+        staff = User.objects.create_user(
+            email="action-staff@mdg.local",
+            phone="+261340000034",
+            display_name="Action Staff",
+            is_staff=True,
+        )
+        client = APIClient()
+        client.force_authenticate(staff)
+        created = client.post(
+            "/api/v1/support/pilot-actions/",
+            {
+                "title": "Corriger la reconnexion",
+                "source": "incident",
+                "incident_id": ticket.pk,
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201)
+        action = PilotAction.objects.get(pk=created.data["id"])
+        updated = client.patch(
+            f"/api/v1/support/pilot-actions/{action.pk}/",
+            {"status": "done"},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["status"], "done")
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                action="pilot_action.status_updated",
+                target_id=str(action.pk),
+                metadata={"from": "todo", "to": "done"},
+            ).exists()
+        )

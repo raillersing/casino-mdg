@@ -54,3 +54,34 @@ class PilotFeedback(models.Model):
     class Meta:
         db_table = "pilot_feedback"
         ordering = ["-created_at"]
+
+
+class PilotAction(models.Model):
+    STATUSES = [
+        ("todo", "À faire"),
+        ("in_progress", "En cours"),
+        ("done", "Terminé"),
+    ]
+    SOURCES = [("incident", "Incident"), ("feedback", "Feedback")]
+    title = models.CharField(max_length=160)
+    description = models.TextField(max_length=1000, blank=True)
+    source = models.CharField(max_length=20, choices=SOURCES, default="incident")
+    status = models.CharField(max_length=20, choices=STATUSES, default="todo")
+    incident = models.ForeignKey(
+        SupportTicket,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="pilot_actions",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="pilot_actions_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "pilot_actions"
+        ordering = ["-created_at"]

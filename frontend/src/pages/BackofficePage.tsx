@@ -13,12 +13,15 @@ import {
   getPilotParticipants,
   getPilotSessions,
   getModerationMessages,
+  getPilotActions,
   setModerationMessage,
+  updatePilotActionStatus,
   updatePilotIncidentStatus,
   updatePilotParticipantStatus,
   type PilotParticipant,
   type PilotSession,
   type ModerationMessage,
+  type PilotAction,
   type PilotIncident,
   type AuditEvent,
   type FeatureFlag,
@@ -58,6 +61,7 @@ export function BackofficePage() {
   const [moderationMessages, setModerationMessages] = useState<
     ModerationMessage[]
   >([]);
+  const [pilotActions, setPilotActions] = useState<PilotAction[]>([]);
   const [incidentUpdateError, setIncidentUpdateError] = useState("");
   const [error, setError] = useState("");
   const [productSummary, setProductSummary] = useState<{
@@ -98,6 +102,7 @@ export function BackofficePage() {
       getPilotParticipants(token),
       getPilotSessions(token),
       getModerationMessages(token),
+      getPilotActions(token),
     ])
       .then(
         ([
@@ -111,6 +116,7 @@ export function BackofficePage() {
           pilot,
           sessionReport,
           moderation,
+          actions,
         ]) => {
           setEvents(audit.results);
           setFlags(featureFlags.results);
@@ -122,6 +128,7 @@ export function BackofficePage() {
           setParticipants(pilot.results);
           setSessions(sessionReport.results);
           setModerationMessages(moderation.results);
+          setPilotActions(actions.results);
         },
       )
       .catch((reason: Error) => setError(reason.message));
@@ -180,6 +187,18 @@ export function BackofficePage() {
     setModerationMessages((current) =>
       current.map((item) =>
         item.id === message.id ? { ...item, hidden: updated.hidden } : item,
+      ),
+    );
+  };
+  const updateActionStatus = async (
+    actionId: number,
+    status: PilotAction["status"],
+  ) => {
+    if (!token) return;
+    const updated = await updatePilotActionStatus(token, actionId, status);
+    setPilotActions((current) =>
+      current.map((item) =>
+        item.id === actionId ? { ...item, status: updated.status } : item,
       ),
     );
   };
@@ -332,6 +351,33 @@ export function BackofficePage() {
             ))
           ) : (
             <div className="empty-wallet">Aucun message à modérer.</div>
+          )}
+        </section>
+        <section className="activity-card">
+          <div className="chat-head">Actions correctives · bilan pilote</div>
+          {pilotActions.length ? (
+            pilotActions.map((action) => (
+              <div className="activity-row" key={action.id}>
+                <div>
+                  <strong>{action.title}</strong>
+                  <span>{action.source} · {action.incident_id ? `incident #${action.incident_id}` : "sans incident"}</span>
+                  <small>{action.description || "Sans description"}</small>
+                </div>
+                <select
+                  aria-label={`Statut de l’action ${action.title}`}
+                  value={action.status}
+                  onChange={(event) =>
+                    void updateActionStatus(action.id, event.target.value as PilotAction["status"])
+                  }
+                >
+                  <option value="todo">À faire</option>
+                  <option value="in_progress">En cours</option>
+                  <option value="done">Terminé</option>
+                </select>
+              </div>
+            ))
+          ) : (
+            <div className="empty-wallet">Aucune action corrective enregistrée.</div>
           )}
         </section>
         <section className="activity-card">
