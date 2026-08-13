@@ -1492,6 +1492,10 @@ h3 {
   border-radius: 30px;
   background: rgba(0, 0, 0, 0.3);
   min-width: 110px;
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    opacity 0.22s ease;
 }
 .player-seat strong,
 .player-seat span {
@@ -1527,6 +1531,34 @@ h3 {
   font-weight: 700;
   font-size: 11px;
 }
+.seat-badge {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  display: grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 4px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  background: #2b2112;
+  color: var(--gold);
+  font: 8px var(--mono);
+  font-style: normal;
+}
+.seat-action-bubble {
+  position: absolute;
+  right: -10px;
+  top: -30px;
+  padding: 7px 9px;
+  border-radius: 12px 12px 12px 3px;
+  background: var(--gold);
+  color: #17120c;
+  font-size: 9px;
+  white-space: nowrap;
+  animation: action-bubble-in 0.25s ease both;
+}
 .seat-top {
   top: 40px;
   left: 50%;
@@ -1557,6 +1589,46 @@ h3 {
 }
 .pot-pulse strong {
   animation: pot-pulse 0.55s ease;
+}
+.chip-burst {
+  position: absolute;
+  left: 50%;
+  top: 25px;
+  color: var(--gold);
+  font-size: 12px;
+  letter-spacing: 4px;
+  transform: translateX(-50%);
+  animation: chips-to-pot 0.65s ease both;
+}
+.side-pots {
+  position: absolute;
+  top: 120px;
+  left: 50%;
+  display: flex;
+  gap: 5px;
+  transform: translateX(-50%);
+}
+.side-pots span {
+  padding: 4px 6px;
+  border: 1px solid rgba(211, 176, 107, 0.35);
+  border-radius: 10px;
+  color: var(--gold);
+  background: rgba(7, 17, 14, 0.68);
+  font: 8px var(--mono);
+}
+.table-emote {
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  z-index: 3;
+  padding: 9px 13px;
+  border-radius: 16px;
+  background: rgba(255, 248, 225, 0.94);
+  color: #2a2014;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  font-size: 12px;
+  transform: translateX(-50%);
+  animation: emote-in 1.8s ease both;
 }
 .community-cards {
   position: absolute;
@@ -1668,6 +1740,22 @@ h3 {
   justify-content: space-between;
   max-width: 850px;
   margin: 18px auto;
+}
+.table-feel-toolbar {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  max-width: 850px;
+  margin: -8px auto 14px;
+}
+.table-feel-toolbar button {
+  min-width: 34px;
+  padding: 6px 8px;
+  border: 1px solid rgba(211, 176, 107, 0.22);
+  border-radius: 8px;
+  background: rgba(9, 20, 18, 0.68);
+  color: var(--soft);
+  cursor: pointer;
 }
 .poker-status-strip {
   max-width: 850px;
@@ -1820,6 +1908,31 @@ h3 {
     transform: scale(0.72);
   }
 }
+@keyframes action-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes emote-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.9);
+  }
+  15%,
+  78% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -10px) scale(0.96);
+  }
+}
 .showdown-panel {
   max-width: 850px;
   margin: 16px auto -4px;
@@ -1965,6 +2078,20 @@ h3 {
   100% {
     transform: scale(1);
     color: #fff;
+  }
+}
+@keyframes chips-to-pot {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 22px) scale(0.7);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -7px) scale(0.85);
   }
 }
 @keyframes pot-awarded {

@@ -58,6 +58,7 @@ export function GamePage() {
   >("offline");
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
+  const [lastActionPlayer, setLastActionPlayer] = useState("");
   const [actionLog, setActionLog] = useState<TableAction[]>([]);
   const [showActionHistory, setShowActionHistory] = useState(false);
   const [thinkingPlayer, setThinkingPlayer] = useState("");
@@ -65,12 +66,20 @@ export function GamePage() {
   const [visibleHoleCardCount, setVisibleHoleCardCount] = useState(0);
   const [dealPulse, setDealPulse] = useState(0);
   const [potPulse, setPotPulse] = useState(0);
+  const [chipBursts, setChipBursts] = useState(0);
   const [turnSeconds, setTurnSeconds] = useState(18);
   const [showdownRanks, setShowdownRanks] = useState<Record<string, string>>(
     {},
   );
   const [payouts, setPayouts] = useState<Record<string, number>>({});
   const [potAwarded, setPotAwarded] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(
+    () => localStorage.getItem("mdg-poker-sound") !== "off",
+  );
+  const [motionEnabled, setMotionEnabled] = useState(
+    () => localStorage.getItem("mdg-poker-motion") !== "off",
+  );
+  const [emote, setEmote] = useState("");
   const [tablePlayers, setTablePlayers] = useState<
     Array<Record<string, unknown>>
   >([]);
@@ -78,6 +87,9 @@ export function GamePage() {
   const [gameState, setGameState] = useState<Record<string, unknown> | null>(
     null,
   );
+  const pots = Array.isArray(gameState?.pots)
+    ? (gameState.pots as Array<{ amount?: number; eligible?: string[] }>)
+    : [];
   const [resolvedTableId, setResolvedTableId] = useState("");
   const resolvedTableIdRef = useRef("");
   const sequenceRef = useRef(0);
@@ -159,23 +171,46 @@ export function GamePage() {
     import.meta.env.VITE_WS_URL ||
     `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
 
-  const playFeedback = useCallback((kind: "deal" | "chip" | "win") => {
-    if (typeof window === "undefined" || !window.AudioContext) return;
-    const context =
-      audioContextRef.current || (audioContextRef.current = new AudioContext());
-    if (context.state === "suspended") void context.resume();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    const frequencies = { deal: 520, chip: 180, win: 760 };
-    oscillator.frequency.value = frequencies[kind];
-    oscillator.type = kind === "chip" ? "triangle" : "sine";
-    gain.gain.setValueAtTime(0.0001, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.035, context.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.13);
-    oscillator.connect(gain).connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.14);
-  }, []);
+  const playFeedback = useCallback(
+    (kind: "deal" | "chip" | "win") => {
+      if (
+        !soundEnabled ||
+        typeof window === "undefined" ||
+        !window.AudioContext
+      )
+        return;
+      const context =
+        audioContextRef.current ||
+        (audioContextRef.current = new AudioContext());
+      if (context.state === "suspended") void context.resume();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const frequencies = { deal: 520, chip: 180, win: 760 };
+      oscillator.frequency.value = frequencies[kind];
+      oscillator.type = kind === "chip" ? "triangle" : "sine";
+      gain.gain.setValueAtTime(0.0001, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.035, context.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        context.currentTime + 0.13,
+      );
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.14);
+    },
+    [soundEnabled],
+  );
+
+  const updatePreference = (key: "sound" | "motion", enabled: boolean) => {
+    localStorage.setItem(`mdg-poker-${key}`, enabled ? "on" : "off");
+    if (key === "sound") setSoundEnabled(enabled);
+    else setMotionEnabled(enabled);
+  };
+
+  const sendEmote = (value: string) => {
+    setEmote(value);
+    window.setTimeout(() => setEmote(""), 1800);
+  };
 
   useEffect(() => {
     if (!invitation || !accessToken || invitationHandled.current) return;
@@ -398,6 +433,7 @@ export function GamePage() {
           } else {
             setThinkingPlayer("");
             setLastAction(actionLabel(action));
+            setLastActionPlayer(payload.player_id || "");
             if (action === "street_changed") {
               const dealtCount = Array.isArray(details.community)
                 ? details.community.length
@@ -419,6 +455,7 @@ export function GamePage() {
             }
             if (["bet", "raise", "call", "all_in"].includes(action)) {
               setPotPulse((value) => value + 1);
+              setChipBursts((value) => value + 1);
               playFeedback("chip");
             }
             if (action === "showdown") playFeedback("win");
@@ -792,7 +829,12 @@ export function GamePage() {
           <strong>
             {pokerPhaseLabel(String(gameState.phase || "preflop"))}
           </strong>
+          <span>
+            Blinds {String(gameState.small_blind ?? 50)} /{" "}
+            {String(gameState.big_blind ?? 100)}
+          </span>
           <span>Pot {String(gameState.pot ?? 0)}</span>
+          <span>À suivre {Math.max(0, highestBet - myBet)}</span>
         </div>
       )}
       {isPokerShowdown && (
@@ -959,6 +1001,12 @@ export function GamePage() {
           chips={String(tablePlayers[0]?.stack || "8 420")}
           active={currentPlayerId === String(tablePlayers[0]?.id || "")}
           folded={Boolean(tablePlayers[0]?.folded)}
+          action={
+            lastAction && lastActionPlayer === String(tablePlayers[0]?.id || "")
+              ? lastAction
+              : ""
+          }
+          badge={badgeForSeat(tablePlayers[0], 0, gameState)}
         />
         <PlayerSeat
           pos="left"
@@ -968,6 +1016,12 @@ export function GamePage() {
           chips={String(tablePlayers[1]?.stack || "12 100")}
           active={currentPlayerId === String(tablePlayers[1]?.id || "")}
           folded={Boolean(tablePlayers[1]?.folded)}
+          action={
+            lastAction && lastActionPlayer === String(tablePlayers[1]?.id || "")
+              ? lastAction
+              : ""
+          }
+          badge={badgeForSeat(tablePlayers[1], 1, gameState)}
         />
         <PlayerSeat
           pos="right"
@@ -977,15 +1031,26 @@ export function GamePage() {
           chips={String(tablePlayers[2]?.stack || "6 750")}
           active={currentPlayerId === String(tablePlayers[2]?.id || "")}
           folded={Boolean(tablePlayers[2]?.folded)}
+          action={
+            lastAction && lastActionPlayer === String(tablePlayers[2]?.id || "")
+              ? lastAction
+              : ""
+          }
+          badge={badgeForSeat(tablePlayers[2], 2, gameState)}
         />
         <div
           className={`pot ${potPulse ? "pot-pulse" : ""} ${potAwarded ? "pot-awarded" : ""}`}
           key={`pot-${potPulse}-${potAwarded}`}
         >
           {t("game.pot")} <strong>{String(gameState?.pot ?? 0)}</strong>
+          {chipBursts > 0 && (
+            <span className="chip-burst" key={chipBursts} aria-hidden="true">
+              ● ● ●
+            </span>
+          )}
         </div>
         <div
-          className={`community-cards ${dealPulse ? "community-dealing" : ""}`}
+          className={`community-cards ${dealPulse && motionEnabled ? "community-dealing" : ""}`}
           key={`deal-${dealPulse}`}
         >
           {(renderedCommunityCards.length
@@ -1010,6 +1075,16 @@ export function GamePage() {
               ),
             )}
         </div>
+        {emote && <div className="table-emote">{emote}</div>}
+        {pots.length > 1 && (
+          <div className="side-pots" aria-label="Pots de la table">
+            {pots.map((pot, index) => (
+              <span key={`pot-${index}`}>
+                Pot {index + 1} · {pot.amount ?? 0}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="you-seat">
           <div className="you-avatar">M</div>
           <div>
@@ -1098,6 +1173,31 @@ export function GamePage() {
           />
         )}
       </div>
+      {isPoker && (
+        <div className="table-feel-toolbar" aria-label="Réglages de la table">
+          <button type="button" onClick={() => sendEmote("Bien joué !")}>
+            👏
+          </button>
+          <button type="button" onClick={() => sendEmote("Oups…")}>
+            😅
+          </button>
+          <button type="button" onClick={() => sendEmote("Bluff ?")}>
+            🧐
+          </button>
+          <button
+            type="button"
+            onClick={() => updatePreference("sound", !soundEnabled)}
+          >
+            {soundEnabled ? "🔊" : "🔇"}
+          </button>
+          <button
+            type="button"
+            onClick={() => updatePreference("motion", !motionEnabled)}
+          >
+            {motionEnabled ? "✨" : "◌"}
+          </button>
+        </div>
+      )}
       <div className="game-bottom">
         <div className="chat-box">
           <div className="chat-head">
@@ -1175,12 +1275,16 @@ function PlayerSeat({
   chips,
   active = false,
   folded = false,
+  action = "",
+  badge = "",
 }: {
   pos: string;
   name: string;
   chips: string;
   active?: boolean;
   folded?: boolean;
+  action?: string;
+  badge?: string;
 }) {
   return (
     <div
@@ -1191,8 +1295,29 @@ function PlayerSeat({
         <strong>{name}</strong>
         <span>{chips}</span>
       </div>
+      {badge && <i className="seat-badge">{badge}</i>}
+      {action && <b className="seat-action-bubble">{action}</b>}
     </div>
   );
+}
+
+function badgeForSeat(
+  player: Record<string, unknown> | undefined,
+  index: number,
+  state: Record<string, unknown> | null,
+) {
+  if (!player || !state) return "";
+  const button = Number(state.button ?? -1);
+  if (index === button) return "D";
+  const count = Array.isArray(state.players) ? state.players.length : 0;
+  if (count === 2) {
+    if (index === (button + 1) % count) return "SB";
+    if (index === button) return "BB";
+  } else {
+    if (index === (button + 1) % count) return "SB";
+    if (index === (button + 2) % count) return "BB";
+  }
+  return "";
 }
 function PlayingCard({
   value,
