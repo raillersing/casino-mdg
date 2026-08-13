@@ -259,6 +259,7 @@
     "winner": "Gagnant",
     "handComplete": "Main terminée",
     "revealedCards": "Les cartes des joueurs encore en lice sont révélées.",
+    "finalBoard": "Table finale",
     "newHand": "Nouvelle main",
     "waitingForActions": "En attente des actions de la table…",
     "viewHistory": "Voir l’historique",

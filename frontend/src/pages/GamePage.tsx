@@ -71,6 +71,7 @@ export function GamePage() {
   const [resolvedTableId, setResolvedTableId] = useState("");
   const resolvedTableIdRef = useRef("");
   const sequenceRef = useRef(0);
+  const previousPokerPhase = useRef<string | null>(null);
   const settled = useRef(false);
   const invitationHandled = useRef(false);
   const accessToken = useGameStore((state) => state.accessToken);
@@ -110,6 +111,14 @@ export function GamePage() {
   const pokerWinners = Array.isArray(gameState?.winners)
     ? (gameState.winners as string[])
     : [];
+  const revealedCards =
+    gameState?.revealed_cards && typeof gameState.revealed_cards === "object"
+      ? (gameState.revealed_cards as Record<
+          string,
+          Array<{ rank: number; suit: number }>
+        >)
+      : {};
+  const revealedPlayers = Object.entries(revealedCards);
   const isPokerShowdown = isPoker && gameState?.phase === "showdown";
   const winnerNames = pokerWinners.map((winnerId) => {
     const player = tablePlayers.find(
@@ -131,7 +140,9 @@ export function GamePage() {
       player?.name || (playerId === userId ? t("game.you") : playerId),
     );
   };
-  const socketUrl = `${import.meta.env.VITE_WS_URL || "ws://localhost:8080"}/ws`;
+  const socketUrl =
+    import.meta.env.VITE_WS_URL ||
+    `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
 
   useEffect(() => {
     if (!invitation || !accessToken || invitationHandled.current) return;
@@ -182,14 +193,19 @@ export function GamePage() {
             setTablePlayers(publicPlayers);
           }
           if (state?.game_state) {
+            const phase = String(state.game_state.phase || "");
             setGameState(state.game_state);
-            if (state.game_state.phase !== "showdown") {
+            if (phase !== "showdown") {
               settled.current = false;
-              if (state.game_state.phase === "preflop") {
+              if (
+                phase === "preflop" &&
+                previousPokerPhase.current !== "preflop"
+              ) {
                 setActionLog([]);
                 setShowActionHistory(false);
               }
             }
+            previousPokerPhase.current = phase;
           }
           if (
             demoAi &&
@@ -338,8 +354,8 @@ export function GamePage() {
   });
 
   useEffect(() => {
-    if (demoAi) setConnectionState("connected");
-    else if (tableId && accessToken) setConnectionState("connecting");
+    if (tableId && accessToken) setConnectionState("connecting");
+    else if (demoAi) setConnectionState("offline");
   }, [accessToken, demoAi, tableId]);
 
   useEffect(() => {
@@ -581,6 +597,32 @@ export function GamePage() {
             <span>
               {t("game.revealedCards")} · Pot {String(gameState?.pot ?? 0)}
             </span>
+            <div className="showdown-board" aria-label={t("game.finalBoard")}>
+              <strong>{t("game.finalBoard")}</strong>
+              <div className="showdown-cards">
+                {communityCards.map((card, index) => (
+                  <PlayingCard
+                    key={`showdown-board-${index}`}
+                    {...cardView(card)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="showdown-hands">
+              {revealedPlayers.map(([playerId, cards]) => (
+                <div className="showdown-hand" key={playerId}>
+                  <strong>{nameForPlayer(playerId)}</strong>
+                  <div className="showdown-cards">
+                    {cards.map((card, index) => (
+                      <PlayingCard
+                        key={`${playerId}-${index}`}
+                        {...cardView(card)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
           {!spectator && (
             <button
@@ -595,7 +637,7 @@ export function GamePage() {
           )}
         </div>
       )}
-      {isPoker && !isPokerShowdown && (
+      {isPoker && (
         <div className="poker-live-panel">
           <div className="poker-turn-banner">
             <span className={thinkingPlayer ? "thinking-dot" : "turn-dot"} />
@@ -945,6 +987,11 @@ function PlayingCard({
 function cardView(card: { rank: number; suit: number }) {
   const suits = ["♣", "♦", "♥", "♠"];
   const ranks: Record<number, string> = {
+    2: "2",
+    3: "3",
+    4: "4",
+    5: "5",
+    6: "6",
     7: "7",
     8: "8",
     9: "9",

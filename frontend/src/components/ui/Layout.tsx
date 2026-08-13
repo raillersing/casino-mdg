@@ -14,13 +14,15 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
-import { getCurrentUser } from "@services/auth";
+import { getCurrentUser, refreshAccessToken } from "@services/auth";
 import { useGameStore } from "@stores/gameStore";
 
 export function Layout({ children }: { children: ReactNode }) {
   const user = useGameStore((state) => state.user);
   const accessToken = useGameStore((state) => state.accessToken);
+  const refreshToken = useGameStore((state) => state.refreshToken);
   const setUser = useGameStore((state) => state.setUser);
+  const setSession = useGameStore((state) => state.setSession);
   const logout = useGameStore((state) => state.logout);
   const { i18n, t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -58,8 +60,16 @@ export function Layout({ children }: { children: ReactNode }) {
           isStaff: current.is_staff,
         }),
       )
-      .catch(() => logout());
-  }, [accessToken, logout, setUser, user]);
+      .catch(() => {
+        if (!refreshToken) {
+          logout();
+          return;
+        }
+        void refreshAccessToken(refreshToken)
+          .then((session) => setSession(session.access, session.refresh))
+          .catch(() => logout());
+      });
+  }, [accessToken, logout, refreshToken, setSession, setUser, user]);
 
   return (
     <div className="app-shell">

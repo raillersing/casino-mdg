@@ -57,3 +57,15 @@ export function getCurrentUser(token: string) {
     };
   });
 }
+
+export function refreshAccessToken(refresh: string) {
+  return fetch("/api/v1/auth/refresh/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh }),
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || "Session expirée.");
+    return payload as { access: string; refresh: string };
+  });
+}

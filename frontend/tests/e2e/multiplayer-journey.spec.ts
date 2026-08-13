@@ -125,9 +125,57 @@ async function stubGameApis(page: Page) {
               this.onmessage?.(
                 new MessageEvent("message", {
                   data: JSON.stringify({
+                    type: "state",
+                    sequence: 8,
+                    payload: {
+                      players: [
+                        {
+                          id: "e2e-user",
+                          name: "Miora",
+                          stack: 10200,
+                          is_bot: false,
+                        },
+                        {
+                          id: "poker-bot-1",
+                          name: "IA Démo · Tovo",
+                          stack: 9800,
+                          is_bot: true,
+                        },
+                      ],
+                      game_state: {
+                        players: [],
+                        community: [
+                          { rank: 2, suit: 0 },
+                          { rank: 5, suit: 1 },
+                          { rank: 9, suit: 2 },
+                          { rank: 11, suit: 3 },
+                          { rank: 14, suit: 0 },
+                        ],
+                        pot: 500,
+                        current: -1,
+                        phase: "showdown",
+                        winners: ["e2e-user"],
+                        revealed_cards: {
+                          "e2e-user": [
+                            { rank: 2, suit: 1 },
+                            { rank: 2, suit: 2 },
+                          ],
+                          "poker-bot-1": [
+                            { rank: 13, suit: 0 },
+                            { rank: 12, suit: 0 },
+                          ],
+                        },
+                      },
+                    },
+                  }),
+                }),
+              );
+              this.onmessage?.(
+                new MessageEvent("message", {
+                  data: JSON.stringify({
                     type: "action",
                     action: "showdown",
-                    sequence: 7,
+                    sequence: 9,
                     payload: {
                       winners: ["e2e-user"],
                       pot: 500,
@@ -335,6 +383,17 @@ test("shows bot actions with amount and pot in the live action log", async ({
     "Historique de la main",
   );
   await expect(page.locator(".action-history")).toContainText("Suit");
+  await expect(page.locator(".showdown-panel")).toContainText("Table finale");
+  await expect(page.locator(".showdown-panel")).toContainText("2");
+  await expect(page.locator(".showdown-panel")).toContainText("K");
+});
+
+test("keeps poker actions visible across state updates", async ({ page }) => {
+  await stubGameApis(page);
+  await page.goto("/game/poker/EMERALD-01");
+  await expectCanonicalJoin(page);
+  await expect(page.locator(".action-log")).toContainText("Suit");
+  await expect(page.locator(".action-log")).toContainText("Flop distribué");
 });
 
 test("joins a table, sends leave, and returns to the lobby", async ({
@@ -421,5 +480,5 @@ test("reconnects the table socket after a transient disconnect", async ({
   expect(messages.some((message) => message.type === "sync")).toBeTruthy();
   expect(
     messages.filter((message) => message.type === "join").at(-1),
-  ).toMatchObject({ sequence: 7 });
+  ).toMatchObject({ sequence: 9 });
 });
