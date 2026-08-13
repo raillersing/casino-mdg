@@ -225,6 +225,8 @@
     "leaveTable": "Miala amin'ny latabatra",
     "inProgress": "Lalao mandeha",
     "inviteFriend": "Asao ny namana",
+    "sendMessage": "Alefa ny hafatra",
+    "copyInvitation": "Adikao ny rohy fanasana",
     "pot": "POT",
     "you": "Ianao",
     "yourTurnAction": "Anjaranao izao",
@@ -484,6 +486,8 @@
     "notificationsError": "Tsy afaka mitahiry ity safidy ity.",
     "openProfile": "Sokafy ny mombamomba",
     "openMenu": "Sokafy ny sakafo",
+    "closeMenu": "Hidio ny sakafo",
+    "primaryNavigation": "Fitetezana lehibe",
     "close": "Hakatona"
   }
 }

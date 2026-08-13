@@ -239,6 +239,8 @@
     "leaveTable": "Quitter la table",
     "inProgress": "Partie en cours",
     "inviteFriend": "Inviter un ami",
+    "sendMessage": "Envoyer le message",
+    "copyInvitation": "Copier le lien d’invitation",
     "pot": "POT",
     "you": "Vous",
     "yourTurnAction": "À vous de jouer",
@@ -485,6 +487,8 @@
     "notificationsError": "Impossible d’enregistrer cette préférence.",
     "openProfile": "Ouvrir le profil",
     "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
+    "primaryNavigation": "Navigation principale",
     "close": "Fermer"
   }
 }

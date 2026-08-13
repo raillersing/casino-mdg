@@ -499,6 +499,7 @@ export function GamePage() {
           className="icon-button"
           onClick={inviteFriend}
           title={t("game.inviteFriend")}
+          aria-label={t("game.inviteFriend")}
         >
           <Users size={18} />
         </button>
@@ -847,7 +848,11 @@ export function GamePage() {
                 if (event.key === "Enter") void sendMessage();
               }}
             />
-            <button onClick={() => void sendMessage()}>
+            <button
+              type="button"
+              onClick={() => void sendMessage()}
+              aria-label={t("game.sendMessage")}
+            >
               <Send size={15} />
             </button>
           </div>
@@ -856,6 +861,7 @@ export function GamePage() {
             <button
               className="text-link"
               onClick={() => void navigator.clipboard?.writeText(invite)}
+              aria-label={t("game.copyInvitation")}
             >
               <Copy size={14} /> {t("game.invitationCopied")}
             </button>
