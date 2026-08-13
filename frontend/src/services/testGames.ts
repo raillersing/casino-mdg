@@ -58,6 +58,7 @@ async function request<T>(
     },
   });
   const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) throw new Error("AUTH_REQUIRED");
   if (!response.ok)
     throw new Error(payload.detail || "Service de jeu indisponible.");
   return payload as T;

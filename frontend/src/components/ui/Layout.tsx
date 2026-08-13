@@ -21,6 +21,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const user = useGameStore((state) => state.user);
   const accessToken = useGameStore((state) => state.accessToken);
   const setUser = useGameStore((state) => state.setUser);
+  const logout = useGameStore((state) => state.logout);
   const { i18n, t } = useTranslation();
   const navItems = [
     { to: "/", label: t("nav.home"), icon: Home },
@@ -47,8 +48,8 @@ export function Layout({ children }: { children: ReactNode }) {
           isStaff: current.is_staff,
         }),
       )
-      .catch(() => undefined);
-  }, [accessToken, setUser, user]);
+      .catch(() => logout());
+  }, [accessToken, logout, setUser, user]);
 
   return (
     <div className="app-shell">

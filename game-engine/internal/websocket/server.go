@@ -105,7 +105,9 @@ func (s *Server) AttachBots(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.startBotTurns(request.TableID)
+	// Bot turns start after the human joins and the hand is initialized. Starting
+	// here would race with the human join and could leave the table frozen on a
+	// bot's first turn.
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"status":"attached"}`))
 }
@@ -154,7 +156,6 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		name:       name,
 		botTableID: botTableID,
 	}
-
 	go s.writePump(client)
 	s.readPump(client)
 }
@@ -291,7 +292,13 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		if client.isBot {
 			_, err = s.roomManager.JoinBotPlayer(msg.TableID, client.playerID, name, len(table.Players)+1)
 		} else {
-			_, err = s.roomManager.JoinPlayer(msg.TableID, client.playerID, name, len(table.Players)+1)
+			// Bot sessions attach their AI seats first, but the human must own
+			// seat 0 so the initial hand starts with an immediately playable turn.
+			seat := len(table.Players) + 1
+			if len(table.Players) > 0 && allPlayersAreBots(table.Players) {
+				seat = 0
+			}
+			_, err = s.roomManager.JoinPlayer(msg.TableID, client.playerID, name, seat)
 		}
 		if err != nil {
 			s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: err.Error(), Timestamp: time.Now()})
@@ -316,6 +323,18 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 	s.sendMessage(client, &Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
 	s.persistSnapshot(msg.TableID)
 	s.startBotTurns(msg.TableID)
+}
+
+func allPlayersAreBots(players map[string]*room.Player) bool {
+	if len(players) == 0 {
+		return false
+	}
+	for _, player := range players {
+		if !player.IsBot {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) startBotTurns(tableID string) {
@@ -348,14 +367,28 @@ func publicGameState(state interface{}, playerID string) interface{} {
 	switch game := state.(type) {
 	case *poker.Hand:
 		players := make([]map[string]interface{}, 0, len(game.Players))
+		winners := make([]string, 0)
+		revealedCards := make(map[string][]poker.Card)
+		if game.Phase == "showdown" {
+			if resolved, ok := game.Winners(); ok {
+				for _, player := range resolved {
+					winners = append(winners, player.ID)
+				}
+			}
+			for _, player := range game.Players {
+				if !player.Folded {
+					revealedCards[player.ID] = player.Cards
+				}
+			}
+		}
 		for _, player := range game.Players {
 			cards := interface{}(nil)
-			if player.ID == playerID {
+			if player.ID == playerID || game.Phase == "showdown" && !player.Folded {
 				cards = player.Cards
 			}
 			players = append(players, map[string]interface{}{"id": player.ID, "stack": player.Stack, "bet": player.Bet, "cards": cards, "folded": player.Folded, "all_in": player.AllIn})
 		}
-		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "current": game.Current, "phase": game.Phase}
+		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "current": game.Current, "phase": game.Phase, "winners": winners, "revealed_cards": revealedCards}
 	case *belote.Round:
 		players := make([]map[string]interface{}, 0, len(game.Players))
 		for _, player := range game.Players {
@@ -430,15 +463,17 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 	} else {
 		s.broadcastToTable(msg.TableID, actionMessage)
 	}
-	if !replayed && msg.Action == "fold" {
+	if !replayed && tableGameType(s.roomManager, msg.TableID) == "poker" {
 		payouts, finished := s.roomManager.FinishedPokerPayouts(msg.TableID)
 		if finished {
-			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, tableGameType(s.roomManager, msg.TableID), "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
-			for winnerID, share := range payouts {
-				if winnerID == client.playerID {
-					continue
+			table, _ := s.roomManager.GetTable(msg.TableID)
+			for playerID := range table.Players {
+				share := payouts[playerID]
+				outcome := "loss"
+				if share > 0 {
+					outcome = "win"
 				}
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": share, "signature": signResult(s.config.ResultSecret, msg.TableID, tableGameType(s.roomManager, msg.TableID), "win", int(share))}, Sequence: event.Sequence, Timestamp: time.Now()})
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": outcome, "amount": share, "signature": signResult(s.config.ResultSecret, msg.TableID, "poker", outcome, int(share))}, Sequence: event.Sequence, Timestamp: time.Now()})
 			}
 		}
 	}
@@ -462,7 +497,49 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			}
 		}
 	}
+	if !replayed {
+		s.broadcastState(msg.TableID)
+		// A human action can hand the turn to an AI seat. Restarting the
+		// orchestrator here makes the demo table continue until it is the
+		// human's turn again (or the hand reaches showdown).
+		s.startBotTurns(msg.TableID)
+	}
 	s.persistSnapshot(msg.TableID)
+}
+
+// broadcastState sends a fresh, player-scoped snapshot after every accepted
+// action. Private hands stay private while board, turn and stack changes are
+// immediately visible to every connected client.
+func (s *Server) broadcastState(tableID string) {
+	table, ok := s.roomManager.GetTable(tableID)
+	if !ok {
+		return
+	}
+	tableSnapshot := map[string]interface{}{
+		"table_id": table.ID, "game_type": table.GameType,
+		"players": table.Players,
+	}
+	sequence := table.Sequence
+	state := table.State
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, client := range s.clients {
+		if client.tableID != tableID {
+			continue
+		}
+		payload := map[string]interface{}{
+			"table_id": tableSnapshot["table_id"], "game_type": tableSnapshot["game_type"],
+			"players": tableSnapshot["players"], "game_state": publicGameState(state, client.playerID),
+			"spectator": client.spectator,
+		}
+		data, err := json.Marshal(&Message{Type: MsgState, Payload: payload, Sequence: sequence, Timestamp: time.Now()})
+		if err == nil {
+			select {
+			case client.send <- data:
+			default:
+			}
+		}
+	}
 }
 
 func tableGameType(manager *room.Manager, tableID string) string {

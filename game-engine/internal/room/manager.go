@@ -270,7 +270,7 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 		if toCall == 0 {
 			return BotTurn{PlayerID: gamePlayer.ID, Action: "check", Sequence: table.Sequence}, true
 		}
-		if toCall <= gamePlayer.Stack {
+		if toCall <= gamePlayer.Stack && toCall > 0 {
 			return BotTurn{PlayerID: gamePlayer.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: table.Sequence}, true
 		}
 		return BotTurn{PlayerID: gamePlayer.ID, Action: "fold", Sequence: table.Sequence}, true
@@ -373,10 +373,22 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 	if !validActionForGame(table.GameType, action) {
 		return Event{}, false, fmt.Errorf("invalid action")
 	}
+	if table.GameType == "poker" && action == "new_hand" {
+		if err := startNextPokerHand(table); err != nil {
+			return Event{}, false, err
+		}
+		event := appendEvent(table, playerID, action, payload)
+		if eventID != "" {
+			event.ID = eventID
+			table.Events[len(table.Events)-1].ID = eventID
+		}
+		return event, false, nil
+	}
 	if table.GameType == "poker" && table.State != nil {
 		if err := applyPokerAction(table, playerID, action, payload); err != nil {
 			return Event{}, false, err
 		}
+		syncPokerSeats(table)
 	}
 	if table.GameType == "belote" && table.State != nil {
 		if err := applyBeloteAction(table, playerID, action, payload); err != nil {
@@ -609,6 +621,52 @@ func initializePokerHand(table *Table) error {
 	return nil
 }
 
+func startNextPokerHand(table *Table) error {
+	hand, ok := table.State.(*poker.Hand)
+	if !ok || hand.Phase != "showdown" {
+		return fmt.Errorf("poker hand is not finished")
+	}
+	if len(table.Players) < 2 {
+		return fmt.Errorf("poker requires at least two seated players")
+	}
+
+	payouts := hand.Payouts()
+	stacks := make(map[string]int64, len(hand.Players))
+	for _, player := range hand.Players {
+		stacks[player.ID] = player.Stack + payouts[player.ID]
+	}
+	seats := make([]*Player, 0, len(table.Players))
+	for _, player := range table.Players {
+		if stack, exists := stacks[player.ID]; exists {
+			player.Stack = stack
+		}
+		seats = append(seats, player)
+	}
+	sort.Slice(seats, func(i, j int) bool { return seats[i].Seat < seats[j].Seat })
+	players := make([]*poker.Player, 0, len(seats))
+	for _, player := range seats {
+		players = append(players, &poker.Player{ID: player.ID, Stack: player.Stack})
+	}
+	var next *poker.Hand
+	var err error
+	if table.Deterministic {
+		next, err = poker.NewHand(players, func([]poker.Card) {})
+	} else {
+		next, err = poker.NewShuffledHand(players)
+	}
+	if err != nil {
+		return err
+	}
+	next.Button = (hand.Button + 1) % len(players)
+	if table.Blinds {
+		if err := next.StartHand(hand.SmallBlind, hand.BigBlind); err != nil {
+			return err
+		}
+	}
+	table.State = next
+	return nil
+}
+
 func initializeBeloteRound(table *Table) error {
 	seats := make([]*Player, 0, len(table.Players))
 	for _, player := range table.Players {
@@ -690,6 +748,18 @@ func applyPokerAction(table *Table, playerID, action string, payload interface{}
 		}
 	}
 	return hand.Apply(index, poker.Action(action), amount)
+}
+
+func syncPokerSeats(table *Table) {
+	hand, ok := table.State.(*poker.Hand)
+	if !ok {
+		return
+	}
+	for _, player := range hand.Players {
+		if seat, exists := table.Players[player.ID]; exists {
+			seat.Stack = player.Stack
+		}
+	}
 }
 
 func applyBeloteAction(table *Table, playerID, action string, payload interface{}) error {
@@ -795,6 +865,9 @@ func validActionForGame(gameType, action string) bool {
 			return true
 		}
 		return false
+	}
+	if gameType == "poker" && action == "new_hand" {
+		return true
 	}
 	return validAction(action)
 }

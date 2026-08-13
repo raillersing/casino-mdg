@@ -33,10 +33,11 @@ export function GamePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const demoAi = searchParams.get("mode") === "demo_ai";
+  const demoTableId = searchParams.get("table_id") || "";
   const spectator = searchParams.get("mode") === "spectator";
   const invitation = searchParams.get("invite");
-  const [selected, setSelected] = useState("");
   const [message, setMessage] = useState("");
+  const [wager, setWager] = useState(800);
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [socialError, setSocialError] = useState("");
   const [invitationState, setInvitationState] = useState("");
@@ -61,8 +62,43 @@ export function GamePage() {
   const settled = useRef(false);
   const invitationHandled = useRef(false);
   const accessToken = useGameStore((state) => state.accessToken);
+  const userId = useGameStore((state) => state.user?.id || "") || tokenSubject(accessToken);
   const isPoker = gameType === "poker";
-  const engineTableId = resolvedTableId || tableId || "";
+  const engineTableId = resolvedTableId || demoTableId || tableId || "";
+  const statePlayers =
+    gameState && Array.isArray(gameState.players)
+      ? (gameState.players as Array<Record<string, unknown>>)
+      : [];
+  const currentPlayerIndex = statePlayers.findIndex(
+    (player) => String(player.id || "") === userId,
+  );
+  const isMyTurn =
+    Boolean(gameState) &&
+    currentPlayerIndex >= 0 &&
+    Number(gameState?.current) === currentPlayerIndex;
+  const myPokerPlayer = statePlayers.find(
+    (player) => String(player.id || "") === userId,
+  );
+  const highestBet = statePlayers.reduce(
+    (highest, player) => Math.max(highest, Number(player.bet || 0)),
+    0,
+  );
+  const myBet = Number(myPokerPlayer?.bet || 0);
+  const facingBet = highestBet > myBet;
+  const communityCards = Array.isArray(gameState?.community)
+    ? (gameState.community as Array<{ rank: number; suit: number }>)
+    : [];
+  const holeCards = Array.isArray(myPokerPlayer?.cards)
+    ? (myPokerPlayer.cards as Array<{ rank: number; suit: number }>)
+    : [];
+  const pokerWinners = Array.isArray(gameState?.winners)
+    ? (gameState.winners as string[])
+    : [];
+  const isPokerShowdown = isPoker && gameState?.phase === "showdown";
+  const winnerNames = pokerWinners.map((winnerId) => {
+    const player = tablePlayers.find((item) => String(item.id || "") === winnerId);
+    return String(player?.name || (winnerId === userId ? t("game.you") : winnerId));
+  });
   const socketUrl = `${import.meta.env.VITE_WS_URL || "ws://localhost:8080"}/ws`;
 
   useEffect(() => {
@@ -87,6 +123,7 @@ export function GamePage() {
         const payload = JSON.parse(event.data) as {
           type?: string;
           action?: string;
+          player_id?: string;
           outcome?: "win" | "loss" | "draw";
           amount?: number;
           sequence?: number;
@@ -100,11 +137,20 @@ export function GamePage() {
           const state = payload.payload as
             | { players?: unknown; game_state?: Record<string, unknown> }
             | undefined;
-          if (state && Array.isArray(state.players))
-            setPlayerCount(state.players.length);
-          if (state && Array.isArray(state.players))
-            setTablePlayers(state.players as Array<Record<string, unknown>>);
-          if (state?.game_state) setGameState(state.game_state);
+          const publicPlayers =
+            state && Array.isArray(state.players)
+              ? (state.players as Array<Record<string, unknown>>)
+              : state?.players && typeof state.players === "object"
+                ? Object.values(state.players as Record<string, Record<string, unknown>>)
+                : [];
+          if (publicPlayers.length) {
+            setPlayerCount(publicPlayers.length);
+            setTablePlayers(publicPlayers);
+          }
+          if (state?.game_state) {
+            setGameState(state.game_state);
+            if (state.game_state.phase !== "showdown") settled.current = false;
+          }
           if (
             demoAi &&
             state?.game_state &&
@@ -134,6 +180,7 @@ export function GamePage() {
         const signature = resultPayload.signature;
         if (
           (payload.type === "result" || payload.action === "result") &&
+          payload.player_id === userId &&
           outcome &&
           accessToken &&
           gameType &&
@@ -176,7 +223,7 @@ export function GamePage() {
         setGameConnectionError(t("game.invalidTableResponse"));
       }
     },
-    [accessToken, demoAi, engineTableId, gameType, t],
+    [accessToken, demoAi, engineTableId, gameType, t, userId],
   );
   const handleSocketOpen = useCallback(
     (socket: WebSocket) => {
@@ -206,12 +253,16 @@ export function GamePage() {
     },
     [engineTableId, gameType, spectator],
   );
+  const handleConnectionStateChange = useCallback(
+    (state: "connecting" | "connected" | "reconnecting" | "closed") => {
+      setConnectionState(state === "closed" ? "offline" : state);
+    },
+    [],
+  );
   const { ws, send } = useWebSocket(socketUrl, {
     enabled: Boolean(engineTableId && accessToken),
     onOpen: handleSocketOpen,
-    onConnectionStateChange: (state) => {
-      setConnectionState(state === "closed" ? "offline" : state);
-    },
+    onConnectionStateChange: handleConnectionStateChange,
     onMessage: handleSocketMessage,
   });
 
@@ -242,7 +293,7 @@ export function GamePage() {
   }, [accessToken, engineTableId, send, sequence]);
 
   useEffect(() => {
-    if (!tableId) return;
+    if (!tableId || demoTableId) return;
     getTables(gameType)
       .then(({ results }) => {
         const match = results.find(
@@ -261,7 +312,7 @@ export function GamePage() {
         resolvedTableIdRef.current = tableId;
         setResolvedTableId(tableId);
       });
-  }, [accessToken, demoAi, gameType, tableId]);
+  }, [accessToken, demoAi, demoTableId, gameType, tableId]);
 
   useEffect(() => {
     if (!tableId || !accessToken) return;
@@ -437,6 +488,29 @@ export function GamePage() {
       {resultMessage && (
         <p className="secure-note game-sync-note">{resultMessage}</p>
       )}
+      {gameState && gameType === "poker" && (
+        <div className="poker-status-strip">
+          <span>Texas Hold’em</span>
+          <strong>{pokerPhaseLabel(String(gameState.phase || "preflop"))}</strong>
+          <span>Pot {String(gameState.pot ?? 0)}</span>
+        </div>
+      )}
+      {isPokerShowdown && (
+        <div className="showdown-panel">
+          <div>
+            <span className="showdown-kicker">{t("game.showdown")}</span>
+            <strong>
+              {winnerNames.length ? `${t("game.winner")}: ${winnerNames.join(" · ")}` : t("game.handComplete")}
+            </strong>
+            <span>{t("game.revealedCards")}</span>
+          </div>
+          {!spectator && (
+            <button className="action-bet" onClick={() => { settled.current = false; sendGameAction("new_hand"); }}>
+              {t("game.newHand")}
+            </button>
+          )}
+        </div>
+      )}
       {gameState && gameType !== "poker" && (
         <GameStateSummary gameType={gameType || ""} state={gameState} />
       )}
@@ -460,43 +534,41 @@ export function GamePage() {
           chips={String(tablePlayers[2]?.stack || "6 750")}
         />
         <div className="pot">
-          {t("game.pot")} <strong>2 400</strong>
+          {t("game.pot")} <strong>{String(gameState?.pot ?? 0)}</strong>
         </div>
         <div className="community-cards">
-          <PlayingCard value="A" suit="♠" />
-          <PlayingCard value="K" suit="♥" red />
-          <PlayingCard value="8" suit="♦" red />
-          <PlayingCard value="7" suit="♣" />
-          <PlayingCard value="?" suit="" hidden />
+          {(communityCards.length ? communityCards : [null, null, null, null, null]).map(
+            (card, index) =>
+              card ? (
+                <PlayingCard key={`${card.suit}-${card.rank}-${index}`} {...cardView(card)} />
+              ) : (
+                <PlayingCard key={`empty-${index}`} value="?" suit="" hidden />
+              ),
+          )}
         </div>
         <div className="you-seat">
           <div className="you-avatar">M</div>
           <div>
             <strong>{t("game.you")}</strong>
-            <span>12 450 jetons</span>
+            <span>{String(myPokerPlayer?.stack ?? 10000)} jetons</span>
           </div>
         </div>
         <div className="hole-cards">
-          <PlayingCard
-            value="A"
-            suit="♥"
-            red
-            selected={selected === "a"}
-            onClick={() => setSelected("a")}
-          />
-          <PlayingCard
-            value="J"
-            suit="♣"
-            selected={selected === "j"}
-            onClick={() => setSelected("j")}
-          />
+          {(holeCards.length ? holeCards : [{ rank: 0, suit: 0 }, { rank: 0, suit: 0 }]).map(
+            (card, index) =>
+              card.rank ? (
+                <PlayingCard key={`${card.suit}-${card.rank}`} {...cardView(card)} />
+              ) : (
+                <PlayingCard key={`hole-${index}`} value="?" suit="" hidden />
+              ),
+          )}
         </div>
       </div>
       <div className="game-controls">
         <div className="turn-state">
           <span className="timer">00:18</span>
           <div>
-            <strong>{t("game.yourTurnAction")}</strong>
+            <strong>{isMyTurn ? t("game.yourTurnAction") : "Tour des bots"}</strong>
             <span>{t("game.chooseAction")}</span>
           </div>
         </div>
@@ -508,28 +580,45 @@ export function GamePage() {
           <div className="action-row">
             <button
               className="action-fold"
-              onClick={() => sendGameAction("fold")}
+                onClick={() => sendGameAction("fold")}
+                disabled={!isMyTurn}
             >
               {t("game.fold")}
             </button>
             <button
               className="action-check"
-              onClick={() => sendGameAction("check")}
-            >
-              {t("game.check")}
+                onClick={() => sendGameAction(facingBet ? "call" : "check")}
+                disabled={!isMyTurn}
+              >
+              {facingBet ? "Suivre" : t("game.check")}
             </button>
             <button
               className="action-bet"
-              onClick={() => sendGameAction("bet")}
+                onClick={() => sendGameAction("bet", { amount: wager })}
+                disabled={!isMyTurn}
             >
-              {t("game.bet")} <strong>800</strong>
+              {t("game.bet")} <strong>{wager}</strong>
             </button>
+            <label className="wager-control">
+              <span>Mise</span>
+              <input
+                type="range"
+                min={100}
+                max={5000}
+                step={100}
+                value={wager}
+                disabled={!isMyTurn}
+                onChange={(event) => setWager(Number(event.target.value))}
+              />
+              <output>{wager}</output>
+            </label>
           </div>
         ) : (
           <GameSpecificControls
             gameType={gameType || ""}
             state={gameState}
             onAction={sendGameAction}
+            enabled={isMyTurn}
           />
         )}
       </div>
@@ -644,6 +733,28 @@ function PlayingCard({
   );
 }
 
+function cardView(card: { rank: number; suit: number }) {
+  const suits = ["♣", "♦", "♥", "♠"];
+  const ranks: Record<number, string> = {
+    7: "7", 8: "8", 9: "9", 10: "10", 11: "J", 12: "Q", 13: "K", 14: "A",
+  };
+  return { value: ranks[card.rank] || "?", suit: suits[card.suit] || "", red: card.suit === 1 || card.suit === 2 };
+}
+
+function tokenSubject(token: string | null) {
+  if (!token) return "";
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: string };
+    return payload.sub || "";
+  } catch {
+    return "";
+  }
+}
+
+function pokerPhaseLabel(phase: string) {
+  return ({ preflop: "Préflop", flop: "Flop", turn: "Turn", river: "River", showdown: "Showdown" } as Record<string, string>)[phase] || phase;
+}
+
 function GameStateSummary({
   gameType,
   state,
@@ -680,10 +791,12 @@ function GameSpecificControls({
   gameType,
   state,
   onAction,
+  enabled,
 }: {
   gameType: string;
   state: Record<string, unknown> | null;
   onAction: (action: string, payload?: unknown) => void;
+  enabled: boolean;
 }) {
   const { t } = useTranslation();
   const players =
@@ -698,6 +811,7 @@ function GameSpecificControls({
         {currentHand.map((card) => (
           <button
             className="action-check"
+            disabled={!enabled}
             key={`${card.suit}-${card.rank}`}
             onClick={() => onAction("play_card", { card })}
           >
@@ -708,12 +822,13 @@ function GameSpecificControls({
     );
   return (
     <div className="action-row">
-      <button className="action-check" onClick={() => onAction("draw")}>
+      <button className="action-check" disabled={!enabled} onClick={() => onAction("draw")}>
         {t("game.draw")}
       </button>
       {currentHand.map((card) => (
         <button
           className="action-bet"
+          disabled={!enabled}
           key={`${card.suit}-${card.rank}`}
           onClick={() => onAction("discard", { card })}
         >

@@ -16,6 +16,7 @@ export type GameTable = {
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1/games/${path}`, options);
   const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) throw new Error("AUTH_REQUIRED");
   if (!response.ok)
     throw new Error(payload.detail || "Impossible de charger les tables.");
   return payload as T;

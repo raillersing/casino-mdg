@@ -23,6 +23,10 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   const reconnectTimer = useRef<number | null>(null);
   const heartbeatTimer = useRef<number | null>(null);
   const heartbeatSentAt = useRef<number | null>(null);
+  const callbacks = useRef<Pick<
+    WebSocketOptions,
+    "onOpen" | "onClose" | "onMessage" | "onConnectionStateChange"
+  >>({});
   const setReconnecting = useGameStore((state) => state.setReconnecting);
   const accessToken = useGameStore((state) => state.accessToken);
   const {
@@ -33,10 +37,17 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     onConnectionStateChange,
   } = options;
 
+  callbacks.current = {
+    onOpen,
+    onClose,
+    onMessage,
+    onConnectionStateChange,
+  };
+
   const connect = useCallback(() => {
     closed.current = false;
     setReconnecting(true);
-    onConnectionStateChange?.(
+    callbacks.current.onConnectionStateChange?.(
       reconnectAttempts.current ? "reconnecting" : "connecting",
     );
 
@@ -53,7 +64,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       reconnectAttempts.current = 0;
       setReconnecting(false);
       if (wasReconnect) void trackEvent("reconnection_succeeded");
-      onConnectionStateChange?.("connected");
+      callbacks.current.onConnectionStateChange?.("connected");
       if (heartbeatTimer.current !== null)
         window.clearInterval(heartbeatTimer.current);
       heartbeatTimer.current = window.setInterval(() => {
@@ -67,7 +78,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
             }),
           );
       }, HEARTBEAT_INTERVAL);
-      onOpen?.(socket);
+      callbacks.current.onOpen?.(socket);
     };
 
     socket.onclose = () => {
@@ -76,13 +87,13 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
         window.clearInterval(heartbeatTimer.current);
         heartbeatTimer.current = null;
       }
-      onClose?.();
+      callbacks.current.onClose?.();
       if (
         !closed.current &&
         reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
       ) {
         reconnectAttempts.current++;
-        onConnectionStateChange?.("reconnecting");
+        callbacks.current.onConnectionStateChange?.("reconnecting");
         if (reconnectTimer.current !== null)
           window.clearTimeout(reconnectTimer.current);
         reconnectTimer.current = window.setTimeout(
@@ -98,7 +109,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       console.error("WebSocket error:", error);
     };
     socket.onmessage = (event) => {
-      onMessage?.(event);
+      callbacks.current.onMessage?.(event);
       try {
         const message = JSON.parse(String(event.data)) as { type?: string };
         if (
@@ -119,10 +130,6 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     };
   }, [
     accessToken,
-    onClose,
-    onMessage,
-    onOpen,
-    onConnectionStateChange,
     setReconnecting,
     url,
   ]);

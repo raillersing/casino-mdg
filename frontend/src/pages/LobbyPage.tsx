@@ -202,7 +202,7 @@ export function LobbyPage() {
         metadata: { session_id: session.session_id, source: "lobby" },
       });
       navigate(
-        `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}`,
+        `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}`,
       );
     } catch (reason) {
       setMatchError(

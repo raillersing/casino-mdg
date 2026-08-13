@@ -25,7 +25,8 @@ const (
 type Player struct {
 	ID     string `json:"id"`
 	Stack  int64  `json:"stack"`
-	Bet    int64  `json:"bet"`
+	Bet      int64  `json:"bet"`
+	TotalBet int64  `json:"total_bet"`
 	Cards  []Card `json:"cards"`
 	Folded bool   `json:"folded"`
 	AllIn  bool   `json:"all_in"`
@@ -38,6 +39,10 @@ type Hand struct {
 	Phase        string    `json:"phase"`
 	Deck         []Card    `json:"deck"`
 	RoundActions int       `json:"round_actions"`
+	Button       int       `json:"button"`
+	SmallBlind   int64     `json:"small_blind"`
+	BigBlind     int64     `json:"big_blind"`
+	Started      bool      `json:"started"`
 }
 
 type Pot struct {
@@ -48,8 +53,12 @@ type Pot struct {
 func CalculatePots(players []*Player) []Pot {
 	levels := make([]int64, 0)
 	for _, player := range players {
-		if player.Bet > 0 {
-			levels = append(levels, player.Bet)
+		contribution := player.TotalBet
+		if contribution == 0 {
+			contribution = player.Bet
+		}
+		if contribution > 0 {
+			levels = append(levels, contribution)
 		}
 	}
 	sort.Slice(levels, func(i, j int) bool { return levels[i] < levels[j] })
@@ -65,10 +74,14 @@ func CalculatePots(players []*Player) []Pot {
 		contributors := 0
 		eligible := make([]string, 0)
 		for _, player := range players {
-			if player.Bet >= level {
+			contribution := player.TotalBet
+			if contribution == 0 {
+				contribution = player.Bet
+			}
+			if contribution >= level {
 				contributors++
 			}
-			if player.Bet >= level && !player.Folded {
+			if contribution >= level && !player.Folded {
 				eligible = append(eligible, player.ID)
 			}
 		}
@@ -93,21 +106,31 @@ func NewHand(players []*Player, shuffle func([]Card)) (*Hand, error) {
 			deck = deck[1:]
 		}
 	}
-	return &Hand{Players: players, Deck: deck, Current: 0, Phase: "preflop"}, nil
+	return &Hand{Players: players, Deck: deck, Current: 0, Button: 0, Phase: "preflop"}, nil
 }
 
 func (h *Hand) StartHand(smallBlind, bigBlind int64) error {
 	if len(h.Players) < 2 || smallBlind <= 0 || bigBlind <= smallBlind {
 		return fmt.Errorf("invalid blinds")
 	}
-	if err := h.PostBlind(0, smallBlind); err != nil {
+	h.SmallBlind, h.BigBlind = smallBlind, bigBlind
+	h.Started = true
+	small, big := h.blindSeats()
+	if err := h.PostBlind(small, smallBlind); err != nil {
 		return err
 	}
-	if err := h.PostBlind(1, bigBlind); err != nil {
+	if err := h.PostBlind(big, bigBlind); err != nil {
 		return err
 	}
-	h.Current = 0
+	h.Current = h.nextActive(big)
 	return nil
+}
+
+func (h *Hand) blindSeats() (small, big int) {
+	if len(h.Players) == 2 {
+		return h.Button, (h.Button + 1) % len(h.Players)
+	}
+	return (h.Button + 1) % len(h.Players), (h.Button + 2) % len(h.Players)
 }
 
 func NewShuffledHand(players []*Player) (*Hand, error) {
@@ -170,6 +193,7 @@ func (h *Hand) commit(index int, amount int64) error {
 	}
 	p.Stack -= amount
 	p.Bet += amount
+	p.TotalBet += amount
 	h.Pot += amount
 	if p.Stack == 0 {
 		p.AllIn = true
@@ -227,11 +251,13 @@ func (h *Hand) betsEqual() bool {
 
 func (h *Hand) advancePhase() {
 	h.RoundActions = 0
-	h.Current = 0
-	for h.Current < len(h.Players) && (h.Players[h.Current].Folded || h.Players[h.Current].AllIn) {
-		h.Current++
+	h.resetStreetBets()
+	start := 0
+	if h.Started {
+		start = (h.Button + 1) % len(h.Players)
 	}
-	if h.Current >= len(h.Players) {
+	h.Current = h.nextActive(start)
+	if h.Current < 0 {
 		h.Phase = "showdown"
 		return
 	}
@@ -247,6 +273,22 @@ func (h *Hand) advancePhase() {
 		h.dealCommunity(1)
 	case "river":
 		h.Phase = "showdown"
+	}
+}
+
+func (h *Hand) nextActive(start int) int {
+	for step := 0; step < len(h.Players); step++ {
+		index := (start + step) % len(h.Players)
+		if !h.Players[index].Folded && !h.Players[index].AllIn {
+			return index
+		}
+	}
+	return -1
+}
+
+func (h *Hand) resetStreetBets() {
+	for _, player := range h.Players {
+		player.Bet = 0
 	}
 }
 
