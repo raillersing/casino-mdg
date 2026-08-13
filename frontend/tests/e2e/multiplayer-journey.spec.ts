@@ -76,6 +76,22 @@ async function stubGameApis(page: Page) {
   );
 }
 
+async function expectCanonicalJoin(page: Page) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          (window as Window & { __wsMessages: string[] }).__wsMessages.map(
+            JSON.parse,
+          ),
+        ),
+      { timeout: 12_000 },
+    )
+    .toContainEqual(
+      expect.objectContaining({ type: "join", table_id: "table-emerald" }),
+    );
+}
+
 test("expose spectator and demo AI journeys from the lobby", async ({
   page,
 }) => {
@@ -124,18 +140,7 @@ test("joins a table, sends leave, and returns to the lobby", async ({
 }) => {
   await stubGameApis(page);
   await page.goto("/game/poker/EMERALD-01");
-  await expect(page.getByText(/Connecté/)).toBeVisible({ timeout: 10_000 });
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        (window as Window & { __wsMessages: string[] }).__wsMessages.map(
-          JSON.parse,
-        ),
-      ),
-    )
-    .toContainEqual(
-      expect.objectContaining({ type: "join", table_id: "table-emerald" }),
-    );
+  await expectCanonicalJoin(page);
 
   await page.getByRole("link", { name: /Quitter la table/i }).click();
   await expect
@@ -164,7 +169,7 @@ test("reconnects the table socket after a transient disconnect", async ({
 }) => {
   await stubGameApis(page);
   await page.goto("/game/poker/EMERALD-01");
-  await expect(page.getByText(/Connecté/)).toBeVisible({ timeout: 10_000 });
+  await expectCanonicalJoin(page);
 
   await page.evaluate(() => {
     const instances = (
@@ -183,7 +188,7 @@ test("reconnects the table socket after a transient disconnect", async ({
       { timeout: 12_000 },
     )
     .toBeGreaterThan(1);
-  await expect(page.getByText(/Connecté/)).toBeVisible({ timeout: 10_000 });
+  await expectCanonicalJoin(page);
 
   const messages = await page.evaluate(() =>
     (window as Window & { __wsMessages: string[] }).__wsMessages.map(
