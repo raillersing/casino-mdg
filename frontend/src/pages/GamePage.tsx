@@ -351,11 +351,18 @@ export function GamePage() {
         sequence,
         timestamp: new Date().toISOString(),
       };
-      if (ws.current?.readyState === WebSocket.OPEN)
-        ws.current.send(JSON.stringify(leaveMessage));
-      else send(leaveMessage);
+      const serialized = JSON.stringify(leaveMessage);
+      send(leaveMessage);
+      const flushLeave = (attempt = 0) => {
+        if (ws.current?.readyState === WebSocket.OPEN) {
+          ws.current.send(serialized);
+          return;
+        }
+        if (attempt < 4) window.setTimeout(() => flushLeave(attempt + 1), 25);
+      };
+      flushLeave();
     }
-    window.setTimeout(() => navigate("/lobby"), 50);
+    window.setTimeout(() => navigate("/lobby"), 150);
   };
 
   return (
