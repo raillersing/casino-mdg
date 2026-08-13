@@ -6,7 +6,8 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.analytics.models import ProductEvent
+from apps.analytics.models import PilotParticipant, ProductEvent
+from apps.backoffice.models import AuditEvent
 
 
 class ProductEventApiTests(TestCase):
@@ -196,3 +197,56 @@ class ProductEventApiTests(TestCase):
         self.client.force_authenticate(staff)
         blocked = self.client.get("/api/v1/analytics/pilot-gate/")
         self.assertEqual(blocked.data["status"], "blocked")
+
+    def test_staff_can_register_and_track_pilot_participant_progress(self):
+        player = User.objects.create_user(
+            email="pilot-player@mdg.local",
+            phone="+261340009991",
+            display_name="Pilot Player",
+        )
+        staff = User.objects.create_user(
+            email="participant-staff@mdg.local",
+            phone="+261340009990",
+            display_name="Participant Staff",
+            is_staff=True,
+        )
+        self.client.force_authenticate(staff)
+        created = self.client.post(
+            "/api/v1/analytics/pilot-participants/",
+            {"email": player.email},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201)
+        participant = PilotParticipant.objects.get(user=player)
+        for event_name in ("activation_viewed", "test_game_played"):
+            ProductEvent.objects.create(event_name=event_name, user=player)
+        listing = self.client.get("/api/v1/analytics/pilot-participants/")
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(
+            listing.data["results"][0]["progress"],
+            {
+                "activated": True,
+                "played": True,
+                "completed": False,
+            },
+        )
+        updated = self.client.patch(
+            f"/api/v1/analytics/pilot-participants/{participant.pk}/",
+            {"status": "active"},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["status"], "active")
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                action="pilot_participant.status_updated",
+                target_id=str(participant.pk),
+                metadata={"from": "invited", "to": "active"},
+            ).exists()
+        )
+        invalid = self.client.patch(
+            f"/api/v1/analytics/pilot-participants/{participant.pk}/",
+            {"status": "unknown"},
+            format="json",
+        )
+        self.assertEqual(invalid.status_code, 400)

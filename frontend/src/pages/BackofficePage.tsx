@@ -10,7 +10,10 @@ import {
   getPilotFeedbackSummary,
   getPilotGateSummary,
   getPilotIncidents,
+  getPilotParticipants,
   updatePilotIncidentStatus,
+  updatePilotParticipantStatus,
+  type PilotParticipant,
   type PilotIncident,
   type AuditEvent,
   type FeatureFlag,
@@ -43,6 +46,7 @@ export function BackofficePage() {
     average_rating: number | null;
   } | null>(null);
   const [incidents, setIncidents] = useState<PilotIncident[]>([]);
+  const [participants, setParticipants] = useState<PilotParticipant[]>([]);
   const [incidentUpdateError, setIncidentUpdateError] = useState("");
   const [error, setError] = useState("");
   const [productSummary, setProductSummary] = useState<{
@@ -80,9 +84,10 @@ export function BackofficePage() {
       getPilotFeedbackSummary(token),
       getPilotGateSummary(token),
       getPilotIncidents(token),
+      getPilotParticipants(token),
     ])
       .then(
-        ([audit, featureFlags, report, summary, feedback, gate, tickets]) => {
+        ([audit, featureFlags, report, summary, feedback, gate, tickets, pilot]) => {
           setEvents(audit.results);
           setFlags(featureFlags.results);
           setReconciliation(report);
@@ -90,6 +95,7 @@ export function BackofficePage() {
           setFeedbackSummary(feedback);
           setPilotGate(gate);
           setIncidents(tickets.results);
+          setParticipants(pilot.results);
         },
       )
       .catch((reason: Error) => setError(reason.message));
@@ -110,6 +116,24 @@ export function BackofficePage() {
       setIncidentUpdateError(
         reason instanceof Error ? reason.message : "Statut non mis à jour.",
       );
+    }
+  };
+  const updateParticipantStatus = async (
+    participantId: number,
+    status: PilotParticipant["status"],
+  ) => {
+    if (!token) return;
+    try {
+      const updated = await updatePilotParticipantStatus(token, participantId, status);
+      setParticipants((current) =>
+        current.map((participant) =>
+          participant.id === participantId
+            ? { ...participant, status: updated.status }
+            : participant,
+        ),
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Participant non mis à jour.");
     }
   };
   if (error)
@@ -203,6 +227,39 @@ export function BackofficePage() {
         </div>
       </div>
       <div className="wallet-layout">
+        <section className="activity-card">
+          <div className="chat-head">Cohorte pilote · suivi d’activation</div>
+          {participants.length ? (
+            participants.map((participant) => (
+              <div className="activity-row" key={participant.id}>
+                <div>
+                  <strong>{participant.display_name}</strong>
+                  <span>{participant.email}</span>
+                  <small>
+                    Activation {participant.progress.activated ? "✓" : "—"} · Partie {participant.progress.played ? "✓" : "—"} · Finie {participant.progress.completed ? "✓" : "—"}
+                  </small>
+                </div>
+                <select
+                  aria-label={`Statut de ${participant.display_name}`}
+                  value={participant.status}
+                  onChange={(event) =>
+                    void updateParticipantStatus(
+                      participant.id,
+                      event.target.value as PilotParticipant["status"],
+                    )
+                  }
+                >
+                  <option value="invited">Invité</option>
+                  <option value="active">Actif</option>
+                  <option value="completed">Terminé</option>
+                  <option value="withdrawn">Retiré</option>
+                </select>
+              </div>
+            ))
+          ) : (
+            <div className="empty-wallet">Aucun participant enregistré.</div>
+          )}
+        </section>
         <section className="activity-card">
           <div className="chat-head">Incidents pilote · reproduction</div>
           {incidents.length ? (

@@ -110,6 +110,51 @@ export function getPilotGateSummary(token: string) {
   });
 }
 
+export type PilotParticipant = {
+  id: number;
+  user_id: number;
+  display_name: string;
+  email: string;
+  status: "invited" | "active" | "completed" | "withdrawn";
+  invited_at: string;
+  progress: {
+    activated: boolean;
+    played: boolean;
+    completed: boolean;
+  };
+};
+
+export function getPilotParticipants(token: string) {
+  return fetch("/api/v1/analytics/pilot-participants/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(payload.detail || `Accès refusé (${response.status}).`);
+    return payload as { results: PilotParticipant[] };
+  });
+}
+
+export function updatePilotParticipantStatus(
+  token: string,
+  participantId: number,
+  status: PilotParticipant["status"],
+) {
+  return fetch(`/api/v1/analytics/pilot-participants/${participantId}/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ status }),
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(payload.detail || `Mise à jour refusée (${response.status}).`);
+    return payload as { id: number; status: PilotParticipant["status"] };
+  });
+}
+
 export type PilotIncident = {
   id: number;
   player: string;
