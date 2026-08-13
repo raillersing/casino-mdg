@@ -15,6 +15,7 @@ from apps.backoffice.services import is_feature_enabled, record_audit
 from apps.clubs.models import ClubMembership
 from apps.wallet.services import credit_simulation_reward, settle_game_win
 
+from .chance_simulation import MAX_ROUNDS, simulate_draw, simulate_instant
 from .matchmaking import active_presence, cancel_ticket, queue_player
 from .models import (
     BotSimulationParticipant,
@@ -828,6 +829,31 @@ class TestDrawResultView(APIView):
             {**draw_payload(result.draw, result), "created": created},
             status=201 if created else 200,
         )
+
+
+class ChanceSimulationView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        ensure_test_catalog()
+        slug = str(request.data.get("slug", "")).strip()
+        try:
+            rounds = int(request.data.get("rounds", 10_000))
+        except (TypeError, ValueError):
+            return Response({"detail": "Le nombre de tours est invalide."}, status=400)
+        seed = str(request.data.get("seed", "mdg-default-seed"))[:120]
+        if not slug or rounds < 1 or rounds > MAX_ROUNDS or not seed:
+            return Response(
+                {"detail": f"rounds doit être compris entre 1 et {MAX_ROUNDS}."},
+                status=400,
+            )
+        game = InstantGameDefinition.objects.filter(slug=slug).first()
+        if game:
+            return Response(simulate_instant(game, rounds, seed))
+        draw = DrawDefinition.objects.filter(slug=slug).first()
+        if draw:
+            return Response(simulate_draw(draw, rounds, seed))
+        return Response({"detail": "Jeu de hasard introuvable."}, status=404)
 
 
 MISSIONS = {

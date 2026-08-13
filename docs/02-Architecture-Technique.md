@@ -175,6 +175,22 @@ de créer le siège, puis publie `is_bot: true` dans l'état de table. Cette
 séparation permet d'afficher les bots dans l'interface de démonstration sans
 les confondre avec des joueurs humains ni ouvrir cette capacité aux clients.
 
+### 5.1 Contrôle statistique des Jeux de hasard
+
+Le endpoint back-office `POST /api/v1/games/chance-simulations/` exécute une
+simulation pure en mémoire. Il accepte `slug`, `rounds` (1 à 100 000) et
+`seed`. Il ne crée ni `InstantPlay`, ni `DrawEntry`, ni transaction wallet.
+Pour les jeux instantanés, la réponse expose la distribution observée, le
+coût total, le gain total, le RTP attendu et observé ainsi qu'un intervalle de
+contrôle à trois erreurs standards. Pour les tirages, elle expose les
+fréquences et les écarts relatifs. Le champ `anomaly` est un signal de revue,
+pas une preuve de fraude : toute alerte doit être rejouée avec la même seed,
+puis analysée avec un échantillon plus large.
+
+Cette route est réservée aux utilisateurs staff et reste hors du parcours
+joueur. Les résultats sont reproductibles, mais ne constituent pas un tirage
+réel et ne doivent jamais créditer le portefeuille.
+
 ### Problème réel
 - Connexions 3G/4G intermittentes
 - Coupure électrique fréquentes (jirama)
