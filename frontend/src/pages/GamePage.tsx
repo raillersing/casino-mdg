@@ -55,6 +55,7 @@ export function GamePage() {
     null,
   );
   const [resolvedTableId, setResolvedTableId] = useState("");
+  const resolvedTableIdRef = useRef("");
   const sequenceRef = useRef(0);
   const settled = useRef(false);
   const invitationHandled = useRef(false);
@@ -247,11 +248,18 @@ export function GamePage() {
           (table) => table.table_code === tableId || table.id === tableId,
         );
         if (match) {
+          resolvedTableIdRef.current = match.id;
           setResolvedTableId(match.id);
           if (accessToken && !demoAi) void joinTable(match.id, accessToken);
-        } else setResolvedTableId(tableId);
+        } else {
+          resolvedTableIdRef.current = tableId;
+          setResolvedTableId(tableId);
+        }
       })
-      .catch(() => setResolvedTableId(tableId));
+      .catch(() => {
+        resolvedTableIdRef.current = tableId;
+        setResolvedTableId(tableId);
+      });
   }, [accessToken, demoAi, gameType, tableId]);
 
   useEffect(() => {
@@ -335,10 +343,11 @@ export function GamePage() {
   };
 
   const leaveTable = () => {
-    if (engineTableId && accessToken && !demoAi && !spectator) {
+    const leaveTableId = resolvedTableIdRef.current || engineTableId;
+    if (leaveTableId && accessToken && !demoAi && !spectator) {
       send({
         type: "leave",
-        table_id: engineTableId,
+        table_id: leaveTableId,
         sequence,
         timestamp: new Date().toISOString(),
       });
