@@ -321,6 +321,8 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		"spectator":  client.spectator,
 	}
 	s.sendMessage(client, &Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
+	s.sendPokerLifecycle(client, table.ID)
+	s.sendPokerDeal(client, table.ID)
 	s.persistSnapshot(msg.TableID)
 	s.startBotTurns(msg.TableID)
 }
@@ -356,9 +358,16 @@ func (s *Server) startBotTurns(tableID string) {
 			if !ok {
 				return
 			}
-			if s.config.BotActionDelay > 0 {
+			delay := s.config.BotActionDelay
+			if s.config.BotProfile == "fast" {
+				delay /= 2
+			}
+			if s.config.BotProfile == "expert" {
+				delay += 350 * time.Millisecond
+			}
+			if delay > 0 {
 				s.broadcastToTable(tableID, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: "thinking", Payload: map[string]interface{}{"action": turn.Action}, Sequence: turn.Sequence, Timestamp: time.Now()})
-				time.Sleep(s.config.BotActionDelay)
+				time.Sleep(delay)
 			}
 			client := &Client{playerID: turn.PlayerID, tableID: tableID}
 			s.handleAction(client, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: turn.Action, Payload: turn.Payload, Sequence: turn.Sequence})
@@ -373,6 +382,8 @@ func publicGameState(state interface{}, playerID string) interface{} {
 		players := make([]map[string]interface{}, 0, len(game.Players))
 		winners := make([]string, 0)
 		revealedCards := make(map[string][]poker.Card)
+		handRanks := make(map[string]string)
+		payouts := map[string]int64{}
 		if game.Phase == "showdown" {
 			if resolved, ok := game.Winners(); ok {
 				for _, player := range resolved {
@@ -382,8 +393,10 @@ func publicGameState(state interface{}, playerID string) interface{} {
 			for _, player := range game.Players {
 				if !player.Folded {
 					revealedCards[player.ID] = player.Cards
+					handRanks[player.ID] = poker.HandRankName(append(append([]poker.Card{}, player.Cards...), game.Community...))
 				}
 			}
+			payouts = game.Payouts()
 		}
 		for _, player := range game.Players {
 			cards := interface{}(nil)
@@ -392,7 +405,7 @@ func publicGameState(state interface{}, playerID string) interface{} {
 			}
 			players = append(players, map[string]interface{}{"id": player.ID, "stack": player.Stack, "bet": player.Bet, "cards": cards, "folded": player.Folded, "all_in": player.AllIn})
 		}
-		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "current": game.Current, "phase": game.Phase, "winners": winners, "revealed_cards": revealedCards}
+		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "current": game.Current, "phase": game.Phase, "winners": winners, "revealed_cards": revealedCards, "hand_ranks": handRanks, "payouts": payouts}
 	case *belote.Round:
 		players := make([]map[string]interface{}, 0, len(game.Players))
 		for _, player := range game.Players {
@@ -482,6 +495,16 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			}
 			if showdownPayouts, revealed, pot, ok := s.roomManager.PokerShowdown(msg.TableID); ok {
 				winners := make([]string, 0, len(showdownPayouts))
+				handRanks := make(map[string]string)
+				if table, exists := s.roomManager.GetTable(msg.TableID); exists {
+					if hand, isPoker := table.State.(*poker.Hand); isPoker {
+						for _, player := range hand.Players {
+							if cards, shown := revealed[player.ID]; shown {
+								handRanks[player.ID] = poker.HandRankName(append(append([]poker.Card{}, cards...), hand.Community...))
+							}
+						}
+					}
+				}
 				for playerID, share := range showdownPayouts {
 					if share > 0 {
 						winners = append(winners, playerID)
@@ -489,7 +512,7 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 				}
 				s.broadcastToTable(msg.TableID, &Message{
 					Type: MsgAction, TableID: msg.TableID, Action: "showdown",
-					Payload:  map[string]interface{}{"winners": winners, "pot": pot, "revealed_cards": revealed},
+					Payload:  map[string]interface{}{"winners": winners, "pot": pot, "revealed_cards": revealed, "hand_ranks": handRanks, "payouts": showdownPayouts},
 					Sequence: event.Sequence, Timestamp: time.Now(),
 				})
 			}
@@ -527,12 +550,91 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 	}
 	if !replayed {
 		s.broadcastState(msg.TableID)
+		if msg.Action == "new_hand" {
+			s.broadcastPokerLifecycle(msg.TableID)
+			s.broadcastPokerDeal(msg.TableID)
+		}
 		// A human action can hand the turn to an AI seat. Restarting the
 		// orchestrator here makes the demo table continue until it is the
 		// human's turn again (or the hand reaches showdown).
 		s.startBotTurns(msg.TableID)
 	}
 	s.persistSnapshot(msg.TableID)
+}
+
+func pokerPresentationMessage(tableID, playerID, action string, payload interface{}, sequence uint64) *Message {
+	return &Message{Type: MsgAction, TableID: tableID, PlayerID: playerID, Action: action, Payload: payload, Sequence: sequence, Timestamp: time.Now()}
+}
+
+func (s *Server) sendPokerLifecycle(client *Client, tableID string) {
+	table, ok := s.roomManager.GetTable(tableID)
+	if !ok {
+		return
+	}
+	hand, ok := table.State.(*poker.Hand)
+	if !ok {
+		return
+	}
+	s.sendMessage(client, pokerPresentationMessage(tableID, "", "hand_started", map[string]interface{}{"phase": hand.Phase, "button": hand.Button, "small_blind": hand.SmallBlind, "big_blind": hand.BigBlind}, table.Sequence))
+	s.sendMessage(client, pokerPresentationMessage(tableID, hand.Players[hand.Button].ID, "dealer_button_moved", map[string]interface{}{"button": hand.Button}, table.Sequence))
+	if hand.Started {
+		small, big := hand.BlindSeatsForPresentation()
+		s.sendMessage(client, pokerPresentationMessage(tableID, hand.Players[small].ID, "blind_posted", map[string]interface{}{"blind": "small", "amount": hand.SmallBlind}, table.Sequence))
+		s.sendMessage(client, pokerPresentationMessage(tableID, hand.Players[big].ID, "blind_posted", map[string]interface{}{"blind": "big", "amount": hand.BigBlind}, table.Sequence))
+	}
+}
+
+func (s *Server) broadcastPokerLifecycle(tableID string) {
+	s.mu.RLock()
+	clients := make([]*Client, 0, len(s.clients))
+	for _, client := range s.clients {
+		if client.tableID == tableID {
+			clients = append(clients, client)
+		}
+	}
+	s.mu.RUnlock()
+	for _, client := range clients {
+		s.sendPokerLifecycle(client, tableID)
+	}
+}
+
+// sendPokerDeal emits private, presentation-oriented deal events after the
+// authoritative state snapshot. The card is sent only to its owner; clients
+// use these events to animate a real two-card deal without exposing hidden
+// hands or letting the animation become game state.
+func (s *Server) sendPokerDeal(client *Client, tableID string) {
+	table, ok := s.roomManager.GetTable(tableID)
+	if !ok {
+		return
+	}
+	tableState := table.State
+	hand, ok := tableState.(*poker.Hand)
+	if !ok || len(hand.Players) == 0 {
+		return
+	}
+	for _, player := range hand.Players {
+		if player.ID != client.playerID {
+			continue
+		}
+		for index, card := range player.Cards {
+			s.sendMessage(client, &Message{Type: MsgAction, TableID: tableID, PlayerID: player.ID, Action: "private_card_dealt", Payload: map[string]interface{}{"index": index, "card": card, "phase": hand.Phase}, Sequence: table.Sequence, Timestamp: time.Now()})
+		}
+		return
+	}
+}
+
+func (s *Server) broadcastPokerDeal(tableID string) {
+	s.mu.RLock()
+	clients := make([]*Client, 0, len(s.clients))
+	for _, client := range s.clients {
+		if client.tableID == tableID && !client.spectator {
+			clients = append(clients, client)
+		}
+	}
+	s.mu.RUnlock()
+	for _, client := range clients {
+		s.sendPokerDeal(client, tableID)
+	}
 }
 
 func actionDetails(manager *room.Manager, tableID, playerID, action string, payload interface{}) map[string]interface{} {

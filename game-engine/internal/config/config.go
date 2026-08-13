@@ -19,6 +19,7 @@ type Config struct {
 	Deterministic      bool
 	Blinds             bool
 	BotActionDelay     time.Duration
+	BotProfile         string
 }
 
 func Load() (*Config, error) {
@@ -34,7 +35,16 @@ func Load() (*Config, error) {
 		MaxPlayersPerTable: 9,
 		Blinds:             true,
 		BotActionDelay:     botActionDelay(),
+		BotProfile:         botProfile(),
 	}, nil
+}
+
+func botProfile() string {
+	profile := os.Getenv("GAME_ENGINE_BOT_PROFILE")
+	if profile == "fast" || profile == "expert" {
+		return profile
+	}
+	return "normal"
 }
 
 func botActionDelay() time.Duration {
