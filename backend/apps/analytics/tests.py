@@ -250,3 +250,31 @@ class ProductEventApiTests(TestCase):
             format="json",
         )
         self.assertEqual(invalid.status_code, 400)
+
+    def test_staff_can_list_pilot_sessions_from_existing_events(self):
+        player = User.objects.create_user(
+            email="session-player@mdg.local",
+            phone="+261340009989",
+            display_name="Session Player",
+        )
+        PilotParticipant.objects.create(user=player)
+        for event_name in ("test_game_played", "first_game_completed"):
+            ProductEvent.objects.create(
+                event_name=event_name,
+                user=player,
+                session_id="session-42",
+                game_type="poker",
+                mode="DEMO_AI",
+            )
+        staff = User.objects.create_user(
+            email="session-staff@mdg.local",
+            phone="+261340009988",
+            display_name="Session Staff",
+            is_staff=True,
+        )
+        self.client.force_authenticate(staff)
+        response = self.client.get("/api/v1/analytics/pilot-sessions/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["results"][0]["session_id"], "session-42")
+        self.assertTrue(response.data["results"][0]["completed"])
+        self.assertEqual(response.data["results"][0]["game_types"], ["poker"])

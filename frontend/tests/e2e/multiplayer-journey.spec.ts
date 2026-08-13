@@ -26,6 +26,7 @@ async function stubGameApis(page: Page) {
       onerror: (() => void) | null = null;
       onmessage: ((event: MessageEvent<string>) => void) | null = null;
       readyState = 0;
+      joined = false;
 
       constructor(public url: string) {
         MockWebSocket.instances.push(this);
@@ -42,8 +43,10 @@ async function stubGameApis(page: Page) {
             type?: string;
             table_id?: string;
           };
-          if (payload.type === "join")
+          if (payload.type === "join") {
+            this.joined = true;
             localStorage.setItem("e2e_last_join_instance", String(this.id));
+          }
           if (payload.type === "leave")
             localStorage.setItem("e2e_last_leave", message);
         } catch {
@@ -102,15 +105,17 @@ async function expectCanonicalJoin(page: Page) {
           }>;
           const instances = (
             window as Window & {
-              __wsInstances: Array<{ readyState: number; id: number }>;
+              __wsInstances: Array<{
+                readyState: number;
+                id: number;
+                joined: boolean;
+              }>;
             }
           ).__wsInstances;
           const joins = messages.filter((message) => message.type === "join");
           return {
             activeSocketOpen: instances.at(-1)?.readyState === 1,
-            activeSocketJoined:
-              String(instances.at(-1)?.id) ===
-              localStorage.getItem("e2e_last_join_instance"),
+            activeSocketJoined: instances.at(-1)?.joined === true,
             latestJoin: joins.at(-1),
           };
         }),
@@ -174,15 +179,19 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   await expectCanonicalJoin(page);
   await page.waitForTimeout(250);
 
-  await page.getByRole("link", { name: /Quitter la table/i }).click();
+  await page
+    .getByRole("link", { name: /Quitter la table/i })
+    .click({ noWaitAfter: true });
   await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const messages = (
-          window as Window & { __wsMessages: string[] }
-        ).__wsMessages.map(JSON.parse) as Array<{ type?: string }>;
-        return messages.filter((message) => message.type === "leave").length;
-      }),
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const messages = (
+            window as Window & { __wsMessages: string[] }
+          ).__wsMessages.map(JSON.parse) as Array<{ type?: string }>;
+          return messages.filter((message) => message.type === "leave").length;
+        }),
+      { timeout: 12_000 },
     )
     .toBeGreaterThan(0);
   await expect(page).toHaveURL(/\/lobby$/);

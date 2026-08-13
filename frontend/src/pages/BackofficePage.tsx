@@ -11,9 +11,11 @@ import {
   getPilotGateSummary,
   getPilotIncidents,
   getPilotParticipants,
+  getPilotSessions,
   updatePilotIncidentStatus,
   updatePilotParticipantStatus,
   type PilotParticipant,
+  type PilotSession,
   type PilotIncident,
   type AuditEvent,
   type FeatureFlag,
@@ -47,6 +49,7 @@ export function BackofficePage() {
   } | null>(null);
   const [incidents, setIncidents] = useState<PilotIncident[]>([]);
   const [participants, setParticipants] = useState<PilotParticipant[]>([]);
+  const [sessions, setSessions] = useState<PilotSession[]>([]);
   const [incidentUpdateError, setIncidentUpdateError] = useState("");
   const [error, setError] = useState("");
   const [productSummary, setProductSummary] = useState<{
@@ -85,6 +88,7 @@ export function BackofficePage() {
       getPilotGateSummary(token),
       getPilotIncidents(token),
       getPilotParticipants(token),
+      getPilotSessions(token),
     ])
       .then(
         ([
@@ -96,6 +100,7 @@ export function BackofficePage() {
           gate,
           tickets,
           pilot,
+          sessionReport,
         ]) => {
           setEvents(audit.results);
           setFlags(featureFlags.results);
@@ -105,6 +110,7 @@ export function BackofficePage() {
           setPilotGate(gate);
           setIncidents(tickets.results);
           setParticipants(pilot.results);
+          setSessions(sessionReport.results);
         },
       )
       .catch((reason: Error) => setError(reason.message));
@@ -277,6 +283,37 @@ export function BackofficePage() {
             ))
           ) : (
             <div className="empty-wallet">Aucun participant enregistré.</div>
+          )}
+        </section>
+        <section className="activity-card">
+          <div className="chat-head">Sessions pilote · 30 derniers jours</div>
+          {sessions.length ? (
+            sessions.slice(0, 8).map((session) => (
+              <div
+                className="activity-row"
+                key={`${session.user_id}-${session.session_id}`}
+              >
+                <div>
+                  <strong>{session.display_name}</strong>
+                  <span>
+                    {session.game_types.join(", ") || "Jeu non précisé"} ·{" "}
+                    {session.modes.join(", ") || "Mode non précisé"}
+                  </span>
+                  <small>
+                    {session.events} événements ·{" "}
+                    {session.completed
+                      ? "partie terminée"
+                      : "partie non terminée"}
+                    {session.errors ? " · erreur détectée" : ""}
+                  </small>
+                </div>
+                <small>
+                  {new Date(session.last_event_at).toLocaleDateString("fr-FR")}
+                </small>
+              </div>
+            ))
+          ) : (
+            <div className="empty-wallet">Aucune session de participant.</div>
           )}
         </section>
         <section className="activity-card">
