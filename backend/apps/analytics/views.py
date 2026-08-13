@@ -189,8 +189,15 @@ class PilotGateSummaryView(APIView):
 
     def get(self, request):
         since = timezone.now() - timedelta(days=7)
-        events = ProductEvent.objects.filter(created_at__gte=since)
-        feedback = PilotFeedback.objects.filter(created_at__gte=since)
+        participant_ids = set(
+            PilotParticipant.objects.values_list("user_id", flat=True)
+        )
+        events = ProductEvent.objects.filter(
+            created_at__gte=since, user_id__in=participant_ids
+        )
+        feedback = PilotFeedback.objects.filter(
+            created_at__gte=since, user_id__in=participant_ids
+        )
         counts = {
             item["event_name"]: item["count"]
             for item in events.values("event_name").annotate(count=Count("id"))
@@ -250,6 +257,8 @@ class PilotGateSummaryView(APIView):
             {
                 "window": "7d",
                 "since": since.isoformat(),
+                "scope": "pilot_cohort",
+                "participants": len(participant_ids),
                 "status": status,
                 "criteria": criteria,
             }

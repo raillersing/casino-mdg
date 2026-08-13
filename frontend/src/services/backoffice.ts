@@ -97,6 +97,8 @@ export function getPilotGateSummary(token: string) {
     return payload as {
       window: string;
       since: string;
+      scope: "pilot_cohort";
+      participants: number;
       status: "blocked" | "monitor" | "go_provisional";
       criteria: Array<{
         key: string;

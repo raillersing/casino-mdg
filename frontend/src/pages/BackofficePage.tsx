@@ -33,6 +33,8 @@ export function BackofficePage() {
     unmatched_webhooks: string[];
   } | null>(null);
   const [pilotGate, setPilotGate] = useState<{
+    scope: "pilot_cohort";
+    participants: number;
     status: "blocked" | "monitor" | "go_provisional";
     criteria: Array<{
       key: string;
@@ -361,6 +363,13 @@ export function BackofficePage() {
           <div className="chat-head">Décision pilote · fenêtre 7 jours</div>
           {pilotGate ? (
             <>
+              <div className="activity-row">
+                <div>
+                  <strong>Cohorte pilote uniquement</strong>
+                  <span>Données de participants inscrits</span>
+                </div>
+                <b>{pilotGate.participants}</b>
+              </div>
               <div className="activity-row">
                 <div>
                   <strong>
