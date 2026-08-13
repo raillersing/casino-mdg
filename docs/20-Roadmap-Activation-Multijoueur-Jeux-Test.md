@@ -314,6 +314,7 @@ la couverture de non-régression.
 - Livré : inscrire les comptes du pilote dans une cohorte staff et suivre leur progression réelle sans recréer les invitations.
 - Livré : regrouper les sessions des participants à partir de la télémétrie existante pour préparer le débrief du pilote.
 - Livré : limiter le calcul go/no-go aux participants de la cohorte et exposer ce périmètre dans le back-office.
+- Livré : permettre au staff de revoir, masquer et restaurer les messages de chat, avec audit des transitions de modération.
 
 **Critères de sortie recommandés**
 

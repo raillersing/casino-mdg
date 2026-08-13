@@ -12,10 +12,13 @@ import {
   getPilotIncidents,
   getPilotParticipants,
   getPilotSessions,
+  getModerationMessages,
+  setModerationMessage,
   updatePilotIncidentStatus,
   updatePilotParticipantStatus,
   type PilotParticipant,
   type PilotSession,
+  type ModerationMessage,
   type PilotIncident,
   type AuditEvent,
   type FeatureFlag,
@@ -52,6 +55,9 @@ export function BackofficePage() {
   const [incidents, setIncidents] = useState<PilotIncident[]>([]);
   const [participants, setParticipants] = useState<PilotParticipant[]>([]);
   const [sessions, setSessions] = useState<PilotSession[]>([]);
+  const [moderationMessages, setModerationMessages] = useState<
+    ModerationMessage[]
+  >([]);
   const [incidentUpdateError, setIncidentUpdateError] = useState("");
   const [error, setError] = useState("");
   const [productSummary, setProductSummary] = useState<{
@@ -91,6 +97,7 @@ export function BackofficePage() {
       getPilotIncidents(token),
       getPilotParticipants(token),
       getPilotSessions(token),
+      getModerationMessages(token),
     ])
       .then(
         ([
@@ -103,6 +110,7 @@ export function BackofficePage() {
           tickets,
           pilot,
           sessionReport,
+          moderation,
         ]) => {
           setEvents(audit.results);
           setFlags(featureFlags.results);
@@ -113,6 +121,7 @@ export function BackofficePage() {
           setIncidents(tickets.results);
           setParticipants(pilot.results);
           setSessions(sessionReport.results);
+          setModerationMessages(moderation.results);
         },
       )
       .catch((reason: Error) => setError(reason.message));
@@ -160,6 +169,19 @@ export function BackofficePage() {
           : "Participant non mis à jour.",
       );
     }
+  };
+  const toggleModeration = async (message: ModerationMessage) => {
+    if (!token) return;
+    const updated = await setModerationMessage(
+      token,
+      message.id,
+      !message.hidden,
+    );
+    setModerationMessages((current) =>
+      current.map((item) =>
+        item.id === message.id ? { ...item, hidden: updated.hidden } : item,
+      ),
+    );
   };
   if (error)
     return (
@@ -285,6 +307,31 @@ export function BackofficePage() {
             ))
           ) : (
             <div className="empty-wallet">Aucun participant enregistré.</div>
+          )}
+        </section>
+        <section className="activity-card">
+          <div className="chat-head">
+            Modération chat · 100 derniers messages
+          </div>
+          {moderationMessages.length ? (
+            moderationMessages.map((message) => (
+              <div className="activity-row" key={message.id}>
+                <div>
+                  <strong>
+                    {message.author} · table {message.table_id}
+                  </strong>
+                  <span>{message.body}</span>
+                </div>
+                <button
+                  className="button button-ghost"
+                  onClick={() => void toggleModeration(message)}
+                >
+                  {message.hidden ? "Restaurer" : "Masquer"}
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="empty-wallet">Aucun message à modérer.</div>
           )}
         </section>
         <section className="activity-card">
