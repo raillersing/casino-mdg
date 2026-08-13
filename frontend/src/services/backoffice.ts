@@ -38,6 +38,38 @@ export function getPaymentReconciliation(token: string) {
   }>("payment-reconciliation/", token);
 }
 
+export type ModerationMessage = {
+  id: number;
+  table_id: string;
+  author: string;
+  body: string;
+  hidden: boolean;
+  created_at: string;
+};
+
+export function getModerationMessages(token: string) {
+  return get<{ results: ModerationMessage[] }>("chat-messages/", token);
+}
+
+export function setModerationMessage(
+  token: string,
+  messageId: number,
+  hidden: boolean,
+) {
+  return fetch("/api/v1/backoffice/chat-messages/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ message_id: messageId, hidden }),
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || "Action refusée.");
+    return payload as { id: number; hidden: boolean };
+  });
+}
+
 export function getProductEventSummary(token: string) {
   return fetch("/api/v1/analytics/summary/", {
     headers: { Authorization: `Bearer ${token}` },

@@ -57,9 +57,7 @@ class ChatModerationView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        messages = ChatMessage.objects.filter(is_hidden=False).select_related(
-            "author", "table"
-        )[:100]
+        messages = ChatMessage.objects.select_related("author", "table")[:100]
         return Response(
             {
                 "results": [
@@ -68,6 +66,7 @@ class ChatModerationView(APIView):
                         "table_id": str(item.table_id),
                         "author": item.author.display_name,
                         "body": item.body,
+                        "hidden": item.is_hidden,
                         "created_at": item.created_at.isoformat(),
                     }
                     for item in messages
@@ -80,15 +79,23 @@ class ChatModerationView(APIView):
             message = ChatMessage.objects.get(pk=request.data["message_id"])
         except (KeyError, ChatMessage.DoesNotExist, TypeError, ValueError):
             return Response({"detail": "Message introuvable."}, status=404)
-        message.is_hidden = True
+        hidden = request.data.get("hidden", True)
+        if not isinstance(hidden, bool):
+            return Response({"detail": "État de modération invalide."}, status=400)
+        previous = message.is_hidden
+        message.is_hidden = hidden
         message.save(update_fields=["is_hidden"])
         record_audit(
             request.user,
-            "chat.message.hidden",
+            "chat.message.hidden" if hidden else "chat.message.restored",
             message,
-            {"reason": str(request.data.get("reason", "staff moderation"))[:255]},
+            {
+                "from": previous,
+                "to": hidden,
+                "reason": str(request.data.get("reason", "staff moderation"))[:255],
+            },
         )
-        return Response({"id": message.pk, "hidden": True})
+        return Response({"id": message.pk, "hidden": hidden})
 
 
 class PaymentReconciliationView(APIView):

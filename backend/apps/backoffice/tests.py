@@ -89,6 +89,16 @@ class AuditTests(TestCase):
         self.assertTrue(
             AuditEvent.objects.filter(action="chat.message.hidden").exists()
         )
+        restored = client.post(
+            "/api/v1/backoffice/chat-messages/",
+            {"message_id": message.pk, "hidden": False, "reason": "faux positif"},
+            format="json",
+        )
+        self.assertEqual(restored.status_code, 200)
+        self.assertFalse(ChatMessage.objects.get(pk=message.pk).is_hidden)
+        self.assertTrue(
+            AuditEvent.objects.filter(action="chat.message.restored").exists()
+        )
 
     def test_staff_can_run_sandbox_payment_reconciliation(self):
         staff = User.objects.create_user(
