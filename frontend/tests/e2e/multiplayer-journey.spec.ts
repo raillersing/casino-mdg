@@ -172,6 +172,7 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   await stubGameApis(page);
   await page.goto("/game/poker/EMERALD-01");
   await expectCanonicalJoin(page);
+  await page.waitForTimeout(250);
 
   await page.getByRole("link", { name: /Quitter la table/i }).click();
   await expect
