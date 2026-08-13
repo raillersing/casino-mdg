@@ -86,6 +86,62 @@ async function stubGameApis(page: Page) {
                 }),
               }),
             );
+            window.setTimeout(() => {
+              this.onmessage?.(
+                new MessageEvent("message", {
+                  data: JSON.stringify({
+                    type: "action",
+                    action: "call",
+                    player_id: "poker-bot-1",
+                    sequence: 5,
+                    payload: {
+                      action: "call",
+                      amount: 100,
+                      phase: "preflop",
+                      pot_after: 300,
+                    },
+                  }),
+                }),
+              );
+              this.onmessage?.(
+                new MessageEvent("message", {
+                  data: JSON.stringify({
+                    type: "action",
+                    action: "street_changed",
+                    sequence: 6,
+                    payload: {
+                      from: "preflop",
+                      phase: "flop",
+                      community: [
+                        { rank: 14, suit: 3 },
+                        { rank: 13, suit: 2 },
+                        { rank: 10, suit: 1 },
+                      ],
+                      pot_after: 300,
+                    },
+                  }),
+                }),
+              );
+              this.onmessage?.(
+                new MessageEvent("message", {
+                  data: JSON.stringify({
+                    type: "action",
+                    action: "showdown",
+                    sequence: 7,
+                    payload: {
+                      winners: ["e2e-user"],
+                      pot: 500,
+                      revealed_cards: {
+                        "e2e-user": [
+                          { rank: 14, suit: 3 },
+                          { rank: 14, suit: 2 },
+                        ],
+                      },
+                    },
+                  }),
+                }),
+              );
+            }, 20);
           }
           if (payload.type === "leave")
             localStorage.setItem("e2e_last_leave", message);
@@ -258,8 +314,27 @@ test("starts a real declared demo AI session from the lobby", async ({
   // The URL keeps the human-readable table code; the socket uses the
   // engine-owned table id returned by the simulation API.
   await expectCanonicalJoin(page, "table-bot");
-  await expect(page.getByText(/IA Démo · Tovo/i)).toBeVisible();
+  await expect(page.getByText(/IA Démo · Tovo/i).first()).toBeVisible();
   await expect(page.locator(".game-room")).toBeVisible();
+});
+
+test("shows bot actions with amount and pot in the live action log", async ({
+  page,
+}) => {
+  await stubGameApis(page);
+  await page.goto("/game/poker/EMERALD-01");
+  await expect(page.getByText("IA Démo · Tovo").first()).toBeVisible();
+  await expect(page.locator(".action-log")).toContainText("Suit");
+  await expect(page.locator(".action-log")).toContainText("100");
+  await expect(page.locator(".action-log")).toContainText("pot 300");
+  await expect(page.locator(".action-log")).toContainText("Flop distribué");
+  await expect(page.locator(".action-log")).toContainText("Showdown");
+  await page.getByRole("button", { name: /Voir l’historique/i }).click();
+  await expect(page.locator(".action-history")).toBeVisible();
+  await expect(page.locator(".action-history")).toContainText(
+    "Historique de la main",
+  );
+  await expect(page.locator(".action-history")).toContainText("Suit");
 });
 
 test("joins a table, sends leave, and returns to the lobby", async ({
@@ -346,5 +421,5 @@ test("reconnects the table socket after a transient disconnect", async ({
   expect(messages.some((message) => message.type === "sync")).toBeTruthy();
   expect(
     messages.filter((message) => message.type === "join").at(-1),
-  ).toMatchObject({ sequence: 4 });
+  ).toMatchObject({ sequence: 7 });
 });

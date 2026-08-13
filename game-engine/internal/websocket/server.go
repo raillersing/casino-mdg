@@ -356,6 +356,10 @@ func (s *Server) startBotTurns(tableID string) {
 			if !ok {
 				return
 			}
+			if s.config.BotActionDelay > 0 {
+				s.broadcastToTable(tableID, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: "thinking", Payload: map[string]interface{}{"action": turn.Action}, Sequence: turn.Sequence, Timestamp: time.Now()})
+				time.Sleep(s.config.BotActionDelay)
+			}
 			client := &Client{playerID: turn.PlayerID, tableID: tableID}
 			s.handleAction(client, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: turn.Action, Payload: turn.Payload, Sequence: turn.Sequence})
 			time.Sleep(25 * time.Millisecond)
@@ -450,12 +454,13 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		s.sendMessage(client, &Message{Type: MsgError, TableID: client.tableID, Payload: "spectator is read-only", Timestamp: time.Now()})
 		return
 	}
+	previousPhase := s.roomManager.PokerPhase(msg.TableID)
 	event, replayed, err := s.roomManager.ApplyActionIdempotent(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload, msg.EventID)
 	if err != nil {
 		s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
 		return
 	}
-	actionMessage := &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: event.Payload, EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp}
+	actionMessage := &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: actionDetails(s.roomManager, msg.TableID, client.playerID, event.Action, msg.Payload), EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp}
 	if replayed {
 		// A retry still receives an acknowledgement, but must not make every
 		// player render the same action twice.
@@ -475,6 +480,29 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 				}
 				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": outcome, "amount": share, "signature": signResult(s.config.ResultSecret, msg.TableID, "poker", outcome, int(share))}, Sequence: event.Sequence, Timestamp: time.Now()})
 			}
+			if showdownPayouts, revealed, pot, ok := s.roomManager.PokerShowdown(msg.TableID); ok {
+				winners := make([]string, 0, len(showdownPayouts))
+				for playerID, share := range showdownPayouts {
+					if share > 0 {
+						winners = append(winners, playerID)
+					}
+				}
+				s.broadcastToTable(msg.TableID, &Message{
+					Type: MsgAction, TableID: msg.TableID, Action: "showdown",
+					Payload:  map[string]interface{}{"winners": winners, "pot": pot, "revealed_cards": revealed},
+					Sequence: event.Sequence, Timestamp: time.Now(),
+				})
+			}
+		}
+	}
+	if !replayed && tableGameType(s.roomManager, msg.TableID) == "poker" {
+		currentPhase := s.roomManager.PokerPhase(msg.TableID)
+		if previousPhase != "" && currentPhase != "" && previousPhase != currentPhase {
+			s.broadcastToTable(msg.TableID, &Message{
+				Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID,
+				Action: "street_changed", Payload: streetDetails(s.roomManager, msg.TableID, previousPhase, currentPhase),
+				Sequence: event.Sequence, Timestamp: time.Now(),
+			})
 		}
 	}
 	if !replayed && msg.Action == "play_card" {
@@ -505,6 +533,41 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		s.startBotTurns(msg.TableID)
 	}
 	s.persistSnapshot(msg.TableID)
+}
+
+func actionDetails(manager *room.Manager, tableID, playerID, action string, payload interface{}) map[string]interface{} {
+	details := map[string]interface{}{"action": action}
+	if values, ok := payload.(map[string]interface{}); ok {
+		if amount, exists := values["amount"]; exists {
+			details["amount"] = amount
+		}
+	}
+	if table, ok := manager.GetTable(tableID); ok {
+		switch game := table.State.(type) {
+		case *poker.Hand:
+			details["phase"] = game.Phase
+			details["pot_after"] = game.Pot
+			for _, player := range game.Players {
+				if player.ID == playerID {
+					details["bet_after"] = player.Bet
+					details["stack_after"] = player.Stack
+					break
+				}
+			}
+		}
+	}
+	return details
+}
+
+func streetDetails(manager *room.Manager, tableID, previous, current string) map[string]interface{} {
+	details := map[string]interface{}{"from": previous, "phase": current}
+	if table, ok := manager.GetTable(tableID); ok {
+		if hand, ok := table.State.(*poker.Hand); ok {
+			details["community"] = hand.Community
+			details["pot_after"] = hand.Pot
+		}
+	}
+	return details
 }
 
 // broadcastState sends a fresh, player-scoped snapshot after every accepted

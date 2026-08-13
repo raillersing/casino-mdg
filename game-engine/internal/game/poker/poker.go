@@ -23,13 +23,13 @@ const (
 )
 
 type Player struct {
-	ID     string `json:"id"`
-	Stack  int64  `json:"stack"`
+	ID       string `json:"id"`
+	Stack    int64  `json:"stack"`
 	Bet      int64  `json:"bet"`
 	TotalBet int64  `json:"total_bet"`
-	Cards  []Card `json:"cards"`
-	Folded bool   `json:"folded"`
-	AllIn  bool   `json:"all_in"`
+	Cards    []Card `json:"cards"`
+	Folded   bool   `json:"folded"`
+	AllIn    bool   `json:"all_in"`
 }
 type Hand struct {
 	Players      []*Player `json:"players"`

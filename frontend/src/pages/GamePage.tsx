@@ -27,6 +27,15 @@ import { useGameStore } from "@stores/gameStore";
 import { useWebSocket } from "@hooks/useWebSocket";
 import { trackEvent } from "@services/analytics";
 
+type TableAction = {
+  id: string;
+  playerId: string;
+  action: string;
+  amount?: number;
+  phase?: string;
+  potAfter?: number;
+};
+
 export function GamePage() {
   const { t } = useTranslation();
   const { gameType, tableId } = useParams();
@@ -49,6 +58,9 @@ export function GamePage() {
   >("offline");
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
+  const [actionLog, setActionLog] = useState<TableAction[]>([]);
+  const [showActionHistory, setShowActionHistory] = useState(false);
+  const [thinkingPlayer, setThinkingPlayer] = useState("");
   const [tablePlayers, setTablePlayers] = useState<
     Array<Record<string, unknown>>
   >([]);
@@ -107,6 +119,18 @@ export function GamePage() {
       player?.name || (winnerId === userId ? t("game.you") : winnerId),
     );
   });
+  const currentPlayerId =
+    currentPlayerIndex >= 0
+      ? String(statePlayers[currentPlayerIndex]?.id || "")
+      : "";
+  const nameForPlayer = (playerId: string) => {
+    const player = tablePlayers.find(
+      (item) => String(item.id || "") === playerId,
+    );
+    return String(
+      player?.name || (playerId === userId ? t("game.you") : playerId),
+    );
+  };
   const socketUrl = `${import.meta.env.VITE_WS_URL || "ws://localhost:8080"}/ws`;
 
   useEffect(() => {
@@ -159,7 +183,13 @@ export function GamePage() {
           }
           if (state?.game_state) {
             setGameState(state.game_state);
-            if (state.game_state.phase !== "showdown") settled.current = false;
+            if (state.game_state.phase !== "showdown") {
+              settled.current = false;
+              if (state.game_state.phase === "preflop") {
+                setActionLog([]);
+                setShowActionHistory(false);
+              }
+            }
           }
           if (
             demoAi &&
@@ -174,7 +204,38 @@ export function GamePage() {
           setConnectionState("connected");
         }
         if (payload.type === "action") {
-          setLastAction("action reçue");
+          const details = (
+            payload.payload && typeof payload.payload === "object"
+              ? payload.payload
+              : {}
+          ) as {
+            action?: string;
+            amount?: number;
+            phase?: string;
+            pot_after?: number;
+            winners?: string[];
+            pot?: number;
+          };
+          const action = payload.action || details.action || "action";
+          if (action === "thinking") {
+            setThinkingPlayer(payload.player_id || "");
+          } else {
+            setThinkingPlayer("");
+            setLastAction(actionLabel(action));
+            if (action !== "result") {
+              setActionLog((current) => [
+                ...current.slice(-7),
+                {
+                  id: `${payload.sequence || Date.now()}-${payload.player_id || "table"}`,
+                  playerId: payload.player_id || "",
+                  action,
+                  amount: details.amount,
+                  phase: details.phase,
+                  potAfter: details.pot_after ?? details.pot,
+                },
+              ]);
+            }
+          }
         }
         const resultPayload = (
           payload.payload && typeof payload.payload === "object"
@@ -516,7 +577,9 @@ export function GamePage() {
                 ? `${t("game.winner")}: ${winnerNames.join(" · ")}`
                 : t("game.handComplete")}
             </strong>
-            <span>{t("game.revealedCards")}</span>
+            <span>
+              {t("game.revealedCards")} · Pot {String(gameState?.pot ?? 0)}
+            </span>
           </div>
           {!spectator && (
             <button
@@ -528,6 +591,93 @@ export function GamePage() {
             >
               {t("game.newHand")}
             </button>
+          )}
+        </div>
+      )}
+      {isPoker && !isPokerShowdown && (
+        <div className="poker-live-panel">
+          <div className="poker-turn-banner">
+            <span className={thinkingPlayer ? "thinking-dot" : "turn-dot"} />
+            <strong>
+              {thinkingPlayer
+                ? `${nameForPlayer(thinkingPlayer)} réfléchit…`
+                : isMyTurn
+                  ? t("game.yourTurnAction")
+                  : currentPlayerId
+                    ? `${nameForPlayer(currentPlayerId)} joue`
+                    : t("game.waiting")}
+            </strong>
+          </div>
+          <div className="action-log" aria-live="polite">
+            {actionLog.length ? (
+              actionLog
+                .slice()
+                .reverse()
+                .map((entry) => (
+                  <div className="action-log-row" key={entry.id}>
+                    <span>
+                      {entry.playerId ? nameForPlayer(entry.playerId) : "Table"}
+                    </span>
+                    <strong>{actionLabel(entry.action, entry.phase)}</strong>
+                    {entry.amount ? <em>{entry.amount}</em> : null}
+                    {entry.potAfter ? (
+                      <small>pot {entry.potAfter}</small>
+                    ) : null}
+                  </div>
+                ))
+            ) : (
+              <span className="action-log-empty">
+                {t("game.waitingForActions")}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            className="history-toggle"
+            onClick={() => setShowActionHistory((open) => !open)}
+            aria-expanded={showActionHistory}
+          >
+            {showActionHistory ? t("game.hideHistory") : t("game.viewHistory")}
+            <span>{actionLog.length}</span>
+          </button>
+          {showActionHistory && (
+            <div
+              className="action-history"
+              aria-label={t("game.actionHistory")}
+            >
+              <div className="action-history-head">
+                <strong>{t("game.actionHistory")}</strong>
+                <span>
+                  {t("game.handActions", { count: actionLog.length })}
+                </span>
+              </div>
+              {actionLog.length ? (
+                actionLog
+                  .slice()
+                  .reverse()
+                  .map((entry) => (
+                    <div
+                      className="action-history-row"
+                      key={`history-${entry.id}`}
+                    >
+                      <span>
+                        {entry.playerId
+                          ? nameForPlayer(entry.playerId)
+                          : "Table"}
+                      </span>
+                      <strong>{actionLabel(entry.action, entry.phase)}</strong>
+                      {entry.amount ? <em>{entry.amount}</em> : null}
+                      {entry.potAfter ? (
+                        <small>pot {entry.potAfter}</small>
+                      ) : null}
+                    </div>
+                  ))
+              ) : (
+                <span className="action-log-empty">
+                  {t("game.waitingForActions")}
+                </span>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -544,6 +694,8 @@ export function GamePage() {
             tablePlayers[0]?.name || (demoAi ? "IA Démo · Tovo" : "Tovo"),
           )}
           chips={String(tablePlayers[0]?.stack || "8 420")}
+          active={currentPlayerIndex === 0}
+          folded={Boolean(tablePlayers[0]?.folded)}
         />
         <PlayerSeat
           pos="left"
@@ -551,6 +703,8 @@ export function GamePage() {
             tablePlayers[1]?.name || (demoAi ? "IA Démo · Rija" : "Rija"),
           )}
           chips={String(tablePlayers[1]?.stack || "12 100")}
+          active={currentPlayerIndex === 1}
+          folded={Boolean(tablePlayers[1]?.folded)}
         />
         <PlayerSeat
           pos="right"
@@ -558,6 +712,8 @@ export function GamePage() {
             tablePlayers[2]?.name || (demoAi ? "IA Démo · Saholy" : "Saholy"),
           )}
           chips={String(tablePlayers[2]?.stack || "6 750")}
+          active={currentPlayerIndex === 2}
+          folded={Boolean(tablePlayers[2]?.folded)}
         />
         <div className="pot">
           {t("game.pot")} <strong>{String(gameState?.pot ?? 0)}</strong>
@@ -733,13 +889,19 @@ function PlayerSeat({
   pos,
   name,
   chips,
+  active = false,
+  folded = false,
 }: {
   pos: string;
   name: string;
   chips: string;
+  active?: boolean;
+  folded?: boolean;
 }) {
   return (
-    <div className={`player-seat seat-${pos}`}>
+    <div
+      className={`player-seat seat-${pos} ${active ? "active-seat" : ""} ${folded ? "folded-seat" : ""}`}
+    >
       <div className="seat-avatar">{name[0]}</div>
       <div>
         <strong>{name}</strong>
@@ -816,6 +978,28 @@ function pokerPhaseLabel(phase: string) {
         showdown: "Showdown",
       } as Record<string, string>
     )[phase] || phase
+  );
+}
+
+function actionLabel(action: string, phase?: string) {
+  if (action === "street_changed") {
+    return phase === "showdown"
+      ? "Showdown"
+      : `${pokerPhaseLabel(phase || "")} distribué`;
+  }
+  return (
+    (
+      {
+        fold: "Se couche",
+        check: "Check",
+        call: "Suit",
+        bet: "Mise",
+        raise: "Relance",
+        all_in: "Tapis",
+        new_hand: "Nouvelle main",
+        showdown: "Showdown",
+      } as Record<string, string>
+    )[action] || action
   );
 }
 

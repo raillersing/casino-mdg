@@ -487,6 +487,44 @@ func (m *Manager) FinishedPokerPayouts(tableID string) (map[string]int64, bool) 
 	return hand.Payouts(), true
 }
 
+// PokerPhase returns the current public street for a table. It is used by the
+// websocket layer to publish an explicit transition after an accepted action.
+func (m *Manager) PokerPhase(tableID string) string {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return ""
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	hand, ok := table.State.(*poker.Hand)
+	if !ok {
+		return ""
+	}
+	return hand.Phase
+}
+
+// PokerShowdown returns the public outcome of a finished hand without
+// exposing folded players' private cards.
+func (m *Manager) PokerShowdown(tableID string) (payouts map[string]int64, revealed map[string][]poker.Card, pot int64, finished bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return nil, nil, 0, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	hand, ok := table.State.(*poker.Hand)
+	if !ok || hand.Phase != "showdown" {
+		return nil, nil, 0, false
+	}
+	revealed = make(map[string][]poker.Card)
+	for _, player := range hand.Players {
+		if !player.Folded {
+			revealed[player.ID] = player.Cards
+		}
+	}
+	return hand.Payouts(), revealed, hand.Pot, true
+}
+
 func (m *Manager) FinishedBeloteResults(tableID string) (winners, losers []string, points int64, finished bool) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
