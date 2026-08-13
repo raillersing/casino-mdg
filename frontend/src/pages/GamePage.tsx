@@ -344,7 +344,7 @@ export function GamePage() {
 
   const leaveTable = () => {
     const leaveTableId = resolvedTableIdRef.current || engineTableId;
-    if (leaveTableId && accessToken && !demoAi && !spectator) {
+    if (leaveTableId && !demoAi && !spectator) {
       const leaveMessage = {
         type: "leave",
         table_id: leaveTableId,
