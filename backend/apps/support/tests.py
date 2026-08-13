@@ -6,6 +6,37 @@ from apps.support.models import PilotFeedback, SupportTicket
 
 
 class SupportTests(TestCase):
+    def test_staff_can_read_contextual_incident_tickets_but_player_cannot(self):
+        player = User.objects.create_user(
+            email="incident-player@mdg.local",
+            phone="+261340000029",
+            display_name="Incident Player",
+        )
+        SupportTicket.objects.create(
+            user=player,
+            category="game",
+            subject="Déconnexion pendant la partie",
+            description="La table ne répondait plus.",
+            game_type="poker",
+            table_id="table-emerald",
+            session_id="incident-session",
+            app_version="web-2026.08",
+        )
+        client = APIClient()
+        client.force_authenticate(player)
+        self.assertEqual(client.get("/api/v1/support/tickets/staff/").status_code, 403)
+        staff = User.objects.create_user(
+            email="incident-staff@mdg.local",
+            phone="+261340000030",
+            display_name="Incident Staff",
+            is_staff=True,
+        )
+        client.force_authenticate(staff)
+        response = client.get("/api/v1/support/tickets/staff/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["results"][0]["player"], "Incident Player")
+        self.assertEqual(response.data["results"][0]["table_id"], "table-emerald")
+
     def test_user_can_create_and_list_only_own_tickets(self):
         user = User.objects.create_user(
             email="support@mdg.local", phone="+261340000026", display_name="Support"

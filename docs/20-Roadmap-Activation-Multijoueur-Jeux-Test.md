@@ -285,6 +285,9 @@ la couverture de non-régression.
 - Livré : le lien de signalement depuis une partie transmet jeu, table, session
   et version d’interface au ticket support, afin de rendre la reproduction
   exploitable par l’équipe pilote.
+- Livré : le back-office staff expose les 100 derniers incidents avec joueur,
+  statut et contexte de reproduction ; les changements de statut restent un
+  lot distinct et audité.
 - Documenter chaque incident avec mode, jeu, match, version et reproduction.
 - Définir un go/no-go hebdomadaire fondé sur les métriques et les erreurs, pas sur des compteurs artificiels.
 
