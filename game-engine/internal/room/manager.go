@@ -53,13 +53,14 @@ type TableSnapshot struct {
 }
 
 type Player struct {
-	ID       string    `json:"id"`
-	Name     string    `json:"name"`
-	Stack    int64     `json:"stack"`
-	Seat     int       `json:"seat"`
-	IsActive bool      `json:"is_active"`
-	IsBot    bool      `json:"is_bot"`
-	JoinedAt time.Time `json:"joined_at"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Stack      int64     `json:"stack"`
+	Seat       int       `json:"seat"`
+	IsActive   bool      `json:"is_active"`
+	IsBot      bool      `json:"is_bot"`
+	BotProfile string    `json:"bot_profile,omitempty"`
+	JoinedAt   time.Time `json:"joined_at"`
 }
 
 type Manager struct {
@@ -82,6 +83,7 @@ type BotTurn struct {
 	Action   string
 	Payload  interface{}
 	Sequence uint64
+	Profile  string
 }
 
 func NewManager(cfg *config.Config) *Manager {
@@ -198,10 +200,18 @@ func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, e
 // Keeping it separate from JoinPlayer prevents a public client from opting
 // into bot identity through the regular JWT/WebSocket path.
 func (m *Manager) JoinBotPlayer(tableID, playerID, name string, seat int) (Event, error) {
-	return m.joinPlayer(tableID, playerID, name, seat, true, false)
+	return m.JoinBotPlayerWithProfile(tableID, playerID, name, seat, "balanced")
+}
+
+func (m *Manager) JoinBotPlayerWithProfile(tableID, playerID, name string, seat int, profile string) (Event, error) {
+	return m.joinPlayerWithProfile(tableID, playerID, name, seat, true, false, profile)
 }
 
 func (m *Manager) joinPlayer(tableID, playerID, name string, seat int, isBot, initialize bool) (Event, error) {
+	return m.joinPlayerWithProfile(tableID, playerID, name, seat, isBot, initialize, "")
+}
+
+func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int, isBot, initialize bool, botProfile string) (Event, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
 		return Event{}, fmt.Errorf("table not found")
@@ -216,7 +226,7 @@ func (m *Manager) joinPlayer(tableID, playerID, name string, seat int, isBot, in
 		existing.JoinedAt = time.Now()
 		return Event{TableID: tableID, PlayerID: playerID, Action: "reconnected", Sequence: table.Sequence}, nil
 	}
-	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, IsBot: isBot, JoinedAt: time.Now()}
+	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, IsBot: isBot, BotProfile: botProfile, JoinedAt: time.Now()}
 	if initialize && table.GameType == "poker" && len(table.Players) >= 2 && table.State == nil {
 		if err := initializePokerHand(table); err != nil {
 			return Event{}, err
@@ -241,8 +251,8 @@ func (m *Manager) ApplyAction(tableID, playerID, action string, expectedSequence
 }
 
 // NextBotTurn selects a deterministic legal action only when the current seat
-// belongs to a bot. It deliberately contains no random policy: repeatable
-// demo sessions are easier to test, explain and replay.
+// belongs to a bot. Profiles change the policy while keeping decisions
+// deterministic, so a session remains reproducible in tests and replays.
 func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
@@ -260,6 +270,10 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 		if !exists || !seat.IsBot {
 			return BotTurn{}, false
 		}
+		profile := seat.BotProfile
+		if profile == "" {
+			profile = "balanced"
+		}
 		highest := int64(0)
 		for _, player := range game.Players {
 			if player.Bet > highest {
@@ -268,12 +282,38 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 		}
 		toCall := highest - gamePlayer.Bet
 		if toCall == 0 {
+			if profile != "tutorial" && pokerBotStrength(gamePlayer) >= 2 && gamePlayer.Stack >= game.BigBlind {
+				amount := game.BigBlind
+				if profile == "expert" && game.BigBlind > 0 {
+					amount *= 2
+				}
+				return BotTurn{PlayerID: gamePlayer.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: table.Sequence, Profile: profile}, true
+			}
 			return BotTurn{PlayerID: gamePlayer.ID, Action: "check", Sequence: table.Sequence}, true
 		}
-		if toCall <= gamePlayer.Stack && toCall > 0 {
-			return BotTurn{PlayerID: gamePlayer.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: table.Sequence}, true
+		strength := pokerBotStrength(gamePlayer)
+		if profile == "expert" && strength >= 3 {
+			raise := toCall + game.LastRaise
+			if raise > 0 && raise <= gamePlayer.Stack {
+				return BotTurn{PlayerID: gamePlayer.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: table.Sequence, Profile: profile}, true
+			}
 		}
-		return BotTurn{PlayerID: gamePlayer.ID, Action: "fold", Sequence: table.Sequence}, true
+		if profile == "balanced" && strength >= 4 {
+			raise := toCall + game.LastRaise
+			if raise > 0 && raise <= gamePlayer.Stack {
+				return BotTurn{PlayerID: gamePlayer.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: table.Sequence, Profile: profile}, true
+			}
+		}
+		if toCall > gamePlayer.Stack {
+			return BotTurn{PlayerID: gamePlayer.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: table.Sequence, Profile: profile}, true
+		}
+		if profile == "expert" && strength == 0 && toCall > game.BigBlind*3 {
+			return BotTurn{PlayerID: gamePlayer.ID, Action: "fold", Sequence: table.Sequence, Profile: profile}, true
+		}
+		if toCall <= gamePlayer.Stack && toCall > 0 {
+			return BotTurn{PlayerID: gamePlayer.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: table.Sequence, Profile: profile}, true
+		}
+		return BotTurn{PlayerID: gamePlayer.ID, Action: "fold", Sequence: table.Sequence, Profile: profile}, true
 	case *belote.Round:
 		if game.Finished() || game.Current < 0 || game.Current >= len(game.Players) {
 			return BotTurn{}, false
@@ -310,6 +350,51 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 	}
 }
 
+// TimedOutAction returns the deterministic fallback for a human seat whose
+// server deadline has expired. Checking is preferred when legal; otherwise
+// the player folds. The caller still applies it through the authoritative
+// action path.
+func (m *Manager) TimedOutAction(tableID string) (BotTurn, bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return BotTurn{}, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	hand, ok := table.State.(*poker.Hand)
+	if !ok || hand.Phase == "showdown" || hand.ActionDeadline.IsZero() || time.Now().Before(hand.ActionDeadline) || hand.Current < 0 || hand.Current >= len(hand.Players) {
+		return BotTurn{}, false
+	}
+	player := hand.Players[hand.Current]
+	if player.Folded || player.AllIn {
+		return BotTurn{}, false
+	}
+	if hand.HighestBet() == player.Bet {
+		return BotTurn{PlayerID: player.ID, Action: "check", Sequence: table.Sequence}, true
+	}
+	return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: table.Sequence}, true
+}
+
+func pokerBotStrength(player *poker.Player) int {
+	if len(player.Cards) < 2 {
+		return 0
+	}
+	first, second := player.Cards[0].Rank, player.Cards[1].Rank
+	if first == second {
+		if first >= 12 {
+			return 5
+		}
+		return 3
+	}
+	if first >= 13 && second >= 13 {
+		return 4
+	}
+	if first >= 12 || second >= 12 {
+		return 2
+	}
+	return 0
+}
+
 // StartTable initializes the game only after the human owner has joined. Bot
 // seats may be attached beforehand without allowing a complete bot-only hand
 // to start behind the user's back.
@@ -333,6 +418,21 @@ func (m *Manager) StartTable(tableID string) error {
 		return initializeRamiGame(table)
 	}
 	return nil
+}
+
+func (m *Manager) SetPokerDeadline(tableID string, deadline time.Time) bool {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return false
+	}
+	table.mu.Lock()
+	defer table.mu.Unlock()
+	hand, ok := table.State.(*poker.Hand)
+	if !ok || hand.Phase == "showdown" || hand.Current < 0 {
+		return false
+	}
+	hand.SetActionDeadline(deadline)
+	return true
 }
 
 func hasBeloteSuit(hand []belote.Card, suit int) bool {
@@ -505,24 +605,26 @@ func (m *Manager) PokerPhase(tableID string) string {
 
 // PokerShowdown returns the public outcome of a finished hand without
 // exposing folded players' private cards.
-func (m *Manager) PokerShowdown(tableID string) (payouts map[string]int64, revealed map[string][]poker.Card, pot int64, finished bool) {
+func (m *Manager) PokerShowdown(tableID string) (payouts map[string]int64, revealed map[string][]poker.Card, pot int64, finishReason string, finished bool) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
-		return nil, nil, 0, false
+		return nil, nil, 0, "", false
 	}
 	table.mu.RLock()
 	defer table.mu.RUnlock()
 	hand, ok := table.State.(*poker.Hand)
 	if !ok || hand.Phase != "showdown" {
-		return nil, nil, 0, false
+		return nil, nil, 0, "", false
 	}
 	revealed = make(map[string][]poker.Card)
-	for _, player := range hand.Players {
-		if !player.Folded {
-			revealed[player.ID] = player.Cards
+	if hand.FinishReason != "uncontested" {
+		for _, player := range hand.Players {
+			if !player.Folded {
+				revealed[player.ID] = player.Cards
+			}
 		}
 	}
-	return hand.Payouts(), revealed, hand.Pot, true
+	return hand.Payouts(), revealed, hand.Pot, hand.FinishReason, true
 }
 
 func (m *Manager) FinishedBeloteResults(tableID string) (winners, losers []string, points int64, finished bool) {
@@ -678,7 +780,16 @@ func startNextPokerHand(table *Table) error {
 		if stack, exists := stacks[player.ID]; exists {
 			player.Stack = stack
 		}
+		if player.Stack <= 0 {
+			player.IsActive = false
+			continue
+		}
 		seats = append(seats, player)
+	}
+	if len(seats) < 2 {
+		hand.SessionFinished = true
+		table.IsActive = false
+		return nil
 	}
 	sort.Slice(seats, func(i, j int) bool { return seats[i].Seat < seats[j].Seat })
 	players := make([]*poker.Player, 0, len(seats))

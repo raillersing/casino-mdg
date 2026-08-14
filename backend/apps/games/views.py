@@ -164,7 +164,11 @@ class BotSimulationView(APIView):
                     "table_id": str(table.id),
                     "game_type": game_type,
                     "bots": [
-                        {"id": bot.bot_key, "name": bot.display_name}
+                        {
+                            "id": bot.bot_key,
+                            "name": bot.display_name,
+                            "profile": bot.profile,
+                        }
                         for bot in session.bots.all().order_by("seat_index")
                     ],
                 },
