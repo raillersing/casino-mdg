@@ -82,6 +82,56 @@ func TestShowdownReturnsTiedWinners(t *testing.T) {
 	}
 }
 
+func TestShowdownUsesKickersWhenCategoryMatches(t *testing.T) {
+	hand, _ := NewHand([]*Player{{ID: "a", Stack: 1000}, {ID: "b", Stack: 1000}}, func([]Card) {})
+	hand.Phase = "showdown"
+	hand.Community = []Card{{14, 0}, {7, 1}, {4, 2}, {3, 0}, {2, 1}}
+	hand.Players[0].Cards = []Card{{14, 1}, {13, 2}}
+	hand.Players[1].Cards = []Card{{14, 2}, {12, 3}}
+	winners, ok := hand.Winners()
+	if !ok || len(winners) != 1 || winners[0].ID != "a" {
+		t.Fatalf("winners=%v ok=%v", winners, ok)
+	}
+}
+
+func TestAllInRunoutDealsRemainingCommunityCards(t *testing.T) {
+	hand, err := NewHand([]*Player{{ID: "a", Stack: 100}, {ID: "b", Stack: 100}}, func([]Card) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := hand.StartHand(10, 20); err != nil {
+		t.Fatal(err)
+	}
+	if err := hand.Apply(0, AllIn, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := hand.Apply(1, Call, 0); err != nil {
+		t.Fatal(err)
+	}
+	if hand.Phase != "showdown" || len(hand.Community) != 5 || hand.FinishReason != "showdown" {
+		t.Fatalf("phase=%s community=%d reason=%s", hand.Phase, len(hand.Community), hand.FinishReason)
+	}
+}
+
+func TestShortCallIsAllowedAndRunsOut(t *testing.T) {
+	hand, err := NewHand([]*Player{{ID: "a", Stack: 50}, {ID: "b", Stack: 100}}, func([]Card) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := hand.Apply(0, Check, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := hand.Apply(1, Bet, 80); err != nil {
+		t.Fatal(err)
+	}
+	if err := hand.Apply(0, Call, 0); err != nil {
+		t.Fatal(err)
+	}
+	if !hand.Players[0].AllIn || hand.Players[0].TotalBet != 50 || len(hand.Community) != 5 {
+		t.Fatalf("player=%+v community=%d phase=%s", hand.Players[0], len(hand.Community), hand.Phase)
+	}
+}
+
 func TestCalculatePotsSeparatesAllInLevelsAndFoldedPlayers(t *testing.T) {
 	pots := CalculatePots([]*Player{{ID: "a", Bet: 100}, {ID: "b", Bet: 200}, {ID: "c", Bet: 300, Folded: true}})
 	if len(pots) != 3 {

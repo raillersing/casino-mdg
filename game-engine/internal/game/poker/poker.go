@@ -3,6 +3,7 @@ package poker
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/casino-mdg/game-engine/internal/rng"
 )
@@ -32,17 +33,21 @@ type Player struct {
 	AllIn    bool   `json:"all_in"`
 }
 type Hand struct {
-	Players      []*Player `json:"players"`
-	Community    []Card    `json:"community"`
-	Pot          int64     `json:"pot"`
-	Current      int       `json:"current"`
-	Phase        string    `json:"phase"`
-	Deck         []Card    `json:"deck"`
-	RoundActions int       `json:"round_actions"`
-	Button       int       `json:"button"`
-	SmallBlind   int64     `json:"small_blind"`
-	BigBlind     int64     `json:"big_blind"`
-	Started      bool      `json:"started"`
+	Players         []*Player `json:"players"`
+	Community       []Card    `json:"community"`
+	Pot             int64     `json:"pot"`
+	Current         int       `json:"current"`
+	Phase           string    `json:"phase"`
+	Deck            []Card    `json:"deck"`
+	RoundActions    int       `json:"round_actions"`
+	Button          int       `json:"button"`
+	SmallBlind      int64     `json:"small_blind"`
+	BigBlind        int64     `json:"big_blind"`
+	Started         bool      `json:"started"`
+	LastRaise       int64     `json:"last_raise"`
+	FinishReason    string    `json:"finish_reason,omitempty"`
+	SessionFinished bool      `json:"session_finished,omitempty"`
+	ActionDeadline  time.Time `json:"action_deadline,omitempty"`
 }
 
 type Pot struct {
@@ -114,6 +119,8 @@ func (h *Hand) StartHand(smallBlind, bigBlind int64) error {
 		return fmt.Errorf("invalid blinds")
 	}
 	h.SmallBlind, h.BigBlind = smallBlind, bigBlind
+	h.LastRaise = bigBlind
+	h.ActionDeadline = time.Time{}
 	h.Started = true
 	small, big := h.blindSeats()
 	if err := h.PostBlind(small, smallBlind); err != nil {
@@ -122,9 +129,14 @@ func (h *Hand) StartHand(smallBlind, bigBlind int64) error {
 	if err := h.PostBlind(big, bigBlind); err != nil {
 		return err
 	}
-	h.Current = h.nextActive(big)
+	// Preflop action starts immediately left of the big blind. In heads-up
+	// play this is the button/small blind; postflop advancePhase starts left
+	// of the button as required by Hold'em rules.
+	h.Current = h.nextActive((big + 1) % len(h.Players))
 	return nil
 }
+
+func (h *Hand) SetActionDeadline(deadline time.Time) { h.ActionDeadline = deadline }
 
 func (h *Hand) blindSeats() (small, big int) {
 	if len(h.Players) == 2 {
@@ -147,7 +159,7 @@ func (h *Hand) PostBlind(index int, amount int64) error {
 	if index < 0 || index >= len(h.Players) || amount <= 0 {
 		return fmt.Errorf("invalid blind")
 	}
-	return h.commit(index, amount)
+	return h.commit(index, amount, true)
 }
 
 func (h *Hand) Apply(index int, action Action, amount int64) error {
@@ -170,18 +182,31 @@ func (h *Hand) Apply(index int, action Action, amount int64) error {
 		if toCall <= 0 {
 			return fmt.Errorf("nothing to call")
 		}
-		if err := h.commit(index, toCall); err != nil {
+		// A short stack is allowed to call all-in for the chips it has left.
+		if err := h.commit(index, toCall, true); err != nil {
 			return err
 		}
 	case Bet, Raise:
-		if amount <= toCall {
-			return fmt.Errorf("bet must exceed call amount")
+		if amount <= 0 {
+			return fmt.Errorf("bet amount must be positive")
 		}
-		if err := h.commit(index, amount); err != nil {
+		if amount > p.Stack {
+			return fmt.Errorf("insufficient stack")
+		}
+		minimum := h.minimumRaiseAmount(toCall)
+		if amount < minimum && amount != p.Stack {
+			return fmt.Errorf("raise is below the minimum")
+		}
+		previousHighest := h.highestBet()
+		if err := h.commit(index, amount, false); err != nil {
 			return err
 		}
+		newHighest := h.highestBet()
+		if newHighest > previousHighest {
+			h.LastRaise = newHighest - previousHighest
+		}
 	case AllIn:
-		if err := h.commit(index, p.Stack); err != nil {
+		if err := h.commit(index, p.Stack, false); err != nil {
 			return err
 		}
 	default:
@@ -192,10 +217,16 @@ func (h *Hand) Apply(index int, action Action, amount int64) error {
 	return nil
 }
 
-func (h *Hand) commit(index int, amount int64) error {
+func (h *Hand) commit(index int, amount int64, allowPartial bool) error {
 	p := h.Players[index]
-	if amount <= 0 || amount > p.Stack {
+	if amount <= 0 {
 		return fmt.Errorf("insufficient stack")
+	}
+	if amount > p.Stack {
+		if !allowPartial {
+			return fmt.Errorf("insufficient stack")
+		}
+		amount = p.Stack
 	}
 	p.Stack -= amount
 	p.Bet += amount
@@ -215,18 +246,63 @@ func (h *Hand) highestBet() int64 {
 	}
 	return result
 }
+
+// HighestBet exposes the amount that is still actionable this street. Bets
+// from folded or all-in players remain in TotalBet and pots, but cannot force
+// another live player to contribute more.
+func (h *Hand) HighestBet() int64 { return h.highestBet() }
+
+func (h *Hand) minimumRaiseAmount(toCall int64) int64 {
+	if toCall == 0 {
+		if h.BigBlind > 0 {
+			return h.BigBlind
+		}
+		return 1
+	}
+	lastRaise := h.LastRaise
+	if lastRaise <= 0 {
+		lastRaise = h.BigBlind
+	}
+	return toCall + lastRaise
+}
+
+// MinimumRaiseTo exposes the legal amount of additional chips for a player to
+// put in when opening or raising. It is used by presentation layers to render
+// the same limits enforced by the engine.
+func (h *Hand) MinimumRaiseTo(index int) int64 {
+	if index < 0 || index >= len(h.Players) {
+		return 0
+	}
+	return h.minimumRaiseAmount(h.highestBet() - h.Players[index].Bet)
+}
+
 func (h *Hand) nextTurn() {
 	active := 0
+	actionable := 0
 	for _, player := range h.Players {
 		if !player.Folded {
 			active++
+			if !player.AllIn {
+				actionable++
+			}
 		}
 	}
 	if active <= 1 {
 		h.Phase = "showdown"
+		h.FinishReason = "uncontested"
 		return
 	}
-	if h.RoundActions >= active && h.betsEqual() {
+	// A single actionable player may still need to call an unmatched all-in.
+	// Only when nobody can act can the remaining board be dealt automatically.
+	if actionable == 0 {
+		h.runoutToShowdown()
+		return
+	}
+	if actionable == 1 && h.betsEqual() {
+		h.runoutToShowdown()
+		return
+	}
+	if h.RoundActions >= actionable && h.betsEqual() {
 		h.advancePhase()
 		return
 	}
@@ -237,22 +313,22 @@ func (h *Hand) nextTurn() {
 			return
 		}
 	}
-	h.Phase = "showdown"
+	if h.nextActive(h.Current+1) < 0 {
+		h.runoutToShowdown()
+	}
 }
 
 func (h *Hand) betsEqual() bool {
-	var bet int64 = -1
+	highest := h.highestBet()
 	for _, player := range h.Players {
-		if player.Folded {
+		if player.Folded || player.AllIn {
 			continue
 		}
-		if bet < 0 {
-			bet = player.Bet
-		} else if player.Bet != bet {
+		if player.Bet != highest {
 			return false
 		}
 	}
-	return bet >= 0
+	return true
 }
 
 func (h *Hand) advancePhase() {
@@ -264,7 +340,7 @@ func (h *Hand) advancePhase() {
 	}
 	h.Current = h.nextActive(start)
 	if h.Current < 0 {
-		h.Phase = "showdown"
+		h.runoutToShowdown()
 		return
 	}
 	switch h.Phase {
@@ -279,7 +355,29 @@ func (h *Hand) advancePhase() {
 		h.dealCommunity(1)
 	case "river":
 		h.Phase = "showdown"
+		h.FinishReason = "showdown"
 	}
+}
+
+func (h *Hand) runoutToShowdown() {
+	for h.Phase != "showdown" {
+		switch h.Phase {
+		case "preflop":
+			h.Phase = "flop"
+			h.dealCommunity(3)
+		case "flop":
+			h.Phase = "turn"
+			h.dealCommunity(1)
+		case "turn":
+			h.Phase = "river"
+			h.dealCommunity(1)
+		case "river":
+			h.Phase = "showdown"
+		default:
+			h.Phase = "showdown"
+		}
+	}
+	h.FinishReason = "showdown"
 }
 
 func (h *Hand) nextActive(start int) int {
@@ -317,16 +415,18 @@ func (h *Hand) Winners() ([]*Player, bool) {
 	if h.Phase != "showdown" {
 		return nil, false
 	}
-	best := -1
+	var best HandValue
+	hasBest := false
 	winners := make([]*Player, 0)
 	for _, player := range h.Players {
 		if player.Folded {
 			continue
 		}
-		rank := BestRank(append(append([]Card{}, player.Cards...), h.Community...))
-		if rank > best {
-			best, winners = rank, []*Player{player}
-		} else if rank == best {
+		rank, _ := BestHandValue(append(append([]Card{}, player.Cards...), h.Community...))
+		comparison := compareHandValue(rank, best)
+		if !hasBest || comparison > 0 {
+			best, winners, hasBest = rank, []*Player{player}, true
+		} else if comparison == 0 {
 			winners = append(winners, player)
 		}
 	}
@@ -334,7 +434,8 @@ func (h *Hand) Winners() ([]*Player, bool) {
 }
 
 func (h *Hand) WinnersForPot(pot Pot) []*Player {
-	best := -1
+	var best HandValue
+	hasBest := false
 	winners := make([]*Player, 0)
 	for _, player := range h.Players {
 		eligible := false
@@ -347,10 +448,11 @@ func (h *Hand) WinnersForPot(pot Pot) []*Player {
 		if !eligible {
 			continue
 		}
-		rank := BestRank(append(append([]Card{}, player.Cards...), h.Community...))
-		if rank > best {
-			best, winners = rank, []*Player{player}
-		} else if rank == best {
+		rank, _ := BestHandValue(append(append([]Card{}, player.Cards...), h.Community...))
+		comparison := compareHandValue(rank, best)
+		if !hasBest || comparison > 0 {
+			best, winners, hasBest = rank, []*Player{player}, true
+		} else if comparison == 0 {
 			winners = append(winners, player)
 		}
 	}
@@ -377,25 +479,67 @@ func (h *Hand) Payouts() map[string]int64 {
 }
 
 func BestRank(cards []Card) int {
-	if len(cards) < 5 {
-		return 0
+	value, _ := BestHandValue(cards)
+	return value.Category
+}
+
+// HandValue contains the category and all tie-break cards in descending
+// comparison order. It is deliberately represented separately from the old
+// category-only BestRank API so existing callers remain source-compatible.
+type HandValue struct {
+	Category int
+	Tiebreak []int
+}
+
+func compareHandValue(left, right HandValue) int {
+	if left.Category != right.Category {
+		if left.Category > right.Category {
+			return 1
+		}
+		return -1
 	}
-	best := 0
+	for index := 0; index < len(left.Tiebreak) || index < len(right.Tiebreak); index++ {
+		var l, r int
+		if index < len(left.Tiebreak) {
+			l = left.Tiebreak[index]
+		}
+		if index < len(right.Tiebreak) {
+			r = right.Tiebreak[index]
+		}
+		if l != r {
+			if l > r {
+				return 1
+			}
+			return -1
+		}
+	}
+	return 0
+}
+
+// BestHandValue evaluates the best five-card hand and returns the exact cards
+// used. Texas Hold'em comparisons must include kickers, not only categories.
+func BestHandValue(cards []Card) (HandValue, []Card) {
+	if len(cards) < 5 {
+		return HandValue{}, nil
+	}
+	var best HandValue
+	var bestCards []Card
 	for a := 0; a < len(cards)-4; a++ {
 		for b := a + 1; b < len(cards)-3; b++ {
 			for c := b + 1; c < len(cards)-2; c++ {
 				for d := c + 1; d < len(cards)-1; d++ {
 					for e := d + 1; e < len(cards); e++ {
-						rank := RankFive([]Card{cards[a], cards[b], cards[c], cards[d], cards[e]})
-						if rank > best {
-							best = rank
+						candidateCards := []Card{cards[a], cards[b], cards[c], cards[d], cards[e]}
+						candidate := rankFiveValue(candidateCards)
+						if bestCards == nil || compareHandValue(candidate, best) > 0 {
+							best, bestCards = candidate, candidateCards
 						}
 					}
 				}
 			}
 		}
 	}
-	return best
+	return best, bestCards
 }
 
 // HandRankName returns the human-readable category represented by the
@@ -432,10 +576,15 @@ func makeDeck() []Card {
 	return deck
 }
 
-// RankFive returns a comparable category score for a five-card hand.
+// RankFive returns the category score for a five-card hand. Use
+// BestHandValue when comparing complete Hold'em hands because kickers matter.
 func RankFive(cards []Card) int {
+	return rankFiveValue(cards).Category
+}
+
+func rankFiveValue(cards []Card) HandValue {
 	if len(cards) != 5 {
-		return 0
+		return HandValue{}
 	}
 	counts := map[int]int{}
 	suits := map[int]int{}
@@ -444,50 +593,100 @@ func RankFive(cards []Card) int {
 		suits[c.Suit]++
 	}
 	flush := len(suits) == 1
+	ranks := sortedRanks(counts)
+	straight, straightHigh := straightHighCard(ranks)
+	if straight && flush {
+		return HandValue{Category: 8, Tiebreak: []int{straightHigh}}
+	}
+	groups := make(map[int][]int)
+	for rank, count := range counts {
+		groups[count] = append(groups[count], rank)
+	}
+	for _, group := range groups {
+		sort.Sort(sort.Reverse(sort.IntSlice(group)))
+	}
+	if quads := groups[4]; len(quads) > 0 {
+		kicker := highestExcluding(ranks, quads[0])
+		return HandValue{Category: 7, Tiebreak: []int{quads[0], kicker}}
+	}
+	if trips := groups[3]; len(trips) > 0 {
+		pairs := append([]int(nil), groups[2]...)
+		if len(trips) > 1 {
+			pairs = append(pairs, trips[1])
+		}
+		if len(pairs) > 0 {
+			sort.Sort(sort.Reverse(sort.IntSlice(pairs)))
+			return HandValue{Category: 6, Tiebreak: []int{trips[0], pairs[0]}}
+		}
+	}
+	if flush {
+		return HandValue{Category: 5, Tiebreak: descendingRanks(ranks)}
+	}
+	if straight {
+		return HandValue{Category: 4, Tiebreak: []int{straightHigh}}
+	}
+	if trips := groups[3]; len(trips) > 0 {
+		kickers := descendingRanksExcluding(ranks, trips[0])
+		return HandValue{Category: 3, Tiebreak: append([]int{trips[0]}, kickers...)}
+	}
+	if pairs := groups[2]; len(pairs) >= 2 {
+		sort.Sort(sort.Reverse(sort.IntSlice(pairs)))
+		kicker := highestExcluding(ranks, pairs[0], pairs[1])
+		return HandValue{Category: 2, Tiebreak: []int{pairs[0], pairs[1], kicker}}
+	}
+	if pairs := groups[2]; len(pairs) == 1 {
+		kickers := descendingRanksExcluding(ranks, pairs[0])
+		return HandValue{Category: 1, Tiebreak: append([]int{pairs[0]}, kickers...)}
+	}
+	return HandValue{Category: 0, Tiebreak: descendingRanks(ranks)}
+}
+
+func sortedRanks(counts map[int]int) []int {
 	ranks := make([]int, 0, len(counts))
 	for rank := range counts {
 		ranks = append(ranks, rank)
 	}
 	sort.Ints(ranks)
-	straight := len(ranks) == 5 && ranks[4]-ranks[0] == 4
-	if len(ranks) == 5 && ranks[4] == 14 && ranks[0] == 2 && ranks[1] == 3 && ranks[2] == 4 && ranks[3] == 5 {
-		straight = true
+	return ranks
+}
+
+func straightHighCard(ranks []int) (bool, int) {
+	if len(ranks) != 5 {
+		return false, 0
 	}
-	if straight && flush {
-		return 8
+	if ranks[4]-ranks[0] == 4 {
+		return true, ranks[4]
 	}
-	pairs, trips, quads := 0, 0, 0
-	for _, count := range counts {
-		if count == 4 {
-			quads++
+	if ranks[0] == 2 && ranks[1] == 3 && ranks[2] == 4 && ranks[3] == 5 && ranks[4] == 14 {
+		return true, 5
+	}
+	return false, 0
+}
+
+func descendingRanks(ranks []int) []int {
+	result := append([]int(nil), ranks...)
+	sort.Sort(sort.Reverse(sort.IntSlice(result)))
+	return result
+}
+
+func descendingRanksExcluding(ranks []int, excluded ...int) []int {
+	blocked := map[int]bool{}
+	for _, rank := range excluded {
+		blocked[rank] = true
+	}
+	result := make([]int, 0, len(ranks))
+	for _, rank := range ranks {
+		if !blocked[rank] {
+			result = append(result, rank)
 		}
-		if count == 3 {
-			trips++
-		}
-		if count == 2 {
-			pairs++
-		}
 	}
-	if quads > 0 {
-		return 7
+	return descendingRanks(result)
+}
+
+func highestExcluding(ranks []int, excluded ...int) int {
+	values := descendingRanksExcluding(ranks, excluded...)
+	if len(values) == 0 {
+		return 0
 	}
-	if trips > 0 && pairs > 0 {
-		return 6
-	}
-	if flush {
-		return 5
-	}
-	if straight {
-		return 4
-	}
-	if trips > 0 {
-		return 3
-	}
-	if pairs == 2 {
-		return 2
-	}
-	if pairs == 1 {
-		return 1
-	}
-	return 0
+	return values[0]
 }

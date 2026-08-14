@@ -79,8 +79,9 @@ func (s *Server) AttachBots(w http.ResponseWriter, r *http.Request) {
 		TableID  string `json:"table_id"`
 		GameType string `json:"game_type"`
 		Bots     []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
+			ID      string `json:"id"`
+			Name    string `json:"name"`
+			Profile string `json:"profile"`
 		} `json:"bots"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil || request.TableID == "" || !validGameType(request.GameType) || len(request.Bots) == 0 {
@@ -100,7 +101,11 @@ func (s *Server) AttachBots(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid bot", http.StatusBadRequest)
 			return
 		}
-		if _, err := s.roomManager.JoinBotPlayer(request.TableID, bot.ID, bot.Name, len(table.Players)+1); err != nil {
+		profile := bot.Profile
+		if profile == "" {
+			profile = "balanced"
+		}
+		if _, err := s.roomManager.JoinBotPlayerWithProfile(request.TableID, bot.ID, bot.Name, len(table.Players)+1, profile); err != nil {
 			http.Error(w, fmt.Sprintf("attach bot: %v", err), http.StatusConflict)
 			return
 		}
@@ -311,6 +316,9 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 				return
 			}
 		}
+		if requestTable, exists := s.roomManager.GetTable(msg.TableID); exists && requestTable.GameType == "poker" {
+			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(18*time.Second))
+		}
 	}
 
 	state := map[string]interface{}{
@@ -354,6 +362,17 @@ func (s *Server) startBotTurns(tableID string) {
 		for steps := 0; steps < 512; steps++ {
 			turn, ok := s.roomManager.NextBotTurn(tableID)
 			if !ok {
+				if timeout, timedOut := s.roomManager.TimedOutAction(tableID); timedOut {
+					s.handleAction(&Client{playerID: timeout.PlayerID, tableID: tableID}, &Message{Type: MsgAction, TableID: tableID, PlayerID: timeout.PlayerID, Action: timeout.Action, Sequence: timeout.Sequence})
+					continue
+				}
+				// Keep the authoritative table alive while a human is thinking so
+				// the server deadline, rather than a browser timer, decides the
+				// automatic check/fold.
+				if table, exists := s.roomManager.GetTable(tableID); exists && table.GameType == "poker" {
+					time.Sleep(250 * time.Millisecond)
+					continue
+				}
 				return
 			}
 			delay := s.config.BotActionDelay
@@ -369,6 +388,7 @@ func (s *Server) startBotTurns(tableID string) {
 			}
 			client := &Client{playerID: turn.PlayerID, tableID: tableID}
 			s.handleAction(client, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: turn.Action, Payload: turn.Payload, Sequence: turn.Sequence})
+			_ = s.roomManager.SetPokerDeadline(tableID, time.Now().Add(18*time.Second))
 			time.Sleep(25 * time.Millisecond)
 		}
 	}()
@@ -380,26 +400,90 @@ func publicGameState(state interface{}, playerID string) interface{} {
 		players := make([]map[string]interface{}, 0, len(game.Players))
 		revealedCards := make(map[string][]poker.Card)
 		handRanks := make(map[string]string)
+		bestCards := make(map[string][]poker.Card)
 		payouts := map[string]int64{}
-		pots := []poker.Pot{}
-		if game.Phase == "showdown" {
+		winners := []string{}
+		revealShowdown := game.Phase == "showdown" && game.FinishReason != "uncontested"
+		if revealShowdown {
 			for _, player := range game.Players {
 				if !player.Folded {
 					revealedCards[player.ID] = player.Cards
 					handRanks[player.ID] = poker.HandRankName(append(append([]poker.Card{}, player.Cards...), game.Community...))
 				}
 			}
-			payouts = game.Payouts()
-			pots = poker.CalculatePots(game.Players)
 		}
+		if game.Phase == "showdown" {
+			payouts = game.Payouts()
+			if handWinners, ok := game.Winners(); ok {
+				for _, winner := range handWinners {
+					winners = append(winners, winner.ID)
+				}
+			}
+		}
+		currentPlayerID := ""
+		if game.Current >= 0 && game.Current < len(game.Players) {
+			currentPlayerID = game.Players[game.Current].ID
+		}
+		highestBet := int64(0)
 		for _, player := range game.Players {
+			if player.Bet > highestBet {
+				highestBet = player.Bet
+			}
+		}
+		for seat, player := range game.Players {
 			cards := interface{}(nil)
-			if player.ID == playerID || game.Phase == "showdown" && !player.Folded {
+			if player.ID == playerID || revealShowdown && !player.Folded {
 				cards = player.Cards
 			}
-			players = append(players, map[string]interface{}{"id": player.ID, "stack": player.Stack, "bet": player.Bet, "cards": cards, "folded": player.Folded, "all_in": player.AllIn})
+			if revealShowdown && !player.Folded {
+				_, bestCards[player.ID] = poker.BestHandValue(append(append([]poker.Card{}, player.Cards...), game.Community...))
+			}
+			toCall := highestBet - player.Bet
+			if toCall < 0 {
+				toCall = 0
+			}
+			players = append(players, map[string]interface{}{"id": player.ID, "seat": seat, "stack": player.Stack, "bet": player.Bet, "total_bet": player.TotalBet, "to_call": toCall, "cards": cards, "folded": player.Folded, "all_in": player.AllIn})
 		}
-		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "pots": pots, "current": game.Current, "phase": game.Phase, "button": game.Button, "small_blind": game.SmallBlind, "big_blind": game.BigBlind, "revealed_cards": revealedCards, "hand_ranks": handRanks, "payouts": payouts}
+		small, big := game.BlindSeatsForPresentation()
+		minRaise := int64(0)
+		maxRaise := int64(0)
+		toCallForPlayer := int64(0)
+		allowedActions := []string{}
+		for index, player := range game.Players {
+			if player.ID == playerID {
+				minRaise = game.MinimumRaiseTo(index)
+				maxRaise = player.Bet + player.Stack
+				toCallForPlayer = highestBet - player.Bet
+				if toCallForPlayer < 0 {
+					toCallForPlayer = 0
+				}
+				if game.Current == index && !player.Folded && !player.AllIn {
+					allowedActions = append(allowedActions, "fold")
+					if toCallForPlayer == 0 {
+						allowedActions = append(allowedActions, "check", "bet")
+					} else {
+						allowedActions = append(allowedActions, "call", "raise")
+					}
+					if player.Stack > 0 {
+						allowedActions = append(allowedActions, "all_in")
+					}
+				}
+				break
+			}
+		}
+		minRaiseTo := int64(0)
+		for index, player := range game.Players {
+			if player.ID == playerID {
+				minRaiseTo = player.Bet + minRaise
+				break
+			}
+			_ = index
+		}
+		deadline := interface{}(nil)
+		if !game.ActionDeadline.IsZero() {
+			deadline = game.ActionDeadline
+		}
+		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "pots": poker.CalculatePots(game.Players), "current": game.Current, "current_player_id": currentPlayerID, "phase": game.Phase, "finish_reason": game.FinishReason, "action_deadline": deadline, "button": game.Button, "button_player_id": playerIDAt(game, game.Button), "small_blind": game.SmallBlind, "small_blind_player_id": playerIDAt(game, small), "big_blind": game.BigBlind, "big_blind_player_id": playerIDAt(game, big), "min_raise": minRaise, "min_raise_to": minRaiseTo, "max_raise_to": maxRaise, "to_call": toCallForPlayer, "allowed_actions": allowedActions, "winners": winners, "revealed_cards": revealedCards, "best_cards": bestCards, "hand_ranks": handRanks, "payouts": payouts}
 	case *belote.Round:
 		players := make([]map[string]interface{}, 0, len(game.Players))
 		for _, player := range game.Players {
@@ -423,6 +507,13 @@ func publicGameState(state interface{}, playerID string) interface{} {
 	default:
 		return nil
 	}
+}
+
+func playerIDAt(game *poker.Hand, index int) string {
+	if index < 0 || index >= len(game.Players) {
+		return ""
+	}
+	return game.Players[index].ID
 }
 
 func gameTypeFromPayload(payload interface{}) string {
@@ -476,6 +567,16 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		s.broadcastToTable(msg.TableID, actionMessage)
 	}
 	if !replayed && tableGameType(s.roomManager, msg.TableID) == "poker" {
+		currentPhase := s.roomManager.PokerPhase(msg.TableID)
+		if previousPhase != "" && currentPhase != "" && previousPhase != currentPhase && currentPhase != "showdown" {
+			s.broadcastToTable(msg.TableID, &Message{
+				Type: MsgAction, TableID: msg.TableID, PlayerID: "",
+				Action: "street_changed", Payload: streetDetails(s.roomManager, msg.TableID, previousPhase, currentPhase),
+				Sequence: event.Sequence, Timestamp: time.Now(),
+			})
+		}
+	}
+	if !replayed && tableGameType(s.roomManager, msg.TableID) == "poker" {
 		payouts, finished := s.roomManager.FinishedPokerPayouts(msg.TableID)
 		if finished {
 			table, _ := s.roomManager.GetTable(msg.TableID)
@@ -487,14 +588,16 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 				}
 				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": outcome, "amount": share, "signature": signResult(s.config.ResultSecret, msg.TableID, "poker", outcome, int(share))}, Sequence: event.Sequence, Timestamp: time.Now()})
 			}
-			if showdownPayouts, revealed, pot, ok := s.roomManager.PokerShowdown(msg.TableID); ok {
+			if showdownPayouts, revealed, pot, finishReason, ok := s.roomManager.PokerShowdown(msg.TableID); ok {
 				winners := make([]string, 0, len(showdownPayouts))
 				handRanks := make(map[string]string)
+				bestCards := make(map[string][]poker.Card)
 				if table, exists := s.roomManager.GetTable(msg.TableID); exists {
 					if hand, isPoker := table.State.(*poker.Hand); isPoker {
 						for _, player := range hand.Players {
 							if cards, shown := revealed[player.ID]; shown {
 								handRanks[player.ID] = poker.HandRankName(append(append([]poker.Card{}, cards...), hand.Community...))
+								_, bestCards[player.ID] = poker.BestHandValue(append(append([]poker.Card{}, cards...), hand.Community...))
 							}
 						}
 					}
@@ -504,22 +607,16 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 						winners = append(winners, playerID)
 					}
 				}
+				finishAction := "showdown"
+				if finishReason == "uncontested" {
+					finishAction = "uncontested_win"
+				}
 				s.broadcastToTable(msg.TableID, &Message{
-					Type: MsgAction, TableID: msg.TableID, Action: "showdown",
-					Payload:  map[string]interface{}{"winners": winners, "pot": pot, "revealed_cards": revealed, "hand_ranks": handRanks, "payouts": showdownPayouts},
+					Type: MsgAction, TableID: msg.TableID, Action: finishAction,
+					Payload:  map[string]interface{}{"winners": winners, "pot": pot, "community": pokerCommunity(s.roomManager, msg.TableID), "revealed_cards": revealed, "best_cards": bestCards, "hand_ranks": handRanks, "payouts": showdownPayouts, "finish_reason": finishReason},
 					Sequence: event.Sequence, Timestamp: time.Now(),
 				})
 			}
-		}
-	}
-	if !replayed && tableGameType(s.roomManager, msg.TableID) == "poker" {
-		currentPhase := s.roomManager.PokerPhase(msg.TableID)
-		if previousPhase != "" && currentPhase != "" && previousPhase != currentPhase {
-			s.broadcastToTable(msg.TableID, &Message{
-				Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID,
-				Action: "street_changed", Payload: streetDetails(s.roomManager, msg.TableID, previousPhase, currentPhase),
-				Sequence: event.Sequence, Timestamp: time.Now(),
-			})
 		}
 	}
 	if !replayed && msg.Action == "play_card" {
@@ -543,6 +640,9 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		}
 	}
 	if !replayed {
+		if tableGameType(s.roomManager, msg.TableID) == "poker" {
+			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(18*time.Second))
+		}
 		s.broadcastState(msg.TableID)
 		if msg.Action == "new_hand" {
 			s.broadcastPokerLifecycle(msg.TableID)
@@ -706,6 +806,17 @@ func tableGameType(manager *room.Manager, tableID string) string {
 		return table.GameType
 	}
 	return "poker"
+}
+
+func pokerCommunity(manager *room.Manager, tableID string) []poker.Card {
+	table, ok := manager.GetTable(tableID)
+	if !ok {
+		return nil
+	}
+	if hand, ok := table.State.(*poker.Hand); ok {
+		return append([]poker.Card(nil), hand.Community...)
+	}
+	return nil
 }
 
 func signResult(secret, gameID, gameType, outcome string, amount int) string {

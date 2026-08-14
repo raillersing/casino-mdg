@@ -111,13 +111,15 @@ export function GamePage() {
     gameState && Array.isArray(gameState.players)
       ? (gameState.players as Array<Record<string, unknown>>)
       : [];
-  const currentPlayerIndex = statePlayers.findIndex(
-    (player) => String(player.id || "") === userId,
-  );
+  const seatPlayers = statePlayers
+    .filter((player) => String(player.id || "") !== userId)
+    .slice()
+    .sort((left, right) => Number(left.seat ?? 0) - Number(right.seat ?? 0));
+  const currentPlayerIndex = Number(gameState?.current ?? -1);
   const isMyTurn =
     Boolean(gameState) &&
     currentPlayerIndex >= 0 &&
-    Number(gameState?.current) === currentPlayerIndex;
+    String(gameState?.current_player_id || statePlayers[currentPlayerIndex]?.id || "") === userId;
   const myPokerPlayer = statePlayers.find(
     (player) => String(player.id || "") === userId,
   );
@@ -126,7 +128,15 @@ export function GamePage() {
     0,
   );
   const myBet = Number(myPokerPlayer?.bet || 0);
-  const facingBet = highestBet > myBet;
+  const toCall = Number(
+    myPokerPlayer?.to_call ?? gameState?.to_call ?? Math.max(0, highestBet - myBet),
+  );
+  const facingBet = toCall > 0;
+  const minRaiseTo = Number(gameState?.min_raise_to ?? Math.max(100, myBet + 100));
+  const maxRaiseTo = Number(gameState?.max_raise_to ?? myBet + Number(myPokerPlayer?.stack || 0));
+  const allowedActions = Array.isArray(gameState?.allowed_actions)
+    ? (gameState.allowed_actions as string[])
+    : [];
   const communityCards = Array.isArray(gameState?.community)
     ? (gameState.community as Array<{ rank: number; suit: number }>)
     : [];
@@ -144,8 +154,17 @@ export function GamePage() {
           Array<{ rank: number; suit: number }>
         >)
       : {};
+  const bestCards =
+    gameState?.best_cards && typeof gameState.best_cards === "object"
+      ? (gameState.best_cards as Record<
+          string,
+          Array<{ rank: number; suit: number }>
+        >)
+      : {};
   const revealedPlayers = Object.entries(revealedCards);
   const isPokerShowdown = isPoker && gameState?.phase === "showdown";
+  const isUncontestedWin = isPokerShowdown && gameState?.finish_reason === "uncontested";
+  const isSessionFinished = isPoker && gameState?.session_finished === true;
   const renderedCommunityCards = communityCards.slice(0, visibleCommunityCount);
   const winnerNames = pokerWinners.map((winnerId) => {
     const player = tablePlayers.find(
@@ -155,10 +174,9 @@ export function GamePage() {
       player?.name || (winnerId === userId ? t("game.you") : winnerId),
     );
   });
-  const currentPlayerId =
-    currentPlayerIndex >= 0
-      ? String(statePlayers[currentPlayerIndex]?.id || "")
-      : "";
+  const currentPlayerId = String(
+    gameState?.current_player_id || statePlayers[currentPlayerIndex]?.id || "",
+  );
   const nameForPlayer = (playerId: string) => {
     const player = tablePlayers.find(
       (item) => String(item.id || "") === playerId,
@@ -417,7 +435,7 @@ export function GamePage() {
             setDealPulse((value) => value + 1);
             playFeedback("deal");
           }
-          if (action === "showdown") {
+          if (action === "showdown" || action === "uncontested_win") {
             setShowdownRanks(details.hand_ranks || {});
             setPayouts(details.payouts || {});
             setPotAwarded(false);
@@ -458,7 +476,7 @@ export function GamePage() {
               setChipBursts((value) => value + 1);
               playFeedback("chip");
             }
-            if (action === "showdown") playFeedback("win");
+            if (action === "showdown" || action === "uncontested_win") playFeedback("win");
             if (action !== "result" && !presentationOnly) {
               setActionLog((current) => [
                 ...current.slice(-7),
@@ -552,13 +570,22 @@ export function GamePage() {
   }, []);
 
   useEffect(() => {
-    setTurnSeconds(isMyTurn ? 18 : 12);
+    const deadline = gameState?.action_deadline
+      ? new Date(String(gameState.action_deadline)).getTime()
+      : 0;
+    const remaining = deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : isMyTurn ? 18 : 12;
+    setTurnSeconds(remaining);
     if (!isMyTurn || !gameState || isPokerShowdown) return;
     const timer = window.setInterval(() => {
-      setTurnSeconds((seconds) => (seconds <= 1 ? 0 : seconds - 1));
+      setTurnSeconds(deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : (seconds) => (seconds <= 1 ? 0 : seconds - 1));
     }, 1000);
     return () => window.clearInterval(timer);
   }, [gameState, isMyTurn, isPokerShowdown, currentPlayerId]);
+
+  useEffect(() => {
+    if (!isPoker || !gameState) return;
+    setWager((current) => Math.min(maxRaiseTo, Math.max(minRaiseTo, current)));
+  }, [gameState, isPoker, maxRaiseTo, minRaiseTo]);
   const handleSocketOpen = useCallback(
     (socket: WebSocket) => {
       setConnectionState("connected");
@@ -847,7 +874,9 @@ export function GamePage() {
                 : t("game.handComplete")}
             </strong>
             <span>
-              {t("game.revealedCards")} · Pot {String(gameState?.pot ?? 0)}
+              {isUncontestedWin
+                ? "Victoire sans showdown"
+                : `${t("game.revealedCards")} · Pot ${String(gameState?.pot ?? 0)}`}
             </span>
             <div className="showdown-board" aria-label={t("game.finalBoard")}>
               <strong>{t("game.finalBoard")}</strong>
@@ -877,6 +906,9 @@ export function GamePage() {
                       />
                     ))}
                   </div>
+                  {bestCards[playerId]?.length ? (
+                    <small>Meilleure combinaison affichée sur la table</small>
+                  ) : null}
                   {payouts[playerId] ? (
                     <span className="showdown-payout">
                       +{payouts[playerId]} jetons
@@ -886,7 +918,9 @@ export function GamePage() {
               ))}
             </div>
           </div>
-          {!spectator && (
+          {isSessionFinished ? (
+            <span className="secure-note game-sync-note">Session terminée : il ne reste plus assez de joueurs avec des jetons.</span>
+          ) : !spectator && (
             <button
               className="action-bet"
               onClick={() => {
@@ -996,47 +1030,53 @@ export function GamePage() {
         <PlayerSeat
           pos="top"
           name={String(
-            tablePlayers[0]?.name || (demoAi ? "IA Démo · Tovo" : "Tovo"),
+            seatPlayers[0]?.name ||
+              nameForPlayer(String(seatPlayers[0]?.id || "")) ||
+              (demoAi ? "IA Démo · Tovo" : "Tovo"),
           )}
-          chips={String(tablePlayers[0]?.stack || "8 420")}
-          active={currentPlayerId === String(tablePlayers[0]?.id || "")}
-          folded={Boolean(tablePlayers[0]?.folded)}
+          chips={String(seatPlayers[0]?.stack ?? "8 420")}
+          active={currentPlayerId === String(seatPlayers[0]?.id || "")}
+          folded={Boolean(seatPlayers[0]?.folded)}
           action={
-            lastAction && lastActionPlayer === String(tablePlayers[0]?.id || "")
+            lastAction && lastActionPlayer === String(seatPlayers[0]?.id || "")
               ? lastAction
               : ""
           }
-          badge={badgeForSeat(tablePlayers[0], 0, gameState)}
+          badge={badgeForSeat(seatPlayers[0], gameState)}
         />
         <PlayerSeat
           pos="left"
           name={String(
-            tablePlayers[1]?.name || (demoAi ? "IA Démo · Rija" : "Rija"),
+            seatPlayers[1]?.name ||
+              nameForPlayer(String(seatPlayers[1]?.id || "")) ||
+              (demoAi ? "IA Démo · Rija" : "Rija"),
           )}
-          chips={String(tablePlayers[1]?.stack || "12 100")}
-          active={currentPlayerId === String(tablePlayers[1]?.id || "")}
-          folded={Boolean(tablePlayers[1]?.folded)}
+          chips={String(seatPlayers[1]?.stack ?? "12 100")}
+          active={currentPlayerId === String(seatPlayers[1]?.id || "")}
+          folded={Boolean(seatPlayers[1]?.folded)}
           action={
-            lastAction && lastActionPlayer === String(tablePlayers[1]?.id || "")
+            lastAction && lastActionPlayer === String(seatPlayers[1]?.id || "")
               ? lastAction
               : ""
           }
-          badge={badgeForSeat(tablePlayers[1], 1, gameState)}
+          badge={badgeForSeat(seatPlayers[1], gameState)}
         />
         <PlayerSeat
           pos="right"
           name={String(
-            tablePlayers[2]?.name || (demoAi ? "IA Démo · Saholy" : "Saholy"),
+            seatPlayers[2]?.name ||
+              nameForPlayer(String(seatPlayers[2]?.id || "")) ||
+              (demoAi ? "IA Démo · Saholy" : "Saholy"),
           )}
-          chips={String(tablePlayers[2]?.stack || "6 750")}
-          active={currentPlayerId === String(tablePlayers[2]?.id || "")}
-          folded={Boolean(tablePlayers[2]?.folded)}
+          chips={String(seatPlayers[2]?.stack ?? "6 750")}
+          active={currentPlayerId === String(seatPlayers[2]?.id || "")}
+          folded={Boolean(seatPlayers[2]?.folded)}
           action={
-            lastAction && lastActionPlayer === String(tablePlayers[2]?.id || "")
+            lastAction && lastActionPlayer === String(seatPlayers[2]?.id || "")
               ? lastAction
               : ""
           }
-          badge={badgeForSeat(tablePlayers[2], 2, gameState)}
+          badge={badgeForSeat(seatPlayers[2], gameState)}
         />
         <div
           className={`pot ${potPulse ? "pot-pulse" : ""} ${potAwarded ? "pot-awarded" : ""}`}
@@ -1132,30 +1172,30 @@ export function GamePage() {
             <button
               className="action-fold"
               onClick={() => sendGameAction("fold")}
-              disabled={!isMyTurn}
+              disabled={!isMyTurn || (allowedActions.length > 0 && !allowedActions.includes("fold"))}
             >
               {t("game.fold")}
             </button>
             <button
               className="action-check"
               onClick={() => sendGameAction(facingBet ? "call" : "check")}
-              disabled={!isMyTurn}
+              disabled={!isMyTurn || (allowedActions.length > 0 && !allowedActions.includes(facingBet ? "call" : "check"))}
             >
-              {facingBet ? "Suivre" : t("game.check")}
+              {facingBet ? `Suivre ${toCall}` : t("game.check")}
             </button>
             <button
               className="action-bet"
-              onClick={() => sendGameAction("bet", { amount: wager })}
-              disabled={!isMyTurn}
+              onClick={() => sendGameAction(facingBet ? "raise" : "bet", { amount: Math.max(wager - myBet, 1) })}
+              disabled={!isMyTurn || (allowedActions.length > 0 && !allowedActions.some((action) => action === (facingBet ? "raise" : "bet")))}
             >
-              {t("game.bet")} <strong>{wager}</strong>
+              {facingBet ? "Relancer à" : t("game.bet")} <strong>{wager}</strong>
             </button>
             <label className="wager-control">
               <span>Mise</span>
               <input
                 type="range"
-                min={100}
-                max={5000}
+                min={Math.max(1, minRaiseTo)}
+                max={Math.max(Math.max(1, minRaiseTo), maxRaiseTo)}
                 step={100}
                 value={wager}
                 disabled={!isMyTurn}
@@ -1303,21 +1343,15 @@ function PlayerSeat({
 
 function badgeForSeat(
   player: Record<string, unknown> | undefined,
-  index: number,
   state: Record<string, unknown> | null,
 ) {
   if (!player || !state) return "";
-  const button = Number(state.button ?? -1);
-  if (index === button) return "D";
-  const count = Array.isArray(state.players) ? state.players.length : 0;
-  if (count === 2) {
-    if (index === (button + 1) % count) return "SB";
-    if (index === button) return "BB";
-  } else {
-    if (index === (button + 1) % count) return "SB";
-    if (index === (button + 2) % count) return "BB";
-  }
-  return "";
+  const playerId = String(player.id || "");
+  const badges: string[] = [];
+  if (playerId === String(state.button_player_id || "")) badges.push("D");
+  if (playerId === String(state.small_blind_player_id || "")) badges.push("SB");
+  if (playerId === String(state.big_blind_player_id || "")) badges.push("BB");
+  return badges.join(" · ");
 }
 function PlayingCard({
   value,

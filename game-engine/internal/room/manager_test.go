@@ -92,27 +92,41 @@ func TestPokerFoldFinishesHeadsUpAndExposesWinner(t *testing.T) {
 	}
 }
 
+func TestBotProfileIsStoredAndChangesPokerDecision(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+	table := m.CreateTable("poker")
+	if _, err := m.JoinBotPlayerWithProfile(table.ID, "bot", "Bot", 1, "expert"); err != nil {
+		t.Fatal(err)
+	}
+	if table.Players["bot"].BotProfile != "expert" {
+		t.Fatalf("profile=%q", table.Players["bot"].BotProfile)
+	}
+}
+
 func TestPokerNewHandRotatesButtonAndCarriesPayouts(t *testing.T) {
 	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
 	table := m.CreateTable("poker")
 	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur 1", 1)
 	_, _ = m.JoinPlayer(table.ID, "p2", "Joueur 2", 2)
-	if _, err := m.ApplyAction(table.ID, "p2", "fold", 2, nil); err != nil {
+	if _, err := m.ApplyAction(table.ID, "p1", "call", 2, map[string]interface{}{}); err != nil {
 		t.Fatal(err)
 	}
-	event, replayed, err := m.ApplyActionIdempotent(table.ID, "p1", "new_hand", 3, nil, "new-hand-1")
-	if err != nil || replayed || event.Sequence != 4 {
+	if _, err := m.ApplyAction(table.ID, "p2", "fold", 3, nil); err != nil {
+		t.Fatal(err)
+	}
+	event, replayed, err := m.ApplyActionIdempotent(table.ID, "p1", "new_hand", 4, nil, "new-hand-1")
+	if err != nil || replayed || event.Sequence != 5 {
 		t.Fatalf("event=%+v replayed=%v err=%v", event, replayed, err)
 	}
 	hand, ok := table.State.(*poker.Hand)
 	if !ok || hand.Phase != "preflop" || hand.Button != 1 {
 		t.Fatalf("state=%T phase=%q button=%d", table.State, hand.Phase, hand.Button)
 	}
-	if table.Players["p1"].Stack != 10050 {
+	if table.Players["p1"].Stack != 10100 {
 		t.Fatalf("p1 stack=%d, expected payout-adjusted stack", table.Players["p1"].Stack)
 	}
-	_, replayed, err = m.ApplyActionIdempotent(table.ID, "p1", "new_hand", 3, nil, "new-hand-1")
-	if err != nil || !replayed || table.Sequence != 4 {
+	_, replayed, err = m.ApplyActionIdempotent(table.ID, "p1", "new_hand", 4, nil, "new-hand-1")
+	if err != nil || !replayed || table.Sequence != 5 {
 		t.Fatalf("replay=%v err=%v sequence=%d", replayed, err, table.Sequence)
 	}
 }
