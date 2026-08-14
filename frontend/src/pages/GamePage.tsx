@@ -119,7 +119,11 @@ export function GamePage() {
   const isMyTurn =
     Boolean(gameState) &&
     currentPlayerIndex >= 0 &&
-    String(gameState?.current_player_id || statePlayers[currentPlayerIndex]?.id || "") === userId;
+    String(
+      gameState?.current_player_id ||
+        statePlayers[currentPlayerIndex]?.id ||
+        "",
+    ) === userId;
   const myPokerPlayer = statePlayers.find(
     (player) => String(player.id || "") === userId,
   );
@@ -129,11 +133,17 @@ export function GamePage() {
   );
   const myBet = Number(myPokerPlayer?.bet || 0);
   const toCall = Number(
-    myPokerPlayer?.to_call ?? gameState?.to_call ?? Math.max(0, highestBet - myBet),
+    myPokerPlayer?.to_call ??
+      gameState?.to_call ??
+      Math.max(0, highestBet - myBet),
   );
   const facingBet = toCall > 0;
-  const minRaiseTo = Number(gameState?.min_raise_to ?? Math.max(100, myBet + 100));
-  const maxRaiseTo = Number(gameState?.max_raise_to ?? myBet + Number(myPokerPlayer?.stack || 0));
+  const minRaiseTo = Number(
+    gameState?.min_raise_to ?? Math.max(100, myBet + 100),
+  );
+  const maxRaiseTo = Number(
+    gameState?.max_raise_to ?? myBet + Number(myPokerPlayer?.stack || 0),
+  );
   const allowedActions = Array.isArray(gameState?.allowed_actions)
     ? (gameState.allowed_actions as string[])
     : [];
@@ -163,7 +173,8 @@ export function GamePage() {
       : {};
   const revealedPlayers = Object.entries(revealedCards);
   const isPokerShowdown = isPoker && gameState?.phase === "showdown";
-  const isUncontestedWin = isPokerShowdown && gameState?.finish_reason === "uncontested";
+  const isUncontestedWin =
+    isPokerShowdown && gameState?.finish_reason === "uncontested";
   const isSessionFinished = isPoker && gameState?.session_finished === true;
   const renderedCommunityCards = communityCards.slice(0, visibleCommunityCount);
   const winnerNames = pokerWinners.map((winnerId) => {
@@ -476,7 +487,8 @@ export function GamePage() {
               setChipBursts((value) => value + 1);
               playFeedback("chip");
             }
-            if (action === "showdown" || action === "uncontested_win") playFeedback("win");
+            if (action === "showdown" || action === "uncontested_win")
+              playFeedback("win");
             if (action !== "result" && !presentationOnly) {
               setActionLog((current) => [
                 ...current.slice(-7),
@@ -573,11 +585,19 @@ export function GamePage() {
     const deadline = gameState?.action_deadline
       ? new Date(String(gameState.action_deadline)).getTime()
       : 0;
-    const remaining = deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : isMyTurn ? 18 : 12;
+    const remaining = deadline
+      ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+      : isMyTurn
+        ? 18
+        : 12;
     setTurnSeconds(remaining);
     if (!isMyTurn || !gameState || isPokerShowdown) return;
     const timer = window.setInterval(() => {
-      setTurnSeconds(deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : (seconds) => (seconds <= 1 ? 0 : seconds - 1));
+      setTurnSeconds(
+        deadline
+          ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+          : (seconds) => (seconds <= 1 ? 0 : seconds - 1),
+      );
     }, 1000);
     return () => window.clearInterval(timer);
   }, [gameState, isMyTurn, isPokerShowdown, currentPlayerId]);
@@ -919,17 +939,22 @@ export function GamePage() {
             </div>
           </div>
           {isSessionFinished ? (
-            <span className="secure-note game-sync-note">Session terminée : il ne reste plus assez de joueurs avec des jetons.</span>
-          ) : !spectator && (
-            <button
-              className="action-bet"
-              onClick={() => {
-                settled.current = false;
-                sendGameAction("new_hand");
-              }}
-            >
-              {t("game.newHand")}
-            </button>
+            <span className="secure-note game-sync-note">
+              Session terminée : il ne reste plus assez de joueurs avec des
+              jetons.
+            </span>
+          ) : (
+            !spectator && (
+              <button
+                className="action-bet"
+                onClick={() => {
+                  settled.current = false;
+                  sendGameAction("new_hand");
+                }}
+              >
+                {t("game.newHand")}
+              </button>
+            )
           )}
         </div>
       )}
@@ -1172,23 +1197,41 @@ export function GamePage() {
             <button
               className="action-fold"
               onClick={() => sendGameAction("fold")}
-              disabled={!isMyTurn || (allowedActions.length > 0 && !allowedActions.includes("fold"))}
+              disabled={
+                !isMyTurn ||
+                (allowedActions.length > 0 && !allowedActions.includes("fold"))
+              }
             >
               {t("game.fold")}
             </button>
             <button
               className="action-check"
               onClick={() => sendGameAction(facingBet ? "call" : "check")}
-              disabled={!isMyTurn || (allowedActions.length > 0 && !allowedActions.includes(facingBet ? "call" : "check"))}
+              disabled={
+                !isMyTurn ||
+                (allowedActions.length > 0 &&
+                  !allowedActions.includes(facingBet ? "call" : "check"))
+              }
             >
               {facingBet ? `Suivre ${toCall}` : t("game.check")}
             </button>
             <button
               className="action-bet"
-              onClick={() => sendGameAction(facingBet ? "raise" : "bet", { amount: Math.max(wager - myBet, 1) })}
-              disabled={!isMyTurn || (allowedActions.length > 0 && !allowedActions.some((action) => action === (facingBet ? "raise" : "bet")))}
+              onClick={() =>
+                sendGameAction(facingBet ? "raise" : "bet", {
+                  amount: Math.max(wager - myBet, 1),
+                })
+              }
+              disabled={
+                !isMyTurn ||
+                (allowedActions.length > 0 &&
+                  !allowedActions.some(
+                    (action) => action === (facingBet ? "raise" : "bet"),
+                  ))
+              }
             >
-              {facingBet ? "Relancer à" : t("game.bet")} <strong>{wager}</strong>
+              {facingBet ? "Relancer à" : t("game.bet")}{" "}
+              <strong>{wager}</strong>
             </button>
             <label className="wager-control">
               <span>Mise</span>
