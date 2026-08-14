@@ -1775,6 +1775,55 @@ h3 {
   font-family: var(--sans);
   font-size: 12px;
 }
+.hand-history-panel {
+  max-width: 850px;
+  margin: 12px auto -8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(211, 176, 107, 0.22);
+  border-radius: 9px;
+  background: rgba(9, 20, 18, 0.64);
+  color: var(--soft);
+}
+.hand-history-panel strong {
+  display: block;
+  color: var(--gold);
+  font-family: var(--sans);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.hand-history-panel .empty-history {
+  display: block;
+  color: var(--muted);
+  font: 11px var(--mono);
+  margin-bottom: 6px;
+}
+.hand-history-panel ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.hand-history-panel li {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(211, 176, 107, 0.12);
+  font: 10px var(--mono);
+  color: var(--soft);
+}
+.hand-history-panel li:last-child {
+  border-bottom: none;
+}
+.hand-history-panel li span:first-child {
+  color: var(--gold);
+  font-weight: 700;
+}
+.hand-history-panel li span:nth-child(3) {
+  text-align: right;
+  color: var(--muted);
+}
 .poker-live-panel {
   max-width: 850px;
   margin: 12px auto -8px;

@@ -29,7 +29,12 @@ type Table struct {
 	Blinds        bool
 	Sequence      uint64
 	Events        []Event
-	mu            sync.RWMutex
+	// Poker-specific persistent table state
+	PokerLevel       int
+	PokerHandsPlayed int
+	PokerSmallBlind  int64
+	PokerBigBlind    int64
+	mu               sync.RWMutex
 }
 
 type Event struct {
@@ -43,13 +48,17 @@ type Event struct {
 }
 
 type TableSnapshot struct {
-	ID        string             `json:"id"`
-	GameType  string             `json:"game_type"`
-	Sequence  uint64             `json:"sequence"`
-	Players   map[string]*Player `json:"players"`
-	Events    []Event            `json:"events"`
-	UpdatedAt time.Time          `json:"updated_at"`
-	State     json.RawMessage    `json:"state,omitempty"`
+	ID               string             `json:"id"`
+	GameType         string             `json:"game_type"`
+	Sequence         uint64             `json:"sequence"`
+	Players          map[string]*Player `json:"players"`
+	Events           []Event            `json:"events"`
+	UpdatedAt        time.Time          `json:"updated_at"`
+	State            json.RawMessage    `json:"state,omitempty"`
+	PokerLevel       int                `json:"poker_level"`
+	PokerHandsPlayed int                `json:"poker_hands_played"`
+	PokerSmallBlind  int64              `json:"poker_small_blind"`
+	PokerBigBlind    int64              `json:"poker_big_blind"`
 }
 
 type Player struct {
@@ -280,40 +289,7 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 				highest = player.Bet
 			}
 		}
-		toCall := highest - gamePlayer.Bet
-		if toCall == 0 {
-			if profile != "tutorial" && pokerBotStrength(gamePlayer) >= 2 && gamePlayer.Stack >= game.BigBlind {
-				amount := game.BigBlind
-				if profile == "expert" && game.BigBlind > 0 {
-					amount *= 2
-				}
-				return BotTurn{PlayerID: gamePlayer.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: table.Sequence, Profile: profile}, true
-			}
-			return BotTurn{PlayerID: gamePlayer.ID, Action: "check", Sequence: table.Sequence}, true
-		}
-		strength := pokerBotStrength(gamePlayer)
-		if profile == "expert" && strength >= 3 {
-			raise := toCall + game.LastRaise
-			if raise > 0 && raise <= gamePlayer.Stack {
-				return BotTurn{PlayerID: gamePlayer.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: table.Sequence, Profile: profile}, true
-			}
-		}
-		if profile == "balanced" && strength >= 4 {
-			raise := toCall + game.LastRaise
-			if raise > 0 && raise <= gamePlayer.Stack {
-				return BotTurn{PlayerID: gamePlayer.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: table.Sequence, Profile: profile}, true
-			}
-		}
-		if toCall > gamePlayer.Stack {
-			return BotTurn{PlayerID: gamePlayer.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: table.Sequence, Profile: profile}, true
-		}
-		if profile == "expert" && strength == 0 && toCall > game.BigBlind*3 {
-			return BotTurn{PlayerID: gamePlayer.ID, Action: "fold", Sequence: table.Sequence, Profile: profile}, true
-		}
-		if toCall <= gamePlayer.Stack && toCall > 0 {
-			return BotTurn{PlayerID: gamePlayer.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: table.Sequence, Profile: profile}, true
-		}
-		return BotTurn{PlayerID: gamePlayer.ID, Action: "fold", Sequence: table.Sequence, Profile: profile}, true
+			return decidePokerBotTurn(game, gamePlayer, profile, table.Sequence), true
 	case *belote.Round:
 		if game.Finished() || game.Current < 0 || game.Current >= len(game.Players) {
 			return BotTurn{}, false
@@ -375,7 +351,7 @@ func (m *Manager) TimedOutAction(tableID string) (BotTurn, bool) {
 	return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: table.Sequence}, true
 }
 
-func pokerBotStrength(player *poker.Player) int {
+func pokerBotPreflopStrength(player *poker.Player) int {
 	if len(player.Cards) < 2 {
 		return 0
 	}
@@ -393,6 +369,99 @@ func pokerBotStrength(player *poker.Player) int {
 		return 2
 	}
 	return 0
+}
+
+func pokerBotRealStrength(player *poker.Player, community []poker.Card) int {
+	if len(player.Cards) < 2 {
+		return 0
+	}
+	if len(community) < 3 {
+		return pokerBotPreflopStrength(player) * 10
+	}
+	all := append(append([]poker.Card{}, player.Cards...), community...)
+	hv, _ := poker.BestHandValue(all)
+	return hv.Category*10 + len(hv.Tiebreak)
+}
+
+func decidePokerBotTurn(game *poker.Hand, player *poker.Player, profile string, sequence uint64) BotTurn {
+	highest := int64(0)
+	for _, p := range game.Players {
+		if p.Bet > highest {
+			highest = p.Bet
+		}
+	}
+	toCall := highest - player.Bet
+	strength := pokerBotRealStrength(player, game.Community)
+	potOdds := float64(0)
+	if toCall > 0 {
+		potOdds = float64(toCall) / float64(game.Pot+toCall)
+	}
+
+	// Tutorial : passif
+	if profile == "tutorial" {
+		if toCall == 0 {
+			return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence}
+		}
+		if toCall <= game.BigBlind {
+			return BotTurn{PlayerID: player.ID, Action: "call", Sequence: sequence}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence}
+	}
+
+	// Seuils par profil
+	raiseThreshold := 50
+	callThreshold := 15
+	aggressive := false
+	if profile == "expert" {
+		raiseThreshold = 40
+		callThreshold = 10
+		aggressive = true
+	}
+
+	// All-in short stack
+	if toCall >= player.Stack && player.Stack > 0 {
+		if strength >= 20 {
+			return BotTurn{PlayerID: player.ID, Action: "all_in", Sequence: sequence}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence}
+	}
+
+	if toCall == 0 {
+		if strength >= raiseThreshold && player.Stack >= game.BigBlind {
+			amount := game.BigBlind
+			if aggressive && strength >= 60 {
+				amount = game.BigBlind * 3
+			} else if aggressive {
+				amount = game.BigBlind * 2
+			}
+			if amount > player.Stack {
+				amount = player.Stack
+			}
+			return BotTurn{PlayerID: player.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: sequence, Profile: profile}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence}
+	}
+
+	// Facing a bet
+	if strength >= raiseThreshold+10 && player.Stack >= toCall+game.LastRaise {
+		raise := toCall + game.LastRaise
+		if aggressive && strength >= 70 {
+			raise = toCall + game.LastRaise*2
+		}
+		if raise > player.Stack {
+			raise = player.Stack
+		}
+		return BotTurn{PlayerID: player.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: sequence, Profile: profile}
+	}
+	if strength >= callThreshold || (strength >= 5 && potOdds <= 0.25) {
+		if toCall <= player.Stack {
+			return BotTurn{PlayerID: player.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: sequence, Profile: profile}
+		}
+	}
+	if profile == "expert" && strength == 0 && toCall > game.BigBlind*3 {
+		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
+	}
+	return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
 }
 
 // StartTable initializes the game only after the human owner has joined. Bot
@@ -692,7 +761,12 @@ func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 	}
 	events := append([]Event(nil), table.Events...)
 	state, _ := json.Marshal(table.State)
-	return TableSnapshot{ID: table.ID, GameType: table.GameType, Sequence: table.Sequence, Players: players, Events: events, UpdatedAt: table.UpdatedAt, State: state}, nil
+	return TableSnapshot{
+		ID: table.ID, GameType: table.GameType, Sequence: table.Sequence,
+		Players: players, Events: events, UpdatedAt: table.UpdatedAt, State: state,
+		PokerLevel: table.PokerLevel, PokerHandsPlayed: table.PokerHandsPlayed,
+		PokerSmallBlind: table.PokerSmallBlind, PokerBigBlind: table.PokerBigBlind,
+	}, nil
 }
 
 func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
@@ -709,7 +783,15 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 		copy := *player
 		players[id] = &copy
 	}
-	table := &Table{ID: snapshot.ID, GameType: snapshot.GameType, Players: players, CreatedAt: time.Now(), UpdatedAt: snapshot.UpdatedAt, IsActive: true, GracePeriod: m.config.GracePeriod, Deterministic: m.config.Deterministic, Blinds: m.config.Blinds, Sequence: snapshot.Sequence, Events: append([]Event(nil), snapshot.Events...)}
+	table := &Table{
+		ID: snapshot.ID, GameType: snapshot.GameType, Players: players,
+		CreatedAt: time.Now(), UpdatedAt: snapshot.UpdatedAt, IsActive: true,
+		GracePeriod: m.config.GracePeriod, Deterministic: m.config.Deterministic,
+		Blinds: m.config.Blinds, Sequence: snapshot.Sequence,
+		Events: append([]Event(nil), snapshot.Events...),
+		PokerLevel: snapshot.PokerLevel, PokerHandsPlayed: snapshot.PokerHandsPlayed,
+		PokerSmallBlind: snapshot.PokerSmallBlind, PokerBigBlind: snapshot.PokerBigBlind,
+	}
 	if snapshot.GameType == "poker" && len(snapshot.State) > 0 {
 		var hand poker.Hand
 		if err := json.Unmarshal(snapshot.State, &hand); err == nil {
@@ -754,7 +836,13 @@ func initializePokerHand(table *Table) error {
 	}
 	table.State = hand
 	if table.Blinds {
-		if err := hand.StartHand(50, 100); err != nil {
+		sb := table.PokerSmallBlind
+		bb := table.PokerBigBlind
+		if sb == 0 || bb == 0 {
+			sb, bb = 50, 100
+			table.PokerSmallBlind, table.PokerBigBlind = sb, bb
+		}
+		if err := hand.StartHand(sb, bb); err != nil {
 			return err
 		}
 	}
@@ -807,13 +895,42 @@ func startNextPokerHand(table *Table) error {
 		return err
 	}
 	next.Button = (hand.Button + 1) % len(players)
+
+	// Advance level every 8 hands
+	table.PokerHandsPlayed++
+	if table.PokerHandsPlayed%8 == 0 {
+		table.PokerLevel++
+		if table.PokerLevel >= len(blindLevels) {
+			table.PokerLevel = len(blindLevels) - 1
+		}
+		table.PokerSmallBlind = blindLevels[table.PokerLevel][0]
+		table.PokerBigBlind = blindLevels[table.PokerLevel][1]
+	}
+
 	if table.Blinds {
-		if err := next.StartHand(hand.SmallBlind, hand.BigBlind); err != nil {
+		sb := table.PokerSmallBlind
+		bb := table.PokerBigBlind
+		if sb == 0 || bb == 0 {
+			sb, bb = 50, 100
+		}
+		if err := next.StartHand(sb, bb); err != nil {
 			return err
 		}
 	}
 	table.State = next
 	return nil
+}
+
+// blindLevels defines tournament-style blind progression.
+// Each entry is [smallBlind, bigBlind].
+var blindLevels = [][2]int64{
+	{50, 100},
+	{100, 200},
+	{200, 400},
+	{500, 1000},
+	{1000, 2000},
+	{2000, 4000},
+	{5000, 10000},
 }
 
 func initializeBeloteRound(table *Table) error {

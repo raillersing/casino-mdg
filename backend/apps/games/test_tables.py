@@ -1,8 +1,13 @@
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
+import hashlib
+import hmac
+
+from django.conf import settings
+
 from apps.accounts.models import User
-from apps.games.models import GameTable, TableSeat
+from apps.games.models import BotSimulationSession, GameTable, TableSeat
 
 
 @override_settings(DEBUG=True)
@@ -113,3 +118,58 @@ class TableApiTests(TestCase):
             self.client.post(f"/api/v1/games/tables/{table.id}/join/").status_code,
             403,
         )
+
+    def test_bot_simulation_webhook_completes_session(self):
+        table = GameTable.objects.create(
+            table_code="bot-webhook-01",
+            name="Test Webhook",
+            game_type="poker",
+            max_players=4,
+            status="open",
+            mode="DEMO_AI",
+            is_private=True,
+            created_by=self.user,
+        )
+        session = BotSimulationSession.objects.create(
+            owner=self.user,
+            table=table,
+            game_type="poker",
+            profile="balanced",
+            idempotency_key="webhook-test-1",
+            status="running",
+        )
+        response = self.client.post(
+            "/api/v1/games/internal/bots/session-complete/",
+            {"table_id": str(table.id)},
+            HTTP_X_GAME_ENGINE_BOT_SECRET=settings.GAME_ENGINE_BOT_SECRET,
+        )
+        self.assertEqual(response.status_code, 200)
+        session.refresh_from_db()
+        self.assertEqual(session.status, "completed")
+        self.assertIsNotNone(session.completed_at)
+
+    def test_bot_simulation_webhook_rejects_invalid_secret(self):
+        response = self.client.post(
+            "/api/v1/games/internal/bots/session-complete/",
+            {"table_id": "11111111-1111-1111-1111-111111111111"},
+            HTTP_X_GAME_ENGINE_BOT_SECRET="bad-secret",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_bot_simulation_webhook_rejects_missing_session(self):
+        table = GameTable.objects.create(
+            table_code="bot-webhook-02",
+            name="Test Webhook Missing",
+            game_type="poker",
+            max_players=4,
+            status="open",
+            mode="DEMO_AI",
+            is_private=True,
+            created_by=self.user,
+        )
+        response = self.client.post(
+            "/api/v1/games/internal/bots/session-complete/",
+            {"table_id": str(table.id)},
+            HTTP_X_GAME_ENGINE_BOT_SECRET=settings.GAME_ENGINE_BOT_SECRET,
+        )
+        self.assertEqual(response.status_code, 404)

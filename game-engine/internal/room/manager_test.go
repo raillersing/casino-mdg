@@ -283,3 +283,141 @@ func TestEventsSinceSupportsResync(t *testing.T) {
 		t.Fatalf("events=%+v err=%v", events, err)
 	}
 }
+
+func TestBotStrengthUsesBoard(t *testing.T) {
+	// A weak hole hand (7-2) that makes a flush with the board should score high.
+	player := &poker.Player{
+		Cards: []poker.Card{{Rank: 2, Suit: 0}, {Rank: 7, Suit: 0}},
+	}
+	board := []poker.Card{
+		{Rank: 9, Suit: 0}, {Rank: 11, Suit: 0}, {Rank: 13, Suit: 0},
+	}
+	strength := pokerBotRealStrength(player, board)
+	if strength < 50 {
+		t.Fatalf("expected high strength for flush, got %d", strength)
+	}
+	// Preflop without board should fall back to preflop strength scaled by 10.
+	preflop := pokerBotRealStrength(player, nil)
+	if preflop != 0 {
+		t.Fatalf("expected 0 preflop strength for 7-2, got %d", preflop)
+	}
+}
+
+func TestBotVsHumanHandCompletes(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinBotPlayerWithProfile(table.ID, "bot", "IA", 1, "balanced")
+	_, _ = m.JoinPlayer(table.ID, "human", "Joueur", 0)
+	if err := m.StartTable(table.ID); err != nil {
+		t.Fatal(err)
+	}
+	// Human calls the big blind (sequence 1 -> 2).
+	if _, err := m.ApplyAction(table.ID, "human", "call", 1, map[string]interface{}{}); err != nil {
+		t.Fatal(err)
+	}
+	// Bot is big blind so toCall == 0; it checks (sequence 2 -> 3).
+	turn, ok := m.NextBotTurn(table.ID)
+	if !ok {
+		t.Fatal("expected bot turn")
+	}
+	if _, err := m.ApplyAction(table.ID, turn.PlayerID, turn.Action, 2, turn.Payload); err != nil {
+		t.Fatalf("bot preflop action %q failed: %v", turn.Action, err)
+	}
+	// Flop is dealt; postflop starts left of button, so bot acts first again (sequence 3 -> 4).
+	turn, ok = m.NextBotTurn(table.ID)
+	if !ok {
+		t.Fatal("expected bot turn on flop")
+	}
+	if _, err := m.ApplyAction(table.ID, turn.PlayerID, turn.Action, 3, turn.Payload); err != nil {
+		t.Fatalf("bot flop action %q failed: %v", turn.Action, err)
+	}
+	// Human folds (sequence 4 -> 5).
+	if _, err := m.ApplyAction(table.ID, "human", "fold", 4, nil); err != nil {
+		t.Fatal(err)
+	}
+	winner, _, finished := m.FinishedPokerResult(table.ID)
+	if !finished {
+		t.Fatal("expected hand to finish")
+	}
+	if len(winner) != 1 || winner[0] != "bot" {
+		t.Fatalf("expected bot to win after human fold, got %v", winner)
+	}
+}
+
+func TestPokerBlindLevelsProgressEveryEightHands(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur 1", 1)
+	_, _ = m.JoinPlayer(table.ID, "p2", "Joueur 2", 2)
+
+	if table.PokerSmallBlind != 50 || table.PokerBigBlind != 100 {
+		t.Fatalf("initial blinds=%d/%d, expected 50/100", table.PokerSmallBlind, table.PokerBigBlind)
+	}
+
+	foldCurrent := func() {
+		seq := table.Sequence
+		hand := table.State.(*poker.Hand)
+		currentID := hand.Players[hand.Current].ID
+		if _, err := m.ApplyAction(table.ID, currentID, "fold", seq, nil); err != nil {
+			t.Fatalf("fold failed: %v", err)
+		}
+	}
+
+	// Play 7 fast hands (fold on preflop) — blinds should stay at level 0.
+	for i := 0; i < 7; i++ {
+		foldCurrent()
+		if _, err := m.ApplyAction(table.ID, "p1", "new_hand", table.Sequence, nil); err != nil {
+			t.Fatalf("hand %d new_hand failed: %v", i+1, err)
+		}
+	}
+	if table.PokerLevel != 0 {
+		t.Fatalf("after 7 hands level=%d, expected 0", table.PokerLevel)
+	}
+	if table.PokerSmallBlind != 50 || table.PokerBigBlind != 100 {
+		t.Fatalf("after 7 hands blinds=%d/%d, expected 50/100", table.PokerSmallBlind, table.PokerBigBlind)
+	}
+
+	// 8th hand triggers level-up.
+	foldCurrent()
+	if _, err := m.ApplyAction(table.ID, "p1", "new_hand", table.Sequence, nil); err != nil {
+		t.Fatal(err)
+	}
+	if table.PokerLevel != 1 {
+		t.Fatalf("after 8 hands level=%d, expected 1", table.PokerLevel)
+	}
+	if table.PokerSmallBlind != 100 || table.PokerBigBlind != 200 {
+		t.Fatalf("after 8 hands blinds=%d/%d, expected 100/200", table.PokerSmallBlind, table.PokerBigBlind)
+	}
+}
+
+func TestPokerNewHandResetsStateAndRotatesButton(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+	table := m.CreateTable("poker")
+	_, _ = m.JoinPlayer(table.ID, "p1", "Joueur 1", 1)
+	_, _ = m.JoinPlayer(table.ID, "p2", "Joueur 2", 2)
+
+	// Finish first hand.
+	if _, err := m.ApplyAction(table.ID, "p1", "call", 2, map[string]interface{}{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.ApplyAction(table.ID, "p2", "fold", 3, nil); err != nil {
+		t.Fatal(err)
+	}
+	hand1, ok := table.State.(*poker.Hand)
+	if !ok || hand1.Phase != "showdown" {
+		t.Fatalf("expected showdown, got phase=%s", hand1.Phase)
+	}
+	button1 := hand1.Button
+
+	// Start next hand.
+	if _, err := m.ApplyAction(table.ID, "p1", "new_hand", 4, nil); err != nil {
+		t.Fatal(err)
+	}
+	hand2, ok := table.State.(*poker.Hand)
+	if !ok || hand2.Phase != "preflop" {
+		t.Fatalf("expected preflop after new_hand, got phase=%s", hand2.Phase)
+	}
+	if hand2.Button != (button1+1)%2 {
+		t.Fatalf("button did not rotate: %d -> %d", button1, hand2.Button)
+	}
+}

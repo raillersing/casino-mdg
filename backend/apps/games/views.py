@@ -214,6 +214,31 @@ class BotSimulationCancelView(APIView):
         return Response(bot_simulation_payload(session))
 
 
+class BotSimulationCompleteView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        received = request.headers.get("X-Game-Engine-Bot-Secret", "")
+        expected = settings.GAME_ENGINE_BOT_SECRET
+        if not received or not hmac.compare_digest(received, expected):
+            return Response({"detail": "Non autorisé."}, status=403)
+        table_id = request.data.get("table_id")
+        if not table_id:
+            return Response({"detail": "table_id requis."}, status=400)
+        try:
+            session = BotSimulationSession.objects.get(
+                table_id=table_id, status__in={"queued", "running"}
+            )
+        except BotSimulationSession.DoesNotExist:
+            return Response(
+                {"detail": "Session introuvable ou déjà terminée."}, status=404
+            )
+        session.status = "completed"
+        session.completed_at = timezone.now()
+        session.save(update_fields=["status", "completed_at"])
+        return Response(bot_simulation_payload(session))
+
+
 class TableListCreateView(APIView):
     def get_permissions(self):
         return (
@@ -235,7 +260,7 @@ class TableListCreateView(APIView):
             GameTable.objects.exclude(status="finished")
             .filter(visibility)
             .distinct()
-            .prefetch_related("seats")
+            .prefetch_related("seats", "bot_simulation__bots")
         )
         if request.query_params.get("game_type"):
             tables = tables.filter(game_type=request.query_params["game_type"])

@@ -41,7 +41,11 @@ class GameTable(models.Model):
 
     @property
     def player_count(self):
-        return self.seats.count()
+        seats = self.seats.count()
+        try:
+            return seats + self.bot_simulation.bots.count()
+        except (BotSimulationSession.DoesNotExist, AttributeError):
+            return seats
 
 
 class TableSeat(models.Model):

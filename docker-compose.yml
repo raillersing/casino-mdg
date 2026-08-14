@@ -212,6 +212,7 @@ services:
         condition: service_healthy
     environment:
       GAME_ENGINE_ADDR: :8080
+      BACKEND_INTERNAL_URL: http://backend:8000
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me-32-bytes}
       GAME_ENGINE_BOT_SECRET: ${GAME_ENGINE_BOT_SECRET:-dev-game-engine-bot-secret-change-me}

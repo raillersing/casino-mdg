@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -63,7 +65,7 @@ type Server struct {
 	clients     map[string]*Client
 	snapshots   *state.SnapshotManager
 	mu          sync.RWMutex
-	botRuns     map[string]bool
+	botRuns     map[string]*botRun
 }
 
 func (s *Server) ClientCount() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.clients) }
@@ -134,7 +136,7 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 		config:      cfg,
 		roomManager: rm,
 		clients:     make(map[string]*Client),
-		botRuns:     make(map[string]bool),
+		botRuns:     make(map[string]*botRun),
 		snapshots:   state.NewSnapshotManager(cfg.RedisURL),
 	}
 }
@@ -345,23 +347,47 @@ func allPlayersAreBots(players map[string]*room.Player) bool {
 	return true
 }
 
+type botRun struct {
+	cancel context.CancelFunc
+	mu     sync.Mutex
+}
+
 func (s *Server) startBotTurns(tableID string) {
 	s.mu.Lock()
-	if s.botRuns[tableID] {
-		s.mu.Unlock()
-		return
+	run, exists := s.botRuns[tableID]
+	if !exists {
+		run = &botRun{}
+		s.botRuns[tableID] = run
 	}
-	s.botRuns[tableID] = true
+	run.mu.Lock()
+	if run.cancel != nil {
+		run.cancel()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	run.cancel = cancel
+	run.mu.Unlock()
 	s.mu.Unlock()
 	go func() {
 		defer func() {
 			s.mu.Lock()
-			delete(s.botRuns, tableID)
+			if current, ok := s.botRuns[tableID]; ok && current == run {
+				delete(s.botRuns, tableID)
+			}
 			s.mu.Unlock()
 		}()
 		for steps := 0; steps < 512; steps++ {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			turn, ok := s.roomManager.NextBotTurn(tableID)
 			if !ok {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
 				if timeout, timedOut := s.roomManager.TimedOutAction(tableID); timedOut {
 					s.handleAction(&Client{playerID: timeout.PlayerID, tableID: tableID}, &Message{Type: MsgAction, TableID: tableID, PlayerID: timeout.PlayerID, Action: timeout.Action, Sequence: timeout.Sequence})
 					continue
@@ -538,13 +564,61 @@ func validGameType(gameType string) bool {
 	return gameType == "poker" || gameType == "belote" || gameType == "rami"
 }
 
+// notifySessionComplete signals the backend that a bot simulation session
+// has ended, so the Django model can be moved to status=completed.
+func (s *Server) notifySessionComplete(tableID string) {
+	if s.config.BackendInternalURL == "" {
+		return
+	}
+	go func() {
+		payload, _ := json.Marshal(map[string]interface{}{
+			"table_id": tableID,
+			"reason":   "session_ended",
+		})
+		url := s.config.BackendInternalURL + "/internal/bots/session-complete/"
+		req, err := http.NewRequest("POST", url, bytes.NewReader(payload))
+		if err != nil {
+			log.Printf("notify session complete build request failed: %v", err)
+			return
+		}
+		req.Header.Set("X-Game-Engine-Bot-Secret", s.config.BotServiceSecret)
+		req.Header.Set("Content-Type", "application/json")
+		client := &http.Client{Timeout: 3 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("notify session complete failed table=%s: %v", tableID, err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 400 {
+			log.Printf("notify session complete rejected table=%s: status=%d", tableID, resp.StatusCode)
+		}
+	}()
+}
+
 func (s *Server) handleLeave(client *Client, msg *Message) {
-	if client.tableID != "" && !client.spectator {
-		s.roomManager.LeavePlayer(client.tableID, client.playerID)
+	leftTableID := client.tableID
+	if leftTableID != "" && !client.spectator {
+		s.roomManager.LeavePlayer(leftTableID, client.playerID)
 	}
 	client.tableID = ""
 	s.removeClient(client)
 	s.sendMessage(client, &Message{Type: MsgLeave, Payload: map[string]interface{}{"left": true}, Timestamp: time.Now()})
+	// Notify backend when the last human leaves a bot simulation table.
+	if !client.isBot && leftTableID != "" {
+		if table, exists := s.roomManager.GetTable(leftTableID); exists {
+			hasHuman := false
+			for _, p := range table.Players {
+				if !p.IsBot && p.IsActive {
+					hasHuman = true
+					break
+				}
+			}
+			if !hasHuman {
+				s.notifySessionComplete(leftTableID)
+			}
+		}
+	}
 }
 
 func (s *Server) handleAction(client *Client, msg *Message) {
@@ -616,6 +690,31 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 					Payload:  map[string]interface{}{"winners": winners, "pot": pot, "community": pokerCommunity(s.roomManager, msg.TableID), "revealed_cards": revealed, "best_cards": bestCards, "hand_ranks": handRanks, "payouts": showdownPayouts, "finish_reason": finishReason},
 					Sequence: event.Sequence, Timestamp: time.Now(),
 				})
+				// Broadcast hand summary for history tracking.
+				winnersPayload := make(map[string]interface{})
+				for _, id := range winners {
+					winnersPayload[id] = map[string]interface{}{
+						"payout": showdownPayouts[id],
+						"rank":   handRanks[id],
+					}
+				}
+				s.broadcastToTable(msg.TableID, &Message{
+					Type: MsgAction, TableID: msg.TableID, Action: "hand_summary",
+					Payload: map[string]interface{}{
+						"winners": winnersPayload, "pot": pot, "finish_reason": finishReason,
+						"community": pokerCommunity(s.roomManager, msg.TableID), "hand_ranks": handRanks,
+					},
+					Sequence: event.Sequence, Timestamp: time.Now(),
+				})
+				// Auto-restart next hand after a short delay if humans are still present.
+				table, _ := s.roomManager.GetTable(msg.TableID)
+				if table != nil && table.IsActive {
+					go func(tid string, seq uint64) {
+						time.Sleep(5 * time.Second)
+						client := &Client{tableID: tid}
+						s.handleAction(client, &Message{Type: MsgAction, TableID: tid, PlayerID: "", Action: "new_hand", Sequence: seq})
+					}(msg.TableID, event.Sequence)
+				}
 			}
 		}
 	}
@@ -790,6 +889,8 @@ func (s *Server) broadcastState(tableID string) {
 			"table_id": tableSnapshot["table_id"], "game_type": tableSnapshot["game_type"],
 			"players": tableSnapshot["players"], "game_state": publicGameState(state, client.playerID),
 			"spectator": client.spectator,
+			"poker_level": table.PokerLevel, "hands_played": table.PokerHandsPlayed,
+			"small_blind": table.PokerSmallBlind, "big_blind": table.PokerBigBlind,
 		}
 		data, err := json.Marshal(&Message{Type: MsgState, Payload: payload, Sequence: sequence, Timestamp: time.Now()})
 		if err == nil {

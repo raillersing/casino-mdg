@@ -9,6 +9,7 @@ import {
 import {
   ChevronLeft,
   Copy,
+  History,
   MessageCircle,
   Send,
   Settings2,
@@ -87,6 +88,18 @@ export function GamePage() {
   const [gameState, setGameState] = useState<Record<string, unknown> | null>(
     null,
   );
+  const [pokerLevel, setPokerLevel] = useState(0);
+  const [handsPlayed, setHandsPlayed] = useState(0);
+  const [nextHandCountdown, setNextHandCountdown] = useState(0);
+  const [handHistory, setHandHistory] = useState<
+    Array<{
+      handNumber: number;
+      winners: string[];
+      pot: number;
+      ranks: Record<string, string>;
+    }>
+  >([]);
+  const [showHandHistory, setShowHandHistory] = useState(false);
   const pots = Array.isArray(gameState?.pots)
     ? (gameState.pots as Array<{ amount?: number; eligible?: string[] }>)
     : [];
@@ -275,7 +288,14 @@ export function GamePage() {
         }
         if (payload.type === "state") {
           const state = payload.payload as
-            | { players?: unknown; game_state?: Record<string, unknown> }
+            | {
+                players?: unknown;
+                game_state?: Record<string, unknown>;
+                poker_level?: number;
+                hands_played?: number;
+                small_blind?: number;
+                big_blind?: number;
+              }
             | undefined;
           const publicPlayers =
             state && Array.isArray(state.players)
@@ -288,6 +308,12 @@ export function GamePage() {
           if (publicPlayers.length) {
             setPlayerCount(publicPlayers.length);
             setTablePlayers(publicPlayers);
+          }
+          if (typeof state?.poker_level === "number") {
+            setPokerLevel(state.poker_level);
+          }
+          if (typeof state?.hands_played === "number") {
+            setHandsPlayed(state.hands_played);
           }
           if (state?.game_state) {
             const phase = String(state.game_state.phase || "");
@@ -456,6 +482,37 @@ export function GamePage() {
             setShowdownRanks({});
             setPayouts({});
             setPotAwarded(false);
+            setNextHandCountdown(0);
+          }
+          if (action === "hand_summary") {
+            const summary = payload.payload as {
+              winners?: Record<string, { payout: number; rank: string }>;
+              pot?: number;
+              finish_reason?: string;
+              hand_ranks?: Record<string, string>;
+            };
+            const winners = Object.keys(summary.winners || {});
+            const ranks = summary.hand_ranks || {};
+            setHandHistory((current) => [
+              ...current.slice(-19),
+              {
+                handNumber: current.length + 1,
+                winners,
+                pot: summary.pot || 0,
+                ranks,
+              },
+            ]);
+            // Start countdown for next hand (server auto-starts in 5s)
+            setNextHandCountdown(5);
+            const countdown = window.setInterval(() => {
+              setNextHandCountdown((c) => {
+                if (c <= 1) {
+                  window.clearInterval(countdown);
+                  return 0;
+                }
+                return c - 1;
+              });
+            }, 1000);
           }
           if (action === "thinking") {
             setThinkingPlayer(payload.player_id || "");
@@ -805,6 +862,16 @@ export function GamePage() {
             · {isPoker ? t("games.poker") : t(`games.${gameType}`)}
           </span>
         </div>
+        {isPoker && (
+          <button
+            className="icon-button"
+            onClick={() => setShowHandHistory((s) => !s)}
+            title="Historique des mains"
+            aria-label="Historique des mains"
+          >
+            <History size={18} />
+          </button>
+        )}
         <button
           className="icon-button"
           onClick={inviteFriend}
@@ -877,11 +944,39 @@ export function GamePage() {
             {pokerPhaseLabel(String(gameState.phase || "preflop"))}
           </strong>
           <span>
-            Blinds {String(gameState.small_blind ?? 50)} /{" "}
+            Niveau {pokerLevel + 1} · {String(gameState.small_blind ?? 50)} /{" "}
             {String(gameState.big_blind ?? 100)}
           </span>
           <span>Pot {String(gameState.pot ?? 0)}</span>
           <span>À suivre {Math.max(0, highestBet - myBet)}</span>
+          <span>Mains {handsPlayed}</span>
+        </div>
+      )}
+      {showHandHistory && isPoker && (
+        <div className="hand-history-panel">
+          <strong>Historique des mains</strong>
+          {handHistory.length === 0 && (
+            <span className="empty-history">Aucune main jouée pour l’instant.</span>
+          )}
+          <ul>
+            {handHistory
+              .slice()
+              .reverse()
+              .map((h, i) => (
+                <li key={i}>
+                  <span>Main #{h.handNumber}</span>
+                  <span>
+                    Gagnant(s): {h.winners.length ? h.winners.join(", ") : "—"}
+                  </span>
+                  <span>Pot: {h.pot}</span>
+                  <span>
+                    {Object.entries(h.ranks)
+                      .map(([pid, rank]) => `${pid}: ${rank}`)
+                      .join(" · ")}
+                  </span>
+                </li>
+              ))}
+          </ul>
         </div>
       )}
       {isPokerShowdown && (
@@ -951,8 +1046,11 @@ export function GamePage() {
                   settled.current = false;
                   sendGameAction("new_hand");
                 }}
+                disabled={nextHandCountdown > 0}
               >
-                {t("game.newHand")}
+                {nextHandCountdown > 0
+                  ? `Nouvelle main dans ${nextHandCountdown}s`
+                  : t("game.newHand")}
               </button>
             )
           )}

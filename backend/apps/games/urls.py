@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     BotSimulationCancelView,
+    BotSimulationCompleteView,
     BotSimulationView,
     ChanceSimulationView,
     DailyMissionsView,
@@ -32,6 +33,11 @@ urlpatterns = [
         "bot-simulations/<uuid:session_id>/",
         BotSimulationCancelView.as_view(),
         name="bot-simulation-cancel",
+    ),
+    path(
+        "internal/bots/session-complete/",
+        BotSimulationCompleteView.as_view(),
+        name="bot-simulation-complete",
     ),
     path("tables/", TableListCreateView.as_view(), name="table-list-create"),
     path("tables/<uuid:table_id>/join/", TableJoinView.as_view(), name="table-join"),
