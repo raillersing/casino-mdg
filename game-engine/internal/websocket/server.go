@@ -396,7 +396,7 @@ func (s *Server) startBotTurns(tableID string) {
 				// Keep the authoritative table alive while a human is thinking so
 				// the server deadline, rather than a browser timer, decides the
 				// automatic check/fold.
-				if table, exists := s.roomManager.GetTable(tableID); exists {
+				if _, exists := s.roomManager.GetTable(tableID); exists {
 					time.Sleep(250 * time.Millisecond)
 					continue
 				}

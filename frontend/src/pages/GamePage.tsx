@@ -1207,7 +1207,7 @@ export function GamePage() {
       {gameState && gameType !== "poker" && (
         <GameStateSummary gameType={gameType || ""} state={gameState} />
       )}
-      <div className={`felt-table ${isPoker ? "felt-green" : "felt-blue"}`}>
+      <div className={`felt-table ${isPoker ? "felt-green" : gameType === "rami" ? "felt-red" : "felt-blue"}`}>
         <div className="table-brand">
           MDG <small>GAME CLUB</small>
         </div>
