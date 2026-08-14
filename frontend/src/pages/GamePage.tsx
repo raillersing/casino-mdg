@@ -192,6 +192,21 @@ export function GamePage() {
     ? (myPokerPlayer.cards as Array<{ rank: number; suit: number }>)
     : [];
   const renderedHoleCards = holeCards.slice(0, visibleHoleCardCount);
+  // Belote / Rami specific state
+  const myHand = Array.isArray(myPokerPlayer?.hand)
+    ? (myPokerPlayer.hand as Array<{ rank: number; suit: number }>)
+    : [];
+  const beloteTrick = Array.isArray(gameState?.trick)
+    ? (gameState.trick as Array<{ rank: number; suit: number }>)
+    : [];
+  const beloteTrump = String(gameState?.trump ?? "");
+  const beloteTeamPoints = Array.isArray(gameState?.team_points)
+    ? (gameState.team_points as [number, number])
+    : [0, 0];
+  const ramiDiscard = Array.isArray(gameState?.discard)
+    ? (gameState.discard as Array<{ rank: number; suit: number }>)
+    : [];
+  const ramiFinished = Boolean(gameState?.finished);
   const pokerWinners = Array.isArray(gameState?.winners)
     ? (gameState.winners as string[])
     : [];
@@ -1196,105 +1211,139 @@ export function GamePage() {
         <div className="table-brand">
           MDG <small>GAME CLUB</small>
         </div>
-        <PlayerSeat
-          pos="top"
-          name={String(
-            seatPlayers[0]?.name ||
-              nameForPlayer(String(seatPlayers[0]?.id || "")) ||
-              (demoAi ? botNameForSeat(0) : botNameForSeat(0)),
-          )}
-          chips={String(seatPlayers[0]?.stack ?? "8 420")}
-          bet={Number(seatPlayers[0]?.bet || 0)}
-          active={currentPlayerId === String(seatPlayers[0]?.id || "")}
-          folded={Boolean(seatPlayers[0]?.folded)}
-          action={
-            lastAction && lastActionPlayer === String(seatPlayers[0]?.id || "")
-              ? lastAction
-              : ""
-          }
-          badge={badgeForSeat(seatPlayers[0], gameState)}
-          thinking={Boolean(thinkingSeats[String(seatPlayers[0]?.id || "")])}
-          botChat={botChats[String(seatPlayers[0]?.id || "")]}
-        />
-        <PlayerSeat
-          pos="left"
-          name={String(
-            seatPlayers[1]?.name ||
-              nameForPlayer(String(seatPlayers[1]?.id || "")) ||
-              (demoAi ? botNameForSeat(1) : botNameForSeat(1)),
-          )}
-          chips={String(seatPlayers[1]?.stack ?? "12 100")}
-          bet={Number(seatPlayers[1]?.bet || 0)}
-          active={currentPlayerId === String(seatPlayers[1]?.id || "")}
-          folded={Boolean(seatPlayers[1]?.folded)}
-          action={
-            lastAction && lastActionPlayer === String(seatPlayers[1]?.id || "")
-              ? lastAction
-              : ""
-          }
-          badge={badgeForSeat(seatPlayers[1], gameState)}
-          thinking={Boolean(thinkingSeats[String(seatPlayers[1]?.id || "")])}
-          botChat={botChats[String(seatPlayers[1]?.id || "")]}
-        />
-        <PlayerSeat
-          pos="right"
-          name={String(
-            seatPlayers[2]?.name ||
-              nameForPlayer(String(seatPlayers[2]?.id || "")) ||
-              (demoAi ? botNameForSeat(2) : botNameForSeat(2)),
-          )}
-          chips={String(seatPlayers[2]?.stack ?? "6 750")}
-          bet={Number(seatPlayers[2]?.bet || 0)}
-          active={currentPlayerId === String(seatPlayers[2]?.id || "")}
-          folded={Boolean(seatPlayers[2]?.folded)}
-          action={
-            lastAction && lastActionPlayer === String(seatPlayers[2]?.id || "")
-              ? lastAction
-              : ""
-          }
-          badge={badgeForSeat(seatPlayers[2], gameState)}
-          thinking={Boolean(thinkingSeats[String(seatPlayers[2]?.id || "")])}
-          botChat={botChats[String(seatPlayers[2]?.id || "")]}
-        />
-        <div
-          className={`pot ${potPulse ? "pot-pulse" : ""} ${potAwarded ? "pot-awarded" : ""}`}
-          key={`pot-${potPulse}-${potAwarded}`}
-        >
-          {t("game.pot")} <strong>{String(gameState?.pot ?? 0)}</strong>
-          {chipBursts > 0 && (
-            <span className="chip-burst" key={chipBursts} aria-hidden="true">
-              ● ● ●
-            </span>
-          )}
-        </div>
-        <div
-          className={`community-cards ${dealPulse && motionEnabled ? "community-dealing" : ""}`}
-          key={`deal-${dealPulse}`}
-        >
-          {(renderedCommunityCards.length
-            ? renderedCommunityCards
-            : [null, null, null, null, null]
-          )
-            .concat(
-              Array.from(
-                { length: Math.max(0, 5 - renderedCommunityCards.length) },
-                () => null,
-              ),
-            )
-            .slice(0, 5)
-            .map((card, index) =>
-              card ? (
-                <PlayingCard
-                  key={`${card.suit}-${card.rank}-${index}`}
-                  {...cardView(card)}
-                />
-              ) : (
-                <PlayingCard key={`empty-${index}`} value="?" suit="" hidden />
-              ),
+        {seatPlayers.map((player, index) => {
+          const total = seatPlayers.length;
+          const angle =
+            total <= 3
+              ? [Math.PI / 2, (Math.PI * 5) / 4, (Math.PI * 7) / 4][index] ??
+                Math.PI / 2
+              : Math.PI - (index / Math.max(1, total - 1)) * Math.PI;
+          const style: React.CSSProperties =
+            total <= 3
+              ? {}
+              : {
+                  position: "absolute",
+                  left: `${50 + 42 * Math.cos(angle)}%`,
+                  top: `${48 + 38 * Math.sin(angle)}%`,
+                  transform: "translate(-50%, -50%)",
+                };
+          const opponentInfo = isPoker
+            ? String(player?.stack ?? "8 420")
+            : gameType === "belote"
+              ? `${player?.hand_count ?? 0} cartes · Équipe ${Number(player?.team ?? 0) + 1}`
+              : `${player?.hand_count ?? 0} cartes · Score : ${Number(player?.score ?? 0)}`;
+          return (
+            <PlayerSeat
+              key={String(player.id || index)}
+              pos={total <= 3 ? ["top", "left", "right"][index] ?? "top" : "dynamic"}
+              name={String(
+                player?.name ||
+                  nameForPlayer(String(player?.id || "")) ||
+                  (demoAi ? botNameForSeat(index) : botNameForSeat(index)),
+              )}
+              chips={opponentInfo}
+              bet={isPoker ? Number(player?.bet || 0) : 0}
+              active={currentPlayerId === String(player?.id || "")}
+              folded={isPoker ? Boolean(player?.folded) : false}
+              action={
+                lastAction && lastActionPlayer === String(player?.id || "")
+                  ? lastAction
+                  : ""
+              }
+              badge={badgeForSeat(player, gameState)}
+              thinking={Boolean(thinkingSeats[String(player?.id || "")])}
+              botChat={botChats[String(player?.id || "")]}
+              seatStyle={style}
+            />
+          );
+        })}
+        {isPoker && (
+          <>
+            <div
+              className={`pot ${potPulse ? "pot-pulse" : ""} ${potAwarded ? "pot-awarded" : ""}`}
+              key={`pot-${potPulse}-${potAwarded}`}
+            >
+              {t("game.pot")} <strong>{String(gameState?.pot ?? 0)}</strong>
+              {chipBursts > 0 && (
+                <span className="chip-burst" key={chipBursts} aria-hidden="true">
+                  ● ● ●
+                </span>
+              )}
+            </div>
+            <div
+              className={`community-cards ${dealPulse && motionEnabled ? "community-dealing" : ""}`}
+              key={`deal-${dealPulse}`}
+            >
+              {(renderedCommunityCards.length
+                ? renderedCommunityCards
+                : [null, null, null, null, null]
+              )
+                .concat(
+                  Array.from(
+                    { length: Math.max(0, 5 - renderedCommunityCards.length) },
+                    () => null,
+                  ),
+                )
+                .slice(0, 5)
+                .map((card, index) =>
+                  card ? (
+                    <PlayingCard
+                      key={`${card.suit}-${card.rank}-${index}`}
+                      {...cardView(card)}
+                    />
+                  ) : (
+                    <PlayingCard key={`empty-${index}`} value="?" suit="" hidden />
+                  ),
+                )}
+            </div>
+          </>
+        )}
+        {gameType === "belote" && (
+          <>
+            <div className="belote-trick-area">
+              <div className="belote-trick-label">
+                {beloteTrump !== "" && (
+                  <span className="belote-trump">Atout : {["♣","♦","♥","♠"][Number(beloteTrump)] || "?"}</span>
+                )}
+                <span>Pli {beloteTrick.length}/4</span>
+              </div>
+              <div className="belote-trick">
+                {beloteTrick.map((card, index) => (
+                  <PlayingCard
+                    key={`trick-${index}`}
+                    {...cardView(card)}
+                  />
+                ))}
+                {Array.from({ length: Math.max(0, 4 - beloteTrick.length) }).map((_, index) => (
+                  <PlayingCard key={`trick-empty-${index}`} value="?" suit="" hidden />
+                ))}
+              </div>
+            </div>
+            <div className="belote-score">
+              <span>Équipe 1 : {beloteTeamPoints[0]}</span>
+              <span>Équipe 2 : {beloteTeamPoints[1]}</span>
+            </div>
+          </>
+        )}
+        {gameType === "rami" && (
+          <>
+            <div className="rami-discard-area">
+              <div className="rami-discard-label">Défausse</div>
+              <div className="rami-discard">
+                {ramiDiscard.length > 0 ? (
+                  <PlayingCard {...cardView(ramiDiscard[ramiDiscard.length - 1])} />
+                ) : (
+                  <PlayingCard value="?" suit="" hidden />
+                )}
+              </div>
+            </div>
+            {ramiFinished && (
+              <div className="rami-finished">Partie terminée</div>
             )}
-        </div>
+          </>
+        )}
         {emote && <div className="table-emote">{emote}</div>}
-        {pots.length > 1 && (
+        {isPoker && pots.length > 1 && (
           <div className="side-pots" aria-label="Pots de la table">
             {pots.map((pot, index) => (
               <span key={`pot-${index}`}>
@@ -1307,9 +1356,17 @@ export function GamePage() {
           <div className="you-avatar">M</div>
           <div>
             <strong>{t("game.you")}</strong>
-            <span>{String(myPokerPlayer?.stack ?? 10000)} jetons</span>
+            {isPoker && (
+              <span>{String(myPokerPlayer?.stack ?? 10000)} jetons</span>
+            )}
+            {gameType === "belote" && (
+              <span>{myHand.length} cartes · Équipe {Number(myPokerPlayer?.team ?? 0) + 1}</span>
+            )}
+            {gameType === "rami" && (
+              <span>{myHand.length} cartes · Score : {Number(myPokerPlayer?.score ?? 0)}</span>
+            )}
           </div>
-          {showRebuy && (
+          {isPoker && showRebuy && (
             <button
               className="rebuy-btn"
               onClick={() => {
@@ -1320,26 +1377,47 @@ export function GamePage() {
               + Recharger
             </button>
           )}
-          {myBet > 0 && (
+          {isPoker && myBet > 0 && (
             <span className="you-bet-chip">{myBet}</span>
           )}
         </div>
-        <div className="hole-cards">
-          {(renderedHoleCards.length
-            ? renderedHoleCards
-            : [
-                { rank: 0, suit: 0 },
-                { rank: 0, suit: 0 },
-              ]
-          ).map((card, index) =>
-            card.rank ? (
-              <PlayingCard
-                key={`${card.suit}-${card.rank}`}
-                {...cardView(card)}
-              />
-            ) : (
-              <PlayingCard key={`hole-${index}`} value="?" suit="" hidden />
-            ),
+        <div className={`hole-cards ${gameType !== "poker" ? "hole-cards-many" : ""}`}>
+          {isPoker && (
+            <>
+              {(renderedHoleCards.length
+                ? renderedHoleCards
+                : [
+                    { rank: 0, suit: 0 },
+                    { rank: 0, suit: 0 },
+                  ]
+              ).map((card, index) =>
+                card.rank ? (
+                  <PlayingCard
+                    key={`${card.suit}-${card.rank}`}
+                    {...cardView(card)}
+                  />
+                ) : (
+                  <PlayingCard key={`hole-${index}`} value="?" suit="" hidden />
+                ),
+              )}
+            </>
+          )}
+          {gameType !== "poker" && (
+            <>
+              {myHand.length > 0 ? (
+                myHand.map((card, index) => (
+                  <PlayingCard
+                    key={`hand-${card.suit}-${card.rank}-${index}`}
+                    {...cardView(card)}
+                  />
+                ))
+              ) : (
+                <>
+                  <PlayingCard key="hole-0" value="?" suit="" hidden />
+                  <PlayingCard key="hole-1" value="?" suit="" hidden />
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -1417,7 +1495,7 @@ export function GamePage() {
         ) : (
           <GameSpecificControls
             gameType={gameType || ""}
-            state={gameState}
+            hand={myHand}
             onAction={sendGameAction}
             enabled={isMyTurn}
           />
@@ -1500,14 +1578,42 @@ export function GamePage() {
             <Settings2 size={16} />
             <span>{t("game.tableSettings")}</span>
           </div>
-          <div>
-            <span>{t("game.buyIn")}</span>
-            <strong>10 000 jetons</strong>
-          </div>
-          <div>
-            <span>{t("game.blinds")}</span>
-            <strong>100 / 200</strong>
-          </div>
+          {isPoker && (
+            <>
+              <div>
+                <span>{t("game.buyIn")}</span>
+                <strong>10 000 jetons</strong>
+              </div>
+              <div>
+                <span>{t("game.blinds")}</span>
+                <strong>100 / 200</strong>
+              </div>
+            </>
+          )}
+          {gameType === "belote" && (
+            <>
+              <div>
+                <span>Jeu</span>
+                <strong>Belote Malgache</strong>
+              </div>
+              <div>
+                <span>Joueurs</span>
+                <strong>4 (équipes de 2)</strong>
+              </div>
+            </>
+          )}
+          {gameType === "rami" && (
+            <>
+              <div>
+                <span>Jeu</span>
+                <strong>Rami</strong>
+              </div>
+              <div>
+                <span>Cartes</span>
+                <strong>52 (7 en main)</strong>
+              </div>
+            </>
+          )}
         </div>
         <Link
           to={`/support?mode=incident&game_type=${gameType || ""}&table_id=${engineTableId}`}
@@ -1531,6 +1637,7 @@ function PlayerSeat({
   badge = "",
   thinking = false,
   botChat,
+  seatStyle,
 }: {
   pos: string;
   name: string;
@@ -1542,11 +1649,13 @@ function PlayerSeat({
   badge?: string;
   thinking?: boolean;
   botChat?: { text: string; emote: string };
+  seatStyle?: React.CSSProperties;
 }) {
   const avColor = avatarColor(name);
   return (
     <div
       className={`player-seat seat-${pos} ${active ? "active-seat" : ""} ${folded ? "folded-seat" : ""}`}
+      style={seatStyle}
     >
       <div className="seat-avatar" style={{ background: avColor }}>{name[0]}</div>
       <div>
@@ -1577,9 +1686,11 @@ function badgeForSeat(
   if (!player || !state) return "";
   const playerId = String(player.id || "");
   const badges: string[] = [];
-  if (playerId === String(state.button_player_id || "")) badges.push("D");
-  if (playerId === String(state.small_blind_player_id || "")) badges.push("SB");
-  if (playerId === String(state.big_blind_player_id || "")) badges.push("BB");
+  if (state.button_player_id != null) {
+    if (playerId === String(state.button_player_id || "")) badges.push("D");
+    if (playerId === String(state.small_blind_player_id || "")) badges.push("SB");
+    if (playerId === String(state.big_blind_player_id || "")) badges.push("BB");
+  }
   return badges.join(" · ");
 }
 function PlayingCard({
@@ -1675,6 +1786,9 @@ function actionLabel(action: string, phase?: string) {
         all_in: "Tapis",
         new_hand: "Nouvelle main",
         showdown: "Showdown",
+        play_card: "Carte jouée",
+        draw: "Pioche",
+        discard: "Défausse",
       } as Record<string, string>
     )[action] || action
   );
@@ -1693,10 +1807,13 @@ function GameStateSummary({
     const points = Array.isArray(state.team_points)
       ? state.team_points
       : [0, 0];
+    const suits = ["♣", "♦", "♥", "♠"];
+    const trumpNum = Number(state.trump ?? -1);
+    const trumpLabel = trumpNum >= 0 && trumpNum < 4 ? suits[trumpNum] : "—";
     return (
       <div className="secure-note game-sync-note">
         <strong>{t("games.belote")}</strong> · {t("game.trump")} :{" "}
-        {String(state.trump ?? "—")} · {t("game.team")} 1 : {String(points[0])}{" "}
+        <span className="belote-trump">{trumpLabel}</span> · {t("game.team")} 1 : {String(points[0])}{" "}
         · {t("game.team")} 2 : {String(points[1])} · {t("game.trick")} :{" "}
         {Array.isArray(state.trick) ? state.trick.length : 0}/4
       </div>
@@ -1714,56 +1831,58 @@ function GameStateSummary({
 
 function GameSpecificControls({
   gameType,
-  state,
+  hand,
   onAction,
   enabled,
 }: {
   gameType: string;
-  state: Record<string, unknown> | null;
+  hand: Array<{ rank: number; suit: number }>;
   onAction: (action: string, payload?: unknown) => void;
   enabled: boolean;
 }) {
   const { t } = useTranslation();
-  const players =
-    state && Array.isArray(state.players)
-      ? (state.players as Array<Record<string, unknown>>)
-      : [];
-  const currentHand = (players.find((player) => Array.isArray(player.hand))
-    ?.hand || []) as Array<{ suit: number; rank: number }>;
   if (gameType === "belote")
     return (
-      <div className="action-row">
-        {currentHand.map((card) => (
-          <button
-            className="action-check"
-            disabled={!enabled}
-            key={`${card.suit}-${card.rank}`}
-            onClick={() => onAction("play_card", { card })}
-          >
-            {t("game.play")} {card.rank}♣
-          </button>
-        ))}
+      <div className="action-row belote-controls">
+        {hand.length > 0 ? (
+          hand.map((card) => (
+            <button
+              className="action-check"
+              disabled={!enabled}
+              key={`${card.suit}-${card.rank}`}
+              onClick={() => onAction("play_card", { card })}
+            >
+              {t("game.play")} {cardView(card).value}{cardView(card).suit}
+            </button>
+          ))
+        ) : (
+          <span className="muted">{t("game.waiting")}</span>
+        )}
       </div>
     );
   return (
-    <div className="action-row">
+    <div className="action-row rami-controls">
       <button
         className="action-check"
-        disabled={!enabled}
+        disabled={!enabled || hand.length > 7}
         onClick={() => onAction("draw")}
       >
         {t("game.draw")}
       </button>
-      {currentHand.map((card) => (
-        <button
-          className="action-bet"
-          disabled={!enabled}
-          key={`${card.suit}-${card.rank}`}
-          onClick={() => onAction("discard", { card })}
-        >
-          {t("game.discardCard")} {card.rank}
-        </button>
-      ))}
+      {hand.length > 0 ? (
+        hand.map((card) => (
+          <button
+            className="action-bet"
+            disabled={!enabled}
+            key={`${card.suit}-${card.rank}`}
+            onClick={() => onAction("discard", { card })}
+          >
+            {t("game.discardCard")} {cardView(card).value}{cardView(card).suit}
+          </button>
+        ))
+      ) : (
+        <span className="muted">{t("game.waiting")}</span>
+      )}
     </div>
   );
 }

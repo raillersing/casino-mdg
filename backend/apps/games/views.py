@@ -116,6 +116,21 @@ class BotSimulationView(APIView):
             or request.data.get("idempotency_key")
             or ""
         )[:120]
+        # bot count limits per game type (poker max 9 players total = 8 bots + 1 human)
+        if game_type == "poker":
+            max_bots = 8
+            default_bots = 3
+        elif game_type == "belote":
+            max_bots = 3
+            default_bots = 3
+        else:  # rami
+            max_bots = 3
+            default_bots = 1
+        try:
+            bot_count = int(request.data.get("bot_count", default_bots))
+        except (ValueError, TypeError):
+            bot_count = default_bots
+        bot_count = max(1, min(bot_count, max_bots))
         if game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
         if profile not in dict(BotSimulationSession.PROFILE_CHOICES):
@@ -129,12 +144,15 @@ class BotSimulationView(APIView):
         ).first()
         if existing:
             return Response(bot_simulation_payload(existing))
+        bot_names = (
+            "Tovo", "Rija", "Saholy", "Koto", "Lova", "Mika", "Zaza", "Bao", "Naly"
+        )
         with transaction.atomic():
             table = GameTable.objects.create(
                 table_code=f"bot-{game_type}-{str(GameTable.objects.count() + 1).zfill(3)}",
                 name=f"Simulation IA · {game_type.title()}",
                 game_type=game_type,
-                max_players=4,
+                max_players=bot_count + 1,
                 status="open",
                 mode=DEMO_AI,
                 is_private=True,
@@ -148,7 +166,8 @@ class BotSimulationView(APIView):
                 idempotency_key=idempotency_key,
                 status="queued",
             )
-            for seat, name in enumerate(("Tovo", "Rija", "Saholy"), start=1):
+            for seat in range(1, bot_count + 1):
+                name = bot_names[(seat - 1) % len(bot_names)]
                 BotSimulationParticipant.objects.create(
                     session=session,
                     bot_key=f"{game_type}-bot-{seat}",

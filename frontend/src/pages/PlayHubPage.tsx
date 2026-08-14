@@ -85,6 +85,7 @@ export function PlayHubPage() {
   const [showGuestName, setShowGuestName] = useState(false);
   const [guestInput, setGuestInput] = useState("");
   const [startingMode, setStartingMode] = useState<string | null>(null);
+  const [botCount, setBotCount] = useState(3);
 
   useEffect(() => {
     void trackEvent("play_hub_viewed", { game_type: gameType });
@@ -127,6 +128,7 @@ export function PlayHubPage() {
           gameType as "poker" | "belote" | "rami",
           "balanced",
           idempotencyKey,
+          gameType === "poker" ? botCount : undefined,
         );
         void trackEvent("bot_simulation_started", {
           mode: "demo",
@@ -312,6 +314,22 @@ export function PlayHubPage() {
             );
           })}
         </div>
+        {gameType === "poker" && (
+          <div className="hub-bot-count">
+            <label>
+              <span>Nombre de bots</span>
+              <input
+                type="range"
+                min={1}
+                max={8}
+                step={1}
+                value={botCount}
+                onChange={(e) => setBotCount(Number(e.target.value))}
+              />
+              <output>{botCount}</output>
+            </label>
+          </div>
+        )}
       </section>
 
       {/* Cross-promo */}

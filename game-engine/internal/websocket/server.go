@@ -328,7 +328,7 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		"table_id":   table.ID,
 		"game_type":  table.GameType,
 		"players":    table.Players,
-		"game_state": publicGameState(table.State, client.playerID),
+		"game_state": publicGameState(table.State, client.playerID, table.Players, table.ActionDeadline),
 		"spectator":  client.spectator,
 	}
 	s.sendMessage(client, &Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
@@ -396,7 +396,7 @@ func (s *Server) startBotTurns(tableID string) {
 				// Keep the authoritative table alive while a human is thinking so
 				// the server deadline, rather than a browser timer, decides the
 				// automatic check/fold.
-				if table, exists := s.roomManager.GetTable(tableID); exists && table.GameType == "poker" {
+				if table, exists := s.roomManager.GetTable(tableID); exists {
 					time.Sleep(250 * time.Millisecond)
 					continue
 				}
@@ -501,7 +501,10 @@ func (s *Server) broadcastBotEmotes(tableID string, winners []string, handRanks 
 	}
 }
 
-func publicGameState(state interface{}, playerID string) interface{} {
+func publicGameState(state interface{}, playerID string, tablePlayers map[string]*room.Player, actionDeadline time.Time) interface{} {
+	if state == nil {
+		return map[string]interface{}{"players": []map[string]interface{}{}, "current": -1}
+	}
 	switch game := state.(type) {
 	case *poker.Hand:
 		players := make([]map[string]interface{}, 0, len(game.Players))
@@ -598,9 +601,21 @@ func publicGameState(state interface{}, playerID string) interface{} {
 			if player.ID == playerID {
 				hand = player.Hand
 			}
-			players = append(players, map[string]interface{}{"id": player.ID, "team": player.Team, "hand": hand})
+			seat := 0
+			if p, exists := tablePlayers[player.ID]; exists {
+				seat = p.Seat
+			}
+			players = append(players, map[string]interface{}{"id": player.ID, "seat": seat, "team": player.Team, "hand": hand, "hand_count": len(player.Hand)})
 		}
-		return map[string]interface{}{"players": players, "trump": game.Trump, "current": game.Current, "lead_suit": game.LeadSuit, "trick": game.Trick, "team_points": game.TeamPoints}
+		currentPlayerID := ""
+		if game.Current >= 0 && game.Current < len(game.Players) {
+			currentPlayerID = game.Players[game.Current].ID
+		}
+		deadline := interface{}(nil)
+		if !actionDeadline.IsZero() {
+			deadline = actionDeadline
+		}
+		return map[string]interface{}{"players": players, "trump": game.Trump, "current": game.Current, "current_player_id": currentPlayerID, "lead_suit": game.LeadSuit, "trick": game.Trick, "team_points": game.TeamPoints, "action_deadline": deadline}
 	case *rami.Game:
 		players := make([]map[string]interface{}, 0, len(game.Players))
 		for _, player := range game.Players {
@@ -608,9 +623,21 @@ func publicGameState(state interface{}, playerID string) interface{} {
 			if player.ID == playerID {
 				hand = player.Hand
 			}
-			players = append(players, map[string]interface{}{"id": player.ID, "hand": hand, "score": player.Score})
+			seat := 0
+			if p, exists := tablePlayers[player.ID]; exists {
+				seat = p.Seat
+			}
+			players = append(players, map[string]interface{}{"id": player.ID, "seat": seat, "hand": hand, "score": player.Score, "hand_count": len(player.Hand)})
 		}
-		return map[string]interface{}{"players": players, "discard": game.Discard, "current": game.Current, "finished": game.Finished}
+		currentPlayerID := ""
+		if game.Current >= 0 && game.Current < len(game.Players) {
+			currentPlayerID = game.Players[game.Current].ID
+		}
+		deadline := interface{}(nil)
+		if !actionDeadline.IsZero() {
+			deadline = actionDeadline
+		}
+		return map[string]interface{}{"players": players, "discard": game.Discard, "current": game.Current, "current_player_id": currentPlayerID, "finished": game.Finished, "action_deadline": deadline}
 	default:
 		return nil
 	}
@@ -812,6 +839,15 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			for _, playerID := range losers {
 				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "belote", "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
 			}
+			// Auto-restart next round after a short delay if humans are still present.
+			table, _ := s.roomManager.GetTable(msg.TableID)
+			if table != nil && table.IsActive {
+				go func(tid string, seq uint64) {
+					time.Sleep(5 * time.Second)
+					client := &Client{tableID: tid}
+					s.handleAction(client, &Message{Type: MsgAction, TableID: tid, PlayerID: "", Action: "new_hand", Sequence: seq})
+				}(msg.TableID, event.Sequence)
+			}
 		}
 	}
 	if !replayed && msg.Action == "discard" {
@@ -820,6 +856,15 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": amount, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "win", int(amount))}, Sequence: event.Sequence, Timestamp: time.Now()})
 			for _, playerID := range losers {
 				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
+			}
+			// Auto-restart next game after a short delay if humans are still present.
+			table, _ := s.roomManager.GetTable(msg.TableID)
+			if table != nil && table.IsActive {
+				go func(tid string, seq uint64) {
+					time.Sleep(5 * time.Second)
+					client := &Client{tableID: tid}
+					s.handleAction(client, &Message{Type: MsgAction, TableID: tid, PlayerID: "", Action: "new_hand", Sequence: seq})
+				}(msg.TableID, event.Sequence)
 			}
 		}
 	}
@@ -970,10 +1015,15 @@ func (s *Server) broadcastState(tableID string) {
 		if client.tableID != tableID {
 			continue
 		}
+		deadline := interface{}(nil)
+		if !table.ActionDeadline.IsZero() {
+			deadline = table.ActionDeadline
+		}
 		payload := map[string]interface{}{
 			"table_id": tableSnapshot["table_id"], "game_type": tableSnapshot["game_type"],
-			"players": tableSnapshot["players"], "game_state": publicGameState(state, client.playerID),
+			"players": tableSnapshot["players"], "game_state": publicGameState(state, client.playerID, table.Players, table.ActionDeadline),
 			"spectator": client.spectator,
+			"action_deadline": deadline,
 			"poker_level": table.PokerLevel, "hands_played": table.PokerHandsPlayed,
 			"small_blind": table.PokerSmallBlind, "big_blind": table.PokerBigBlind,
 		}

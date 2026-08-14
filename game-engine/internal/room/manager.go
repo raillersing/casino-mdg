@@ -30,6 +30,7 @@ type Table struct {
 	Blinds        bool
 	Sequence      uint64
 	Events        []Event
+	ActionDeadline time.Time
 	// Poker-specific persistent table state
 	PokerLevel       int
 	PokerHandsPlayed int
@@ -58,6 +59,7 @@ type TableSnapshot struct {
 	Events           []Event            `json:"events"`
 	UpdatedAt        time.Time          `json:"updated_at"`
 	State            json.RawMessage    `json:"state,omitempty"`
+	ActionDeadline   time.Time          `json:"action_deadline"`
 	PokerLevel       int                `json:"poker_level"`
 	PokerHandsPlayed int                `json:"poker_hands_played"`
 	PokerSmallBlind  int64              `json:"poker_small_blind"`
@@ -304,14 +306,7 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 		if !exists || !seat.IsBot || len(gamePlayer.Hand) == 0 {
 			return BotTurn{}, false
 		}
-		card := gamePlayer.Hand[0]
-		for _, candidate := range gamePlayer.Hand {
-			if game.LeadSuit < 0 || candidate.Suit == game.LeadSuit || !hasBeloteSuit(gamePlayer.Hand, game.LeadSuit) {
-				card = candidate
-				break
-			}
-		}
-		return BotTurn{PlayerID: gamePlayer.ID, Action: "play_card", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": card.Suit, "rank": card.Rank}}, Sequence: table.Sequence}, true
+		return decideBeloteBotTurn(game, gamePlayer, table.Sequence), true
 	case *rami.Game:
 		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
 			return BotTurn{}, false
@@ -324,8 +319,7 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 		if len(gamePlayer.Hand) <= 7 {
 			return BotTurn{PlayerID: gamePlayer.ID, Action: "draw", Payload: map[string]interface{}{}, Sequence: table.Sequence}, true
 		}
-		card := gamePlayer.Hand[len(gamePlayer.Hand)-1]
-		return BotTurn{PlayerID: gamePlayer.ID, Action: "discard", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": card.Suit, "rank": card.Rank}}, Sequence: table.Sequence}, true
+		return decideRamiBotTurn(gamePlayer, table.Sequence), true
 	default:
 		return BotTurn{}, false
 	}
@@ -342,18 +336,56 @@ func (m *Manager) TimedOutAction(tableID string) (BotTurn, bool) {
 	}
 	table.mu.RLock()
 	defer table.mu.RUnlock()
-	hand, ok := table.State.(*poker.Hand)
-	if !ok || hand.Phase == "showdown" || hand.ActionDeadline.IsZero() || time.Now().Before(hand.ActionDeadline) || hand.Current < 0 || hand.Current >= len(hand.Players) {
+	if table.ActionDeadline.IsZero() || time.Now().Before(table.ActionDeadline) {
 		return BotTurn{}, false
 	}
-	player := hand.Players[hand.Current]
-	if player.Folded || player.AllIn {
+	switch game := table.State.(type) {
+	case *poker.Hand:
+		if game.Phase == "showdown" || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		player := game.Players[game.Current]
+		if player.Folded || player.AllIn {
+			return BotTurn{}, false
+		}
+		if game.HighestBet() == player.Bet {
+			return BotTurn{PlayerID: player.ID, Action: "check", Sequence: table.Sequence}, true
+		}
+		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: table.Sequence}, true
+	case *belote.Round:
+		if game.Finished() || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		player := game.Players[game.Current]
+		seat, exists := table.Players[player.ID]
+		if !exists || seat.IsBot || len(player.Hand) == 0 {
+			return BotTurn{}, false
+		}
+		card := player.Hand[0]
+		for _, candidate := range player.Hand {
+			if game.LeadSuit < 0 || candidate.Suit == game.LeadSuit || !hasBeloteSuit(player.Hand, game.LeadSuit) {
+				card = candidate
+				break
+			}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "play_card", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": card.Suit, "rank": card.Rank}}, Sequence: table.Sequence}, true
+	case *rami.Game:
+		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		player := game.Players[game.Current]
+		seat, exists := table.Players[player.ID]
+		if !exists || seat.IsBot {
+			return BotTurn{}, false
+		}
+		if len(player.Hand) <= 7 {
+			return BotTurn{PlayerID: player.ID, Action: "draw", Payload: map[string]interface{}{}, Sequence: table.Sequence}, true
+		}
+		card := player.Hand[0]
+		return BotTurn{PlayerID: player.ID, Action: "discard", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": card.Suit, "rank": card.Rank}}, Sequence: table.Sequence}, true
+	default:
 		return BotTurn{}, false
 	}
-	if hand.HighestBet() == player.Bet {
-		return BotTurn{PlayerID: player.ID, Action: "check", Sequence: table.Sequence}, true
-	}
-	return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: table.Sequence}, true
 }
 
 func pokerBotPreflopStrength(player *poker.Player) int {
@@ -783,14 +815,23 @@ func (m *Manager) StartTable(tableID string) error {
 	if table.State != nil {
 		return nil
 	}
-	if table.GameType == "poker" && len(table.Players) >= 2 {
-		return initializePokerHand(table)
+	if table.GameType == "poker" {
+		if len(table.Players) >= 2 {
+			return initializePokerHand(table)
+		}
+		return fmt.Errorf("poker requires at least 2 players, got %d", len(table.Players))
 	}
-	if table.GameType == "belote" && len(table.Players) >= 4 {
-		return initializeBeloteRound(table)
+	if table.GameType == "belote" {
+		if len(table.Players) >= 4 {
+			return initializeBeloteRound(table)
+		}
+		return fmt.Errorf("belote requires exactly 4 players, got %d", len(table.Players))
 	}
-	if table.GameType == "rami" && len(table.Players) >= 2 {
-		return initializeRamiGame(table)
+	if table.GameType == "rami" {
+		if len(table.Players) >= 2 {
+			return initializeRamiGame(table)
+		}
+		return fmt.Errorf("rami requires at least 2 players, got %d", len(table.Players))
 	}
 	return nil
 }
@@ -807,6 +848,7 @@ func (m *Manager) SetPokerDeadline(tableID string, deadline time.Time) bool {
 		return false
 	}
 	hand.SetActionDeadline(deadline)
+	table.ActionDeadline = deadline
 	return true
 }
 
@@ -819,6 +861,130 @@ func hasBeloteSuit(hand []belote.Card, suit int) bool {
 	return false
 }
 
+func decideBeloteBotTurn(game *belote.Round, player *belote.Player, sequence uint64) BotTurn {
+	legal := make([]belote.Card, 0, len(player.Hand))
+	for _, card := range player.Hand {
+		if game.LeadSuit < 0 || card.Suit == game.LeadSuit || !hasBeloteSuit(player.Hand, game.LeadSuit) {
+			legal = append(legal, card)
+		}
+	}
+	if len(legal) == 0 {
+		legal = append(legal, player.Hand...)
+	}
+	// Sort by strength ascending
+	sort.Slice(legal, func(i, j int) bool {
+		return beloteCardStrength(legal[i], game.Trump) < beloteCardStrength(legal[j], game.Trump)
+	})
+	chosen := legal[0]
+	if game.LeadSuit >= 0 && len(game.Trick) > 0 {
+		// Find current winning card in the trick
+		winning := game.Trick[0]
+		for i := 1; i < len(game.Trick); i++ {
+			if beloteBeatsCard(game.Trick[i], winning, game.LeadSuit, game.Trump) {
+				winning = game.Trick[i]
+			}
+		}
+		// Try to win the trick if possible, otherwise play lowest
+		canWin := false
+		for _, card := range legal {
+			if beloteBeatsCard(card, winning, game.LeadSuit, game.Trump) {
+				canWin = true
+				chosen = card
+				break
+			}
+		}
+		if !canWin {
+			chosen = legal[0]
+		}
+	}
+	return BotTurn{PlayerID: player.ID, Action: "play_card", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": chosen.Suit, "rank": chosen.Rank}}, Sequence: sequence}
+}
+
+func beloteCardStrength(card belote.Card, trump int) int {
+	if card.Suit == trump {
+		switch card.Rank {
+		case 11:
+			return 20
+		case 9:
+			return 19
+		case 14:
+			return 18
+		case 10:
+			return 17
+		case 13:
+			return 16
+		case 12:
+			return 15
+		case 8:
+			return 14
+		case 7:
+			return 13
+		}
+	}
+	switch card.Rank {
+	case 14:
+		return 12
+	case 10:
+		return 11
+	case 13:
+		return 10
+	case 12:
+		return 9
+	case 11:
+		return 8
+	case 9:
+		return 7
+	case 8:
+		return 6
+	case 7:
+		return 5
+	}
+	return 0
+}
+
+func beloteBeatsCard(candidate, current belote.Card, leadSuit, trump int) bool {
+	if candidate.Suit == trump && current.Suit != trump {
+		return true
+	}
+	if candidate.Suit != current.Suit {
+		return candidate.Suit == leadSuit && current.Suit != trump
+	}
+	return beloteCardStrength(candidate, trump) > beloteCardStrength(current, trump)
+}
+
+func decideRamiBotTurn(player *rami.Player, sequence uint64) BotTurn {
+	// Discard the card that is least likely to form a meld
+	if len(player.Hand) == 0 {
+		return BotTurn{PlayerID: player.ID, Action: "discard", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": 0, "rank": 1}}, Sequence: sequence}
+	}
+	// Score each card: lower score = less useful
+	bestIdx := 0
+	bestScore := 999
+	for i, card := range player.Hand {
+		score := 0
+		// Count how many cards of same rank or adjacent ranks in same suit
+		for _, other := range player.Hand {
+			if other == card {
+				continue
+			}
+			if other.Rank == card.Rank {
+				score += 5
+			}
+			if other.Suit == card.Suit && (other.Rank == card.Rank-1 || other.Rank == card.Rank+1) {
+				score += 3
+			}
+		}
+		// Prefer discarding high cards (they count more against you if someone else wins)
+		score -= card.Rank
+		if score < bestScore {
+			bestScore = score
+			bestIdx = i
+		}
+	}
+	card := player.Hand[bestIdx]
+	return BotTurn{PlayerID: player.ID, Action: "discard", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": card.Suit, "rank": card.Rank}}, Sequence: sequence}
+}
+
 // ApplyActionIdempotent applies an action once. A client may resend the same
 // event_id after a reconnect; in that case the original event is returned and
 // the game state/sequence are left untouched.
@@ -829,7 +995,7 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 	}
 	table.mu.Lock()
 	defer table.mu.Unlock()
-	if _, ok := table.Players[playerID]; !ok {
+	if _, ok := table.Players[playerID]; !ok && !(action == "new_hand" && playerID == "") {
 		return Event{}, false, fmt.Errorf("player is not seated")
 	}
 	if eventID != "" {
@@ -848,9 +1014,19 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 	if !validActionForGame(table.GameType, action) {
 		return Event{}, false, fmt.Errorf("invalid action")
 	}
-	if table.GameType == "poker" && action == "new_hand" {
-		if err := startNextPokerHand(table); err != nil {
-			return Event{}, false, err
+	if action == "new_hand" {
+		if table.GameType == "poker" {
+			if err := startNextPokerHand(table); err != nil {
+				return Event{}, false, err
+			}
+		} else if table.GameType == "belote" {
+			if err := initializeBeloteRound(table); err != nil {
+				return Event{}, false, err
+			}
+		} else if table.GameType == "rami" {
+			if err := initializeRamiGame(table); err != nil {
+				return Event{}, false, err
+			}
 		}
 		event := appendEvent(table, playerID, action, payload)
 		if eventID != "" {
@@ -880,7 +1056,36 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 		event.ID = eventID
 		table.Events[len(table.Events)-1].ID = eventID
 	}
+	// Set action deadline for human players in belote/rami (poker handles this separately)
+	if table.GameType == "belote" || table.GameType == "rami" {
+		table.ActionDeadline = time.Time{}
+		if nextPlayer := nextHumanPlayer(table); nextPlayer != "" {
+			table.ActionDeadline = time.Now().Add(18 * time.Second)
+		}
+	}
 	return event, false, nil
+}
+
+func nextHumanPlayer(table *Table) string {
+	switch game := table.State.(type) {
+	case *belote.Round:
+		if game.Finished() || game.Current < 0 || game.Current >= len(game.Players) {
+			return ""
+		}
+		player := game.Players[game.Current]
+		if seat, exists := table.Players[player.ID]; exists && !seat.IsBot {
+			return player.ID
+		}
+	case *rami.Game:
+		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
+			return ""
+		}
+		player := game.Players[game.Current]
+		if seat, exists := table.Players[player.ID]; exists && !seat.IsBot {
+			return player.ID
+		}
+	}
+	return ""
 }
 
 func (m *Manager) DisconnectPlayer(tableID, playerID string) {
@@ -1104,6 +1309,7 @@ func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 	return TableSnapshot{
 		ID: table.ID, GameType: table.GameType, Sequence: table.Sequence,
 		Players: players, Events: events, UpdatedAt: table.UpdatedAt, State: state,
+		ActionDeadline: table.ActionDeadline,
 		PokerLevel: table.PokerLevel, PokerHandsPlayed: table.PokerHandsPlayed,
 		PokerSmallBlind: table.PokerSmallBlind, PokerBigBlind: table.PokerBigBlind,
 	}, nil
@@ -1129,6 +1335,7 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 		GracePeriod: m.config.GracePeriod, Deterministic: m.config.Deterministic,
 		Blinds: m.config.Blinds, Sequence: snapshot.Sequence,
 		Events: append([]Event(nil), snapshot.Events...),
+		ActionDeadline: snapshot.ActionDeadline,
 		PokerLevel: snapshot.PokerLevel, PokerHandsPlayed: snapshot.PokerHandsPlayed,
 		PokerSmallBlind: snapshot.PokerSmallBlind, PokerBigBlind: snapshot.PokerBigBlind,
 	}
@@ -1374,6 +1581,20 @@ func syncPokerSeats(table *Table) {
 	}
 }
 
+func extractInt(v interface{}) int {
+	switch n := v.(type) {
+	case float64:
+		return int(n)
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case int32:
+		return int(n)
+	}
+	return 0
+}
+
 func applyBeloteAction(table *Table, playerID, action string, payload interface{}) error {
 	round, ok := table.State.(*belote.Round)
 	if !ok {
@@ -1393,16 +1614,16 @@ func applyBeloteAction(table *Table, playerID, action string, payload interface{
 	switch action {
 	case "play_card":
 		cardValues, _ := values["card"].(map[string]interface{})
-		suit, _ := cardValues["suit"].(float64)
-		rank, _ := cardValues["rank"].(float64)
+		suit := extractInt(cardValues["suit"])
+		rank := extractInt(cardValues["rank"])
 		if round.Current != index {
 			return fmt.Errorf("not this player's turn")
 		}
-		_, err := round.PlayCard(index, belote.Card{Suit: int(suit), Rank: int(rank)})
+		_, err := round.PlayCard(index, belote.Card{Suit: suit, Rank: rank})
 		return err
 	case "announce":
-		trump, _ := values["trump"].(float64)
-		return round.Announce(index, int(trump))
+		trump := extractInt(values["trump"])
+		return round.Announce(index, trump)
 	case "pass":
 		if round.Current != index {
 			return fmt.Errorf("not this player's turn")
@@ -1430,9 +1651,7 @@ func applyRamiAction(table *Table, playerID, action string, payload interface{})
 	}
 	values, _ := payload.(map[string]interface{})
 	readCard := func(value map[string]interface{}) rami.Card {
-		suit, _ := value["suit"].(float64)
-		rank, _ := value["rank"].(float64)
-		return rami.Card{Suit: int(suit), Rank: int(rank)}
+		return rami.Card{Suit: extractInt(value["suit"]), Rank: extractInt(value["rank"])}
 	}
 	switch action {
 	case "draw":
@@ -1466,14 +1685,14 @@ func appendEvent(table *Table, playerID, action string, payload interface{}) Eve
 func validActionForGame(gameType, action string) bool {
 	if gameType == "belote" {
 		switch action {
-		case "play_card", "announce", "pass":
+		case "play_card", "announce", "pass", "new_hand":
 			return true
 		}
 		return false
 	}
 	if gameType == "rami" {
 		switch action {
-		case "draw", "discard", "meld":
+		case "draw", "discard", "meld", "new_hand":
 			return true
 		}
 		return false

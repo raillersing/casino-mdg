@@ -53,6 +53,7 @@ export function startBotSimulation(
   gameType: BotSimulation["game_type"],
   profile: BotSimulation["profile"],
   idempotencyKey: string,
+  botCount?: number,
 ) {
   return request<BotSimulation>("bot-simulations/", {
     method: "POST",
@@ -65,6 +66,7 @@ export function startBotSimulation(
       game_type: gameType,
       profile,
       idempotency_key: idempotencyKey,
+      bot_count: botCount,
     }),
   });
 }
