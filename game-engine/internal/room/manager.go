@@ -3,6 +3,7 @@ package room
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"sort"
 	"strconv"
 	"sync"
@@ -34,6 +35,8 @@ type Table struct {
 	PokerHandsPlayed int
 	PokerSmallBlind  int64
 	PokerBigBlind    int64
+	BotTilt          map[string]int // hands remaining in tilt per bot ID
+	BotRecentStrength map[string]int // last showdown strength for tilt calculation
 	mu               sync.RWMutex
 }
 
@@ -116,15 +119,17 @@ func (m *Manager) CreateTableWithID(id, gameType string) *Table {
 	}
 
 	table := &Table{
-		ID:            id,
-		GameType:      gameType,
-		Players:       make(map[string]*Player),
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-		IsActive:      true,
-		GracePeriod:   m.config.GracePeriod,
-		Deterministic: m.config.Deterministic,
-		Blinds:        m.config.Blinds,
+		ID:                id,
+		GameType:          gameType,
+		Players:           make(map[string]*Player),
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+		IsActive:          true,
+		GracePeriod:       m.config.GracePeriod,
+		Deterministic:     m.config.Deterministic,
+		Blinds:            m.config.Blinds,
+		BotTilt:           make(map[string]int),
+		BotRecentStrength: make(map[string]int),
 	}
 
 	m.tables[table.ID] = table
@@ -289,7 +294,7 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 				highest = player.Bet
 			}
 		}
-			return decidePokerBotTurn(game, gamePlayer, profile, table.Sequence), true
+			return decidePokerBotTurn(game, gamePlayer, table, profile, table.Sequence), true
 	case *belote.Round:
 		if game.Finished() || game.Current < 0 || game.Current >= len(game.Players) {
 			return BotTurn{}, false
@@ -383,7 +388,176 @@ func pokerBotRealStrength(player *poker.Player, community []poker.Card) int {
 	return hv.Category*10 + len(hv.Tiebreak)
 }
 
-func decidePokerBotTurn(game *poker.Hand, player *poker.Player, profile string, sequence uint64) BotTurn {
+// normalizeBotProfile maps legacy session profiles to rich personalities.
+// "balanced" is expanded into a random mix so the table feels alive.
+func normalizeBotProfile(profile string) string {
+	switch profile {
+	case "tutorial":
+		return "fish"
+	case "expert":
+		return "shark"
+	case "fish", "rock", "maniac", "shark", "donkey":
+		return profile
+	default:
+		// balanced or anything else → random personality for variety
+		personalities := []string{"fish", "rock", "maniac", "shark", "donkey"}
+		return personalities[rand.Intn(len(personalities))]
+	}
+}
+
+func botPositionIndex(game *poker.Hand, playerID string) int {
+	for i, p := range game.Players {
+		if p.ID == playerID {
+			return i
+		}
+	}
+	return 0
+}
+
+func botPositionCategory(game *poker.Hand, playerID string) string {
+	idx := botPositionIndex(game, playerID)
+	n := len(game.Players)
+	if n <= 2 {
+		if idx == game.Button {
+			return "late"
+		}
+		return "early"
+	}
+	// Distance from button (0 = button, 1 = cutoff, etc.)
+	dist := (idx - game.Button + n) % n
+	if dist == 0 {
+		return "late"
+	}
+	if dist <= 2 {
+		return "mid"
+	}
+	return "early"
+}
+
+func botIsOnTilt(table *Table, playerID string) bool {
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	return table.BotTilt[playerID] > 0
+}
+
+func botTiltFactor(table *Table, playerID string) float64 {
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	if table.BotTilt[playerID] > 0 {
+		return 0.75
+	}
+	return 1.0
+}
+
+func botShouldBluff(profile, position, phase string, board []poker.Card, table *Table) bool {
+	// Base bluff probability by profile
+	baseProb := 0.0
+	switch profile {
+	case "maniac":
+		baseProb = 0.35
+	case "shark":
+		baseProb = 0.20
+	case "fish":
+		baseProb = 0.05
+	case "donkey":
+		baseProb = 0.25
+	case "rock":
+		baseProb = 0.02
+	}
+	// Late position favours bluffs
+	if position == "late" {
+		baseProb += 0.10
+	} else if position == "early" {
+		baseProb -= 0.05
+	}
+	// Dry board favours bluffs (few draws)
+	if len(board) >= 3 {
+		suited := 0
+		for _, c := range board {
+			if c.Suit == board[0].Suit {
+				suited++
+			}
+		}
+		if suited < 3 {
+			baseProb += 0.05
+		}
+	}
+	// Tilt increases bluffing
+	if botIsOnTilt(table, "") {
+		// We need the actual playerID here; handled in caller
+	}
+	return rand.Float64() < baseProb
+}
+
+func botShouldSlowPlay(profile string, strength int, phase string) bool {
+	if strength < 80 {
+		return false
+	}
+	prob := 0.0
+	switch profile {
+	case "rock":
+		prob = 0.30
+	case "shark":
+		prob = 0.20
+	case "maniac":
+		prob = 0.02
+	case "fish", "donkey":
+		prob = 0.05
+	}
+	return rand.Float64() < prob
+}
+
+// botBetSize returns an amount scaled by profile and pot ratio.
+func botBetSize(profile string, game *poker.Hand, base int64, strength int) int64 {
+	if base <= 0 {
+		return base
+	}
+	pot := game.Pot
+	if pot <= 0 {
+		pot = game.BigBlind * 2
+	}
+	switch profile {
+	case "maniac":
+		if strength >= 60 {
+			return minInt64(base+pot, game.BigBlind*5)
+		}
+		return minInt64(base+pot/2, game.BigBlind*4)
+	case "shark":
+		if strength >= 70 {
+			return minInt64(base+pot, game.BigBlind*4)
+		}
+		return minInt64(base+pot/2, game.BigBlind*3)
+	case "rock":
+		if strength >= 80 {
+			return minInt64(base+pot, game.BigBlind*4)
+		}
+		return minInt64(base+pot/2, game.BigBlind*2)
+	case "fish":
+		return minInt64(base+pot/3, game.BigBlind*2)
+	case "donkey":
+		if rand.Float64() < 0.5 {
+			return minInt64(base+pot, game.BigBlind*6)
+		}
+		return minInt64(base+pot/3, game.BigBlind*2)
+	}
+	return base
+}
+
+func minInt64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxInt64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func decidePokerBotTurn(game *poker.Hand, player *poker.Player, table *Table, profile string, sequence uint64) BotTurn {
 	highest := int64(0)
 	for _, p := range game.Players {
 		if p.Bet > highest {
@@ -397,69 +571,201 @@ func decidePokerBotTurn(game *poker.Hand, player *poker.Player, profile string, 
 		potOdds = float64(toCall) / float64(game.Pot+toCall)
 	}
 
-	// Tutorial : passif
-	if profile == "tutorial" {
+	profile = normalizeBotProfile(profile)
+	position := botPositionCategory(game, player.ID)
+	tilt := botTiltFactor(table, player.ID)
+	phase := game.Phase
+	if phase == "" {
+		phase = "preflop"
+	}
+
+	// Donkey : 30 % des décisions sont aléatoires
+	if profile == "donkey" && rand.Float64() < 0.30 {
+		choices := []string{"check", "call", "fold"}
 		if toCall == 0 {
-			return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence}
+			choices = append(choices, "bet")
+		} else {
+			choices = append(choices, "raise", "all_in")
 		}
-		if toCall <= game.BigBlind {
-			return BotTurn{PlayerID: player.ID, Action: "call", Sequence: sequence}
-		}
-		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence}
-	}
-
-	// Seuils par profil
-	raiseThreshold := 50
-	callThreshold := 15
-	aggressive := false
-	if profile == "expert" {
-		raiseThreshold = 40
-		callThreshold = 10
-		aggressive = true
-	}
-
-	// All-in short stack
-	if toCall >= player.Stack && player.Stack > 0 {
-		if strength >= 20 {
-			return BotTurn{PlayerID: player.ID, Action: "all_in", Sequence: sequence}
-		}
-		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence}
-	}
-
-	if toCall == 0 {
-		if strength >= raiseThreshold && player.Stack >= game.BigBlind {
+		action := choices[rand.Intn(len(choices))]
+		if action == "bet" {
 			amount := game.BigBlind
-			if aggressive && strength >= 60 {
-				amount = game.BigBlind * 3
-			} else if aggressive {
-				amount = game.BigBlind * 2
-			}
 			if amount > player.Stack {
 				amount = player.Stack
 			}
 			return BotTurn{PlayerID: player.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: sequence, Profile: profile}
 		}
-		return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence}
+		if action == "raise" {
+			raise := toCall + game.LastRaise
+			if raise > player.Stack {
+				raise = player.Stack
+			}
+			return BotTurn{PlayerID: player.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: sequence, Profile: profile}
+		}
+		if action == "all_in" {
+			return BotTurn{PlayerID: player.ID, Action: "all_in", Sequence: sequence, Profile: profile}
+		}
+		return BotTurn{PlayerID: player.ID, Action: action, Sequence: sequence, Profile: profile}
 	}
 
-	// Facing a bet
-	if strength >= raiseThreshold+10 && player.Stack >= toCall+game.LastRaise {
-		raise := toCall + game.LastRaise
-		if aggressive && strength >= 70 {
-			raise = toCall + game.LastRaise*2
+	// ---------- FISH (loose-passif) ----------
+	if profile == "fish" {
+		if toCall == 0 {
+			if strength >= 70 && player.Stack >= game.BigBlind {
+				amount := botBetSize("fish", game, game.BigBlind, strength)
+				if amount > player.Stack {
+					amount = player.Stack
+				}
+				return BotTurn{PlayerID: player.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: sequence, Profile: profile}
+			}
+			if len(game.Community) == 0 && rand.Float64() < 0.70 {
+				// Limp preflop
+				if game.BigBlind <= player.Stack {
+					return BotTurn{PlayerID: player.ID, Action: "call", Payload: map[string]interface{}{"amount": game.BigBlind}, Sequence: sequence, Profile: profile}
+				}
+			}
+			return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence, Profile: profile}
 		}
-		if raise > player.Stack {
-			raise = player.Stack
+		// Facing a bet : appelle très large
+		if toCall >= player.Stack && player.Stack > 0 {
+			if strength >= 10 {
+				return BotTurn{PlayerID: player.ID, Action: "all_in", Sequence: sequence, Profile: profile}
+			}
+			return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
 		}
-		return BotTurn{PlayerID: player.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: sequence, Profile: profile}
+		if strength >= 5 || (strength >= 0 && potOdds <= 0.40) {
+			if toCall <= player.Stack {
+				return BotTurn{PlayerID: player.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: sequence, Profile: profile}
+			}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
 	}
-	if strength >= callThreshold || (strength >= 5 && potOdds <= 0.25) {
+
+	// ---------- ROCK (tight-aggressif) ----------
+	if profile == "rock" {
+		if toCall == 0 {
+			if strength >= 80 && player.Stack >= game.BigBlind {
+				if botShouldSlowPlay("rock", strength, phase) {
+					return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence, Profile: profile}
+				}
+				amount := botBetSize("rock", game, game.BigBlind, strength)
+				if amount > player.Stack {
+					amount = player.Stack
+				}
+				return BotTurn{PlayerID: player.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: sequence, Profile: profile}
+			}
+			if strength >= 30 {
+				amount := game.BigBlind
+				if amount > player.Stack {
+					amount = player.Stack
+				}
+				return BotTurn{PlayerID: player.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: sequence, Profile: profile}
+			}
+			return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence, Profile: profile}
+		}
+		// Facing a bet
+		if toCall >= player.Stack && player.Stack > 0 {
+			if strength >= 60 {
+				return BotTurn{PlayerID: player.ID, Action: "all_in", Sequence: sequence, Profile: profile}
+			}
+			return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
+		}
+		if strength >= 60 && player.Stack >= toCall+game.LastRaise {
+			raise := botBetSize("rock", game, toCall+game.LastRaise, strength)
+			if raise > player.Stack {
+				raise = player.Stack
+			}
+			return BotTurn{PlayerID: player.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: sequence, Profile: profile}
+		}
+		if strength >= int(35*tilt) || (strength >= 25 && potOdds <= 0.15) {
+			if toCall <= player.Stack {
+				return BotTurn{PlayerID: player.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: sequence, Profile: profile}
+			}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
+	}
+
+	// ---------- MANIAC (loose-agressif) ----------
+	if profile == "maniac" {
+		bluffing := botShouldBluff("maniac", position, phase, game.Community, table)
+		if toCall == 0 {
+			if strength >= 10 || bluffing {
+				amount := botBetSize("maniac", game, game.BigBlind, strength)
+				if amount > player.Stack {
+					amount = player.Stack
+				}
+				return BotTurn{PlayerID: player.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: sequence, Profile: profile}
+			}
+			return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence, Profile: profile}
+		}
+		// Facing a bet
+		if toCall >= player.Stack && player.Stack > 0 {
+			if strength >= 15 || bluffing {
+				return BotTurn{PlayerID: player.ID, Action: "all_in", Sequence: sequence, Profile: profile}
+			}
+			return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
+		}
+		if strength >= int(20*tilt) || bluffing {
+			if player.Stack >= toCall+game.LastRaise {
+				raise := botBetSize("maniac", game, toCall+game.LastRaise, strength)
+				if raise > player.Stack {
+					raise = player.Stack
+				}
+				return BotTurn{PlayerID: player.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: sequence, Profile: profile}
+			}
+		}
+		if strength >= 5 || potOdds <= 0.50 {
+			if toCall <= player.Stack {
+				return BotTurn{PlayerID: player.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: sequence, Profile: profile}
+			}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
+	}
+
+	// ---------- SHARK (mixte / tricky) ----------
+	// Par défaut tous les profils legacy atterrissent ici
+	bluffing := botShouldBluff("shark", position, phase, game.Community, table)
+	if toCall == 0 {
+		// Vol de blinds en late position
+		if position == "late" && strength >= 15 && len(game.Community) == 0 && player.Stack >= game.BigBlind*2 {
+			amount := game.BigBlind * 2
+			if amount > player.Stack {
+				amount = player.Stack
+			}
+			return BotTurn{PlayerID: player.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: sequence, Profile: profile}
+		}
+		if strength >= int(50*tilt) && player.Stack >= game.BigBlind {
+			if botShouldSlowPlay("shark", strength, phase) {
+				return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence, Profile: profile}
+			}
+			amount := botBetSize("shark", game, game.BigBlind, strength)
+			if amount > player.Stack {
+				amount = player.Stack
+			}
+			return BotTurn{PlayerID: player.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: sequence, Profile: profile}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence, Profile: profile}
+	}
+	// Facing a bet
+	if toCall >= player.Stack && player.Stack > 0 {
+		if strength >= 25 {
+			return BotTurn{PlayerID: player.ID, Action: "all_in", Sequence: sequence, Profile: profile}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
+	}
+	if strength >= int(60*tilt) || bluffing {
+		if player.Stack >= toCall+game.LastRaise {
+			raise := botBetSize("shark", game, toCall+game.LastRaise, strength)
+			if raise > player.Stack {
+				raise = player.Stack
+			}
+			return BotTurn{PlayerID: player.ID, Action: "raise", Payload: map[string]interface{}{"amount": raise}, Sequence: sequence, Profile: profile}
+		}
+	}
+	if strength >= int(15*tilt) || (strength >= 5 && potOdds <= 0.25) {
 		if toCall <= player.Stack {
 			return BotTurn{PlayerID: player.ID, Action: "call", Payload: map[string]interface{}{}, Sequence: sequence, Profile: profile}
 		}
-	}
-	if profile == "expert" && strength == 0 && toCall > game.BigBlind*3 {
-		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
 	}
 	return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: sequence, Profile: profile}
 }
@@ -640,6 +946,40 @@ func (m *Manager) FinishedPokerResult(tableID string) (winnerIDs []string, pot i
 		winnerIDs = append(winnerIDs, winner.ID)
 	}
 	return winnerIDs, hand.Pot, true
+}
+
+// RecordBotShowdownResult updates tilt state after a showdown.
+// Bots that lose with a strong hand (>= 60 strength) go on tilt for 1–3 hands.
+func (m *Manager) RecordBotShowdownResult(tableID string) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return
+	}
+	table.mu.Lock()
+	defer table.mu.Unlock()
+	hand, isPoker := table.State.(*poker.Hand)
+	if !isPoker {
+		return
+	}
+	winners, _ := hand.Winners()
+	winnerSet := make(map[string]bool)
+	for _, w := range winners {
+		winnerSet[w.ID] = true
+	}
+	for _, player := range hand.Players {
+		if player.Folded {
+			continue
+		}
+		if table.Players[player.ID] == nil || !table.Players[player.ID].IsBot {
+			continue
+		}
+		strength := pokerBotRealStrength(player, hand.Community)
+		table.BotRecentStrength[player.ID] = strength
+		// Tilt = lost with strong hand
+		if !winnerSet[player.ID] && strength >= 60 {
+			table.BotTilt[player.ID] = 1 + rand.Intn(3) // 1–3 hands
+		}
+	}
 }
 
 func (m *Manager) FinishedPokerPayouts(tableID string) (map[string]int64, bool) {
@@ -873,6 +1213,12 @@ func startNextPokerHand(table *Table) error {
 			continue
 		}
 		seats = append(seats, player)
+	}
+	// Decrement tilt counters for bots
+	for id := range table.BotTilt {
+		if table.BotTilt[id] > 0 {
+			table.BotTilt[id]--
+		}
 	}
 	if len(seats) < 2 {
 		hand.SessionFinished = true

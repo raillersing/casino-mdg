@@ -100,6 +100,10 @@ export function GamePage() {
     }>
   >([]);
   const [showHandHistory, setShowHandHistory] = useState(false);
+  const [botChats, setBotChats] = useState<
+    Record<string, { text: string; emote: string; ts: number }>
+  >({});
+  const [thinkingSeats, setThinkingSeats] = useState<Record<string, boolean>>({});
   const pots = Array.isArray(gameState?.pots)
     ? (gameState.pots as Array<{ amount?: number; eligible?: string[] }>)
     : [];
@@ -516,8 +520,31 @@ export function GamePage() {
           }
           if (action === "thinking") {
             setThinkingPlayer(payload.player_id || "");
+            setThinkingSeats((prev) => ({ ...prev, [payload.player_id || ""]: true }));
+          } else if (action === "bot_chat") {
+            const bc = payload.payload as { text?: string; emote?: string };
+            setBotChats((prev) => ({
+              ...prev,
+              [payload.player_id || ""]: {
+                text: bc.text || "",
+                emote: bc.emote || "",
+                ts: Date.now(),
+              },
+            }));
+            window.setTimeout(() => {
+              setBotChats((prev) => {
+                const next = { ...prev };
+                delete next[payload.player_id || ""];
+                return next;
+              });
+            }, 2500);
           } else {
             setThinkingPlayer("");
+            setThinkingSeats((prev) => {
+              const next = { ...prev };
+              delete next[payload.player_id || ""];
+              return next;
+            });
             setLastAction(actionLabel(action));
             setLastActionPlayer(payload.player_id || "");
             if (action === "street_changed") {
@@ -1166,6 +1193,8 @@ export function GamePage() {
               : ""
           }
           badge={badgeForSeat(seatPlayers[0], gameState)}
+          thinking={Boolean(thinkingSeats[String(seatPlayers[0]?.id || "")])}
+          botChat={botChats[String(seatPlayers[0]?.id || "")]}
         />
         <PlayerSeat
           pos="left"
@@ -1183,6 +1212,8 @@ export function GamePage() {
               : ""
           }
           badge={badgeForSeat(seatPlayers[1], gameState)}
+          thinking={Boolean(thinkingSeats[String(seatPlayers[1]?.id || "")])}
+          botChat={botChats[String(seatPlayers[1]?.id || "")]}
         />
         <PlayerSeat
           pos="right"
@@ -1200,6 +1231,8 @@ export function GamePage() {
               : ""
           }
           badge={badgeForSeat(seatPlayers[2], gameState)}
+          thinking={Boolean(thinkingSeats[String(seatPlayers[2]?.id || "")])}
+          botChat={botChats[String(seatPlayers[2]?.id || "")]}
         />
         <div
           className={`pot ${potPulse ? "pot-pulse" : ""} ${potAwarded ? "pot-awarded" : ""}`}
@@ -1458,6 +1491,8 @@ function PlayerSeat({
   folded = false,
   action = "",
   badge = "",
+  thinking = false,
+  botChat,
 }: {
   pos: string;
   name: string;
@@ -1466,6 +1501,8 @@ function PlayerSeat({
   folded?: boolean;
   action?: string;
   badge?: string;
+  thinking?: boolean;
+  botChat?: { text: string; emote: string };
 }) {
   return (
     <div
@@ -1478,6 +1515,12 @@ function PlayerSeat({
       </div>
       {badge && <i className="seat-badge">{badge}</i>}
       {action && <b className="seat-action-bubble">{action}</b>}
+      {thinking && !botChat && <span className="seat-thinking-bubble">…</span>}
+      {botChat && (
+        <span className="seat-chat-bubble">
+          {botChat.emote} {botChat.text}
+        </span>
+      )}
     </div>
   );
 }

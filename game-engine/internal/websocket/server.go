@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -402,11 +403,39 @@ func (s *Server) startBotTurns(tableID string) {
 				return
 			}
 			delay := s.config.BotActionDelay
-			if s.config.BotProfile == "fast" {
-				delay /= 2
+			// Variable timing per profile
+			profile := turn.Profile
+			if profile == "" {
+				if t, ok := s.roomManager.GetTable(tableID); ok {
+					if p, exists := t.Players[turn.PlayerID]; exists {
+						profile = p.BotProfile
+					}
+				}
 			}
-			if s.config.BotProfile == "expert" {
-				delay += 350 * time.Millisecond
+			switch profile {
+			case "maniac":
+				delay = time.Duration(600+rand.Intn(600)) * time.Millisecond
+			case "rock":
+				delay = time.Duration(800+rand.Intn(700)) * time.Millisecond
+			case "shark":
+				// Complex decisions take longer
+				if turn.Action == "raise" || turn.Action == "all_in" {
+					delay = time.Duration(1500+rand.Intn(2500)) * time.Millisecond
+				} else {
+					delay = time.Duration(1000+rand.Intn(1500)) * time.Millisecond
+				}
+			case "donkey":
+				delay = time.Duration(500+rand.Intn(4500)) * time.Millisecond
+			case "fish":
+				if turn.Action == "fold" {
+					delay = time.Duration(1200+rand.Intn(1800)) * time.Millisecond
+				} else {
+					delay = time.Duration(1000+rand.Intn(1000)) * time.Millisecond
+				}
+			default:
+				if s.config.BotProfile == "fast" {
+					delay /= 2
+				}
 			}
 			if delay > 0 {
 				s.broadcastToTable(tableID, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: "thinking", Payload: map[string]interface{}{"action": turn.Action}, Sequence: turn.Sequence, Timestamp: time.Now()})
@@ -418,6 +447,58 @@ func (s *Server) startBotTurns(tableID string) {
 			time.Sleep(25 * time.Millisecond)
 		}
 	}()
+}
+
+func (s *Server) broadcastBotEmotes(tableID string, winners []string, handRanks map[string]string, finishReason string) {
+	if finishReason == "uncontested" {
+		return
+	}
+	emotes := []string{"🍀", "😎", "👍", "🔥", "😱", "😡", "💀", "🎉"}
+	messages := map[string][]string{
+		"win":   {"Belle main !", "Merci !", "Haha !", "Yes !"},
+		"loss":  {"Argh...", "Oops", "Pas de chance", "Grrr"},
+		"close": {"Belle main", "Bien joué", "Wow"},
+	}
+	winnerSet := make(map[string]bool)
+	for _, w := range winners {
+		winnerSet[w] = true
+	}
+	if t, ok := s.roomManager.GetTable(tableID); ok {
+		for _, p := range t.Players {
+			if !p.IsBot {
+				continue
+			}
+			// Skip most of the time to avoid spam
+			if rand.Float64() > 0.35 {
+				continue
+			}
+			msgList := messages["loss"]
+			emote := emotes[rand.Intn(len(emotes))]
+			if winnerSet[p.ID] {
+				msgList = messages["win"]
+				if rand.Float64() < 0.5 {
+					emote = "😎"
+				} else {
+					emote = "🎉"
+				}
+			} else if rank, hasRank := handRanks[p.ID]; hasRank && rank != "" {
+				msgList = messages["close"]
+				if rand.Float64() < 0.5 {
+					emote = "😱"
+				} else {
+					emote = "👍"
+				}
+			}
+			if len(msgList) > 0 {
+				text := msgList[rand.Intn(len(msgList))]
+				s.broadcastToTable(tableID, &Message{
+					Type: MsgAction, TableID: tableID, PlayerID: p.ID, Action: "bot_chat",
+					Payload: map[string]interface{}{"text": text, "emote": emote},
+					Sequence: 0, Timestamp: time.Now(),
+				})
+			}
+		}
+	}
 }
 
 func publicGameState(state interface{}, playerID string) interface{} {
@@ -706,6 +787,10 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 					},
 					Sequence: event.Sequence, Timestamp: time.Now(),
 				})
+				// Record bot tilt based on showdown results
+				s.roomManager.RecordBotShowdownResult(msg.TableID)
+				// Bot emotes after showdown
+				s.broadcastBotEmotes(msg.TableID, winners, handRanks, finishReason)
 				// Auto-restart next hand after a short delay if humans are still present.
 				table, _ := s.roomManager.GetTable(msg.TableID)
 				if table != nil && table.IsActive {
