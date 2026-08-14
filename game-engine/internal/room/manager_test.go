@@ -421,3 +421,151 @@ func TestPokerNewHandResetsStateAndRotatesButton(t *testing.T) {
 		t.Fatalf("button did not rotate: %d -> %d", button1, hand2.Button)
 	}
 }
+
+func TestPokerBotProfilesProduceValidActions(t *testing.T) {
+	profiles := []string{"fish", "rock", "maniac", "shark", "donkey"}
+	validActions := map[string]bool{"fold": true, "check": true, "call": true, "bet": true, "raise": true, "all_in": true}
+
+	for _, profile := range profiles {
+		t.Run(profile, func(t *testing.T) {
+			m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+			table := m.CreateTable("poker")
+			table.BotTilt = make(map[string]int)
+			table.BotRecentStrength = make(map[string]int)
+
+			// Set up a simple hand with two players.
+			p1 := &poker.Player{ID: "bot", Stack: 1000, Bet: 0}
+			p2 := &poker.Player{ID: "human", Stack: 1000, Bet: 100}
+			hand, _ := poker.NewHand([]*poker.Player{p1, p2}, func(deck []poker.Card) {})
+			hand.Phase = "preflop"
+			table.State = hand
+
+			// Run several times to cover random branches.
+			for i := 0; i < 20; i++ {
+				turn := decidePokerBotTurn(hand, p1, table, profile, 1)
+				if turn.PlayerID != "bot" {
+					t.Fatalf("expected PlayerID=bot, got %q", turn.PlayerID)
+				}
+				if !validActions[turn.Action] {
+					t.Fatalf("profile %q produced invalid action %q", profile, turn.Action)
+				}
+				// Reset state for next iteration.
+				p1.Folded = false
+				p1.AllIn = false
+				p1.Bet = 0
+			}
+		})
+	}
+}
+
+func TestPokerBotRockFoldsWeakHandsPreflop(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+	table := m.CreateTable("poker")
+	table.BotTilt = make(map[string]int)
+	table.BotRecentStrength = make(map[string]int)
+
+	p1 := &poker.Player{ID: "bot", Stack: 1000, Bet: 0, Cards: []poker.Card{{Rank: 2, Suit: 0}, {Rank: 7, Suit: 1}}}
+	p2 := &poker.Player{ID: "human", Stack: 1000, Bet: 200}
+	hand, _ := poker.NewHand([]*poker.Player{p1, p2}, func(deck []poker.Card) {})
+	hand.Phase = "preflop"
+	table.State = hand
+
+	folds := 0
+	for i := 0; i < 50; i++ {
+		turn := decidePokerBotTurn(hand, p1, table, "rock", 1)
+		if turn.Action == "fold" {
+			folds++
+		}
+		p1.Folded = false
+		p1.AllIn = false
+		p1.Bet = 0
+	}
+	if folds < 30 {
+		t.Fatalf("rock folded only %d/50 with weak hand preflop, expected at least 30", folds)
+	}
+}
+
+func TestPokerBotFishCallsWeakHands(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+	table := m.CreateTable("poker")
+	table.BotTilt = make(map[string]int)
+	table.BotRecentStrength = make(map[string]int)
+
+	p1 := &poker.Player{ID: "bot", Stack: 1000, Bet: 0, Cards: []poker.Card{{Rank: 2, Suit: 0}, {Rank: 7, Suit: 1}}}
+	p2 := &poker.Player{ID: "human", Stack: 1000, Bet: 50}
+	hand, _ := poker.NewHand([]*poker.Player{p1, p2}, func(deck []poker.Card) {})
+	hand.Phase = "preflop"
+	hand.Pot = 500 // large pot so pot odds are favourable
+	table.State = hand
+
+	calls := 0
+	for i := 0; i < 50; i++ {
+		turn := decidePokerBotTurn(hand, p1, table, "fish", 1)
+		if turn.Action == "call" {
+			calls++
+		}
+		p1.Folded = false
+		p1.AllIn = false
+		p1.Bet = 0
+	}
+	if calls < 20 {
+		t.Fatalf("fish called only %d/50 with weak hand, expected at least 20", calls)
+	}
+}
+
+func TestPokerBotManiacIsAggressive(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+	table := m.CreateTable("poker")
+	table.BotTilt = make(map[string]int)
+	table.BotRecentStrength = make(map[string]int)
+
+	p1 := &poker.Player{ID: "bot", Stack: 1000, Bet: 0, Cards: []poker.Card{{Rank: 2, Suit: 0}, {Rank: 7, Suit: 1}}}
+	p2 := &poker.Player{ID: "human", Stack: 1000, Bet: 50}
+	hand, _ := poker.NewHand([]*poker.Player{p1, p2}, func(deck []poker.Card) {})
+	hand.Phase = "preflop"
+	table.State = hand
+
+	aggressive := 0
+	for i := 0; i < 50; i++ {
+		turn := decidePokerBotTurn(hand, p1, table, "maniac", 1)
+		if turn.Action == "bet" || turn.Action == "raise" || turn.Action == "all_in" {
+			aggressive++
+		}
+		p1.Folded = false
+		p1.AllIn = false
+		p1.Bet = 0
+	}
+	if aggressive < 15 {
+		t.Fatalf("maniac was aggressive only %d/50 with weak hand, expected at least 15", aggressive)
+	}
+}
+
+func TestPokerBotStrongHandNeverFolds(t *testing.T) {
+	profiles := []string{"fish", "rock", "maniac", "shark"}
+	for _, profile := range profiles {
+		t.Run(profile, func(t *testing.T) {
+			m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
+			table := m.CreateTable("poker")
+			table.BotTilt = make(map[string]int)
+			table.BotRecentStrength = make(map[string]int)
+
+			// Flush on board + strong hole cards.
+			p1 := &poker.Player{ID: "bot", Stack: 1000, Bet: 0, Cards: []poker.Card{{Rank: 14, Suit: 0}, {Rank: 13, Suit: 0}}}
+			p2 := &poker.Player{ID: "human", Stack: 1000, Bet: 200}
+			hand, _ := poker.NewHand([]*poker.Player{p1, p2}, func(deck []poker.Card) {})
+			hand.Phase = "river"
+			hand.Community = []poker.Card{{Rank: 9, Suit: 0}, {Rank: 11, Suit: 0}, {Rank: 12, Suit: 0}, {Rank: 2, Suit: 1}, {Rank: 3, Suit: 2}}
+			table.State = hand
+
+			for i := 0; i < 50; i++ {
+				turn := decidePokerBotTurn(hand, p1, table, profile, 1)
+				if turn.Action == "fold" {
+					t.Fatalf("profile %q folded a monster hand", profile)
+				}
+				p1.Folded = false
+				p1.AllIn = false
+				p1.Bet = 0
+			}
+		})
+	}
+}

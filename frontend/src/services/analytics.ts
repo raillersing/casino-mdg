@@ -1,5 +1,6 @@
 export type ProductEventName =
   | "activation_viewed"
+  | "play_hub_viewed"
   | "test_games_opened"
   | "demo_started"
   | "bot_mode_selected"

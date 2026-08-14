@@ -28,6 +28,25 @@ import { useGameStore } from "@stores/gameStore";
 import { useWebSocket } from "@hooks/useWebSocket";
 import { trackEvent } from "@services/analytics";
 
+const BOT_NAMES = [
+  "Tovo", "Rija", "Saholy", "Lova", "Feno", "Koto", "Miary", "Tsiky",
+  "Hery", "Soa", "Miora", "Faly", "Rado", "Nofy", "Vola", "Hanta",
+];
+const AVATAR_COLORS = [
+  "#e57373", "#ba68c8", "#64b5f6", "#4db6ac", "#ffb74d", "#a1887f",
+  "#90a4ae", "#f06292", "#7986cb", "#4dd0e1", "#81c784", "#fff176",
+];
+function botNameForSeat(index: number) {
+  return BOT_NAMES[index % BOT_NAMES.length];
+}
+function avatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 type TableAction = {
   id: string;
   playerId: string;
@@ -104,6 +123,8 @@ export function GamePage() {
     Record<string, { text: string; emote: string; ts: number }>
   >({});
   const [thinkingSeats, setThinkingSeats] = useState<Record<string, boolean>>({});
+  const [payoutCounter, setPayoutCounter] = useState(0);
+  const [showRebuy, setShowRebuy] = useState(false);
   const pots = Array.isArray(gameState?.pots)
     ? (gameState.pots as Array<{ amount?: number; eligible?: string[] }>)
     : [];
@@ -174,21 +195,6 @@ export function GamePage() {
   const pokerWinners = Array.isArray(gameState?.winners)
     ? (gameState.winners as string[])
     : [];
-  const revealedCards =
-    gameState?.revealed_cards && typeof gameState.revealed_cards === "object"
-      ? (gameState.revealed_cards as Record<
-          string,
-          Array<{ rank: number; suit: number }>
-        >)
-      : {};
-  const bestCards =
-    gameState?.best_cards && typeof gameState.best_cards === "object"
-      ? (gameState.best_cards as Record<
-          string,
-          Array<{ rank: number; suit: number }>
-        >)
-      : {};
-  const revealedPlayers = Object.entries(revealedCards);
   const isPokerShowdown = isPoker && gameState?.phase === "showdown";
   const isUncontestedWin =
     isPokerShowdown && gameState?.finish_reason === "uncontested";
@@ -779,6 +785,30 @@ export function GamePage() {
       });
   }, [accessToken, demoAi, demoTableId, gameType, tableId]);
 
+  // Animate payout counter on showdown
+  useEffect(() => {
+    if (!isPokerShowdown) return;
+    const myPayout = payouts[resolvedTableId] || 0;
+    if (myPayout <= 0) return;
+    let current = 0;
+    const step = Math.max(1, Math.floor(myPayout / 30));
+    const timer = window.setInterval(() => {
+      current += step;
+      if (current >= myPayout) {
+        current = myPayout;
+        window.clearInterval(timer);
+      }
+      setPayoutCounter(current);
+    }, 30);
+    return () => window.clearInterval(timer);
+  }, [isPokerShowdown, payouts, resolvedTableId]);
+
+  // Show rebuy button when short-stacked
+  useEffect(() => {
+    const stack = Number(myPokerPlayer?.stack ?? 0);
+    setShowRebuy(stack > 0 && stack < 2000);
+  }, [myPokerPlayer?.stack]);
+
   useEffect(() => {
     if (!tableId || !accessToken) return;
     getTableChat(tableId, accessToken)
@@ -1007,68 +1037,40 @@ export function GamePage() {
         </div>
       )}
       {isPokerShowdown && (
-        <div className="showdown-panel">
-          <div>
-            <span className="showdown-kicker">{t("game.showdown")}</span>
-            <strong>
-              {winnerNames.length
-                ? `${t("game.winner")}: ${winnerNames.join(" · ")}`
-                : t("game.handComplete")}
-            </strong>
-            <span>
-              {isUncontestedWin
-                ? "Victoire sans showdown"
-                : `${t("game.revealedCards")} · Pot ${String(gameState?.pot ?? 0)}`}
-            </span>
-            <div className="showdown-board" aria-label={t("game.finalBoard")}>
-              <strong>{t("game.finalBoard")}</strong>
-              <div className="showdown-cards">
-                {communityCards.map((card, index) => (
-                  <PlayingCard
-                    key={`showdown-board-${index}`}
-                    {...cardView(card)}
-                  />
-                ))}
-              </div>
+        <div className="showdown-overlay">
+          <div className="showdown-overlay-inner">
+            <div className="showdown-title">
+              {isUncontestedWin ? "Victoire" : "Showdown"}
             </div>
-            <div className="showdown-hands">
-              {revealedPlayers.map(([playerId, cards]) => (
-                <div className="showdown-hand" key={playerId}>
-                  <strong>
-                    {nameForPlayer(playerId)}
-                    {showdownRanks[playerId]
-                      ? ` · ${showdownRanks[playerId]}`
-                      : ""}
-                  </strong>
-                  <div className="showdown-cards">
-                    {cards.map((card, index) => (
-                      <PlayingCard
-                        key={`${playerId}-${index}`}
-                        {...cardView(card)}
-                      />
-                    ))}
-                  </div>
-                  {bestCards[playerId]?.length ? (
-                    <small>Meilleure combinaison affichée sur la table</small>
-                  ) : null}
-                  {payouts[playerId] ? (
-                    <span className="showdown-payout">
-                      +{payouts[playerId]} jetons
-                    </span>
-                  ) : null}
+            {winnerNames.length > 0 && (
+              <div className="showdown-winner">
+                <div className="winner-avatar">
+                  {winnerNames[0][0]}
                 </div>
+                <strong>{nameForPlayer(winnerNames[0])} gagne !</strong>
+                {payouts[winnerNames[0]] ? (
+                  <span className="winner-payout">
+                    +{payoutCounter || payouts[winnerNames[0]]} jetons
+                  </span>
+                ) : null}
+              </div>
+            )}
+            <div className="showdown-board-wrap">
+              {communityCards.map((card, index) => (
+                <PlayingCard
+                  key={`showdown-board-${index}`}
+                  {...cardView(card)}
+                />
               ))}
             </div>
-          </div>
-          {isSessionFinished ? (
-            <span className="secure-note game-sync-note">
-              Session terminée : il ne reste plus assez de joueurs avec des
-              jetons.
-            </span>
-          ) : (
-            !spectator && (
+            {showdownRanks[winnerNames[0]] && (
+              <div className="showdown-rank">
+                Avec <b>{showdownRanks[winnerNames[0]]}</b>
+              </div>
+            )}
+            {!isSessionFinished && !spectator && (
               <button
-                className="action-bet"
+                className="showdown-next-btn"
                 onClick={() => {
                   settled.current = false;
                   sendGameAction("new_hand");
@@ -1079,8 +1081,25 @@ export function GamePage() {
                   ? `Nouvelle main dans ${nextHandCountdown}s`
                   : t("game.newHand")}
               </button>
-            )
-          )}
+            )}
+            {isSessionFinished && (
+              <span className="secure-note game-sync-note">
+                Session terminée
+              </span>
+            )}
+          </div>
+          <div className="showdown-confetti">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <span
+                key={i}
+                style={{
+                  left: `${5 + (i * 8)}%`,
+                  animationDelay: `${i * 0.2}s`,
+                  background: AVATAR_COLORS[i % AVATAR_COLORS.length],
+                }}
+              />
+            ))}
+          </div>
         </div>
       )}
       {isPoker && (
@@ -1182,9 +1201,10 @@ export function GamePage() {
           name={String(
             seatPlayers[0]?.name ||
               nameForPlayer(String(seatPlayers[0]?.id || "")) ||
-              (demoAi ? "IA Démo · Tovo" : "Tovo"),
+              (demoAi ? botNameForSeat(0) : botNameForSeat(0)),
           )}
           chips={String(seatPlayers[0]?.stack ?? "8 420")}
+          bet={Number(seatPlayers[0]?.bet || 0)}
           active={currentPlayerId === String(seatPlayers[0]?.id || "")}
           folded={Boolean(seatPlayers[0]?.folded)}
           action={
@@ -1201,9 +1221,10 @@ export function GamePage() {
           name={String(
             seatPlayers[1]?.name ||
               nameForPlayer(String(seatPlayers[1]?.id || "")) ||
-              (demoAi ? "IA Démo · Rija" : "Rija"),
+              (demoAi ? botNameForSeat(1) : botNameForSeat(1)),
           )}
           chips={String(seatPlayers[1]?.stack ?? "12 100")}
+          bet={Number(seatPlayers[1]?.bet || 0)}
           active={currentPlayerId === String(seatPlayers[1]?.id || "")}
           folded={Boolean(seatPlayers[1]?.folded)}
           action={
@@ -1220,9 +1241,10 @@ export function GamePage() {
           name={String(
             seatPlayers[2]?.name ||
               nameForPlayer(String(seatPlayers[2]?.id || "")) ||
-              (demoAi ? "IA Démo · Saholy" : "Saholy"),
+              (demoAi ? botNameForSeat(2) : botNameForSeat(2)),
           )}
           chips={String(seatPlayers[2]?.stack ?? "6 750")}
+          bet={Number(seatPlayers[2]?.bet || 0)}
           active={currentPlayerId === String(seatPlayers[2]?.id || "")}
           folded={Boolean(seatPlayers[2]?.folded)}
           action={
@@ -1287,6 +1309,20 @@ export function GamePage() {
             <strong>{t("game.you")}</strong>
             <span>{String(myPokerPlayer?.stack ?? 10000)} jetons</span>
           </div>
+          {showRebuy && (
+            <button
+              className="rebuy-btn"
+              onClick={() => {
+                sendGameAction("rebuy", { amount: 5000 });
+                setShowRebuy(false);
+              }}
+            >
+              + Recharger
+            </button>
+          )}
+          {myBet > 0 && (
+            <span className="you-bet-chip">{myBet}</span>
+          )}
         </div>
         <div className="hole-cards">
           {(renderedHoleCards.length
@@ -1483,10 +1519,12 @@ export function GamePage() {
     </div>
   );
 }
+
 function PlayerSeat({
   pos,
   name,
   chips,
+  bet = 0,
   active = false,
   folded = false,
   action = "",
@@ -1497,6 +1535,7 @@ function PlayerSeat({
   pos: string;
   name: string;
   chips: string;
+  bet?: number;
   active?: boolean;
   folded?: boolean;
   action?: string;
@@ -1504,11 +1543,12 @@ function PlayerSeat({
   thinking?: boolean;
   botChat?: { text: string; emote: string };
 }) {
+  const avColor = avatarColor(name);
   return (
     <div
       className={`player-seat seat-${pos} ${active ? "active-seat" : ""} ${folded ? "folded-seat" : ""}`}
     >
-      <div className="seat-avatar">{name[0]}</div>
+      <div className="seat-avatar" style={{ background: avColor }}>{name[0]}</div>
       <div>
         <strong>{name}</strong>
         <span>{chips}</span>
@@ -1519,6 +1559,11 @@ function PlayerSeat({
       {botChat && (
         <span className="seat-chat-bubble">
           {botChat.emote} {botChat.text}
+        </span>
+      )}
+      {bet > 0 && (
+        <span className="seat-bet-chip">
+          {bet}
         </span>
       )}
     </div>

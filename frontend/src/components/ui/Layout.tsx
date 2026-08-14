@@ -11,6 +11,7 @@ import {
   Menu,
   WalletCards,
   LifeBuoy,
+  Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
@@ -21,6 +22,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const user = useGameStore((state) => state.user);
   const accessToken = useGameStore((state) => state.accessToken);
   const refreshToken = useGameStore((state) => state.refreshToken);
+  const isGuest = useGameStore((state) => state.isGuest);
   const setUser = useGameStore((state) => state.setUser);
   const setSession = useGameStore((state) => state.setSession);
   const logout = useGameStore((state) => state.logout);
@@ -127,6 +129,17 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <div className="main-shell">
+        {isGuest && !accessToken && (
+          <div className="guest-banner" role="status">
+            <div>
+              <Sparkles size={14} />
+              <span>{t("layout.guestBanner")}</span>
+            </div>
+            <Link to="/auth" className="button button-small button-gold">
+              {t("layout.connect")}
+            </Link>
+          </div>
+        )}
         <header className="topbar">
           <div className="mobile-brand">
             <span className="brand-mark">♠</span>
@@ -144,7 +157,9 @@ export function Layout({ children }: { children: ReactNode }) {
                     ? t("nav.profile")
                     : location.pathname === "/games/test"
                       ? t("testGames.breadcrumb")
-                      : t("nav.home")}
+                      : location.pathname.startsWith("/play/")
+                        ? t("nav.play")
+                        : t("nav.home")}
             </span>
           </div>
           <div className="topbar-actions">

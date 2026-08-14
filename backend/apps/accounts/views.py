@@ -161,6 +161,46 @@ class RefreshTokenView(APIView):
         )
 
 
+class GuestTokenView(APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        import uuid
+
+        guest_id = f"guest_{uuid.uuid4().hex[:12]}"
+        user, _ = User.objects.get_or_create(
+            phone=guest_id,
+            defaults={
+                "email": f"{guest_id}@mdg.local",
+                "display_name": str(request.data.get("display_name") or "Invité"),
+                "is_active": True,
+            },
+        )
+        from apps.wallet.services import credit_simulation_bonus
+
+        account, _, _ = credit_simulation_bonus(user)
+        return Response(
+            {
+                "user": {
+                    "id": str(user.pk),
+                    "display_name": user.display_name,
+                    "phone": user.phone,
+                    "xp": user.xp,
+                    "level": user.level,
+                    "is_staff": user.is_staff,
+                },
+                "wallet": {
+                    "balance": account.balance,
+                    "currency": account.currency_code,
+                },
+                "access": encode_token(user),
+                "refresh": encode_token(user, "refresh", 60 * 60 * 24 * 30),
+            },
+            status=200,
+        )
+
+
 class RegisterDeviceView(APIView):
     def post(self, request):
         device_id = str(request.data.get("device_id", "")).strip()

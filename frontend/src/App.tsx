@@ -11,6 +11,7 @@ import { SupportPage } from "@pages/SupportPage";
 import { BackofficePage } from "@pages/BackofficePage";
 import { TestGamesPage } from "@pages/TestGamesPage";
 import { ClubsPage } from "@pages/ClubsPage";
+import { PlayHubPage } from "@pages/PlayHubPage";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/play/:gameType" element={<PlayHubPage />} />
         <Route path="/game/:gameType/:tableId" element={<GamePage />} />
         <Route path="/wallet" element={<WalletPage />} />
         <Route path="/profile" element={<ProfilePage />} />

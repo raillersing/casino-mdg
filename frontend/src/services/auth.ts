@@ -69,3 +69,7 @@ export function refreshAccessToken(refresh: string) {
     return payload as { access: string; refresh: string };
   });
 }
+
+export function createGuestToken(displayName: string) {
+  return post<AuthResponse>("guest/", { display_name: displayName });
+}
