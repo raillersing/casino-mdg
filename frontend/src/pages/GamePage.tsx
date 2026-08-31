@@ -27,6 +27,8 @@ import { getTables, joinTable, recordGameResult } from "@services/games";
 import { useGameStore } from "@stores/gameStore";
 import { useWebSocket } from "@hooks/useWebSocket";
 import { trackEvent } from "@services/analytics";
+import { TableExitModal } from "@components/game/TableExitModal";
+import { TableSettingsModal } from "@components/game/TableSettingsModal";
 
 const BOT_NAMES = [
   "Tovo", "Rija", "Saholy", "Lova", "Feno", "Koto", "Miary", "Tsiky",
@@ -441,6 +443,22 @@ export function GamePage() {
   const [motionEnabled, setMotionEnabled] = useState(
     () => localStorage.getItem("mdg-poker-motion") !== "off",
   );
+  const [fourColorDeck, setFourColorDeck] = useState(
+    () => localStorage.getItem("mdg-poker-4color") === "on",
+  );
+  const [showHandStrength, setShowHandStrength] = useState(
+    () => localStorage.getItem("mdg-poker-handstrength") !== "off",
+  );
+  const [muteChat, setMuteChat] = useState(
+    () => localStorage.getItem("mdg-poker-mutechat") === "on",
+  );
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isSittingOut, setIsSittingOut] = useState(false);
+  const [leaveAfterHand, setLeaveAfterHand] = useState(false);
+  const [preAction, setPreAction] = useState<
+    "check_fold" | "auto_check" | "call_any" | "fold_any" | null
+  >(null);
   const [emote, setEmote] = useState("");
   const [tablePlayers, setTablePlayers] = useState<
     Array<Record<string, unknown>>
@@ -1299,19 +1317,23 @@ export function GamePage() {
     window.setTimeout(() => navigate("/lobby"), 150);
   };
 
+  const hasActiveHand = Boolean(
+    isPoker && holeCards.length > 0 && gameState?.phase !== "showdown" && !pokerWinners.length,
+  );
+
   return (
-    <div className={`game-room${handDealing ? " hand-dealing" : ""}`}>
+    <div
+      className={`game-room${handDealing ? " hand-dealing" : ""}${fourColorDeck ? " four-color-deck" : ""}`}
+    >
       <div className="game-room-head">
-        <Link
-          to="/lobby"
+        <button
+          type="button"
           className="back-link"
-          onClick={(event) => {
-            event.preventDefault();
-            leaveTable();
-          }}
+          style={{ background: "transparent", border: "none", cursor: "pointer" }}
+          onClick={() => setShowExitModal(true)}
         >
           <ChevronLeft size={17} /> {t("game.leaveTable")}
-        </Link>
+        </button>
         <div>
           <strong>{t("game.tableName")}</strong>
           <span>
@@ -1342,7 +1364,59 @@ export function GamePage() {
         >
           <Users size={18} />
         </button>
+        <button
+          className="icon-button"
+          onClick={() => setShowSettingsModal(true)}
+          title="Réglages de la table"
+          aria-label="Réglages de la table"
+        >
+          <Settings2 size={18} />
+        </button>
       </div>
+      {isSittingOut && (
+        <div className="sit-out-floating-banner">
+          <strong>⏸️ Mode Pause (Sit-Out) Actif</strong>
+          <p>Vous conservez votre place. Vos mains sont passées automatiquement.</p>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => setIsSittingOut(false)}
+            style={{ padding: "8px 24px", fontSize: "0.95rem", fontWeight: 700 }}
+          >
+            ▶️ Reprendre ma place (I'm Back)
+          </button>
+        </div>
+      )}
+      {leaveAfterHand && (
+        <div
+          style={{
+            position: "absolute",
+            top: "54px",
+            right: "16px",
+            background: "rgba(212, 163, 89, 0.18)",
+            border: "1px solid var(--gold)",
+            color: "var(--gold)",
+            padding: "5px 12px",
+            borderRadius: "20px",
+            fontSize: "0.78rem",
+            fontWeight: 600,
+            zIndex: 40,
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+        >
+          <span>⏳ Quitter à la fin de cette main</span>
+          <button
+            type="button"
+            style={{ background: "transparent", border: "none", color: "var(--gold)", cursor: "pointer", padding: "0 2px", fontWeight: "bold" }}
+            onClick={() => setLeaveAfterHand(false)}
+            title="Annuler le départ programmé"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {demoAi && (
         <div className="demo-mode-banner">
           <div>
@@ -1987,6 +2061,11 @@ export function GamePage() {
               )}
             </>
           )}
+          {showHandStrength && isPoker && holeCards.length >= 2 && (
+            <div className="hand-strength-pill">
+              📊 {showdownRanks[userId] || (holeCards[0]?.rank === holeCards[1]?.rank ? `Paire de ${cardView(holeCards[0]).value}` : `${cardView(holeCards[0]).value} - ${cardView(holeCards[1]).value}`)}
+            </div>
+          )}
         </div>
       </div>
       <div className="game-controls">
@@ -2006,66 +2085,198 @@ export function GamePage() {
             {t("spectatorReadOnly")}
           </div>
         ) : isPoker ? (
-          <div className="action-row">
-            <button
-              className="action-fold"
-              onClick={() => {
-                playSound("fold");
-                sendGameAction("fold");
-              }}
-              disabled={
-                !isMyTurn ||
-                (allowedActions.length > 0 && !allowedActions.includes("fold"))
-              }
-            >
-              {t("game.fold")}
-            </button>
-            <button
-              className="action-check"
-              onClick={() => {
-                playSound("chip");
-                sendGameAction(facingBet ? "call" : "check");
-              }}
-              disabled={
-                !isMyTurn ||
-                (allowedActions.length > 0 &&
-                  !allowedActions.includes(facingBet ? "call" : "check"))
-              }
-            >
-              {facingBet ? `Suivre ${toCall}` : t("game.check")}
-            </button>
-            <button
-              className="action-bet"
-              onClick={() => {
-                playSound("chip");
-                sendGameAction(facingBet ? "raise" : "bet", {
-                  amount: Math.max(wager - myBet, 1),
-                });
-              }}
-              disabled={
-                !isMyTurn ||
-                (allowedActions.length > 0 &&
-                  !allowedActions.some(
-                    (action) => action === (facingBet ? "raise" : "bet"),
-                  ))
-              }
-            >
-              {facingBet ? "Relancer à" : t("game.bet")}{" "}
-              <strong>{wager}</strong>
-            </button>
-            <label className="wager-control">
-              <span>Mise</span>
-              <input
-                type="range"
-                min={Math.max(1, minRaiseTo)}
-                max={Math.max(Math.max(1, minRaiseTo), maxRaiseTo)}
-                step={100}
-                value={wager}
-                disabled={!isMyTurn}
-                onChange={(event) => setWager(Number(event.target.value))}
-              />
-              <output>{wager}</output>
-            </label>
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
+            {isMyTurn ? (
+              <>
+                <div className="action-row">
+                  <button
+                    className="action-fold"
+                    onClick={() => {
+                      playSound("fold");
+                      sendGameAction("fold");
+                    }}
+                    disabled={
+                      !isMyTurn ||
+                      (allowedActions.length > 0 && !allowedActions.includes("fold"))
+                    }
+                  >
+                    {t("game.fold")}
+                  </button>
+                  <button
+                    className="action-check"
+                    onClick={() => {
+                      playSound("chip");
+                      sendGameAction(facingBet ? "call" : "check");
+                    }}
+                    disabled={
+                      !isMyTurn ||
+                      (allowedActions.length > 0 &&
+                        !allowedActions.includes(facingBet ? "call" : "check"))
+                    }
+                  >
+                    {facingBet ? `Suivre ${toCall.toLocaleString("fr-FR")}` : t("game.check")}
+                  </button>
+                  <button
+                    className="action-bet"
+                    onClick={() => {
+                      playSound("chip");
+                      sendGameAction(facingBet ? "raise" : "bet", {
+                        amount: Math.max(wager - myBet, 1),
+                      });
+                    }}
+                    disabled={
+                      !isMyTurn ||
+                      (allowedActions.length > 0 &&
+                        !allowedActions.some(
+                          (action) => action === (facingBet ? "raise" : "bet"),
+                        ))
+                    }
+                  >
+                    {facingBet ? "Relancer à" : t("game.bet")}{" "}
+                    <strong>{wager.toLocaleString("fr-FR")}</strong>
+                  </button>
+                  <label className="wager-control">
+                    <span>Mise</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <button
+                        type="button"
+                        className="bet-stepper-btn"
+                        onClick={() => setWager((w) => Math.max(minRaiseTo, w - 100))}
+                        disabled={!isMyTurn || wager <= minRaiseTo}
+                        title="-100"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="range"
+                        min={Math.max(1, minRaiseTo)}
+                        max={Math.max(Math.max(1, minRaiseTo), maxRaiseTo)}
+                        step={100}
+                        value={wager}
+                        disabled={!isMyTurn}
+                        onChange={(event) => setWager(Number(event.target.value))}
+                      />
+                      <button
+                        type="button"
+                        className="bet-stepper-btn"
+                        onClick={() => setWager((w) => Math.min(maxRaiseTo, w + 100))}
+                        disabled={!isMyTurn || wager >= maxRaiseTo}
+                        title="+100"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <output>{wager.toLocaleString("fr-FR")}</output>
+                  </label>
+                </div>
+                {/* Raccourcis de mise rapides (Bet sizing shortcuts) */}
+                <div className="bet-shortcuts-container">
+                  <button
+                    type="button"
+                    className="bet-shortcut-button"
+                    onClick={() => setWager(minRaiseTo)}
+                  >
+                    Min
+                  </button>
+                  <button
+                    type="button"
+                    className="bet-shortcut-button"
+                    onClick={() => {
+                      const pot = Number(gameState?.pot || 0);
+                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + Math.round(pot * 0.33))));
+                    }}
+                  >
+                    1/3 Pot
+                  </button>
+                  <button
+                    type="button"
+                    className="bet-shortcut-button"
+                    onClick={() => {
+                      const pot = Number(gameState?.pot || 0);
+                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + Math.round(pot * 0.5))));
+                    }}
+                  >
+                    1/2 Pot
+                  </button>
+                  <button
+                    type="button"
+                    className="bet-shortcut-button"
+                    onClick={() => {
+                      const pot = Number(gameState?.pot || 0);
+                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + Math.round(pot * 0.67))));
+                    }}
+                  >
+                    2/3 Pot
+                  </button>
+                  <button
+                    type="button"
+                    className="bet-shortcut-button"
+                    onClick={() => {
+                      const pot = Number(gameState?.pot || 0);
+                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + Math.round(pot * 0.75))));
+                    }}
+                  >
+                    3/4 Pot
+                  </button>
+                  <button
+                    type="button"
+                    className="bet-shortcut-button"
+                    onClick={() => {
+                      const pot = Number(gameState?.pot || 0);
+                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + pot)));
+                    }}
+                  >
+                    Pot
+                  </button>
+                  <button
+                    type="button"
+                    className="bet-shortcut-button all-in"
+                    onClick={() => setWager(maxRaiseTo)}
+                  >
+                    Tapis (Max)
+                  </button>
+                </div>
+              </>
+            ) : !isPokerShowdown && gameState?.phase !== "showdown" ? (
+              /* Actions anticipées (Pre-actions) */
+              <div className="pre-actions-container">
+                <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginRight: "4px" }}>
+                  ⚡ Actions anticipées :
+                </span>
+                <label className={`pre-action-item ${preAction === "check_fold" ? "active" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={preAction === "check_fold"}
+                    onChange={(e) => setPreAction(e.target.checked ? "check_fold" : null)}
+                  />
+                  Check / Fold
+                </label>
+                <label className={`pre-action-item ${preAction === "auto_check" ? "active" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={preAction === "auto_check"}
+                    onChange={(e) => setPreAction(e.target.checked ? "auto_check" : null)}
+                  />
+                  Auto-Check
+                </label>
+                <label className={`pre-action-item ${preAction === "call_any" ? "active" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={preAction === "call_any"}
+                    onChange={(e) => setPreAction(e.target.checked ? "call_any" : null)}
+                  />
+                  Suivre (Call)
+                </label>
+                <label className={`pre-action-item ${preAction === "fold_any" ? "active" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={preAction === "fold_any"}
+                    onChange={(e) => setPreAction(e.target.checked ? "fold_any" : null)}
+                  />
+                  Se coucher (Fold)
+                </label>
+              </div>
+            ) : null}
           </div>
         ) : (
           <GameSpecificControls
@@ -2199,6 +2410,48 @@ export function GamePage() {
           Signaler un problème
         </Link>
       </div>
+
+      <TableExitModal
+        isOpen={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        onLeaveNow={() => {
+          if (hasActiveHand) {
+            playSound("fold");
+            sendGameAction("fold");
+          }
+          leaveTable();
+        }}
+        onLeaveNextHand={() => setLeaveAfterHand((v) => !v)}
+        onToggleSitOut={() => setIsSittingOut((v) => !v)}
+        isSittingOut={isSittingOut}
+        leaveAfterHand={leaveAfterHand}
+        hasActiveHand={hasActiveHand}
+        currentBet={myBet}
+      />
+
+      <TableSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        soundEnabled={soundEnabled}
+        onToggleSound={(enabled) => updatePreference("sound", enabled)}
+        fourColorDeck={fourColorDeck}
+        onToggleFourColorDeck={(enabled) => {
+          setFourColorDeck(enabled);
+          localStorage.setItem("mdg-poker-4color", enabled ? "on" : "off");
+        }}
+        motionEnabled={motionEnabled}
+        onToggleMotion={(enabled) => updatePreference("motion", enabled)}
+        showHandStrength={showHandStrength}
+        onToggleHandStrength={(enabled) => {
+          setShowHandStrength(enabled);
+          localStorage.setItem("mdg-poker-handstrength", enabled ? "on" : "off");
+        }}
+        muteChat={muteChat}
+        onToggleMuteChat={(enabled) => {
+          setMuteChat(enabled);
+          localStorage.setItem("mdg-poker-mutechat", enabled ? "on" : "off");
+        }}
+      />
     </div>
   );
 }
@@ -2285,6 +2538,7 @@ function badgeForSeat(
 function PlayingCard({
   value,
   suit,
+  suitIndex,
   red,
   hidden,
   selected,
@@ -2292,15 +2546,20 @@ function PlayingCard({
 }: {
   value: string;
   suit: string;
+  suitIndex?: number;
   red?: boolean;
   hidden?: boolean;
   selected?: boolean;
   onClick?: () => void;
 }) {
+  const suitClass =
+    suitIndex !== undefined
+      ? ["suit-club", "suit-diamond", "suit-heart", "suit-spade"][suitIndex] || ""
+      : "";
   return (
     <button
       onClick={onClick}
-      className={`playing-card ${red ? "red" : ""} ${hidden ? "hidden-card" : ""} ${selected ? "selected" : ""}`}
+      className={`playing-card ${suitClass} ${red ? "red" : ""} ${hidden ? "hidden-card" : ""} ${selected ? "selected" : ""}`}
     >
       <span>{hidden ? "?" : value}</span>
       <b>{hidden ? "✦" : suit}</b>
@@ -2328,6 +2587,7 @@ function cardView(card: { rank: number; suit: number }) {
   return {
     value: ranks[card.rank] || "?",
     suit: suits[card.suit] || "",
+    suitIndex: card.suit,
     red: card.suit === 1 || card.suit === 2,
   };
 }
