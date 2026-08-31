@@ -12,9 +12,10 @@ type Card struct {
 	Rank int `json:"rank"`
 }
 type Player struct {
-	ID    string `json:"id"`
-	Hand  []Card `json:"hand"`
-	Score int    `json:"score"`
+	ID    string    `json:"id"`
+	Hand  []Card    `json:"hand"`
+	Melds [][]Card  `json:"melds"`
+	Score int       `json:"score"`
 }
 type Game struct {
 	Players  []*Player `json:"players"`
@@ -22,6 +23,8 @@ type Game struct {
 	Discard  []Card    `json:"discard"`
 	Current  int       `json:"current"`
 	Finished bool      `json:"finished"`
+	KnockedBy int     `json:"knocked_by"` // index of player who knocked, -1 = none
+	Gin      bool     `json:"gin"`        // true if knock was a gin (deadwood 0)
 }
 
 func NewGame(ids []string, shuffle func([]Card)) (*Game, error) {
@@ -41,7 +44,7 @@ func NewGame(ids []string, shuffle func([]Card)) (*Game, error) {
 	for _, player := range players {
 		sortHand(player.Hand)
 	}
-	return &Game{Players: players, DrawPile: deck[len(players)*handSize:], Current: 0}, nil
+	return &Game{Players: players, DrawPile: deck[len(players)*handSize:], Current: 0, KnockedBy: -1}, nil
 }
 
 func NewShuffledGame(ids []string) (*Game, error) {
@@ -80,8 +83,26 @@ func (g *Game) DiscardCard(card Card) error {
 }
 
 func (g *Game) calculateScores() {
-	for _, player := range g.Players {
-		player.Score = handScore(player.Hand)
+	if g.KnockedBy >= 0 {
+		// Gin Rummy knock scoring
+		knocker := g.Players[g.KnockedBy]
+		knockerDeadwood := handScore(knocker.Hand)
+		for i, player := range g.Players {
+			if i == g.KnockedBy {
+				continue
+			}
+			opponentDeadwood := handScore(player.Hand)
+			pointDiff := opponentDeadwood - knockerDeadwood
+			if g.Gin {
+				pointDiff += 25
+			}
+			knocker.Score += pointDiff
+			player.Score -= pointDiff
+		}
+	} else {
+		for _, player := range g.Players {
+			player.Score = handScore(player.Hand)
+		}
 	}
 }
 
@@ -96,6 +117,10 @@ func handScore(hand []Card) int {
 func (g *Game) Winner() (*Player, bool) {
 	if !g.Finished || len(g.Players) == 0 {
 		return nil, false
+	}
+	if g.KnockedBy >= 0 {
+		// In knock scoring the knocker is the winner (highest score)
+		return g.Players[g.KnockedBy], true
 	}
 	winner := g.Players[0]
 	for _, player := range g.Players[1:] {
@@ -129,6 +154,28 @@ func (g *Game) MeldCards(cards []Card) error {
 		remaining = append(remaining[:found], remaining[found+1:]...)
 	}
 	player.Hand = remaining
+	// Store a copy of the meld
+	meld := make([]Card, len(cards))
+	copy(meld, cards)
+	player.Melds = append(player.Melds, meld)
+	return nil
+}
+
+// Knock allows the current player to end the round if their deadwood is low enough.
+// In Gin Rummy rules deadwood must be <= 10; deadwood 0 is a Gin.
+func (g *Game) Knock() error {
+	if g.Finished {
+		return fmt.Errorf("game is finished")
+	}
+	player := g.Players[g.Current]
+	deadwood := handScore(player.Hand)
+	if deadwood > 10 {
+		return fmt.Errorf("deadwood too high to knock")
+	}
+	g.KnockedBy = g.Current
+	g.Gin = deadwood == 0
+	g.Finished = true
+	g.calculateScores()
 	return nil
 }
 

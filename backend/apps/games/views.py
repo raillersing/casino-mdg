@@ -191,10 +191,13 @@ class BotSimulationView(APIView):
                         for bot in session.bots.all().order_by("seat_index")
                     ],
                 },
-                timeout=3,
+                timeout=10,
             )
             response.raise_for_status()
-        except requests.RequestException:
+        except requests.RequestException as exc:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("Bot attach failed: %s", exc)
             session.status = "cancelled"
             session.save(update_fields=["status"])
             return Response(

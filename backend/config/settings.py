@@ -45,6 +45,7 @@ LOCAL_APPS = [
     "apps.payments",
     "apps.backoffice",
     "apps.analytics",
+    "apps.responsible_gaming",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

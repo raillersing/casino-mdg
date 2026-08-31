@@ -14,6 +14,7 @@ import {
   getPilotSessions,
   getModerationMessages,
   getPilotActions,
+  getResponsibleGamingExclusions,
   setModerationMessage,
   updatePilotActionStatus,
   updatePilotIncidentStatus,
@@ -25,7 +26,14 @@ import {
   type PilotIncident,
   type AuditEvent,
   type FeatureFlag,
+  type RGExclusionItem,
 } from "@services/backoffice";
+import {
+  getBackofficeKYCRequests,
+  reviewBackofficeKYCRequest,
+  type KYCRequestData,
+} from "@services/kyc";
+import { CheckCircle2, Download, FileText, HeartHandshake } from "lucide-react";
 
 export function BackofficePage() {
   const token = useGameStore((state) => state.accessToken);
@@ -62,6 +70,10 @@ export function BackofficePage() {
     ModerationMessage[]
   >([]);
   const [pilotActions, setPilotActions] = useState<PilotAction[]>([]);
+  const [kycRequests, setKycRequests] = useState<KYCRequestData[]>([]);
+  const [kycReviewNotes, setKycReviewNotes] = useState<Record<number, string>>({});
+  const [kycReviewMsg, setKycReviewMsg] = useState("");
+  const [rgExclusions, setRgExclusions] = useState<RGExclusionItem[]>([]);
   const [incidentUpdateError, setIncidentUpdateError] = useState("");
   const [error, setError] = useState("");
   const [productSummary, setProductSummary] = useState<{
@@ -103,6 +115,8 @@ export function BackofficePage() {
       getPilotSessions(token),
       getModerationMessages(token),
       getPilotActions(token),
+      getBackofficeKYCRequests(token),
+      getResponsibleGamingExclusions(token),
     ])
       .then(
         ([
@@ -117,6 +131,8 @@ export function BackofficePage() {
           sessionReport,
           moderation,
           actions,
+          kycData,
+          rgData,
         ]) => {
           setEvents(audit.results);
           setFlags(featureFlags.results);
@@ -129,10 +145,47 @@ export function BackofficePage() {
           setSessions(sessionReport.results);
           setModerationMessages(moderation.results);
           setPilotActions(actions.results);
+          setKycRequests(kycData.results);
+          setRgExclusions(rgData.results);
         },
       )
       .catch((reason: Error) => setError(reason.message));
   }, [token]);
+
+  const handleReviewKYC = async (
+    requestId: number,
+    action: "approve" | "reject" | "request_resubmission",
+  ) => {
+    if (!token) return;
+    const notes = kycReviewNotes[requestId] || "";
+    try {
+      const updated = await reviewBackofficeKYCRequest(
+        token,
+        requestId,
+        action,
+        notes,
+      );
+      setKycRequests((current) =>
+        current.map((req) =>
+          req.id === requestId
+            ? {
+                ...req,
+                status: updated.status,
+                status_display: updated.status_display,
+                reviewer_notes: updated.reviewer_notes,
+              }
+            : req,
+        ),
+      );
+      setKycReviewMsg(
+        `Demande #${requestId} traitée avec succès (${action === "approve" ? "Approuvée" : action === "reject" ? "Rejetée" : "Complément demandé"}).`,
+      );
+    } catch (err) {
+      setKycReviewMsg(
+        err instanceof Error ? err.message : "Erreur lors du traitement.",
+      );
+    }
+  };
   const updateIncidentStatus = async (ticketId: number, status: string) => {
     if (!token) return;
     setIncidentUpdateError("");
@@ -531,6 +584,340 @@ export function BackofficePage() {
             <div className="empty-wallet">Chargement des métriques.</div>
           )}
         </section>
+        <section className="activity-card" style={{ gridColumn: "1 / -1" }}>
+          <div
+            className="chat-head"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span>Conformité & Vérification KYC (Pièces Justificatives)</span>
+            <span style={{ fontSize: "12px", color: "var(--gold)" }}>
+              {kycRequests.filter((r) => r.status === "pending").length} en attente
+            </span>
+          </div>
+
+          {kycReviewMsg && (
+            <div className="alert-box success" style={{ margin: "12px" }}>
+              <CheckCircle2 size={16} />
+              <span>{kycReviewMsg}</span>
+            </div>
+          )}
+
+          {kycRequests.length ? (
+            <div style={{ display: "grid", gap: "16px", padding: "12px" }}>
+              {kycRequests.map((req) => (
+                <div
+                  key={req.id}
+                  style={{
+                    padding: "16px",
+                    borderRadius: "8px",
+                    background: "var(--panel-2)",
+                    border: "1px solid var(--line)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                    }}
+                  >
+                    <div>
+                      <strong style={{ fontSize: "15px", display: "block" }}>
+                        Demande #{req.id} · {req.user?.display_name || "Joueur"} (
+                        {req.user?.phone || "—"})
+                      </strong>
+                      <small style={{ color: "var(--muted)", fontSize: "12px" }}>
+                        Niveau actuel :{" "}
+                        <b style={{ color: "var(--text)" }}>
+                          {req.user?.current_level || "discovered"}
+                        </b>{" "}
+                        ➔ Demandé :{" "}
+                        <b style={{ color: "var(--gold)" }}>
+                          {req.level_display}
+                        </b>{" "}
+                        · Soumis le{" "}
+                        {new Date(req.created_at).toLocaleString("fr-FR")}
+                      </small>
+                      {req.note && (
+                        <p
+                          style={{
+                            margin: "6px 0 0",
+                            fontSize: "12px",
+                            fontStyle: "italic",
+                            color: "var(--soft)",
+                          }}
+                        >
+                          Note joueur : « {req.note} »
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <span
+                        className={`kyc-badge ${req.status}`}
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          background:
+                            req.status === "approved"
+                              ? "rgba(105, 214, 160, 0.2)"
+                              : req.status === "rejected"
+                              ? "rgba(232, 120, 120, 0.2)"
+                              : "rgba(211, 176, 107, 0.2)",
+                          color:
+                            req.status === "approved"
+                              ? "var(--green)"
+                              : req.status === "rejected"
+                              ? "var(--red)"
+                              : "var(--gold)",
+                        }}
+                      >
+                        {req.status_display}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Documents soumis */}
+                  <div
+                    style={{
+                      marginTop: "14px",
+                      paddingTop: "12px",
+                      borderTop: "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        color: "var(--muted)",
+                      }}
+                    >
+                      Documents joints ({req.documents.length}) :
+                    </span>
+                    {req.documents.length > 0 ? (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fill, minmax(220px, 1fr))",
+                          gap: "10px",
+                          marginTop: "8px",
+                        }}
+                      >
+                        {req.documents.map((doc) => (
+                          <div
+                            key={doc.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "8px 12px",
+                              borderRadius: "6px",
+                              background: "var(--panel)",
+                              border: "1px solid var(--line)",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                overflow: "hidden",
+                              }}
+                            >
+                              <FileText size={16} color="var(--gold)" />
+                              <span
+                                style={{
+                                  whiteSpace: "nowrap",
+                                  textOverflow: "ellipsis",
+                                  overflow: "hidden",
+                                }}
+                                title={doc.file_name}
+                              >
+                                {doc.document_type_display}
+                              </span>
+                            </div>
+                            <a
+                              href={doc.download_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="button button-sm button-secondary"
+                              style={{
+                                padding: "4px 8px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontSize: "11px",
+                              }}
+                            >
+                              <Download size={12} /> Voir
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--muted)",
+                          marginTop: "4px",
+                        }}
+                      >
+                        Aucun fichier joint à cette demande.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Zone de décision Staff */}
+                  {req.status === "pending" ||
+                  req.status === "resubmission_requested" ? (
+                    <div
+                      style={{
+                        marginTop: "14px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Notes / Motif de validation ou rejet..."
+                        value={kycReviewNotes[req.id] || ""}
+                        onChange={(e) =>
+                          setKycReviewNotes({
+                            ...kycReviewNotes,
+                            [req.id]: e.target.value,
+                          })
+                        }
+                        style={{
+                          flex: 1,
+                          minWidth: "220px",
+                          padding: "8px 12px",
+                          borderRadius: "6px",
+                          background: "var(--panel)",
+                          border: "1px solid var(--line)",
+                          color: "var(--text)",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="button button-primary button-sm"
+                        onClick={() => handleReviewKYC(req.id, "approve")}
+                        style={{
+                          background: "var(--green)",
+                          color: "#000",
+                          border: "none",
+                        }}
+                      >
+                        Approuver
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary button-sm"
+                        onClick={() =>
+                          handleReviewKYC(req.id, "request_resubmission")
+                        }
+                      >
+                        Complément
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-outline button-sm"
+                        onClick={() => handleReviewKYC(req.id, "reject")}
+                        style={{
+                          color: "var(--red)",
+                          borderColor: "var(--red)",
+                        }}
+                      >
+                        Rejeter
+                      </button>
+                    </div>
+                  ) : (
+                    req.reviewer_notes && (
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          fontSize: "12px",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        Note de révision : « {req.reviewer_notes} »
+                      </div>
+                    )
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-wallet">Aucune demande KYC enregistrée.</div>
+          )}
+        </section>
+
+        <section className="activity-card">
+          <div className="chat-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <HeartHandshake size={18} color="var(--gold)" />
+              <span>Jeu Responsable · Pauses & Auto-exclusions actives ({rgExclusions.length})</span>
+            </div>
+          </div>
+          {rgExclusions.length ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "10px" }}>
+              {rgExclusions.map((item) => (
+                <div
+                  key={item.id}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: "8px",
+                    background: "var(--panel-2)",
+                    border: "1px solid var(--line)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                    <div>
+                      <strong>{item.user.display_name || item.user.phone}</strong>{" "}
+                      <small style={{ color: "var(--muted)" }}>({item.user.phone})</small>
+                    </div>
+                    <span
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        background: item.is_permanently_excluded || item.is_active_self_exclusion ? "rgba(232, 120, 120, 0.2)" : "rgba(211, 176, 107, 0.2)",
+                        color: item.is_permanently_excluded || item.is_active_self_exclusion ? "var(--red)" : "var(--gold)",
+                      }}
+                    >
+                      {item.is_permanently_excluded
+                        ? "Auto-exclusion définitive"
+                        : item.is_active_self_exclusion
+                        ? `Auto-exclusion (fin : ${new Date(item.self_exclusion_until!).toLocaleDateString("fr-FR")})`
+                        : `Pause temporaire (fin : ${new Date(item.cooling_off_until!).toLocaleString("fr-FR")})`}
+                    </span>
+                  </div>
+                  {item.reason && (
+                    <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+                      Motif : « {item.reason} »
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-wallet">Aucun joueur sous auto-exclusion ou pause active.</div>
+          )}
+        </section>
+
         <section className="activity-card">
           <div className="chat-head">Feature flags</div>
           {flags.length ? (

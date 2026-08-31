@@ -1,5 +1,6 @@
 from django.urls import path
 
+from apps.kyc.views import BackofficeKYCListView, BackofficeKYCReviewView
 from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliationView
 from .views import AuditEventListView
 
@@ -12,4 +13,6 @@ urlpatterns = [
         PaymentReconciliationView.as_view(),
         name="payment-reconciliation",
     ),
+    path("kyc/", BackofficeKYCListView.as_view(), name="backoffice-kyc"),
+    path("kyc/<int:request_id>/review/", BackofficeKYCReviewView.as_view(), name="backoffice-kyc-review-action"),
 ]

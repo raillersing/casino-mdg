@@ -16,6 +16,8 @@ func TestRoundDealsEightCardsAndAssignsTeams(t *testing.T) {
 
 func TestPlayersMustFollowSuit(t *testing.T) {
 	round, _ := NewRound([]string{"a", "b", "c", "d"}, func(deck []Card) {})
+	round.Phase = "playing"
+	round.Trump = 0
 	round.Players[0].Hand = []Card{{Suit: 0, Rank: 7}}
 	round.Players[1].Hand = []Card{{Suit: 0, Rank: 8}, {Suit: 1, Rank: 14}}
 	if _, err := round.PlayCard(0, Card{Suit: 0, Rank: 7}); err != nil {
@@ -28,6 +30,7 @@ func TestPlayersMustFollowSuit(t *testing.T) {
 
 func TestTrumpJackBeatsNonTrumpAce(t *testing.T) {
 	round, _ := NewRound([]string{"a", "b", "c", "d"}, func(deck []Card) {})
+	round.Phase = "playing"
 	round.Trump = 1
 	round.Players[0].Hand = []Card{{Suit: 0, Rank: 10}}
 	round.Players[1].Hand = []Card{{Suit: 0, Rank: 14}}
@@ -46,6 +49,7 @@ func TestTrumpJackBeatsNonTrumpAce(t *testing.T) {
 
 func TestRoundDetectsFinishedTeam(t *testing.T) {
 	round, _ := NewRound([]string{"a", "b", "c", "d"}, func([]Card) {})
+	round.Phase = "finished"
 	for _, player := range round.Players {
 		player.Hand = nil
 	}

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowUpRight,
+  ArrowLeft,
   Lock,
   Plus,
   Search,
@@ -27,7 +28,8 @@ import { trackEvent } from "@services/analytics";
 
 export function LobbyPage() {
   const { t } = useTranslation();
-  const [filter, setFilter] = useState("all");
+  const { gameType: urlGameType } = useParams();
+  const [filter, setFilter] = useState(urlGameType || "all");
   const [query, setQuery] = useState("");
   const [tables, setTables] = useState<GameTable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,13 @@ export function LobbyPage() {
     max_players: 4,
     is_private: true,
   });
+
+  useEffect(() => {
+    if (urlGameType && ["poker", "belote", "rami"].includes(urlGameType)) {
+      setFilter(urlGameType);
+      setTableForm((current) => ({ ...current, game_type: urlGameType as typeof current.game_type }));
+    }
+  }, [urlGameType]);
 
   useEffect(() => {
     setLoading(true);
@@ -256,6 +265,11 @@ export function LobbyPage() {
 
   return (
     <div className="page-stack">
+      <div className="hub-back">
+        <Link to="/" className="text-link">
+          <ArrowLeft size={16} /> {t("hub.backHome")}
+        </Link>
+      </div>
       <div className="page-title-row">
         <div>
           <span className="eyebrow">{t("lobby.open")}</span>
@@ -265,9 +279,6 @@ export function LobbyPage() {
           <p>{t("lobby.choose")}</p>
         </div>
         <div className="page-title-actions">
-          <Link to="/games/test" className="button button-outline">
-            <Sparkles size={16} /> {t("lobby.testGames")}
-          </Link>
           <button
             className="button button-outline"
             onClick={() => void launchSimulation(matchmakingGame)}

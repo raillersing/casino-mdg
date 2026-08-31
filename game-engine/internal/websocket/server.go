@@ -157,7 +157,7 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 	client := &Client{
 		conn:       conn,
-		send:       make(chan []byte, 256),
+		send:       make(chan []byte, 1024),
 		lastPong:   time.Now(),
 		playerID:   playerID,
 		isBot:      isBot,
@@ -314,10 +314,7 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 			return
 		}
 		if !client.isBot {
-			if err := s.roomManager.StartTable(msg.TableID); err != nil {
-				s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: err.Error(), Timestamp: time.Now()})
-				return
-			}
+			_ = s.roomManager.StartTable(msg.TableID)
 		}
 		if requestTable, exists := s.roomManager.GetTable(msg.TableID); exists && requestTable.GameType == "poker" {
 			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(18*time.Second))
@@ -391,6 +388,18 @@ func (s *Server) startBotTurns(tableID string) {
 				}
 				if timeout, timedOut := s.roomManager.TimedOutAction(tableID); timedOut {
 					s.handleAction(&Client{playerID: timeout.PlayerID, tableID: tableID}, &Message{Type: MsgAction, TableID: tableID, PlayerID: timeout.PlayerID, Action: timeout.Action, Sequence: timeout.Sequence})
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+				// Auto-start new hand for belote/rami when the round/game is finished
+				if finished, isBelote := s.roomManager.BeloteFinished(tableID); isBelote && finished {
+					time.Sleep(800 * time.Millisecond)
+					s.handleAction(&Client{tableID: tableID}, &Message{Type: MsgAction, TableID: tableID, Action: "new_hand", Sequence: s.roomManager.TableSequence(tableID)})
+					continue
+				}
+				if finished, isRami := s.roomManager.RamiFinished(tableID); isRami && finished {
+					time.Sleep(800 * time.Millisecond)
+					s.handleAction(&Client{tableID: tableID}, &Message{Type: MsgAction, TableID: tableID, Action: "new_hand", Sequence: s.roomManager.TableSequence(tableID)})
 					continue
 				}
 				// Keep the authoritative table alive while a human is thinking so
@@ -615,7 +624,36 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 		if !actionDeadline.IsZero() {
 			deadline = actionDeadline
 		}
-		return map[string]interface{}{"players": players, "trump": game.Trump, "current": game.Current, "current_player_id": currentPlayerID, "lead_suit": game.LeadSuit, "trick": game.Trick, "team_points": game.TeamPoints, "action_deadline": deadline}
+		passed := make([]bool, len(game.Passed))
+		for i, p := range game.Passed {
+			passed[i] = p
+		}
+		beloteAnnounced := make([]bool, len(game.BeloteAnnounced))
+		for i, b := range game.BeloteAnnounced {
+			beloteAnnounced[i] = b
+		}
+		rebeloteDeclared := make([]bool, len(game.RebeloteDeclared))
+		for i, b := range game.RebeloteDeclared {
+			rebeloteDeclared[i] = b
+		}
+		return map[string]interface{}{
+			"players":            players,
+			"phase":              game.Phase,
+			"bidding_round":      game.BiddingRound,
+			"trump":              game.Trump,
+			"proposed_trump":     game.ProposedTrump,
+			"bidder":             game.Bidder,
+			"passed":             passed,
+			"belote_announced":   beloteAnnounced,
+			"rebelote_declared":  rebeloteDeclared,
+			"current":            game.Current,
+			"current_player_id":  currentPlayerID,
+			"lead_suit":          game.LeadSuit,
+			"trick":              game.Trick,
+			"team_points":        game.TeamPoints,
+			"cumulative_scores":  game.CumulativeScores,
+			"action_deadline":    deadline,
+		}
 	case *rami.Game:
 		players := make([]map[string]interface{}, 0, len(game.Players))
 		for _, player := range game.Players {
@@ -627,7 +665,7 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 			if p, exists := tablePlayers[player.ID]; exists {
 				seat = p.Seat
 			}
-			players = append(players, map[string]interface{}{"id": player.ID, "seat": seat, "hand": hand, "score": player.Score, "hand_count": len(player.Hand)})
+			players = append(players, map[string]interface{}{"id": player.ID, "seat": seat, "hand": hand, "score": player.Score, "hand_count": len(player.Hand), "melds": player.Melds})
 		}
 		currentPlayerID := ""
 		if game.Current >= 0 && game.Current < len(game.Players) {
@@ -637,7 +675,15 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 		if !actionDeadline.IsZero() {
 			deadline = actionDeadline
 		}
-		return map[string]interface{}{"players": players, "discard": game.Discard, "current": game.Current, "current_player_id": currentPlayerID, "finished": game.Finished, "action_deadline": deadline}
+		knockedBy := -1
+		if game.KnockedBy >= 0 && game.KnockedBy < len(game.Players) {
+			knockedBy = game.KnockedBy
+		}
+		return map[string]interface{}{
+			"players": players, "discard": game.Discard, "current": game.Current,
+			"current_player_id": currentPlayerID, "finished": game.Finished,
+			"knocked_by": knockedBy, "gin": game.Gin, "action_deadline": deadline,
+		}
 	default:
 		return nil
 	}

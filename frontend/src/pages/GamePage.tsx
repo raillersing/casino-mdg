@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -47,6 +47,346 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+type SoundKind =
+  | "deal"
+  | "chip"
+  | "win"
+  | "fold"
+  | "all_in"
+  | "your_turn"
+  | "street_changed"
+  | "card_played"
+  | "take"
+  | "pass"
+  | "choose_trump"
+  | "announce_belote"
+  | "trick_win"
+  | "new_hand"
+  | "draw"
+  | "discard"
+  | "meld"
+  | "knock"
+  | "game_over";
+
+function playSound(kind: SoundKind) {
+  if (typeof window === "undefined" || !(window as unknown as Record<string, unknown>).AudioContext) return;
+  if (localStorage.getItem("mdg-poker-sound") === "off") return;
+
+  const Ctx = (window as unknown as Record<string, unknown>).AudioContext as typeof AudioContext;
+  const ctx = new Ctx();
+  if (ctx.state === "suspended") void ctx.resume();
+
+  const now = ctx.currentTime;
+  const masterGain = ctx.createGain();
+  masterGain.gain.value = 0.15;
+  masterGain.connect(ctx.destination);
+
+  const envelope = (g: GainNode, attack: number, sustain: number, decay: number) => {
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(sustain, now + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + attack + decay);
+  };
+
+  switch (kind) {
+    case "deal": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+      envelope(gain, 0.01, 0.08, 0.1);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.12);
+      break;
+    }
+    case "chip": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(180, now + 0.06);
+      envelope(gain, 0.005, 0.12, 0.1);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.12);
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "triangle";
+      osc2.frequency.setValueAtTime(440, now);
+      envelope(gain2, 0.005, 0.06, 0.08);
+      osc2.connect(gain2).connect(masterGain);
+      osc2.start(now);
+      osc2.stop(now + 0.1);
+      break;
+    }
+    case "win": {
+      const notes = [523, 659, 784];
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+        envelope(gain, 0.02, 0.1, 0.35);
+        osc.connect(gain).connect(masterGain);
+        osc.start(now + idx * 0.06);
+        osc.stop(now + idx * 0.06 + 0.4);
+      });
+      break;
+    }
+    case "fold": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(150, now + 0.15);
+      envelope(gain, 0.02, 0.08, 0.2);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.22);
+      break;
+    }
+    case "all_in": {
+      const notes = [400, 500, 600];
+      notes.forEach((freq) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 2, now + 0.25);
+        envelope(gain, 0.05, 0.08, 0.3);
+        osc.connect(gain).connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.32);
+      });
+      break;
+    }
+    case "your_turn": {
+      [880, 1100].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+        envelope(gain, 0.01, 0.1, 0.15);
+        osc.connect(gain).connect(masterGain);
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.18);
+      });
+      break;
+    }
+    case "street_changed": {
+      const bufferSize = ctx.sampleRate * 0.15;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 3);
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(800, now);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      noise.connect(filter).connect(gain).connect(masterGain);
+      noise.start(now);
+      noise.stop(now + 0.15);
+      break;
+    }
+    case "card_played": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(400, now + 0.04);
+      envelope(gain, 0.005, 0.1, 0.08);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.1);
+      break;
+    }
+    case "take": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(500, now);
+      osc.frequency.exponentialRampToValueAtTime(700, now + 0.06);
+      envelope(gain, 0.005, 0.1, 0.1);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.12);
+      break;
+    }
+    case "pass": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(250, now);
+      envelope(gain, 0.01, 0.08, 0.1);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.12);
+      break;
+    }
+    case "choose_trump": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523, now);
+      osc.frequency.exponentialRampToValueAtTime(784, now + 0.1);
+      envelope(gain, 0.01, 0.1, 0.15);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.18);
+      break;
+    }
+    case "announce_belote": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(1047, now);
+      envelope(gain, 0.02, 0.12, 0.6);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.65);
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(1319, now + 0.05);
+      envelope(gain2, 0.02, 0.06, 0.5);
+      osc2.connect(gain2).connect(masterGain);
+      osc2.start(now + 0.05);
+      osc2.stop(now + 0.55);
+      break;
+    }
+    case "trick_win": {
+      [660, 880].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + i * 0.05);
+        envelope(gain, 0.01, 0.1, 0.15);
+        osc.connect(gain).connect(masterGain);
+        osc.start(now + i * 0.05);
+        osc.stop(now + i * 0.05 + 0.18);
+      });
+      break;
+    }
+    case "new_hand": {
+      // Card-shuffle friction noise
+      const bufferSize = ctx.sampleRate * 0.35;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        const decay = Math.pow(1 - i / bufferSize, 1.5);
+        data[i] = (Math.random() * 2 - 1) * decay;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(900, now);
+      filter.frequency.exponentialRampToValueAtTime(400, now + 0.35);
+      filter.Q.setValueAtTime(1.2, now);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+      noise.connect(filter).connect(gain).connect(masterGain);
+      noise.start(now);
+      noise.stop(now + 0.37);
+      // Light card-deal "clicks" layered on top
+      [0.18, 0.26, 0.32].forEach((t, i) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(600 + i * 120, now + t);
+        g.gain.setValueAtTime(0.0001, now + t);
+        g.gain.exponentialRampToValueAtTime(0.04, now + t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.06);
+        osc.connect(g).connect(masterGain);
+        osc.start(now + t);
+        osc.stop(now + t + 0.07);
+      });
+      break;
+    }
+    case "draw": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(500, now + 0.08);
+      envelope(gain, 0.01, 0.08, 0.12);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.14);
+      break;
+    }
+    case "discard": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(200, now);
+      envelope(gain, 0.005, 0.1, 0.08);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.1);
+      break;
+    }
+    case "meld": {
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + i * 0.06);
+        envelope(gain, 0.01, 0.08, 0.18);
+        osc.connect(gain).connect(masterGain);
+        osc.start(now + i * 0.06);
+        osc.stop(now + i * 0.06 + 0.2);
+      });
+      break;
+    }
+    case "knock": {
+      const bufferSize = ctx.sampleRate * 0.08;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(600, now);
+      filter.Q.setValueAtTime(5, now);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      noise.connect(filter).connect(gain).connect(masterGain);
+      noise.start(now);
+      noise.stop(now + 0.1);
+      break;
+    }
+    case "game_over": {
+      [523, 659, 784, 1047, 1319].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = i % 2 === 0 ? "sine" : "triangle";
+        osc.frequency.setValueAtTime(freq, now + i * 0.04);
+        envelope(gain, 0.02, 0.08, 0.4);
+        osc.connect(gain).connect(masterGain);
+        osc.start(now + i * 0.04);
+        osc.stop(now + i * 0.04 + 0.45);
+      });
+      break;
+    }
+  }
+
+  window.setTimeout(() => {
+    if (ctx.state !== "closed") void ctx.close();
+  }, 1500);
+}
+
 type TableAction = {
   id: string;
   playerId: string;
@@ -74,7 +414,7 @@ export function GamePage() {
   const [sequence, setSequence] = useState(0);
   const [gameConnectionError, setGameConnectionError] = useState("");
   const [connectionState, setConnectionState] = useState<
-    "offline" | "connecting" | "reconnecting" | "connected"
+    "offline" | "connecting" | "reconnecting" | "connected" | "closed"
   >("offline");
   const [playerCount, setPlayerCount] = useState(0);
   const [lastAction, setLastAction] = useState("");
@@ -85,6 +425,7 @@ export function GamePage() {
   const [visibleCommunityCount, setVisibleCommunityCount] = useState(0);
   const [visibleHoleCardCount, setVisibleHoleCardCount] = useState(0);
   const [dealPulse, setDealPulse] = useState(0);
+  const [handDealing, setHandDealing] = useState(false);
   const [potPulse, setPotPulse] = useState(0);
   const [chipBursts, setChipBursts] = useState(0);
   const [turnSeconds, setTurnSeconds] = useState(18);
@@ -92,6 +433,7 @@ export function GamePage() {
     {},
   );
   const [payouts, setPayouts] = useState<Record<string, number>>({});
+  const [bestCards, setBestCards] = useState<Record<string, Array<{ rank: number; suit: number }>>>({});
   const [potAwarded, setPotAwarded] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(
     () => localStorage.getItem("mdg-poker-sound") !== "off",
@@ -107,6 +449,8 @@ export function GamePage() {
   const [gameState, setGameState] = useState<Record<string, unknown> | null>(
     null,
   );
+  const [gameOver, setGameOver] = useState(false);
+  const [selectedRamiCards, setSelectedRamiCards] = useState<Set<string>>(new Set());
   const [pokerLevel, setPokerLevel] = useState(0);
   const [handsPlayed, setHandsPlayed] = useState(0);
   const [nextHandCountdown, setNextHandCountdown] = useState(0);
@@ -123,7 +467,6 @@ export function GamePage() {
     Record<string, { text: string; emote: string; ts: number }>
   >({});
   const [thinkingSeats, setThinkingSeats] = useState<Record<string, boolean>>({});
-  const [payoutCounter, setPayoutCounter] = useState(0);
   const [showRebuy, setShowRebuy] = useState(false);
   const pots = Array.isArray(gameState?.pots)
     ? (gameState.pots as Array<{ amount?: number; eligible?: string[] }>)
@@ -136,7 +479,8 @@ export function GamePage() {
   const invitationHandled = useRef(false);
   const dealTimers = useRef<number[]>([]);
   const holeDealTimers = useRef<number[]>([]);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const wasMyTurnRef = useRef(false);
+  const prevBeloteTrickLenRef = useRef(0);
   const accessToken = useGameStore((state) => state.accessToken);
   const userId =
     useGameStore((state) => state.user?.id || "") || tokenSubject(accessToken);
@@ -203,6 +547,9 @@ export function GamePage() {
   const beloteTeamPoints = Array.isArray(gameState?.team_points)
     ? (gameState.team_points as [number, number])
     : [0, 0];
+  const beloteCumulative = Array.isArray(gameState?.cumulative_scores)
+    ? (gameState.cumulative_scores as [number, number])
+    : [0, 0];
   const ramiDiscard = Array.isArray(gameState?.discard)
     ? (gameState.discard as Array<{ rank: number; suit: number }>)
     : [];
@@ -215,14 +562,17 @@ export function GamePage() {
     isPokerShowdown && gameState?.finish_reason === "uncontested";
   const isSessionFinished = isPoker && gameState?.session_finished === true;
   const renderedCommunityCards = communityCards.slice(0, visibleCommunityCount);
-  const winnerNames = pokerWinners.map((winnerId) => {
-    const player = tablePlayers.find(
-      (item) => String(item.id || "") === winnerId,
-    );
-    return String(
-      player?.name || (winnerId === userId ? t("game.you") : winnerId),
-    );
-  });
+  const cardKey = (card: { rank: number; suit: number }) => `${card.rank}-${card.suit}`;
+  const winningCardKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const winnerId of pokerWinners) {
+      const cards = bestCards[winnerId] || [];
+      for (const card of cards) {
+        set.add(cardKey(card));
+      }
+    }
+    return set;
+  }, [pokerWinners, bestCards]);
   const currentPlayerId = String(
     gameState?.current_player_id || statePlayers[currentPlayerIndex]?.id || "",
   );
@@ -240,30 +590,13 @@ export function GamePage() {
 
   const playFeedback = useCallback(
     (kind: "deal" | "chip" | "win") => {
-      if (
-        !soundEnabled ||
-        typeof window === "undefined" ||
-        !window.AudioContext
-      )
-        return;
-      const context =
-        audioContextRef.current ||
-        (audioContextRef.current = new AudioContext());
-      if (context.state === "suspended") void context.resume();
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      const frequencies = { deal: 520, chip: 180, win: 760 };
-      oscillator.frequency.value = frequencies[kind];
-      oscillator.type = kind === "chip" ? "triangle" : "sine";
-      gain.gain.setValueAtTime(0.0001, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.035, context.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(
-        0.0001,
-        context.currentTime + 0.13,
-      );
-      oscillator.connect(gain).connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + 0.14);
+      if (!soundEnabled) return;
+      const map: Record<string, SoundKind> = {
+        deal: "deal",
+        chip: "chip",
+        win: "win",
+      };
+      playSound(map[kind]);
     },
     [soundEnabled],
   );
@@ -342,13 +675,48 @@ export function GamePage() {
           }
           if (state?.game_state) {
             const phase = String(state.game_state.phase || "");
+            // Detect belote trick completion (4 cards -> new empty trick)
+            const nextTrick = Array.isArray(state.game_state.trick)
+              ? (state.game_state.trick as unknown[])
+              : [];
+            if (
+              gameType === "belote" &&
+              prevBeloteTrickLenRef.current === 4 &&
+              nextTrick.length === 0
+            ) {
+              playSound("trick_win");
+            }
+            prevBeloteTrickLenRef.current = nextTrick.length;
             setGameState(state.game_state);
+            // Auto-redeal when belote round is finished or everyone passed
+            if (
+              (phase === "all_passed" || phase === "finished") &&
+              gameType === "belote"
+            ) {
+              window.setTimeout(() => {
+                setGameOver(false);
+                sendGameAction("new_hand");
+              }, 800);
+            }
+            // Auto-redeal when rami game is finished
+            if (
+              gameType === "rami" &&
+              state.game_state.finished === true
+            ) {
+              window.setTimeout(() => {
+                setGameOver(false);
+                sendGameAction("new_hand");
+              }, 1200);
+            }
             if (phase === "showdown") {
               setShowdownRanks(
                 (state.game_state.hand_ranks as Record<string, string>) || {},
               );
               setPayouts(
                 (state.game_state.payouts as Record<string, number>) || {},
+              );
+              setBestCards(
+                (state.game_state.best_cards as Record<string, Array<{ rank: number; suit: number }>>) || {},
               );
             }
             if (
@@ -357,6 +725,7 @@ export function GamePage() {
             ) {
               setShowdownRanks({});
               setPayouts({});
+              setBestCards({});
               setPotAwarded(false);
             }
             const nextHoleLength = Array.isArray(
@@ -500,14 +869,23 @@ export function GamePage() {
           if (action === "showdown" || action === "uncontested_win") {
             setShowdownRanks(details.hand_ranks || {});
             setPayouts(details.payouts || {});
+            setBestCards(
+              (details as Record<string, unknown>).best_cards as Record<string, Array<{ rank: number; suit: number }>> || {},
+            );
             setPotAwarded(false);
             window.setTimeout(() => setPotAwarded(true), 900);
           }
           if (action === "new_hand") {
             setShowdownRanks({});
             setPayouts({});
+            setBestCards({});
             setPotAwarded(false);
             setNextHandCountdown(0);
+            setGameOver(false);
+            if (motionEnabled) {
+              setHandDealing(true);
+              window.setTimeout(() => setHandDealing(false), 1200);
+            }
           }
           if (action === "hand_summary") {
             const summary = payload.payload as {
@@ -587,13 +965,30 @@ export function GamePage() {
                 dealTimers.current.push(timer);
               }
             }
-            if (["bet", "raise", "call", "all_in"].includes(action)) {
+            if (["bet", "raise", "call"].includes(action)) {
               setPotPulse((value) => value + 1);
               setChipBursts((value) => value + 1);
               playFeedback("chip");
             }
+            if (action === "all_in") {
+              setPotPulse((value) => value + 1);
+              setChipBursts((value) => value + 1);
+              playSound("all_in");
+            }
+            if (action === "fold") playSound("fold");
+            if (action === "street_changed") playSound("street_changed");
             if (action === "showdown" || action === "uncontested_win")
               playFeedback("win");
+            if (action === "play_card") playSound("card_played");
+            if (action === "take") playSound("take");
+            if (action === "pass") playSound("pass");
+            if (action === "choose_trump") playSound("choose_trump");
+            if (action === "announce_belote") playSound("announce_belote");
+            if (action === "draw") playSound("draw");
+            if (action === "discard") playSound("discard");
+            if (action === "meld") playSound("meld");
+            if (action === "knock") playSound("knock");
+            if (action === "new_hand") playSound("new_hand");
             if (action !== "result" && !presentationOnly) {
               setActionLog((current) => [
                 ...current.slice(-7),
@@ -654,12 +1049,13 @@ export function GamePage() {
               setResultMessage(error.message);
             });
         }
-        if (payload.type === "error")
-          setGameConnectionError(
-            typeof payload.payload === "string"
-              ? payload.payload
-              : t("game.tableConnectionError"),
-          );
+        if (payload.type === "error") {
+          const errorMsg = typeof payload.payload === "string" ? payload.payload : t("game.tableConnectionError");
+          setGameConnectionError(errorMsg);
+          if (errorMsg === "game_over") {
+            setGameOver(true);
+          }
+        }
         if (payload.type === "state" || payload.type === "sync")
           setGameConnectionError("");
       } catch {
@@ -711,6 +1107,18 @@ export function GamePage() {
     if (!isPoker || !gameState) return;
     setWager((current) => Math.min(maxRaiseTo, Math.max(minRaiseTo, current)));
   }, [gameState, isPoker, maxRaiseTo, minRaiseTo]);
+
+  useEffect(() => {
+    if (isMyTurn && !wasMyTurnRef.current) {
+      playSound("your_turn");
+    }
+    wasMyTurnRef.current = isMyTurn;
+  }, [isMyTurn]);
+
+  useEffect(() => {
+    if (gameOver) playSound("game_over");
+  }, [gameOver]);
+
   const handleSocketOpen = useCallback(
     (socket: WebSocket) => {
       setConnectionState("connected");
@@ -740,12 +1148,12 @@ export function GamePage() {
     [engineTableId, gameType, spectator],
   );
   const handleConnectionStateChange = useCallback(
-    (state: "connecting" | "connected" | "reconnecting" | "closed") => {
-      setConnectionState(state === "closed" ? "offline" : state);
+    (state: "connecting" | "connected" | "reconnecting" | "closed" | "offline") => {
+      setConnectionState(state);
     },
     [],
   );
-  const { ws, send } = useWebSocket(socketUrl, {
+  const { ws, send, latency } = useWebSocket(socketUrl, {
     enabled: Boolean(engineTableId && accessToken),
     onOpen: handleSocketOpen,
     onConnectionStateChange: handleConnectionStateChange,
@@ -799,24 +1207,6 @@ export function GamePage() {
         setResolvedTableId(tableId);
       });
   }, [accessToken, demoAi, demoTableId, gameType, tableId]);
-
-  // Animate payout counter on showdown
-  useEffect(() => {
-    if (!isPokerShowdown) return;
-    const myPayout = payouts[resolvedTableId] || 0;
-    if (myPayout <= 0) return;
-    let current = 0;
-    const step = Math.max(1, Math.floor(myPayout / 30));
-    const timer = window.setInterval(() => {
-      current += step;
-      if (current >= myPayout) {
-        current = myPayout;
-        window.clearInterval(timer);
-      }
-      setPayoutCounter(current);
-    }, 30);
-    return () => window.clearInterval(timer);
-  }, [isPokerShowdown, payouts, resolvedTableId]);
 
   // Show rebuy button when short-stacked
   useEffect(() => {
@@ -910,7 +1300,7 @@ export function GamePage() {
   };
 
   return (
-    <div className="game-room">
+    <div className={`game-room${handDealing ? " hand-dealing" : ""}`}>
       <div className="game-room-head">
         <Link
           to="/lobby"
@@ -997,14 +1387,33 @@ export function GamePage() {
         <p className="secure-note game-sync-note">{invitationState}</p>
       )}
       {connectionState === "connected" && (
-        <p className="secure-note game-sync-note">
-          {t("game.syncedPlayers", { count: playerCount })} ·{" "}
-          {t("game.sequence")} {sequence}
-          {lastAction ? ` · ${lastAction}` : ""}
+        <p className="secure-note game-sync-note" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>
+            {t("game.syncedPlayers", { count: playerCount })} · {t("game.sequence")} {sequence}
+            {lastAction ? ` · ${lastAction}` : ""}
+          </span>
+          {latency !== null && (
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                color: latency < 150 ? "var(--green)" : latency < 350 ? "var(--gold)" : "var(--red)",
+              }}
+            >
+              ● {latency} ms
+            </span>
+          )}
         </p>
       )}
       {connectionState === "reconnecting" && (
-        <p className="secure-note game-sync-note">{t("game.reconnecting")}</p>
+        <p className="secure-note game-sync-note" style={{ color: "var(--gold)" }}>
+          🔄 {t("game.reconnecting")} (Réseau Madagascar 3G/4G optimisé)...
+        </p>
+      )}
+      {connectionState === "offline" && (
+        <p className="secure-note game-sync-note" style={{ color: "var(--red)" }}>
+          ⚠️ Réseau interrompu · En attente de reconnexion automatique...
+        </p>
       )}
       {resultMessage && (
         <p className="secure-note game-sync-note">{resultMessage}</p>
@@ -1055,34 +1464,97 @@ export function GamePage() {
         <div className="showdown-overlay">
           <div className="showdown-overlay-inner">
             <div className="showdown-title">
-              {isUncontestedWin ? "Victoire" : "Showdown"}
+              {isUncontestedWin ? t("game.winner") : t("game.showdown")}
             </div>
-            {winnerNames.length > 0 && (
-              <div className="showdown-winner">
-                <div className="winner-avatar">
-                  {winnerNames[0][0]}
-                </div>
-                <strong>{nameForPlayer(winnerNames[0])} gagne !</strong>
-                {payouts[winnerNames[0]] ? (
-                  <span className="winner-payout">
-                    +{payoutCounter || payouts[winnerNames[0]]} jetons
-                  </span>
-                ) : null}
-              </div>
-            )}
+
+            {/* Board final */}
             <div className="showdown-board-wrap">
-              {communityCards.map((card, index) => (
-                <PlayingCard
-                  key={`showdown-board-${index}`}
-                  {...cardView(card)}
-                />
-              ))}
+              {communityCards.map((card, index) => {
+                const isWinning = winningCardKeys.has(cardKey(card));
+                return (
+                  <div
+                    key={`showdown-board-${index}`}
+                    className={`showdown-card-wrap ${isWinning ? "winning-card" : "dimmed-card"}`}
+                  >
+                    <PlayingCard {...cardView(card)} />
+                  </div>
+                );
+              })}
             </div>
-            {showdownRanks[winnerNames[0]] && (
-              <div className="showdown-rank">
-                Avec <b>{showdownRanks[winnerNames[0]]}</b>
-              </div>
-            )}
+
+            {/* Tous les joueurs encore en lice */}
+            <div className="showdown-players">
+              {statePlayers
+                .filter((p) => !Boolean(p.folded))
+                .map((player) => {
+                  const pid = String(player.id || "");
+                  const isWinner = pokerWinners.includes(pid);
+                  const rank = showdownRanks[pid] || "";
+                  const payout = payouts[pid] || 0;
+                  const playerCards = Array.isArray(player.cards)
+                    ? (player.cards as Array<{ rank: number; suit: number }>)
+                    : [];
+                  const pName = nameForPlayer(pid);
+                  return (
+                    <div
+                      key={`showdown-player-${pid}`}
+                      className={`showdown-player-row ${isWinner ? "showdown-winner-row" : ""}`}
+                    >
+                      <div className="showdown-player-info">
+                        <div
+                          className="showdown-player-avatar"
+                          style={{ background: avatarColor(pName) }}
+                        >
+                          {pName[0]}
+                        </div>
+                        <div className="showdown-player-meta">
+                          <strong>{pName}</strong>
+                          {rank ? (
+                            <span className="showdown-player-rank">{rank}</span>
+                          ) : isUncontestedWin ? (
+                            <span className="showdown-player-rank">
+                              {t("game.handComplete")}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="showdown-player-cards">
+                        {playerCards.length > 0 ? (
+                          playerCards.map((card, idx) => {
+                            const isWinning = winningCardKeys.has(cardKey(card));
+                            return (
+                              <div
+                                key={`showdown-hole-${idx}`}
+                                className={`showdown-card-wrap ${isWinning ? "winning-card" : "dimmed-card"}`}
+                              >
+                                <PlayingCard {...cardView(card)} />
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <span className="muted">
+                            {isUncontestedWin
+                              ? "—"
+                              : t("game.revealedCards")}
+                          </span>
+                        )}
+                      </div>
+                      {payout > 0 && (
+                        <span className="showdown-player-payout">
+                          +{payout}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Pot total */}
+            <div className="showdown-pot">
+              {t("game.pot")}{" "}
+              <strong>{String(gameState?.pot ?? 0)}</strong>
+            </div>
+
             {!isSessionFinished && !spectator && (
               <button
                 className="showdown-next-btn"
@@ -1207,7 +1679,7 @@ export function GamePage() {
       {gameState && gameType !== "poker" && (
         <GameStateSummary gameType={gameType || ""} state={gameState} />
       )}
-      <div className={`felt-table ${isPoker ? "felt-green" : gameType === "rami" ? "felt-red" : "felt-blue"}`}>
+      <div className={`felt-table ${isPoker ? "felt-poker" : gameType === "rami" ? "felt-rami" : "felt-belote"}`}>
         <div className="table-brand">
           MDG <small>GAME CLUB</small>
         </div>
@@ -1254,6 +1726,7 @@ export function GamePage() {
               thinking={Boolean(thinkingSeats[String(player?.id || "")])}
               botChat={botChats[String(player?.id || "")]}
               seatStyle={style}
+              hasCards={isPoker && !Boolean(player?.folded)}
             />
           );
         })}
@@ -1300,29 +1773,76 @@ export function GamePage() {
         )}
         {gameType === "belote" && (
           <>
-            <div className="belote-trick-area">
-              <div className="belote-trick-label">
-                {beloteTrump !== "" && (
-                  <span className="belote-trump">Atout : {["♣","♦","♥","♠"][Number(beloteTrump)] || "?"}</span>
+            {String(gameState?.phase || "") === "bidding" ? (
+              <div className="belote-trick-area">
+                <div className="belote-trick-label">
+                  <span className="belote-trump">
+                    {Number(gameState?.bidding_round ?? 1) === 2 ? t("game.secondTour") + " — " : ""}
+                    Atout proposé : {["♣","♦","♥","♠"][Number(gameState?.proposed_trump ?? -1)] || "?"}
+                  </span>
+                </div>
+                <div className="belote-trick-label" style={{ marginTop: 8 }}>
+                  {Array.isArray(gameState?.passed) && (gameState?.passed as boolean[]).map((passed, index) => (
+                    <span key={`pass-${index}`} style={{ opacity: passed ? 0.4 : 1 }}>
+                      {passed ? "✓ Passé" : "En attente…"} (Joueur {index + 1})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : String(gameState?.phase || "") === "all_passed" ? (
+              <div className="belote-trick-area">
+                <div className="belote-trick-label">
+                  <span className="belote-trump">{t("game.allPassed")} — {t("game.redeal")}</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="belote-trick-area">
+                  <div className="belote-trick-label">
+                    {beloteTrump !== "" && (
+                      <span className="belote-trump">Atout : {["♣","♦","♥","♠"][Number(beloteTrump)] || "?"}</span>
+                    )}
+                    <span>Pli {beloteTrick.length}/4</span>
+                    {Array.isArray(gameState?.belote_announced) && (gameState?.belote_announced as boolean[]).some(Boolean) && (
+                      <span className="belote-trump" style={{ marginLeft: 8 }}>🔔 Belote !</span>
+                    )}
+                    {Array.isArray(gameState?.rebelote_declared) && (gameState?.rebelote_declared as boolean[]).some(Boolean) && (
+                      <span className="belote-trump" style={{ marginLeft: 8 }}>🔔🔔 Rebelote !</span>
+                    )}
+                  </div>
+                  <div className="belote-trick">
+                    {beloteTrick.map((card, index) => (
+                      <PlayingCard
+                        key={`trick-${index}`}
+                        {...cardView(card)}
+                      />
+                    ))}
+                    {Array.from({ length: Math.max(0, 4 - beloteTrick.length) }).map((_, index) => (
+                      <PlayingCard key={`trick-empty-${index}`} value="?" suit="" hidden />
+                    ))}
+                  </div>
+                </div>
+                <div className="belote-score">
+                  <span>Équipe 1 : {beloteTeamPoints[0]} (total {beloteCumulative[0]})</span>
+                  <span>Équipe 2 : {beloteTeamPoints[1]} (total {beloteCumulative[1]})</span>
+                </div>
+                {gameOver && (
+                  <div className="belote-game-over">
+                    <div>🏆 {t("game.gameOver")} — {beloteCumulative[0] > beloteCumulative[1] ? t("game.team") + " 1" : t("game.team") + " 2"} {t("game.wins")}</div>
+                    <button
+                      className="button button-gold button-small"
+                      onClick={() => {
+                        setGameOver(false);
+                        sendGameAction("new_hand");
+                      }}
+                      style={{ marginTop: 8 }}
+                    >
+                      {t("demoReplay")}
+                    </button>
+                  </div>
                 )}
-                <span>Pli {beloteTrick.length}/4</span>
-              </div>
-              <div className="belote-trick">
-                {beloteTrick.map((card, index) => (
-                  <PlayingCard
-                    key={`trick-${index}`}
-                    {...cardView(card)}
-                  />
-                ))}
-                {Array.from({ length: Math.max(0, 4 - beloteTrick.length) }).map((_, index) => (
-                  <PlayingCard key={`trick-empty-${index}`} value="?" suit="" hidden />
-                ))}
-              </div>
-            </div>
-            <div className="belote-score">
-              <span>Équipe 1 : {beloteTeamPoints[0]}</span>
-              <span>Équipe 2 : {beloteTeamPoints[1]}</span>
-            </div>
+              </>
+            )}
           </>
         )}
         {gameType === "rami" && (
@@ -1338,8 +1858,34 @@ export function GamePage() {
               </div>
             </div>
             {ramiFinished && (
-              <div className="rami-finished">Partie terminée</div>
+              <div className="rami-finished">
+                {Number(gameState?.knocked_by ?? -1) >= 0 ? (
+                  <>
+                    {t("game.knock")} — {Boolean(gameState?.gin) ? t("game.gin") : ""}
+                  </>
+                ) : (
+                  "Partie terminée"
+                )}
+              </div>
             )}
+            <div className="rami-melds-area">
+              {Array.isArray(gameState?.players) && (gameState?.players as Array<Record<string, unknown>>).map((p, idx) => {
+                const melds = p.melds as Array<Array<{ suit: number; rank: number }>> | undefined;
+                if (!melds || melds.length === 0) return null;
+                return (
+                  <div key={`melds-${idx}`} className="rami-player-melds">
+                    <div className="rami-meld-label">{String(p.name || p.id || `Joueur ${idx + 1}`)} — Melds</div>
+                    {melds.map((meld, mIdx) => (
+                      <div key={`meld-${mIdx}`} className="rami-meld">
+                        {meld.map((card, cIdx) => (
+                          <PlayingCard key={`meld-card-${cIdx}`} {...cardView(card)} />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
           </>
         )}
         {emote && <div className="table-emote">{emote}</div>}
@@ -1405,12 +1951,34 @@ export function GamePage() {
           {gameType !== "poker" && (
             <>
               {myHand.length > 0 ? (
-                myHand.map((card, index) => (
-                  <PlayingCard
-                    key={`hand-${card.suit}-${card.rank}-${index}`}
-                    {...cardView(card)}
-                  />
-                ))
+                myHand.map((card, index) => {
+                  const cardKey = `${card.suit}-${card.rank}`;
+                  const isSelected = selectedRamiCards.has(cardKey);
+                  if (gameType === "rami" && isMyTurn) {
+                    return (
+                      <div
+                        key={`hand-${card.suit}-${card.rank}-${index}`}
+                        className={`rami-card-selectable ${isSelected ? "rami-card-selected" : ""}`}
+                        onClick={() => {
+                          setSelectedRamiCards((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(cardKey)) next.delete(cardKey);
+                            else next.add(cardKey);
+                            return next;
+                          });
+                        }}
+                      >
+                        <PlayingCard {...cardView(card)} />
+                      </div>
+                    );
+                  }
+                  return (
+                    <PlayingCard
+                      key={`hand-${card.suit}-${card.rank}-${index}`}
+                      {...cardView(card)}
+                    />
+                  );
+                })
               ) : (
                 <>
                   <PlayingCard key="hole-0" value="?" suit="" hidden />
@@ -1441,7 +2009,10 @@ export function GamePage() {
           <div className="action-row">
             <button
               className="action-fold"
-              onClick={() => sendGameAction("fold")}
+              onClick={() => {
+                playSound("fold");
+                sendGameAction("fold");
+              }}
               disabled={
                 !isMyTurn ||
                 (allowedActions.length > 0 && !allowedActions.includes("fold"))
@@ -1451,7 +2022,10 @@ export function GamePage() {
             </button>
             <button
               className="action-check"
-              onClick={() => sendGameAction(facingBet ? "call" : "check")}
+              onClick={() => {
+                playSound("chip");
+                sendGameAction(facingBet ? "call" : "check");
+              }}
               disabled={
                 !isMyTurn ||
                 (allowedActions.length > 0 &&
@@ -1462,11 +2036,12 @@ export function GamePage() {
             </button>
             <button
               className="action-bet"
-              onClick={() =>
+              onClick={() => {
+                playSound("chip");
                 sendGameAction(facingBet ? "raise" : "bet", {
                   amount: Math.max(wager - myBet, 1),
-                })
-              }
+                });
+              }}
               disabled={
                 !isMyTurn ||
                 (allowedActions.length > 0 &&
@@ -1495,37 +2070,39 @@ export function GamePage() {
         ) : (
           <GameSpecificControls
             gameType={gameType || ""}
+            phase={String(gameState?.phase || "")}
             hand={myHand}
             onAction={sendGameAction}
             enabled={isMyTurn}
+            selectedCards={selectedRamiCards}
+            onClearSelection={() => setSelectedRamiCards(new Set())}
+            state={gameState || {}}
+            statePlayers={statePlayers}
+            userId={userId}
           />
         )}
       </div>
-      {isPoker && (
-        <div className="table-feel-toolbar" aria-label="Réglages de la table">
-          <button type="button" onClick={() => sendEmote("Bien joué !")}>
-            👏
-          </button>
-          <button type="button" onClick={() => sendEmote("Oups…")}>
-            😅
-          </button>
-          <button type="button" onClick={() => sendEmote("Bluff ?")}>
-            🧐
-          </button>
-          <button
-            type="button"
-            onClick={() => updatePreference("sound", !soundEnabled)}
-          >
-            {soundEnabled ? "🔊" : "🔇"}
-          </button>
-          <button
-            type="button"
-            onClick={() => updatePreference("motion", !motionEnabled)}
-          >
-            {motionEnabled ? "✨" : "◌"}
-          </button>
-        </div>
-      )}
+      <div className="table-feel-toolbar" aria-label="Réglages de la table">
+        {isPoker && (
+          <>
+            <button type="button" onClick={() => sendEmote("Bien joué !")}>👏</button>
+            <button type="button" onClick={() => sendEmote("Oups…")}>😅</button>
+            <button type="button" onClick={() => sendEmote("Bluff ?")}>🧐</button>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => updatePreference("sound", !soundEnabled)}
+        >
+          {soundEnabled ? "🔊" : "🔇"}
+        </button>
+        <button
+          type="button"
+          onClick={() => updatePreference("motion", !motionEnabled)}
+        >
+          {motionEnabled ? "✨" : "◌"}
+        </button>
+      </div>
       <div className="game-bottom">
         <div className="chat-box">
           <div className="chat-head">
@@ -1638,6 +2215,7 @@ function PlayerSeat({
   thinking = false,
   botChat,
   seatStyle,
+  hasCards = false,
 }: {
   pos: string;
   name: string;
@@ -1650,6 +2228,7 @@ function PlayerSeat({
   thinking?: boolean;
   botChat?: { text: string; emote: string };
   seatStyle?: React.CSSProperties;
+  hasCards?: boolean;
 }) {
   const avColor = avatarColor(name);
   return (
@@ -1662,7 +2241,11 @@ function PlayerSeat({
         <strong>{name}</strong>
         <span>{chips}</span>
       </div>
-      {badge && <i className="seat-badge">{badge}</i>}
+      {badge && (
+        <i className={`seat-badge ${badge.includes("D") ? "seat-dealer" : badge.includes("BB") ? "seat-big-blind" : badge.includes("SB") ? "seat-small-blind" : ""}`}>
+          {badge}
+        </i>
+      )}
       {action && <b className="seat-action-bubble">{action}</b>}
       {thinking && !botChat && <span className="seat-thinking-bubble">…</span>}
       {botChat && (
@@ -1674,6 +2257,12 @@ function PlayerSeat({
         <span className="seat-bet-chip">
           {bet}
         </span>
+      )}
+      {hasCards && (
+        <div className="seat-hole-cards">
+          <span className="seat-card-back" />
+          <span className="seat-card-back" />
+        </div>
       )}
     </div>
   );
@@ -1804,12 +2393,35 @@ function GameStateSummary({
   const { t } = useTranslation();
   const players = Array.isArray(state.players) ? state.players : [];
   if (gameType === "belote") {
+    const phase = String(state.phase || "playing");
     const points = Array.isArray(state.team_points)
       ? state.team_points
       : [0, 0];
     const suits = ["♣", "♦", "♥", "♠"];
     const trumpNum = Number(state.trump ?? -1);
     const trumpLabel = trumpNum >= 0 && trumpNum < 4 ? suits[trumpNum] : "—";
+    const proposedTrumpNum = Number(state.proposed_trump ?? -1);
+    const proposedTrumpLabel = proposedTrumpNum >= 0 && proposedTrumpNum < 4 ? suits[proposedTrumpNum] : "—";
+    if (phase === "bidding") {
+      const bidder = Number(state.bidder ?? -1);
+      const bidderName = bidder >= 0 && Array.isArray(state.players)
+        ? String((state.players as Array<Record<string, unknown>>)[bidder]?.name || "")
+        : "";
+      return (
+        <div className="secure-note game-sync-note">
+          <strong>{t("games.belote")}</strong> · {t("game.bidding")} · {t("game.proposedTrump")} :{" "}
+          <span className="belote-trump">{proposedTrumpLabel}</span>
+          {bidderName ? ` · ${t("game.bidder")} : ${bidderName}` : ""}
+        </div>
+      );
+    }
+    if (phase === "all_passed") {
+      return (
+        <div className="secure-note game-sync-note">
+          <strong>{t("games.belote")}</strong> · {t("game.allPassed")} — {t("game.redeal")}
+        </div>
+      );
+    }
     return (
       <div className="secure-note game-sync-note">
         <strong>{t("games.belote")}</strong> · {t("game.trump")} :{" "}
@@ -1825,32 +2437,141 @@ function GameStateSummary({
       {String(state.current ?? "—")} ·{t("game.discard")} :{" "}
       {Array.isArray(state.discard) ? state.discard.length : 0} ·
       {t("lobby.players")} : {players.length}
+      {Number(state.knocked_by ?? -1) >= 0 && (
+        <> · {t("game.knock")}{Boolean(state.gin) ? ` (${t("game.gin")})` : ""}</>
+      )}
     </div>
   );
 }
 
 function GameSpecificControls({
   gameType,
+  phase,
   hand,
   onAction,
   enabled,
+  selectedCards,
+  onClearSelection,
+  state,
+  statePlayers,
+  userId,
 }: {
   gameType: string;
+  phase?: string;
   hand: Array<{ rank: number; suit: number }>;
   onAction: (action: string, payload?: unknown) => void;
   enabled: boolean;
+  selectedCards?: Set<string>;
+  onClearSelection?: () => void;
+  state?: Record<string, unknown>;
+  statePlayers?: Array<Record<string, unknown>>;
+  userId?: string;
 }) {
   const { t } = useTranslation();
-  if (gameType === "belote")
+  if (gameType === "belote") {
+    const biddingRound = Number(state?.bidding_round ?? 1);
+    // Bidding phase
+    if (phase === "bidding") {
+      if (biddingRound === 1) {
+        return (
+          <div className="action-row belote-controls">
+            <button
+              className="action-bet"
+              disabled={!enabled}
+              onClick={() => {
+                playSound("take");
+                onAction("take");
+              }}
+            >
+              {t("game.take")}
+            </button>
+            <button
+              className="action-fold"
+              disabled={!enabled}
+              onClick={() => {
+                playSound("pass");
+                onAction("pass");
+              }}
+            >
+              {t("game.pass")}
+            </button>
+          </div>
+        );
+      }
+      // Second round: choose any suit
+      const suits = [
+        { label: "♣", value: 0, color: "#4db6ac" },
+        { label: "♦", value: 1, color: "#e57373" },
+        { label: "♥", value: 2, color: "#ba68c8" },
+        { label: "♠", value: 3, color: "#64b5f6" },
+      ];
+      return (
+        <div className="action-row belote-controls">
+          <span className="muted" style={{ marginRight: 8 }}>{t("game.chooseTrump")} :</span>
+          {suits.map((suit) => (
+            <button
+              key={suit.value}
+              className="action-check"
+              disabled={!enabled}
+              onClick={() => {
+                playSound("choose_trump");
+                onAction("choose_trump", { suit: suit.value });
+              }}
+              style={{ color: suit.color }}
+            >
+              {suit.label}
+            </button>
+          ))}
+          <button
+            className="action-fold"
+            disabled={!enabled}
+            onClick={() => {
+              playSound("pass");
+              onAction("pass");
+            }}
+          >
+            {t("game.pass")}
+          </button>
+        </div>
+      );
+    }
+    if (phase === "all_passed") {
+      return (
+        <div className="action-row belote-controls">
+          <span className="muted">{t("game.allPassed")} — {t("game.redeal")}</span>
+        </div>
+      );
+    }
+    // Playing phase
+    const beloteAnnounced = Array.isArray(state?.belote_announced)
+      ? (state?.belote_announced as boolean[])
+      : [];
+    const myPlayerIndex = (statePlayers || []).findIndex((p) => String(p.id || "") === userId);
+    const canAnnounceBelote = myPlayerIndex >= 0 && !beloteAnnounced[myPlayerIndex];
     return (
       <div className="action-row belote-controls">
+        {canAnnounceBelote && (
+          <button
+            className="action-bet"
+            disabled={!enabled}
+            onClick={() => {
+              playSound("announce_belote");
+              onAction("announce_belote");
+            }}
+          >
+            {t("game.announceBelote")}
+          </button>
+        )}
         {hand.length > 0 ? (
           hand.map((card) => (
             <button
               className="action-check"
               disabled={!enabled}
               key={`${card.suit}-${card.rank}`}
-              onClick={() => onAction("play_card", { card })}
+              onClick={() => {
+                playSound("card_played");
+                onAction("play_card", { card });
+              }}
             >
               {t("game.play")} {cardView(card).value}{cardView(card).suit}
             </button>
@@ -1860,22 +2581,58 @@ function GameSpecificControls({
         )}
       </div>
     );
+  }
   return (
     <div className="action-row rami-controls">
       <button
         className="action-check"
         disabled={!enabled || hand.length > 7}
-        onClick={() => onAction("draw")}
+        onClick={() => {
+          playSound("draw");
+          onAction("draw");
+        }}
       >
         {t("game.draw")}
       </button>
+      <button
+        className="action-fold"
+        disabled={!enabled}
+        onClick={() => {
+          playSound("knock");
+          onAction("knock");
+        }}
+      >
+        {t("game.knock")}
+      </button>
+      {selectedCards && selectedCards.size > 0 && (
+        <>
+          <button
+            className="action-bet"
+            disabled={!enabled || selectedCards.size < 3}
+            onClick={() => {
+              const cards = hand.filter((c) => selectedCards.has(`${c.suit}-${c.rank}`));
+              playSound("meld");
+              onAction("meld", { cards });
+              onClearSelection?.();
+            }}
+          >
+            {t("game.meld")} ({selectedCards.size})
+          </button>
+          <button className="action-fold" onClick={() => onClearSelection?.()}>
+            {t("game.cancel")}
+          </button>
+        </>
+      )}
       {hand.length > 0 ? (
         hand.map((card) => (
           <button
             className="action-bet"
             disabled={!enabled}
             key={`${card.suit}-${card.rank}`}
-            onClick={() => onAction("discard", { card })}
+            onClick={() => {
+              playSound("discard");
+              onAction("discard", { card });
+            }}
           >
             {t("game.discardCard")} {cardView(card).value}{cardView(card).suit}
           </button>

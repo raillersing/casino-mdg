@@ -48,14 +48,21 @@ func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
 	if joined.Type != MsgState {
 		t.Fatalf("message=%+v", joined)
 	}
-	if err := conn.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "check", Sequence: 1}); err != nil {
+	// Player-2 joins at seat 2 and starts the hand
+	if _, err := manager.JoinPlayer(table.ID, "player-2", "Autre", 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.StartTable(table.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "check", Sequence: 2}); err != nil {
 		t.Fatal(err)
 	}
 	var action Message
 	if err := conn.ReadJSON(&action); err != nil {
 		t.Fatal(err)
 	}
-	if action.Type != MsgAction || action.Sequence != 2 {
+	if action.Type != MsgAction || action.Sequence != 3 {
 		t.Fatalf("message=%+v", action)
 	}
 }

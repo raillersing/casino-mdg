@@ -2,19 +2,36 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.payments.services import get_or_create_mga_account
+
 from .models import WalletTransaction
 from .services import get_or_create_player_account
 
 
 class WalletBalanceView(APIView):
     def get(self, request):
-        account = get_or_create_player_account(request.user)
+        sim_account = get_or_create_player_account(request.user)
+        mga_account = get_or_create_mga_account(request.user)
         return Response(
             {
-                "account_id": account.pk,
-                "balance": account.balance,
-                "held_balance": account.held_balance,
-                "currency": account.currency_code,
+                "account_id": sim_account.pk,
+                "balance": sim_account.balance,
+                "held_balance": sim_account.held_balance,
+                "currency": sim_account.currency_code,
+                "mga_balance": mga_account.balance,
+                "mga_held_balance": mga_account.held_balance,
+                "accounts": [
+                    {
+                        "currency": "SIM",
+                        "balance": sim_account.balance,
+                        "held_balance": sim_account.held_balance,
+                    },
+                    {
+                        "currency": "MGA",
+                        "balance": mga_account.balance,
+                        "held_balance": mga_account.held_balance,
+                    },
+                ],
             }
         )
 
@@ -28,11 +45,14 @@ class WalletTransactionsView(APIView):
             return Response(
                 {"detail": "Pagination invalide."}, status=status.HTTP_400_BAD_REQUEST
             )
-        queryset = WalletTransaction.objects.filter(user=request.user).order_by(
-            "-created_at"
-        )
+        currency_filter = request.query_params.get("currency")
+        queryset = WalletTransaction.objects.filter(user=request.user)
+        if currency_filter:
+            queryset = queryset.filter(currency_code=currency_filter.upper())
+        queryset = queryset.order_by("-created_at")
+
         total = queryset.count()
-        transactions = queryset[offset : offset + limit]  # noqa: E203
+        transactions = queryset[offset : offset + limit]
         return Response(
             {
                 "count": total,

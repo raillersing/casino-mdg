@@ -1,19 +1,21 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useGameStore } from "@stores/gameStore";
 import { trackEvent } from "@services/analytics";
 
-const RECONNECT_DELAY = 3000;
-const MAX_RECONNECT_ATTEMPTS = 5;
-const HEARTBEAT_INTERVAL = 15000;
+const BASE_RECONNECT_DELAY = 1500;
+const MAX_RECONNECT_DELAY = 12000;
+const MAX_RECONNECT_ATTEMPTS = 15;
+const HEARTBEAT_INTERVAL = 10000;
+
+export type ConnectionState = "connecting" | "connected" | "reconnecting" | "closed" | "offline";
 
 type WebSocketOptions = {
   enabled?: boolean;
   onOpen?: (socket: WebSocket) => void;
   onClose?: () => void;
   onMessage?: (event: MessageEvent<string>) => void;
-  onConnectionStateChange?: (
-    state: "connecting" | "connected" | "reconnecting" | "closed",
-  ) => void;
+  onConnectionStateChange?: (state: ConnectionState) => void;
+  onLatencyUpdate?: (latencyMs: number) => void;
 };
 
 export function useWebSocket(url: string, options: WebSocketOptions = {}) {
@@ -23,12 +25,10 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   const reconnectTimer = useRef<number | null>(null);
   const heartbeatTimer = useRef<number | null>(null);
   const heartbeatSentAt = useRef<number | null>(null);
-  const callbacks = useRef<
-    Pick<
-      WebSocketOptions,
-      "onOpen" | "onClose" | "onMessage" | "onConnectionStateChange"
-    >
-  >({});
+  const [latency, setLatency] = useState<number | null>(null);
+  const [connState, setConnState] = useState<ConnectionState>("connecting");
+
+  const callbacks = useRef<WebSocketOptions>({});
   const setReconnecting = useGameStore((state) => state.setReconnecting);
   const accessToken = useGameStore((state) => state.accessToken);
   const {
@@ -37,6 +37,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     onClose,
     onMessage,
     onConnectionStateChange,
+    onLatencyUpdate,
   } = options;
 
   callbacks.current = {
@@ -44,14 +45,23 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     onClose,
     onMessage,
     onConnectionStateChange,
+    onLatencyUpdate,
   };
 
+  const updateState = useCallback((state: ConnectionState) => {
+    setConnState(state);
+    callbacks.current.onConnectionStateChange?.(state);
+  }, []);
+
   const connect = useCallback(() => {
+    if (!navigator.onLine) {
+      updateState("offline");
+      return;
+    }
+
     closed.current = false;
     setReconnecting(true);
-    callbacks.current.onConnectionStateChange?.(
-      reconnectAttempts.current ? "reconnecting" : "connecting",
-    );
+    updateState(reconnectAttempts.current ? "reconnecting" : "connecting");
 
     const socketUrl = new URL(url, window.location.href);
     socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -66,20 +76,23 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       reconnectAttempts.current = 0;
       setReconnecting(false);
       if (wasReconnect) void trackEvent("reconnection_succeeded");
-      callbacks.current.onConnectionStateChange?.("connected");
-      if (heartbeatTimer.current !== null)
+      updateState("connected");
+
+      if (heartbeatTimer.current !== null) {
         window.clearInterval(heartbeatTimer.current);
+      }
       heartbeatTimer.current = window.setInterval(() => {
-        if (ws.current?.readyState === WebSocket.OPEN)
+        if (ws.current?.readyState === WebSocket.OPEN) {
           heartbeatSentAt.current = performance.now();
-        if (ws.current?.readyState === WebSocket.OPEN)
           ws.current.send(
             JSON.stringify({
               type: "ping",
               timestamp: new Date().toISOString(),
-            }),
+            })
           );
+        }
       }, HEARTBEAT_INTERVAL);
+
       callbacks.current.onOpen?.(socket);
     };
 
@@ -90,26 +103,28 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
         heartbeatTimer.current = null;
       }
       callbacks.current.onClose?.();
-      if (
-        !closed.current &&
-        reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
-      ) {
+
+      if (!closed.current && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts.current++;
-        callbacks.current.onConnectionStateChange?.("reconnecting");
-        if (reconnectTimer.current !== null)
+        updateState("reconnecting");
+        if (reconnectTimer.current !== null) {
           window.clearTimeout(reconnectTimer.current);
-        reconnectTimer.current = window.setTimeout(
-          connect,
-          RECONNECT_DELAY * reconnectAttempts.current,
+        }
+        // Calcul exponentiel avec gigue (jitter) pour Madagascar mobile 3G/4G
+        const expDelay = Math.min(
+          BASE_RECONNECT_DELAY * Math.pow(1.3, reconnectAttempts.current) + Math.random() * 400,
+          MAX_RECONNECT_DELAY
         );
+        reconnectTimer.current = window.setTimeout(connect, expDelay);
       } else if (closed.current) {
-        callbacks.current.onConnectionStateChange?.("closed");
+        updateState("closed");
       }
     };
 
     socket.onerror = (error) => {
-      console.error("WebSocket error:", error);
+      console.warn("WebSocket status warning:", error);
     };
+
     socket.onmessage = (event) => {
       callbacks.current.onMessage?.(event);
       try {
@@ -118,25 +133,53 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
           (message.type === "pong" || message.type === "heartbeat") &&
           heartbeatSentAt.current !== null
         ) {
-          const latencyMs = Math.round(
-            performance.now() - heartbeatSentAt.current,
-          );
+          const latencyMs = Math.round(performance.now() - heartbeatSentAt.current);
           heartbeatSentAt.current = null;
+          setLatency(latencyMs);
+          callbacks.current.onLatencyUpdate?.(latencyMs);
           void trackEvent("heartbeat_latency", {
             metadata: { latency_ms: latencyMs },
           });
         }
       } catch {
-        // Application message parsing remains owned by the page callback.
+        // Handled by consumer callbacks
       }
     };
-  }, [accessToken, setReconnecting, url]);
+  }, [accessToken, setReconnecting, updateState, url]);
 
   const send = useCallback((data: object) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify(data));
     }
   }, []);
+
+  // Gestion des événements réseau du navigateur (Online / Offline instantané)
+  useEffect(() => {
+    const handleOnline = () => {
+      if (reconnectTimer.current !== null) {
+        window.clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
+      reconnectAttempts.current = 0;
+      connect();
+    };
+
+    const handleOffline = () => {
+      updateState("offline");
+      if (reconnectTimer.current !== null) {
+        window.clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [connect, updateState]);
 
   useEffect(() => {
     if (!enabled || !url || !accessToken) return;
@@ -155,5 +198,5 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     };
   }, [accessToken, connect, enabled, url]);
 
-  return { ws, send };
+  return { ws, send, latency, connectionState: connState };
 }

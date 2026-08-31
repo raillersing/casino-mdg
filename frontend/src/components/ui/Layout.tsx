@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   CircleUserRound,
@@ -12,6 +12,8 @@ import {
   WalletCards,
   LifeBuoy,
   Sparkles,
+  X,
+  Gamepad2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
@@ -27,15 +29,16 @@ export function Layout({ children }: { children: ReactNode }) {
   const setSession = useGameStore((state) => state.setSession);
   const logout = useGameStore((state) => state.logout);
   const { i18n, t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
+
+  // Simplified nav: Home, Play (lobby), Profile
   const navItems = [
     { to: "/", label: t("nav.home"), icon: Home },
     { to: "/lobby", label: t("nav.play"), icon: Compass },
-    { to: "/clubs", label: t("nav.clubs"), icon: UsersRound },
-    { to: "/games/test", label: t("nav.testGames"), icon: Dices },
-    { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
     { to: "/profile", label: t("nav.profile"), icon: CircleUserRound },
-    { to: "/support", label: t("nav.support"), icon: LifeBuoy },
   ];
   const language = i18n.language.startsWith("mg") ? "MG" : "FR";
 
@@ -72,6 +75,13 @@ export function Layout({ children }: { children: ReactNode }) {
           .catch(() => logout());
       });
   }, [accessToken, logout, refreshToken, setSession, setUser, user]);
+
+  const isGamePage = location.pathname.startsWith("/game/");
+  const fabGames = [
+    { id: "poker", name: t("games.poker"), icon: "♠", color: "#d3b06b" },
+    { id: "belote", name: t("games.belote"), icon: "♥", color: "#e57373" },
+    { id: "rami", name: t("games.rami"), icon: "♦", color: "#64b5f6" },
+  ];
 
   return (
     <div className="app-shell">
@@ -145,22 +155,15 @@ export function Layout({ children }: { children: ReactNode }) {
             <span className="brand-mark">♠</span>
             <strong>MDG</strong>
           </div>
-          <div className="breadcrumbs">
-            <span>MDG Game Club</span>
-            <span className="slash">/</span>
-            <span className="current">
-              {location.pathname === "/lobby"
-                ? t("nav.lobby")
-                : location.pathname === "/wallet"
-                  ? t("nav.wallet")
-                  : location.pathname === "/profile"
-                    ? t("nav.profile")
-                    : location.pathname === "/games/test"
-                      ? t("testGames.breadcrumb")
-                      : location.pathname.startsWith("/play/")
-                        ? t("nav.play")
-                        : t("nav.home")}
-            </span>
+          <div className="topbar-balance">
+            {user ? (
+              <Link to="/wallet" className="balance-pill">
+                <WalletCards size={14} />
+                <span>{user.balance.toLocaleString()} Ar</span>
+              </Link>
+            ) : (
+              <span className="balance-pill muted">MDG Game Club</span>
+            )}
           </div>
           <div className="topbar-actions">
             <button
@@ -206,6 +209,64 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main className="content">{children}</main>
+
+        {/* Floating Action Button (FAB) — visible on all pages except game */}
+        {!isGamePage && (
+          <div className="fab-container">
+            {fabOpen && (
+              <div className="fab-menu">
+                <button className="fab-close" onClick={() => setFabOpen(false)}>
+                  <X size={18} />
+                </button>
+                {fabGames.map((game) => (
+                  <button
+                    key={game.id}
+                    className="fab-game-btn"
+                    onClick={() => {
+                      setFabOpen(false);
+                      navigate(`/lobby?filter=${game.id}`);
+                    }}
+                  >
+                    <span className="fab-game-icon" style={{ color: game.color }}>
+                      {game.icon}
+                    </span>
+                    <span className="fab-game-label">{game.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              className={`fab-main ${fabOpen ? "active" : ""}`}
+              onClick={() => setFabOpen((open) => !open)}
+              aria-label={t("nav.play")}
+            >
+              <Gamepad2 size={22} />
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Navigation Bar (mobile) */}
+        <nav className="bottom-nav" aria-label={t("a11y.primaryNavigation")}>
+          {navItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) => (isActive ? "active" : "")}
+            >
+              <Icon size={20} />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+          <button
+            className="bottom-nav-more"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <Menu size={20} />
+            <span>{t("nav.more")}</span>
+          </button>
+        </nav>
+
         {mobileMenuOpen && (
           <button
             type="button"
@@ -219,7 +280,13 @@ export function Layout({ children }: { children: ReactNode }) {
           className={`mobile-nav ${mobileMenuOpen ? "open" : ""}`}
           aria-label={t("a11y.primaryNavigation")}
         >
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {[
+            ...navItems,
+            { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
+            { to: "/clubs", label: t("nav.clubs"), icon: UsersRound },
+            { to: "/games/test", label: t("nav.testGames"), icon: Dices },
+            { to: "/support", label: t("nav.support"), icon: LifeBuoy },
+          ].map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}

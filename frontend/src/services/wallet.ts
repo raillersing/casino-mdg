@@ -1,9 +1,19 @@
+export type WalletAccount = {
+  currency: string;
+  balance: number;
+  held_balance: number;
+};
+
 export type WalletBalance = {
   account_id: number;
   balance: number;
   held_balance: number;
   currency: string;
+  mga_balance: number;
+  mga_held_balance: number;
+  accounts?: WalletAccount[];
 };
+
 export type WalletTransaction = {
   id: string;
   type: string;
@@ -14,6 +24,7 @@ export type WalletTransaction = {
   description: string;
   created_at: string;
 };
+
 export type WalletTransactionDetail = WalletTransaction & {
   transaction_code: string;
   metadata: Record<string, unknown>;
@@ -31,23 +42,21 @@ async function get<T>(path: string, accessToken: string): Promise<T> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok)
+  if (!response.ok) {
     throw new Error(payload.detail || "Impossible de charger le portefeuille.");
+  }
   return payload as T;
 }
 
 export function getWalletBalance(accessToken: string) {
   return get<WalletBalance>("balance/", accessToken);
 }
-export function getWalletTransactions(accessToken: string) {
-  return get<{ results: WalletTransaction[] }>("transactions/", accessToken);
+
+export function getWalletTransactions(accessToken: string, currency?: string) {
+  const query = currency ? `?currency=${currency}` : "";
+  return get<{ results: WalletTransaction[]; count: number }>(`transactions/${query}`, accessToken);
 }
-export function getWalletTransaction(
-  accessToken: string,
-  transactionId: string,
-) {
-  return get<WalletTransactionDetail>(
-    `transactions/${transactionId}/`,
-    accessToken,
-  );
+
+export function getWalletTransaction(accessToken: string, transactionId: string) {
+  return get<WalletTransactionDetail>(`transactions/${transactionId}/`, accessToken);
 }

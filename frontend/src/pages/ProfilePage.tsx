@@ -4,15 +4,26 @@ import {
   Award,
   Bell,
   ChevronRight,
+  Dices,
   Edit3,
+  HeartHandshake,
+  LifeBuoy,
   LogOut,
   ShieldCheck,
   Trophy,
   UserRound,
+  UsersRound,
+  WalletCards,
 } from "lucide-react";
 import { getGameStats, getLeaderboard, type GameStats } from "@services/games";
 import { useGameStore } from "@stores/gameStore";
 import { getKYCStatus, type KYCStatus } from "@services/kyc";
+import { KYCModal } from "@components/KYCModal";
+import {
+  getResponsibleGamingStatus,
+  type ResponsibleGamingProfile,
+} from "@services/responsibleGaming";
+import { ResponsibleGamingModal } from "@components/ResponsibleGamingModal";
 import { useTranslation } from "react-i18next";
 import {
   claimDailyMission,
@@ -40,11 +51,28 @@ export function ProfilePage() {
   });
   const [rank, setRank] = useState<number | null>(null);
   const [kyc, setKyc] = useState<KYCStatus | null>(null);
+  const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+  const [rgProfile, setRgProfile] = useState<ResponsibleGamingProfile | null>(null);
+  const [isRgModalOpen, setIsRgModalOpen] = useState(false);
   const [missions, setMissions] = useState<DailyMission[]>([]);
   const [missionError, setMissionError] = useState("");
   const [notificationPreferences, setNotificationPreferences] =
     useState<NotificationPreferences | null>(null);
   const [notificationError, setNotificationError] = useState("");
+
+  const reloadKycStatus = () => {
+    if (!accessToken) return;
+    getKYCStatus(accessToken)
+      .then(setKyc)
+      .catch(() => undefined);
+  };
+
+  const reloadRgStatus = () => {
+    if (!accessToken) return;
+    getResponsibleGamingStatus(accessToken)
+      .then(setRgProfile)
+      .catch(() => undefined);
+  };
 
   useEffect(() => {
     if (!accessToken) return;
@@ -61,6 +89,9 @@ export function ProfilePage() {
       .catch(() => undefined);
     getKYCStatus(accessToken)
       .then(setKyc)
+      .catch(() => undefined);
+    getResponsibleGamingStatus(accessToken)
+      .then(setRgProfile)
       .catch(() => undefined);
     getDailyMissions(accessToken)
       .then((payload) => setMissions(payload.missions))
@@ -121,6 +152,28 @@ export function ProfilePage() {
         <button className="button button-outline edit-button">
           <Edit3 size={15} /> {t("profile.edit")}
         </button>
+      </div>
+      <div className="profile-quick-links">
+        <Link to="/wallet" className="quick-link-card">
+          <WalletCards size={20} />
+          <span>{t("nav.wallet")}</span>
+          <ChevronRight size={16} />
+        </Link>
+        <Link to="/support" className="quick-link-card">
+          <LifeBuoy size={20} />
+          <span>{t("nav.support")}</span>
+          <ChevronRight size={16} />
+        </Link>
+        <Link to="/clubs" className="quick-link-card">
+          <UsersRound size={20} />
+          <span>{t("nav.clubs")}</span>
+          <ChevronRight size={16} />
+        </Link>
+        <Link to="/games/test" className="quick-link-card">
+          <Dices size={20} />
+          <span>{t("nav.testGames")}</span>
+          <ChevronRight size={16} />
+        </Link>
       </div>
       {user?.isStaff && (
         <section className="activity-card staff-access-card">
@@ -196,28 +249,60 @@ export function ProfilePage() {
             <div>
               <span className="eyebrow">{t("profile.compliance")}</span>
               <h2>
-                {t("profile.kycLevel")} <small>{kyc?.level || "…"}</small>
+                {t("profile.kycLevel")} <small>{kyc?.level.toUpperCase() || "…"}</small>
               </h2>
             </div>
             <ShieldCheck size={19} />
           </div>
           <div className="settings-list">
-            <div>
+            <div
+              onClick={() => setIsKycModalOpen(true)}
+              style={{ cursor: "pointer" }}
+              role="button"
+              tabIndex={0}
+            >
               <span className="setting-icon">
-                <ShieldCheck size={17} />
+                <ShieldCheck size={17} color={kyc?.level === "verified" || kyc?.level === "vip" ? "var(--green)" : "var(--gold)"} />
               </span>
               <div>
                 <strong>
                   {kyc?.request
                     ? t("profile.request", { status: kyc.request.status })
-                    : t("profile.noRequest")}
+                    : "Vérifier mon identité & plafonds"}
                 </strong>
                 <span>
-                  {t("profile.documentsDisabled", {
-                    limit: kyc
-                      ? kyc.limits_mga.deposit.toLocaleString("fr-FR")
-                      : "…",
-                  })}
+                  {kyc?.request?.status === "pending"
+                    ? "Demande en cours d'examen par le service conformité."
+                    : kyc?.request?.status === "approved"
+                    ? `Niveau vérifié · Plafond : ${kyc.limits_mga.deposit.toLocaleString("fr-FR")} Ar`
+                    : `Plafond actuel : ${kyc ? kyc.limits_mga.deposit.toLocaleString("fr-FR") : "…"} Ar · Téléverser mes documents`}
+                </span>
+              </div>
+              <ChevronRight size={17} />
+            </div>
+            <div
+              onClick={() => setIsRgModalOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setIsRgModalOpen(true);
+                }
+              }}
+              style={{ cursor: "pointer" }}
+              role="button"
+              tabIndex={0}
+            >
+              <span className="setting-icon">
+                <HeartHandshake size={17} color={rgProfile?.is_blocked ? "var(--red)" : "var(--gold)"} />
+              </span>
+              <div>
+                <strong>Jeu Responsable & Limites</strong>
+                <span>
+                  {rgProfile?.is_blocked
+                    ? "Compte actuellement en pause ou auto-exclu"
+                    : rgProfile?.daily_deposit_limit
+                    ? `Plafond journalier : ${rgProfile.daily_deposit_limit.toLocaleString("fr-FR")} Ar · Modifier`
+                    : "Plafonds personnels, pause temporaire & auto-exclusion"}
                 </span>
               </div>
               <ChevronRight size={17} />
@@ -346,6 +431,22 @@ export function ProfilePage() {
           </button>
         </aside>
       </div>
+
+      <KYCModal
+        isOpen={isKycModalOpen}
+        onClose={() => setIsKycModalOpen(false)}
+        kycStatus={kyc}
+        token={accessToken}
+        onStatusUpdated={reloadKycStatus}
+      />
+
+      <ResponsibleGamingModal
+        isOpen={isRgModalOpen}
+        onClose={() => setIsRgModalOpen(false)}
+        token={accessToken}
+        profile={rgProfile}
+        onProfileUpdated={reloadRgStatus}
+      />
     </div>
   );
 }

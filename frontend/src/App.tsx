@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "@components/ui/Layout";
 import { HomePage } from "@pages/HomePage";
 import { LobbyPage } from "@pages/LobbyPage";
@@ -20,6 +20,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/lobby/:gameType" element={<LobbyPage />} />
         <Route path="/play/:gameType" element={<PlayHubPage />} />
         <Route path="/game/:gameType/:tableId" element={<GamePage />} />
         <Route path="/wallet" element={<WalletPage />} />
@@ -28,6 +29,8 @@ function App() {
         <Route path="/backoffice" element={<BackofficePage />} />
         <Route path="/games/test" element={<TestGamesPage />} />
         <Route path="/clubs" element={<ClubsPage />} />
+        {/* Redirect old play hub route to lobby */}
+        <Route path="/play" element={<Navigate to="/lobby" replace />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>

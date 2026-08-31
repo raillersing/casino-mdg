@@ -17,7 +17,8 @@
     "testGames": "Lalao kisendrasendra",
     "clubs": "Kluby",
     "login": "Miditra",
-    "logout": "Mivoaka"
+    "logout": "Mivoaka",
+    "more": "Bebe kokoa"
   },
   "humanOnline": "Mpilalao tena izy {{count}} azo alaina",
   "findHuman": "Mitady mpilalao tena izy",
@@ -145,7 +146,8 @@
     "reconnecting": "Miverina mifandray…",
     "watch": "Jereo ny latabatra",
     "privateHint": "Hiseho eto ny latabatra manokana rehefa manasa anao ny namanao.",
-    "testGames": "Lalao kisendrasendra"
+    "testGames": "Lalao kisendrasendra",
+    "spectate": "Hijery"
   },
   "wallet": {
     "balance": "Vola",
@@ -283,7 +285,24 @@
     "discard": "Karatra nariana",
     "play": "Milalao",
     "draw": "Misintona",
-    "discardCard": "Manary"
+    "discardCard": "Manary",
+    "bidding": "Fitakiana",
+    "proposedTrump": "Atout nataon'ny mpiantso",
+    "bidder": "Mpiantso",
+    "take": "Gisolo",
+    "pass": "Aleo",
+    "allPassed": "Naleon'ny rehetra",
+    "redeal": "Mizara indray",
+    "knock": "Knock",
+    "gin": "Gin",
+    "meld": "Apetraka",
+    "cancel": "Aoka ihany",
+    "gameOver": "Vita ny lalao",
+    "wins": "nandresy",
+    "secondTour": "Fidihana faharoa",
+    "chooseTrump": "Safidio ny atout",
+    "announceBelote": "Ampahafantaro ny Belote",
+    "reconnecting": "Mampifandray indray..."
   },
   "testGames": {
     "breadcrumb": "Lalao kisendrasendra",
@@ -408,7 +427,8 @@
     "cancel": "Aoka",
     "submit": "Mamorona efitra",
     "creating": "Mamorona…",
-    "close": "Hidio"
+    "close": "Hidio",
+    "defaultName": "Latabatra manokana"
   },
   "promo": {
     "title": "Milalaova miaraka amin'ny namanao.",
@@ -491,7 +511,10 @@
     "missionClaim": "Raiso",
     "missionClaimed": "Voaray",
     "missionProgress": "{{progress}} / {{goal}} · +{{reward}} jetons",
-    "missionError": "Tsy azo ny valisoa"
+    "missionError": "Tsy azo ny valisoa",
+    "notifications": "Fampandrenesana",
+    "notificationSettings": "Fikirana fampandrenesana",
+    "notificationsError": "Tsy nahomby ny fanavaozana ny fampandrenesana."
   },
   "support": {
     "title": "Mila fanampiana?",

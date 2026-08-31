@@ -17,7 +17,8 @@
     "testGames": "Jeux de hasard",
     "clubs": "Clubs",
     "login": "Connexion",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "more": "Plus"
   },
   "humanOnline": "{{count}} joueur(s) humain(s) disponible(s)",
   "findHuman": "Trouver des humains",
@@ -295,9 +296,26 @@
     "trick": "Pli",
     "activePlayer": "Joueur actif",
     "discard": "Défausse",
+    "take": "Prendre",
+    "pass": "Passer",
     "play": "Jouer",
+    "bidding": "Enchères",
+    "proposedTrump": "Atout proposé",
+    "allPassed": "Tout le monde a passé",
+    "redeal": "Redistribution",
+    "gameOver": "Partie terminée",
+    "wins": "gagne",
+    "secondTour": "2ème tour",
+    "chooseTrump": "Choisir l'atout",
+    "announceBelote": "Annoncer Belote",
+    "knock": "Knock",
+    "gin": "Gin",
     "draw": "Piocher",
-    "discardCard": "Défausser"
+    "discardCard": "Défausser",
+    "bidder": "Preneur",
+    "meld": "Poser",
+    "cancel": "Annuler",
+    "reconnecting": "Reconnexion en cours..."
   },
   "testGames": {
     "breadcrumb": "Jeux de hasard",
@@ -422,7 +440,8 @@
     "cancel": "Annuler",
     "submit": "Créer la salle",
     "creating": "Création…",
-    "close": "Fermer"
+    "close": "Fermer",
+    "defaultName": "Table Privée"
   },
   "promo": {
     "title": "Jouez avec vos proches.",
@@ -453,7 +472,20 @@
       "owner": "Fondateur",
       "admin": "Administrateur",
       "member": "Membre"
-    }
+    },
+    "manage": "Gérer",
+    "createTable": "Créer une table de club",
+    "events": "Événements",
+    "eventHistory": "Historique des événements",
+    "completed": "Terminé",
+    "leaderboard": "Classement du club",
+    "register": "S'inscrire",
+    "registered": "Inscrit",
+    "complete": "Clôturer",
+    "members": "Membres",
+    "promote": "Promouvoir",
+    "demote": "Rétrograder",
+    "remove": "Retirer"
   },
   "profile": {
     "level": "Joueur niveau {{level}}",
@@ -492,7 +524,10 @@
     "missionClaim": "Réclamer",
     "missionClaimed": "Réclamée",
     "missionProgress": "{{progress}} / {{goal}} · +{{reward}} jetons",
-    "missionError": "Récompense indisponible"
+    "missionError": "Récompense indisponible",
+    "notifications": "Notifications",
+    "notificationSettings": "Paramètres des alertes",
+    "notificationsError": "Impossible de mettre à jour les notifications."
   },
   "support": {
     "title": "Besoin d’aide ?",

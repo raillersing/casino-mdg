@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Bot,
@@ -10,10 +10,13 @@ import {
   Sparkles,
   Trophy,
   Users,
+  Zap,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { trackEvent } from "@services/analytics";
 import { useGameStore } from "@stores/gameStore";
+import { startBotSimulation } from "@services/games";
+import { createGuestToken } from "@services/auth";
 
 const games = [
   {
@@ -44,12 +47,81 @@ const games = [
 
 export function HomePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const isGuest = useGameStore((state) => state.isGuest);
   const accessToken = useGameStore((state) => state.accessToken);
+  const guestName = useGameStore((state) => state.guestName);
+  const setGuestMode = useGameStore((state) => state.setGuestMode);
+  const setSession = useGameStore((state) => state.setSession);
+  const [startingDemo, setStartingDemo] = useState<string | null>(null);
+  const [demoError, setDemoError] = useState("");
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestInput, setGuestInput] = useState("");
+  const [pendingGameId, setPendingGameId] = useState<string | null>(null);
 
   useEffect(() => {
     void trackEvent("activation_viewed", { metadata: { source: "home" } });
   }, []);
+
+  const handleGuestSubmit = async () => {
+    const name = guestInput.trim() || "Invité";
+    setGuestMode(name, 10000);
+    setShowGuestModal(false);
+    // Retry the demo launch
+    if (pendingGameId) {
+      await launchDemo(pendingGameId);
+      setPendingGameId(null);
+    }
+  };
+
+  const launchDemo = async (gameId: string) => {
+    setDemoError("");
+    if (!accessToken && !isGuest) {
+      setShowGuestModal(true);
+      setPendingGameId(gameId);
+      return;
+    }
+    setStartingDemo(gameId);
+    let token = accessToken;
+    if (!token && isGuest) {
+      try {
+        const auth = await createGuestToken(guestName || "Invité");
+        setSession(auth.access, auth.refresh);
+        setGuestMode(auth.user.display_name, auth.wallet.balance);
+        token = auth.access;
+      } catch {
+        // fallback: try with local guest mode anyway
+      }
+    }
+    if (!token) {
+      setDemoError(t("app.error"));
+      setStartingDemo(null);
+      return;
+    }
+    const idempotencyKey = `home-${gameId}-${Date.now()}`;
+    try {
+      const session = await startBotSimulation(
+        token,
+        gameId as "poker" | "belote" | "rami",
+        "balanced",
+        idempotencyKey,
+      );
+      void trackEvent("bot_simulation_started", {
+        mode: "demo",
+        game_type: gameId,
+        metadata: { source: "home_card" },
+      });
+      navigate(
+        `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}`,
+      );
+    } catch (err) {
+      console.error("Demo launch failed:", err);
+      setDemoError(
+        err instanceof Error ? err.message : t("simulationUnavailable"),
+      );
+      setStartingDemo(null);
+    }
+  };
 
   return (
     <div className="page-stack home-page">
@@ -107,10 +179,14 @@ export function HomePage() {
             <p className="section-lede">{t("home.chooseBlurb")}</p>
           </div>
         </div>
+        {demoError && (
+          <div className="error-banner" style={{ marginBottom: "0.75rem" }}>
+            {demoError}
+          </div>
+        )}
         <div className="game-grid">
           {games.map((game) => (
-            <Link
-              to={`/play/${game.id}`}
+            <div
               className={`game-card game-card-large`}
               key={game.id}
               style={{ borderTop: `3px solid ${game.accent}` }}
@@ -128,14 +204,24 @@ export function HomePage() {
                   <h3>{t(game.name)}</h3>
                   <p>{t(game.meta)}</p>
                 </div>
-                <span
-                  className="circle-arrow"
-                  style={{ background: `${game.accent}22`, color: game.accent }}
-                >
-                  <ArrowRight size={17} />
-                </span>
               </div>
-            </Link>
+              <div className="game-card-actions">
+                <button
+                  className="button button-small"
+                  disabled={startingDemo === game.id}
+                  onClick={() => launchDemo(game.id)}
+                >
+                  <Bot size={13} />{" "}
+                  {startingDemo === game.id ? t("startingSimulation") : t("hub.practice")}
+                </button>
+                <Link
+                  to={`/lobby?filter=${game.id}`}
+                  className="button button-gold button-small"
+                >
+                  <Zap size={13} /> {t("home.playNow")}
+                </Link>
+              </div>
+            </div>
           ))}
         </div>
       </section>
@@ -275,6 +361,36 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Guest name modal */}
+      {showGuestModal && (
+        <div className="guest-name-modal" role="dialog" aria-modal="true" onClick={() => setShowGuestModal(false)}>
+          <div className="guest-name-card" onClick={(e) => e.stopPropagation()}>
+            <span className="eyebrow">{t("hub.guestMode")}</span>
+            <h2>{t("hub.enterName")}</h2>
+            <p>{t("hub.guestBlurb")}</p>
+            <input
+              autoFocus
+              type="text"
+              placeholder={t("hub.namePlaceholder")}
+              value={guestInput}
+              onChange={(e) => setGuestInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleGuestSubmit();
+              }}
+              maxLength={20}
+            />
+            <div className="guest-name-actions">
+              <button className="button button-outline" onClick={() => setShowGuestModal(false)}>
+                {t("hub.cancel")}
+              </button>
+              <button className="button button-gold" onClick={() => void handleGuestSubmit()}>
+                {t("hub.playNow")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

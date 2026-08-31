@@ -302,3 +302,30 @@ export function updatePilotIncidentStatus(
     return payload as { id: number; status: string };
   });
 }
+
+export type RGExclusionItem = {
+  id: number;
+  user: {
+    id: string;
+    phone: string;
+    display_name: string;
+    email: string;
+  };
+  is_active_cooling_off: boolean;
+  cooling_off_until: string | null;
+  is_active_self_exclusion: boolean;
+  is_permanently_excluded: boolean;
+  self_exclusion_until: string | null;
+  reason: string;
+  updated_at: string;
+};
+
+export function getResponsibleGamingExclusions(token: string) {
+  return fetch("/api/v1/responsible-gaming/backoffice/exclusions/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(async (res) => {
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.detail || "Impossible de charger les exclusions.");
+    return payload as { results: RGExclusionItem[]; count: number };
+  });
+}

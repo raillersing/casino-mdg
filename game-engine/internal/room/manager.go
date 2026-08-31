@@ -38,6 +38,9 @@ type Table struct {
 	PokerBigBlind    int64
 	BotTilt          map[string]int // hands remaining in tilt per bot ID
 	BotRecentStrength map[string]int // last showdown strength for tilt calculation
+	// Belote multi-round state
+	BeloteTeamScores  [2]int
+	BeloteTargetScore int
 	mu               sync.RWMutex
 }
 
@@ -158,6 +161,42 @@ func (m *Manager) ListTables() map[string]*Table {
 		}
 	}
 	return active
+}
+
+func (m *Manager) TableSequence(tableID string) uint64 {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return 0
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	return table.Sequence
+}
+
+func (m *Manager) BeloteFinished(tableID string) (bool, bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return false, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	if round, isBelote := table.State.(*belote.Round); isBelote {
+		return round.Finished(), true
+	}
+	return false, false
+}
+
+func (m *Manager) RamiFinished(tableID string) (bool, bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return false, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	if game, isRami := table.State.(*rami.Game); isRami {
+		return game.Finished, true
+	}
+	return false, false
 }
 
 func (m *Manager) Stats() Stats {
@@ -298,7 +337,7 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 		}
 			return decidePokerBotTurn(game, gamePlayer, table, profile, table.Sequence), true
 	case *belote.Round:
-		if game.Finished() || game.Current < 0 || game.Current >= len(game.Players) {
+		if game.Finished() || game.Phase == "all_passed" || game.Current < 0 || game.Current >= len(game.Players) {
 			return BotTurn{}, false
 		}
 		gamePlayer := game.Players[game.Current]
@@ -361,6 +400,11 @@ func (m *Manager) TimedOutAction(tableID string) (BotTurn, bool) {
 		if !exists || seat.IsBot || len(player.Hand) == 0 {
 			return BotTurn{}, false
 		}
+		if game.Phase == "bidding" {
+			// Auto-pass on timeout during bidding
+			return BotTurn{PlayerID: player.ID, Action: "pass", Sequence: table.Sequence}, true
+		}
+		// Playing phase — play first legal card
 		card := player.Hand[0]
 		for _, candidate := range player.Hand {
 			if game.LeadSuit < 0 || candidate.Suit == game.LeadSuit || !hasBeloteSuit(player.Hand, game.LeadSuit) {
@@ -643,18 +687,12 @@ func decidePokerBotTurn(game *poker.Hand, player *poker.Player, table *Table, pr
 	// ---------- FISH (loose-passif) ----------
 	if profile == "fish" {
 		if toCall == 0 {
-			if strength >= 70 && player.Stack >= game.BigBlind {
+			if strength >= 70 && player.Stack >= game.BigBlind && game.BigBlind > 0 {
 				amount := botBetSize("fish", game, game.BigBlind, strength)
 				if amount > player.Stack {
 					amount = player.Stack
 				}
 				return BotTurn{PlayerID: player.ID, Action: "bet", Payload: map[string]interface{}{"amount": amount}, Sequence: sequence, Profile: profile}
-			}
-			if len(game.Community) == 0 && rand.Float64() < 0.70 {
-				// Limp preflop
-				if game.BigBlind <= player.Stack {
-					return BotTurn{PlayerID: player.ID, Action: "call", Payload: map[string]interface{}{"amount": game.BigBlind}, Sequence: sequence, Profile: profile}
-				}
 			}
 			return BotTurn{PlayerID: player.ID, Action: "check", Sequence: sequence, Profile: profile}
 		}
@@ -862,9 +900,65 @@ func hasBeloteSuit(hand []belote.Card, suit int) bool {
 }
 
 func decideBeloteBotTurn(game *belote.Round, player *belote.Player, sequence uint64) BotTurn {
+	// Bidding phase: decide whether to take or pass
+	if game.Phase == "bidding" {
+		if game.BiddingRound == 1 {
+			trumpCount := 0
+			trumpStrength := 0
+			for _, card := range player.Hand {
+				if card.Suit == game.ProposedTrump {
+					trumpCount++
+					trumpStrength += beloteCardStrength(card, game.ProposedTrump)
+				}
+			}
+			// Take if we have 3+ trump cards or 2+ with decent strength
+			shouldTake := trumpCount >= 3 || (trumpCount >= 2 && trumpStrength >= 35)
+			if shouldTake {
+				return BotTurn{PlayerID: player.ID, Action: "take", Sequence: sequence}
+			}
+			return BotTurn{PlayerID: player.ID, Action: "pass", Sequence: sequence}
+		}
+		// Second bidding round: choose any suit (except proposed) or pass
+		bestSuit := -1
+		bestStrength := 0
+		for suit := 0; suit < 4; suit++ {
+			if suit == game.ProposedTrump {
+				continue
+			}
+			count := 0
+			strength := 0
+			for _, card := range player.Hand {
+				if card.Suit == suit {
+					count++
+					strength += beloteCardStrength(card, suit)
+				}
+			}
+			if count >= 3 && strength > bestStrength {
+				bestSuit = suit
+				bestStrength = strength
+			}
+		}
+		if bestSuit >= 0 {
+			return BotTurn{PlayerID: player.ID, Action: "choose_trump", Payload: map[string]interface{}{"suit": bestSuit}, Sequence: sequence}
+		}
+		return BotTurn{PlayerID: player.ID, Action: "pass", Sequence: sequence}
+	}
+
+	// Playing phase — respect belote obligations
+	// First, check if we should announce belote
+	if game.HasBelote(playerIndexInRound(game, player.ID)) {
+		return BotTurn{PlayerID: player.ID, Action: "announce_belote", Sequence: sequence}
+	}
+
 	legal := make([]belote.Card, 0, len(player.Hand))
 	for _, card := range player.Hand {
 		if game.LeadSuit < 0 || card.Suit == game.LeadSuit || !hasBeloteSuit(player.Hand, game.LeadSuit) {
+			// Additional check: if we cannot follow and have trump, we must play trump (cut)
+			if game.LeadSuit >= 0 && card.Suit != game.LeadSuit && !hasBeloteSuit(player.Hand, game.LeadSuit) {
+				if game.Trump >= 0 && hasBeloteSuit(player.Hand, game.Trump) && card.Suit != game.Trump {
+					continue // must cut with trump
+				}
+			}
 			legal = append(legal, card)
 		}
 	}
@@ -898,6 +992,15 @@ func decideBeloteBotTurn(game *belote.Round, player *belote.Player, sequence uin
 		}
 	}
 	return BotTurn{PlayerID: player.ID, Action: "play_card", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": chosen.Suit, "rank": chosen.Rank}}, Sequence: sequence}
+}
+
+func playerIndexInRound(game *belote.Round, playerID string) int {
+	for i, p := range game.Players {
+		if p.ID == playerID {
+			return i
+		}
+	}
+	return -1
 }
 
 func beloteCardStrength(card belote.Card, trump int) int {
@@ -953,6 +1056,14 @@ func beloteBeatsCard(candidate, current belote.Card, leadSuit, trump int) bool {
 }
 
 func decideRamiBotTurn(player *rami.Player, sequence uint64) BotTurn {
+	// If deadwood is low enough, knock
+	deadwood := 0
+	for _, card := range player.Hand {
+		deadwood += card.Rank
+	}
+	if deadwood <= 10 {
+		return BotTurn{PlayerID: player.ID, Action: "knock", Sequence: sequence}
+	}
 	// Discard the card that is least likely to form a meld
 	if len(player.Hand) == 0 {
 		return BotTurn{PlayerID: player.ID, Action: "discard", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": 0, "rank": 1}}, Sequence: sequence}
@@ -1020,6 +1131,17 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 				return Event{}, false, err
 			}
 		} else if table.GameType == "belote" {
+			// Cumulate previous round scores before resetting
+			if round, ok := table.State.(*belote.Round); ok {
+				table.BeloteTeamScores[0] += round.TeamPoints[0]
+				table.BeloteTeamScores[1] += round.TeamPoints[1]
+			}
+			if table.BeloteTargetScore == 0 {
+				table.BeloteTargetScore = 501
+			}
+			if table.BeloteTeamScores[0] >= table.BeloteTargetScore || table.BeloteTeamScores[1] >= table.BeloteTargetScore {
+				return Event{}, false, fmt.Errorf("game_over")
+			}
 			if err := initializeBeloteRound(table); err != nil {
 				return Event{}, false, err
 			}
@@ -1506,6 +1628,7 @@ func initializeBeloteRound(table *Table) error {
 	if err != nil {
 		return err
 	}
+	round.CumulativeScores = table.BeloteTeamScores
 	table.State = round
 	return nil
 }
@@ -1562,6 +1685,8 @@ func applyPokerAction(table *Table, playerID, action string, payload interface{}
 			amount = int64(value)
 		case int:
 			amount = int64(value)
+		case int64:
+			amount = value
 		case string:
 			amount, _ = strconv.ParseInt(value, 10, 64)
 		}
@@ -1613,22 +1738,32 @@ func applyBeloteAction(table *Table, playerID, action string, payload interface{
 	values, _ := payload.(map[string]interface{})
 	switch action {
 	case "play_card":
-		cardValues, _ := values["card"].(map[string]interface{})
-		suit := extractInt(cardValues["suit"])
-		rank := extractInt(cardValues["rank"])
 		if round.Current != index {
 			return fmt.Errorf("not this player's turn")
 		}
+		cardValues, _ := values["card"].(map[string]interface{})
+		suit := extractInt(cardValues["suit"])
+		rank := extractInt(cardValues["rank"])
 		_, err := round.PlayCard(index, belote.Card{Suit: suit, Rank: rank})
 		return err
-	case "announce":
-		trump := extractInt(values["trump"])
-		return round.Announce(index, trump)
+	case "take":
+		if round.Current != index {
+			return fmt.Errorf("not this player's turn")
+		}
+		return round.Take(index)
 	case "pass":
 		if round.Current != index {
 			return fmt.Errorf("not this player's turn")
 		}
-		return round.Pass()
+		return round.Pass(index)
+	case "choose_trump":
+		if round.Current != index {
+			return fmt.Errorf("not this player's turn")
+		}
+		suit := extractInt(values["suit"])
+		return round.ChooseTrump(index, suit)
+	case "announce_belote":
+		return round.AnnounceBelote(index)
 	default:
 		return fmt.Errorf("invalid belote action")
 	}
@@ -1669,6 +1804,8 @@ func applyRamiAction(table *Table, playerID, action string, payload interface{})
 			}
 		}
 		return game.MeldCards(cards)
+	case "knock":
+		return game.Knock()
 	default:
 		return fmt.Errorf("invalid rami action")
 	}
@@ -1685,14 +1822,14 @@ func appendEvent(table *Table, playerID, action string, payload interface{}) Eve
 func validActionForGame(gameType, action string) bool {
 	if gameType == "belote" {
 		switch action {
-		case "play_card", "announce", "pass", "new_hand":
+		case "play_card", "pass", "take", "choose_trump", "announce_belote", "new_hand":
 			return true
 		}
 		return false
 	}
 	if gameType == "rami" {
 		switch action {
-		case "draw", "discard", "meld", "new_hand":
+		case "draw", "discard", "meld", "knock", "new_hand":
 			return true
 		}
 		return false

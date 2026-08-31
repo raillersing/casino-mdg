@@ -166,6 +166,8 @@ func TestBeloteRoomAcceptsAValidCardPlay(t *testing.T) {
 		}
 	}
 	round := table.State.(*belote.Round)
+	round.Phase = "playing"
+	round.Trump = 0
 	card := round.Players[0].Hand[0]
 	event, err := m.ApplyAction(table.ID, "b0", "play_card", 4, map[string]interface{}{"card": map[string]interface{}{"suit": float64(card.Suit), "rank": float64(card.Rank)}})
 	if err != nil || event.Sequence != 5 {
@@ -306,33 +308,37 @@ func TestBotStrengthUsesBoard(t *testing.T) {
 func TestBotVsHumanHandCompletes(t *testing.T) {
 	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: true})
 	table := m.CreateTable("poker")
-	_, _ = m.JoinBotPlayerWithProfile(table.ID, "bot", "IA", 1, "balanced")
+	_, _ = m.JoinBotPlayerWithProfile(table.ID, "bot", "IA", 1, "fish")
 	_, _ = m.JoinPlayer(table.ID, "human", "Joueur", 0)
 	if err := m.StartTable(table.ID); err != nil {
 		t.Fatal(err)
 	}
-	// Human calls the big blind (sequence 1 -> 2).
-	if _, err := m.ApplyAction(table.ID, "human", "call", 1, map[string]interface{}{}); err != nil {
+	seq := table.Sequence
+	// Human calls the big blind.
+	if _, err := m.ApplyAction(table.ID, "human", "call", seq, map[string]interface{}{}); err != nil {
 		t.Fatal(err)
 	}
-	// Bot is big blind so toCall == 0; it checks (sequence 2 -> 3).
+	seq++
+	// Bot is big blind so toCall == 0; it checks.
 	turn, ok := m.NextBotTurn(table.ID)
 	if !ok {
 		t.Fatal("expected bot turn")
 	}
-	if _, err := m.ApplyAction(table.ID, turn.PlayerID, turn.Action, 2, turn.Payload); err != nil {
+	if _, err := m.ApplyAction(table.ID, turn.PlayerID, turn.Action, seq, turn.Payload); err != nil {
 		t.Fatalf("bot preflop action %q failed: %v", turn.Action, err)
 	}
-	// Flop is dealt; postflop starts left of button, so bot acts first again (sequence 3 -> 4).
+	seq++
+	// Flop is dealt; postflop starts left of button, so bot acts first again.
 	turn, ok = m.NextBotTurn(table.ID)
 	if !ok {
 		t.Fatal("expected bot turn on flop")
 	}
-	if _, err := m.ApplyAction(table.ID, turn.PlayerID, turn.Action, 3, turn.Payload); err != nil {
+	if _, err := m.ApplyAction(table.ID, turn.PlayerID, turn.Action, seq, turn.Payload); err != nil {
 		t.Fatalf("bot flop action %q failed: %v", turn.Action, err)
 	}
-	// Human folds (sequence 4 -> 5).
-	if _, err := m.ApplyAction(table.ID, "human", "fold", 4, nil); err != nil {
+	seq++
+	// Human folds.
+	if _, err := m.ApplyAction(table.ID, "human", "fold", seq, nil); err != nil {
 		t.Fatal(err)
 	}
 	winner, _, finished := m.FinishedPokerResult(table.ID)

@@ -3,11 +3,11 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  CreditCard,
   Loader2,
+  Smartphone,
   WalletCards,
-  Zap,
   X,
+  Zap,
 } from "lucide-react";
 import { useGameStore } from "@stores/gameStore";
 import {
@@ -17,37 +17,42 @@ import {
   type WalletBalance,
   type WalletTransaction,
   type WalletTransactionDetail,
-} from "@/services/wallet";
+} from "@services/wallet";
 import {
-  createPaymentIntent,
   getPaymentIntents,
-  type PaymentIntentSummary,
+  type PaymentIntent,
 } from "@services/payments";
+import { DepositModal } from "@components/wallet/DepositModal";
+import { WithdrawalModal } from "@components/wallet/WithdrawalModal";
 
 export function WalletPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<"overview" | "history">("overview");
+  const [tab, setTab] = useState<"overview" | "history" | "intents">("overview");
+  const [currencyFilter, setCurrencyFilter] = useState<string>("");
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [intents, setIntents] = useState<PaymentIntent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [intentMessage, setIntentMessage] = useState("");
-  const [intentLoading, setIntentLoading] = useState(false);
-  const [intents, setIntents] = useState<PaymentIntentSummary[]>([]);
   const [selectedTransaction, setSelectedTransaction] =
     useState<WalletTransactionDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
-  const accessToken = useGameStore((state) => state.accessToken);
 
-  useEffect(() => {
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
+  const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false);
+
+  const accessToken = useGameStore((state) => state.accessToken);
+  const user = useGameStore((state) => state.user);
+
+  const loadWalletData = () => {
     if (!accessToken) {
       setLoading(false);
       return;
     }
     Promise.all([
       getWalletBalance(accessToken),
-      getWalletTransactions(accessToken),
+      getWalletTransactions(accessToken, currencyFilter || undefined),
       getPaymentIntents(accessToken),
     ])
       .then(([wallet, history, paymentIntents]) => {
@@ -63,34 +68,11 @@ export function WalletPage() {
         ),
       )
       .finally(() => setLoading(false));
-  }, [accessToken]);
-
-  const createSandboxIntent = async () => {
-    if (!accessToken) {
-      setIntentMessage(t("auth.login"));
-      return;
-    }
-    setIntentLoading(true);
-    setIntentMessage("");
-    try {
-      const intent = await createPaymentIntent(
-        accessToken,
-        "mvola",
-        "deposit",
-        5000,
-        `sandbox-${Date.now()}`,
-      );
-      setIntentMessage(
-        `Intent sandbox ${intent.status} — ${t("wallet.noTransactions")}`,
-      );
-    } catch (requestError) {
-      setIntentMessage(
-        requestError instanceof Error ? requestError.message : t("app.error"),
-      );
-    } finally {
-      setIntentLoading(false);
-    }
   };
+
+  useEffect(() => {
+    loadWalletData();
+  }, [accessToken, currencyFilter]);
 
   const openTransaction = async (transaction: WalletTransaction) => {
     if (!accessToken) return;
@@ -113,81 +95,160 @@ export function WalletPage() {
         <div>
           <span className="eyebrow">{t("wallet.title")}</span>
           <h1>{t("wallet.title")}</h1>
-          <p>{t("wallet.subtitle")}</p>
+          <p>Gérez vos jetons de jeu et votre solde en Ariary réel via Mobile Money.</p>
         </div>
-        <button
-          className="button button-gold"
-          onClick={() => void createSandboxIntent()}
-          disabled={intentLoading}
-        >
-          <CreditCard size={17} />{" "}
-          {intentLoading ? t("wallet.creating") : t("wallet.sandboxTest")}
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => setIsWithdrawalOpen(true)}
+            disabled={!balance || (balance.mga_balance || 0) < 1000}
+          >
+            <ArrowUpRight size={17} /> Retirer mes gains
+          </button>
+          <button
+            type="button"
+            className="button button-gold"
+            onClick={() => setIsDepositOpen(true)}
+          >
+            <Smartphone size={17} /> Déposer (Mobile Money)
+          </button>
+        </div>
       </div>
+
       <div className="wallet-layout">
         <section>
-          <div className="balance-card">
-            <div className="balance-top">
-              <span>{t("wallet.available")}</span>
-              <WalletCards size={18} />
+          {/* Cartes de soldes */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "16px" }}>
+            {/* Solde Ariary Réel */}
+            <div className="balance-card" style={{ border: "1px solid rgba(211, 176, 107, 0.4)" }}>
+              <div className="balance-top">
+                <span>Solde Réel (Ariary)</span>
+                <Smartphone size={18} color="var(--gold)" />
+              </div>
+              <strong style={{ color: "var(--gold)" }}>
+                {loading ? (
+                  <Loader2 className="spin" size={28} />
+                ) : (
+                  (balance?.mga_balance ?? 0).toLocaleString("fr-FR")
+                )}{" "}
+                <small>Ar</small>
+              </strong>
+              <div className="balance-footer">
+                <span>
+                  {balance?.mga_held_balance ? `Bloqué : ${balance.mga_held_balance.toLocaleString("fr-FR")} Ar` : "Disponible immédiatement"}
+                </span>
+                <span className="balance-up" style={{ color: "var(--gold)" }}>MGA</span>
+              </div>
             </div>
-            <strong>
-              {loading ? (
-                <Loader2 className="spin" size={28} />
-              ) : (
-                (balance?.balance ?? 0).toLocaleString("fr-FR")
-              )}{" "}
-              <small>{t("wallet.tokens")}</small>
-            </strong>
-            <div className="balance-footer">
-              <span>{t("wallet.simulation")}</span>
-              <span className="balance-up">SIM</span>
+
+            {/* Solde Simulation */}
+            <div className="balance-card">
+              <div className="balance-top">
+                <span>Jetons Simulation</span>
+                <WalletCards size={18} />
+              </div>
+              <strong>
+                {loading ? (
+                  <Loader2 className="spin" size={28} />
+                ) : (
+                  (balance?.balance ?? 0).toLocaleString("fr-FR")
+                )}{" "}
+                <small>SIM</small>
+              </strong>
+              <div className="balance-footer">
+                <span>Mode entraînement</span>
+                <span className="balance-up">SIM</span>
+              </div>
             </div>
           </div>
+
           <div className="wallet-tabs">
-            {(["overview", "history"] as const).map((item) => (
-              <button
-                className={tab === item ? "active" : ""}
-                onClick={() => setTab(item)}
-                key={item}
-              >
-                {item === "overview"
-                  ? t("wallet.overview")
-                  : t("wallet.history")}
-              </button>
-            ))}
+            <button
+              className={tab === "overview" ? "active" : ""}
+              onClick={() => setTab("overview")}
+            >
+              {t("wallet.overview")}
+            </button>
+            <button
+              className={tab === "history" ? "active" : ""}
+              onClick={() => setTab("history")}
+            >
+              Historique Grand Livre ({transactions.length})
+            </button>
+            <button
+              className={tab === "intents" ? "active" : ""}
+              onClick={() => setTab("intents")}
+            >
+              Transactions Mobile Money ({intents.length})
+            </button>
           </div>
+
           {error && <p className="auth-error">{error}</p>}
-          {intentMessage && <p className="secure-note">{intentMessage}</p>}
-          {tab === "overview" ? (
+
+          {tab === "overview" && (
             <>
               <div className="section-heading compact">
                 <div>
-                  <span className="eyebrow">{t("wallet.quickSecure")}</span>
-                  <h2>{t("wallet.ready")}</h2>
+                  <span className="eyebrow">Opérateurs partenaires</span>
+                  <h2>Paiements mobiles à Madagascar</h2>
                 </div>
               </div>
               <div className="deposit-grid">
-                <div className="wallet-info-tile">
-                  <strong>10 000</strong>
-                  <small>{t("wallet.welcomeBonus")}</small>
+                <div
+                  className="wallet-info-tile"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setIsDepositOpen(true)}
+                >
+                  <strong style={{ color: "#E5A800" }}>MVola</strong>
+                  <small>Telma · #111#</small>
                 </div>
-                <div className="wallet-info-tile">
-                  <strong>{transactions.length}</strong>
-                  <small>
-                    {transactions.length > 1
-                      ? t("wallet.transactions")
-                      : t("wallet.transaction")}
-                  </small>
+                <div
+                  className="wallet-info-tile"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setIsDepositOpen(true)}
+                >
+                  <strong style={{ color: "#FF7900" }}>Orange Money</strong>
+                  <small>Orange · #144#</small>
                 </div>
-                <div className="wallet-info-tile">
-                  <strong>{intents.length}</strong>
-                  <small>{t("wallet.sandboxIntents")}</small>
+                <div
+                  className="wallet-info-tile"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setIsDepositOpen(true)}
+                >
+                  <strong style={{ color: "#E60000" }}>Airtel Money</strong>
+                  <small>Airtel · #436#</small>
                 </div>
               </div>
             </>
-          ) : (
+          )}
+
+          {tab === "history" && (
             <>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+                <button
+                  type="button"
+                  className={`button button-sm ${currencyFilter === "" ? "button-primary" : "button-secondary"}`}
+                  onClick={() => setCurrencyFilter("")}
+                >
+                  Toutes devises
+                </button>
+                <button
+                  type="button"
+                  className={`button button-sm ${currencyFilter === "MGA" ? "button-primary" : "button-secondary"}`}
+                  onClick={() => setCurrencyFilter("MGA")}
+                >
+                  Ariary (MGA)
+                </button>
+                <button
+                  type="button"
+                  className={`button button-sm ${currencyFilter === "SIM" ? "button-primary" : "button-secondary"}`}
+                  onClick={() => setCurrencyFilter("SIM")}
+                >
+                  Simulation (SIM)
+                </button>
+              </div>
+
               <div className="activity-card">
                 {transactions.length ? (
                   transactions.map((item) => (
@@ -216,36 +277,107 @@ export function WalletPage() {
               )}
             </>
           )}
+
+          {tab === "intents" && (
+            <div className="activity-card">
+              {intents.length ? (
+                intents.map((item) => (
+                  <div
+                    key={item.id}
+                    className="activity-row"
+                    style={{ cursor: "default" }}
+                  >
+                    <span className={`activity-icon ${item.direction === "deposit" ? "positive" : ""}`}>
+                      {item.direction === "deposit" ? <ArrowDownLeft /> : <ArrowUpRight />}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <strong>
+                        {item.direction_display || item.direction} {item.provider_display || item.provider.toUpperCase()}
+                      </strong>
+                      <small style={{ display: "block", color: "var(--muted)" }}>
+                        {item.phone_number ? `${item.phone_number} · ` : ""}
+                        {new Date(item.created_at).toLocaleString("fr-FR")}
+                        {item.provider_reference ? ` · Réf : ${item.provider_reference}` : ""}
+                      </small>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <b className={item.direction === "deposit" ? "positive-text" : ""}>
+                        {item.direction === "deposit" ? "+" : "−"} {item.amount.toLocaleString("fr-FR")} {item.currency}
+                      </b>
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          color:
+                            item.status === "completed"
+                              ? "var(--green)"
+                              : item.status === "failed" || item.status === "cancelled"
+                              ? "var(--red)"
+                              : "var(--gold)",
+                        }}
+                      >
+                        {item.status_display || item.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-wallet">Aucune transaction Mobile Money.</div>
+              )}
+            </div>
+          )}
         </section>
+
         <aside className="wallet-aside">
           <div className="payment-card">
             <span className="eyebrow gold">
-              <Zap size={13} /> Sandbox
+              <Zap size={13} /> Mobile Money Réel
             </span>
-            <h3>{t("wallet.paymentJourney")}</h3>
-            <p>{t("wallet.sandboxDescription")}</p>
+            <h3>Opérations instantanées</h3>
+            <p>
+              Rechargez votre compte de jeu et retirez vos gains directement sur votre numéro Telma, Orange ou Airtel.
+            </p>
             <div className="payment-methods">
               <span>MVola</span>
               <span>Orange Money</span>
               <span>Airtel Money</span>
             </div>
             <button
-              className="button button-outline full"
-              onClick={() => void createSandboxIntent()}
-              disabled={intentLoading}
+              type="button"
+              className="button button-gold full"
+              onClick={() => setIsDepositOpen(true)}
+              style={{ marginTop: "12px" }}
             >
-              <CreditCard size={16} /> {t("wallet.createTest")}
+              <Smartphone size={16} /> Effectuer un dépôt
             </button>
           </div>
           <div className="secure-note">
             <WalletCards size={18} />
             <div>
-              <strong>{t("wallet.protected")}</strong>
-              <span>{t("wallet.privateHistory")}</span>
+              <strong>Grand livre audité & sécurisé</strong>
+              <span>Toutes les écritures comptables respectent le principe de partie double.</span>
             </div>
           </div>
         </aside>
       </div>
+
+      <DepositModal
+        isOpen={isDepositOpen}
+        onClose={() => setIsDepositOpen(false)}
+        token={accessToken}
+        defaultPhone={user?.phone}
+        onDepositSuccess={loadWalletData}
+      />
+
+      <WithdrawalModal
+        isOpen={isWithdrawalOpen}
+        onClose={() => setIsWithdrawalOpen(false)}
+        token={accessToken}
+        availableBalance={balance?.mga_balance || 0}
+        defaultPhone={user?.phone}
+        onWithdrawalSuccess={loadWalletData}
+      />
     </div>
   );
 }
@@ -259,7 +391,7 @@ function ActivityRow({
 }) {
   const positive = transaction.direction === "credit";
   return (
-    <button className="activity-row" onClick={onClick}>
+    <button type="button" className="activity-row" onClick={onClick}>
       <span className={`activity-icon ${positive ? "positive" : ""}`}>
         {positive ? <ArrowDownLeft /> : <ArrowUpRight />}
       </span>
@@ -270,7 +402,7 @@ function ActivityRow({
         </small>
       </span>
       <b className={positive ? "positive-text" : ""}>
-        {positive ? "+" : "−"} {transaction.amount.toLocaleString("fr-FR")}
+        {positive ? "+" : "−"} {transaction.amount.toLocaleString("fr-FR")} {transaction.currency}
       </b>
     </button>
   );
@@ -290,6 +422,7 @@ function TransactionDetail({
       <div className="chat-head">
         <strong>{t("wallet.details")}</strong>
         <button
+          type="button"
           className="icon-button"
           onClick={onClose}
           aria-label={t("a11y.close")}

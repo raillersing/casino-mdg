@@ -4,6 +4,7 @@ interface User {
   id: string;
   displayName: string;
   email: string;
+  phone?: string;
   avatar?: string;
   xp: number;
   level: number;
