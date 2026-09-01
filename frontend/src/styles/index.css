@@ -5422,7 +5422,7 @@ h3 {
    1. SLOT MACHINE (MACHINE À SOUS)
    ========================================================================== */
 .slot-machine-wrapper {
-  max-width: 620px;
+  max-width: 680px;
   margin: 0 auto;
   background: #111726;
   border: 2px solid #2a3449;
@@ -5430,18 +5430,64 @@ h3 {
   padding: 24px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 2px 6px rgba(255, 255, 255, 0.1);
   position: relative;
+  transition: all 0.3s ease;
+}
+
+.slot-machine-wrapper.anticipation-mode {
+  border-color: #ff9800;
+  box-shadow: 0 0 60px rgba(255, 152, 0, 0.4), inset 0 0 30px rgba(255, 152, 0, 0.2);
+  animation: anticipationPulse 0.8s infinite alternate;
+}
+
+@keyframes anticipationPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.01); }
+}
+
+.anticipation-flame-overlay {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  pointer-events: none;
+}
+
+.anticipation-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ff5722, #ff9800);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 6px 18px;
+  border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(255, 87, 34, 0.6);
+  animation: bounce 0.6s infinite alternate;
+}
+
+.flame-icon {
+  color: #ffd700;
+  animation: flameFlicker 0.2s infinite alternate;
+}
+
+@keyframes flameFlicker {
+  0% { transform: scale(0.9); }
+  100% { transform: scale(1.15); }
 }
 
 .slot-machine-header {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .slot-lights-row {
   display: flex;
   justify-content: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .slot-light {
@@ -5466,9 +5512,18 @@ h3 {
   animation: lightBlink 0.15s infinite alternate;
 }
 
+.slot-light.blink-wild {
+  animation: lightBlinkWild 0.08s infinite alternate;
+}
+
 @keyframes lightBlink {
   0% { background: #ffd700; box-shadow: 0 0 12px #ffd700; }
   100% { background: #ff4081; box-shadow: 0 0 12px #ff4081; }
+}
+
+@keyframes lightBlinkWild {
+  0% { background: #ff9800; box-shadow: 0 0 16px #ff9800; }
+  100% { background: #ffd700; box-shadow: 0 0 16px #ffd700; }
 }
 
 .slot-title-banner {
@@ -5489,24 +5544,68 @@ h3 {
   font-weight: 900;
 }
 
-.slot-jackpot-tag {
-  display: inline-block;
+.slot-header-tags {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
   margin-top: 6px;
-  padding: 4px 14px;
+  flex-wrap: wrap;
+}
+
+.slot-jackpot-tag {
+  padding: 4px 12px;
   background: rgba(218, 170, 74, 0.15);
   border: 1px solid var(--gold);
   border-radius: 20px;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 800;
   color: var(--gold);
+}
+
+.slot-paylines-tag {
+  padding: 4px 12px;
+  background: rgba(79, 110, 247, 0.15);
+  border: 1px solid rgba(79, 110, 247, 0.5);
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #93c5fd;
 }
 
 .slot-cabinet {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  margin: 18px 0;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.slot-payline-gutter {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.payline-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  transition: all 0.3s ease;
+}
+
+.payline-badge.active {
+  background: #ffd700;
+  border-color: #fff;
+  color: #000;
+  box-shadow: 0 0 12px #ffd700;
+  transform: scale(1.15);
 }
 
 .slot-reels-window {
@@ -5515,9 +5614,9 @@ h3 {
   background: #080c14;
   border: 4px solid #3b4863;
   border-radius: 16px;
-  padding: 12px;
+  padding: 8px;
   overflow: hidden;
-  height: 124px;
+  height: 256px;
   box-shadow: inset 0 8px 16px rgba(0, 0, 0, 0.9);
   transition: all 0.3s ease;
 }
@@ -5527,7 +5626,7 @@ h3 {
   top: 0;
   left: 0;
   right: 0;
-  height: 40px;
+  height: 60px;
   background: linear-gradient(to bottom, rgba(255, 255, 255, 0.08), transparent);
   pointer-events: none;
   z-index: 6;
@@ -5535,55 +5634,49 @@ h3 {
 
 .slot-reels-window.winner-glow {
   border-color: #ffd700;
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), inset 0 0 20px rgba(255, 215, 0, 0.3);
+  box-shadow: 0 0 35px rgba(255, 215, 0, 0.6), inset 0 0 20px rgba(255, 215, 0, 0.3);
 }
 
-.slot-payline-indicator {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 8px;
-  height: 24px;
-  background: #ffd700;
-  border-radius: 4px;
-  box-shadow: 0 0 10px #ffd700;
-  z-index: 5;
-}
-.slot-payline-indicator.left { left: 4px; }
-.slot-payline-indicator.right { right: 4px; }
-
-.slot-center-payline {
+.slot-center-payline.laser-active {
   position: absolute;
   top: 50%;
   left: 0;
   right: 0;
-  height: 2px;
-  background: rgba(255, 215, 0, 0.2);
+  height: 3px;
+  background: #ffd700;
+  box-shadow: 0 0 20px #ffd700, 0 0 40px #ffd700;
   transform: translateY(-50%);
-  z-index: 4;
+  z-index: 10;
   pointer-events: none;
 }
-.slot-center-payline.active {
-  background: #ffd700;
-  box-shadow: 0 0 15px #ffd700, 0 0 30px #ffd700;
-  height: 3px;
-}
 
-.slot-reels-track {
+.slot-reels-track.grid-3x3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  height: 100px;
+  gap: 10px;
+  height: 240px;
 }
 
 .slot-reel-frame {
-  height: 100px;
+  height: 240px;
   position: relative;
   overflow: hidden;
   background: #141b2b;
   border: 2px solid #232e47;
   border-radius: 12px;
   box-shadow: inset 0 6px 12px rgba(0, 0, 0, 0.7);
+  transition: all 0.25s ease;
+}
+
+.slot-reel-frame.reel-anticipation-glow {
+  border-color: #ff9800;
+  box-shadow: 0 0 25px rgba(255, 152, 0, 0.8), inset 0 0 15px rgba(255, 152, 0, 0.5);
+  animation: reelAnticipationPulse 0.4s infinite alternate;
+}
+
+@keyframes reelAnticipationPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.02); }
 }
 
 .slot-reel-strip {
@@ -5599,32 +5692,47 @@ h3 {
   filter: blur(1.5px);
 }
 
+.slot-reel-strip.reel-strip-anticipating {
+  animation: reelScrollDown 0.24s infinite linear;
+  filter: blur(2px);
+}
+
 .slot-reel-strip.reel-strip-stopped {
   transition: transform 0.65s cubic-bezier(0.12, 0.8, 0.32, 1.25);
 }
 
 @keyframes reelScrollDown {
   0% { transform: translateY(0); }
-  100% { transform: translateY(-600px); }
+  100% { transform: translateY(-480px); }
 }
 
 .slot-symbol-row {
-  height: 100px;
+  height: 80px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 2px;
+  transition: transform 0.2s ease;
+}
+
+.slot-symbol-row.symbol-win-highlight {
+  animation: symbolPulse 0.8s infinite alternate;
+}
+
+@keyframes symbolPulse {
+  0% { transform: scale(1); filter: drop-shadow(0 0 4px #ffd700); }
+  100% { transform: scale(1.12); filter: drop-shadow(0 0 16px #ffd700); }
 }
 
 .slot-symbol-emoji {
-  font-size: 2.8rem;
+  font-size: 2.2rem;
   line-height: 1;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
 }
 
 .slot-symbol-name {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--muted);
   text-align: center;
@@ -5633,7 +5741,7 @@ h3 {
 /* Slot Mechanical Lever */
 .slot-lever-container {
   width: 36px;
-  height: 140px;
+  height: 180px;
   position: relative;
   cursor: pointer;
   display: flex;
@@ -5654,7 +5762,7 @@ h3 {
 
 .slot-lever-stick {
   width: 8px;
-  height: 90px;
+  height: 120px;
   background: linear-gradient(to right, #94a3b8, #cbd5e1, #64748b);
   border-radius: 4px;
   transform-origin: bottom center;
@@ -5678,7 +5786,7 @@ h3 {
 }
 
 .slot-lever-container.pulled .slot-lever-knob {
-  top: 75px;
+  top: 100px;
 }
 
 /* Slot Controls Dashboard */
@@ -5694,22 +5802,32 @@ h3 {
   flex-wrap: wrap;
 }
 
+.slot-metrics-group {
+  display: flex;
+  gap: 16px;
+}
+
 .slot-info-box {
   display: flex;
   flex-direction: column;
 }
 
 .slot-info-title {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--muted);
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .slot-info-value {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   color: #fff;
   font-weight: 800;
+}
+
+.slot-info-value.gold {
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
 }
 
 .slot-status-message {
@@ -5727,14 +5845,30 @@ h3 {
   gap: 6px;
 }
 
+.slot-msg-anticipation {
+  color: #ff9800;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  animation: bounce 0.4s infinite alternate;
+}
+
 .slot-msg-win {
   font-weight: 800;
   color: #ffd700;
   font-size: 0.95rem;
 }
 
+.slot-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .slot-spin-big-btn {
-  padding: 12px 28px;
+  padding: 12px 26px;
   font-size: 1rem;
   font-weight: 800;
   display: inline-flex;
@@ -5742,6 +5876,14 @@ h3 {
   gap: 8px;
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(218, 170, 74, 0.35);
+}
+
+.slot-auto-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .slot-footer-bar {
@@ -5759,9 +5901,15 @@ h3 {
 }
 
 .slot-paytable-modal h4 {
-  margin: 0 0 10px;
+  margin: 0 0 4px;
   font-size: 0.88rem;
   color: var(--gold);
+}
+
+.paytable-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 12px;
 }
 
 .slot-paytable-grid {
@@ -5784,7 +5932,7 @@ h3 {
    2. LUCKY WHEEL (ROUE DE LA FORTUNE)
    ========================================================================== */
 .lucky-wheel-wrapper {
-  max-width: 580px;
+  max-width: 600px;
   margin: 0 auto;
   background: #111726;
   border: 2px solid #2a3449;
@@ -5811,11 +5959,47 @@ h3 {
   color: var(--muted);
 }
 
+.wheel-stage-container {
+  position: relative;
+  width: 330px;
+  height: 330px;
+  margin: 0 auto 24px;
+  display: grid;
+  place-items: center;
+}
+
+.wheel-chaser-ring {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.wheel-chaser-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform-origin: center center;
+  transition: all 0.08s ease;
+}
+
+.wheel-chaser-dot.lit {
+  background: #ffd700;
+  box-shadow: 0 0 8px #ffd700, 0 0 16px #ffd700;
+}
+
+.wheel-chaser-dot.dim {
+  background: #334155;
+}
+
 .wheel-stage {
   position: relative;
   width: 300px;
   height: 300px;
-  margin: 0 auto 24px;
 }
 
 .wheel-ticker-needle {
@@ -5873,7 +6057,7 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .wheel-win-alert {
@@ -5888,6 +6072,14 @@ h3 {
   font-size: 0.9rem;
 }
 
+.wheel-button-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .wheel-spin-btn {
   padding: 14px 36px;
   font-size: 1.05rem;
@@ -5900,7 +6092,7 @@ h3 {
    3. MYSTERY CHESTS (COFFRES MYSTÈRES)
    ========================================================================== */
 .mystery-chests-wrapper {
-  max-width: 560px;
+  max-width: 580px;
   margin: 0 auto;
   background: #111726;
   border: 2px solid #2a3449;
@@ -5911,7 +6103,7 @@ h3 {
 }
 
 .chests-header {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .chests-header h2 {
@@ -5925,6 +6117,42 @@ h3 {
   margin: 0;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+.chests-tracker-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.tracker-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #0d121f;
+  border: 1px solid #232e47;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  transition: all 0.25s ease;
+}
+
+.tracker-badge.suspense {
+  border-color: #ff9800;
+  background: rgba(255, 152, 0, 0.15);
+  color: #ff9800;
+  box-shadow: 0 0 12px rgba(255, 152, 0, 0.4);
+  animation: pulseGlow 0.8s infinite;
+}
+
+.tracker-badge.won {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.2);
+  color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
 }
 
 .chests-grid-container {
@@ -6022,6 +6250,13 @@ h3 {
 
 .chests-control-bar {
   margin-bottom: 18px;
+}
+
+.chests-start-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .chests-start-btn {

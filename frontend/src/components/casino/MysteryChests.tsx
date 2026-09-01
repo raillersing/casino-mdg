@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, RefreshCw, Eye } from "lucide-react";
+import { Sparkles, RefreshCw, Eye, Volume2, VolumeX } from "lucide-react";
 import { casinoAudio } from "@utils/casinoAudio";
 import { type InstantPlay } from "@services/testGames";
 
@@ -11,10 +11,10 @@ interface MysteryChestsProps {
   onWin: (play: InstantPlay) => void;
 }
 
-const SYMBOL_MAP: Record<string, { label: string; icon: string; prizeText: string }> = {
-  zebu: { label: "Zébu d'Or", icon: "🐂", prizeText: "Jackpot 500 SIM" },
-  baobab: { label: "Baobab Royal", icon: "🌴", prizeText: "150 SIM" },
-  vanille: { label: "Vanille Bourbon", icon: "🌸", prizeText: "50 SIM" },
+const SYMBOL_MAP: Record<string, { label: string; icon: string; prizeText: string; tier: string }> = {
+  zebu: { label: "Zébu d'Or", icon: "🐂", prizeText: "Jackpot 500 SIM", tier: "jackpot" },
+  baobab: { label: "Baobab Royal", icon: "🌴", prizeText: "150 SIM", tier: "high" },
+  vanille: { label: "Vanille Bourbon", icon: "🌸", prizeText: "50 SIM", tier: "mid" },
 };
 
 export function MysteryChests({
@@ -30,6 +30,13 @@ export function MysteryChests({
   const [isPlaying, setIsPlaying] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [winningSymbol, setWinningSymbol] = useState<string | null>(null);
+  const [soundMuted, setSoundMuted] = useState(false);
+
+  const toggleSound = () => {
+    const next = !soundMuted;
+    setSoundMuted(next);
+    localStorage.setItem("mdg-poker-sound", next ? "off" : "on");
+  };
 
   const startNewRound = async () => {
     if (isPlaying || disabled) return;
@@ -91,18 +98,20 @@ export function MysteryChests({
   const openChest = (index: number) => {
     if (!gameStarted || openedChests[index] || isPlaying) return;
 
+    casinoAudio.playChestCrack();
     const next = [...openedChests];
     next[index] = true;
     setOpenedChests(next);
-    casinoAudio.playChestOpen();
 
-    checkWinningMatch(next, symbols, currentPlay);
+    setTimeout(() => {
+      casinoAudio.playChestOpen();
+      checkWinningMatch(next, symbols, currentPlay);
+    }, 120);
   };
 
   const revealAll = () => {
     if (!gameStarted || isPlaying) return;
 
-    // Staggered cascade reveal
     const next = [...openedChests];
     symbols.forEach((_, i) => {
       setTimeout(() => {
@@ -112,9 +121,22 @@ export function MysteryChests({
         if (i === 8) {
           checkWinningMatch(next, symbols, currentPlay);
         }
-      }, i * 70);
+      }, i * 90);
     });
   };
+
+  // Live count of revealed symbols
+  const symbolTally = {
+    zebu: 0,
+    baobab: 0,
+    vanille: 0,
+  };
+  openedChests.forEach((isOpen, i) => {
+    if (isOpen && symbols[i]) {
+      const sym = symbols[i] as "zebu" | "baobab" | "vanille";
+      if (symbolTally[sym] !== undefined) symbolTally[sym]++;
+    }
+  });
 
   return (
     <div className="mystery-chests-wrapper">
@@ -128,6 +150,24 @@ export function MysteryChests({
           {maxPrize.toLocaleString("fr-FR")} SIM !
         </p>
       </div>
+
+      {/* Live Symbol Discovery Tracker */}
+      {gameStarted && (
+        <div className="chests-tracker-row">
+          <div className={`tracker-badge ${symbolTally.zebu === 2 ? "suspense" : symbolTally.zebu >= 3 ? "won" : ""}`}>
+            <span>🐂 Zébu</span>
+            <strong>{symbolTally.zebu} / 3</strong>
+          </div>
+          <div className={`tracker-badge ${symbolTally.baobab === 2 ? "suspense" : symbolTally.baobab >= 3 ? "won" : ""}`}>
+            <span>🌴 Baobab</span>
+            <strong>{symbolTally.baobab} / 3</strong>
+          </div>
+          <div className={`tracker-badge ${symbolTally.vanille === 2 ? "suspense" : symbolTally.vanille >= 3 ? "won" : ""}`}>
+            <span>🌸 Vanille</span>
+            <strong>{symbolTally.vanille} / 3</strong>
+          </div>
+        </div>
+      )}
 
       {/* 3x3 Chests Grid with 3D Flip */}
       <div className="chests-grid-container">
@@ -144,10 +184,10 @@ export function MysteryChests({
               onClick={() => openChest(index)}
             >
               <div className="chest-flip-inner">
-                {/* Front: Closed Chest */}
+                {/* Front: Closed Chest with 3D Shimmer */}
                 <div className={`chest-card-front ${!gameStarted ? "locked" : ""}`}>
                   <span className="chest-box-icon">🎁</span>
-                  <span className="chest-box-number">#{index + 1}</span>
+                  <span className="chest-box-number">COFFRE #{index + 1}</span>
                 </div>
 
                 {/* Back: Revealed Symbol */}
@@ -164,25 +204,36 @@ export function MysteryChests({
       {/* Game controls */}
       <div className="chests-control-bar">
         {!gameStarted || openedChests.every(Boolean) ? (
-          <button
-            type="button"
-            className="button button-gold chests-start-btn"
-            onClick={startNewRound}
-            disabled={isPlaying || disabled}
-          >
-            {isPlaying ? (
-              <RefreshCw className="spin" size={18} />
-            ) : (
-              <Sparkles size={18} />
-            )}
-            <span>
-              {isPlaying
-                ? "DISTRIBUTION..."
-                : gameStarted
-                  ? `NOUVELLE PARTIE · ${cost} SIM`
-                  : `OUVRIR LES COFFRES · ${cost} SIM`}
-            </span>
-          </button>
+          <div className="chests-start-row">
+            <button
+              type="button"
+              className="button button-small button-outline"
+              onClick={toggleSound}
+              title={soundMuted ? "Activer les sons" : "Couper le son"}
+            >
+              {soundMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            </button>
+
+            <button
+              type="button"
+              className="button button-gold chests-start-btn"
+              onClick={startNewRound}
+              disabled={isPlaying || disabled}
+            >
+              {isPlaying ? (
+                <RefreshCw className="spin" size={18} />
+              ) : (
+                <Sparkles size={18} />
+              )}
+              <span>
+                {isPlaying
+                  ? "DISTRIBUTION DU PLATEAU..."
+                  : gameStarted
+                    ? `NOUVELLE PARTIE · ${cost} SIM`
+                    : `OUVRIR LES COFFRES · ${cost} SIM`}
+              </span>
+            </button>
+          </div>
         ) : (
           <div className="chests-in-game-actions">
             <button
@@ -190,7 +241,7 @@ export function MysteryChests({
               className="button button-outline"
               onClick={revealAll}
             >
-              <Eye size={16} /> Tout révéler
+              <Eye size={16} /> Tout révéler d'un coup
             </button>
             <span className="chests-open-count">
               {openedChests.filter(Boolean).length} / 9 coffres ouverts
@@ -202,15 +253,15 @@ export function MysteryChests({
       {/* Symbol reference guide */}
       <div className="chests-legend">
         <div className="legend-item">
-          <span>🐂 3x Zébu</span>
+          <span>🐂 3x Zébu d'Or</span>
           <strong>Jackpot 500 SIM</strong>
         </div>
         <div className="legend-item">
-          <span>🌴 3x Baobab</span>
+          <span>🌴 3x Baobab Royal</span>
           <strong>150 SIM</strong>
         </div>
         <div className="legend-item">
-          <span>🌸 3x Vanille</span>
+          <span>🌸 3x Vanille Bourbon</span>
           <strong>50 SIM</strong>
         </div>
       </div>
