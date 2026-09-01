@@ -245,7 +245,30 @@ export function HomePage() {
             </Link>
           </div>
         </div>
-        <div className="game-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+        <div className="game-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+          {/* Trésor Royal Slots */}
+          <div className="game-card" style={{ borderTop: "3px solid #ffd700" }}>
+            <div className="game-card-top">
+              <span className="game-icon" style={{ color: "#ffd700" }}>
+                🎰
+              </span>
+              <span className="live-pill" style={{ background: "rgba(255, 215, 0, 0.15)", color: "#ffd700" }}>
+                <i style={{ background: "#ffd700" }} /> Machine à sous
+              </span>
+            </div>
+            <div className="game-card-bottom">
+              <div>
+                <h3>Trésor Royal Slots</h3>
+                <p>3 rouleaux mécaniques, jackpots 777 et multiplicateurs jusqu'à x50 !</p>
+              </div>
+            </div>
+            <div className="game-card-actions">
+              <Link to="/casino?tab=instant" className="button button-gold button-small full">
+                <Sparkles size={14} /> Jouer aux Slots (100 SIM)
+              </Link>
+            </div>
+          </div>
+
           {/* Coffre Mada */}
           <div className="game-card" style={{ borderTop: "3px solid #ffb74d" }}>
             <div className="game-card-top">

@@ -3,12 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Check,
   ChevronRight,
-  HelpCircle,
   Clock3,
   Dices,
-  Eye,
-  LockKeyhole,
-  Pause,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -31,19 +27,34 @@ import {
 } from "@services/testGames";
 import { useGameStore } from "@stores/gameStore";
 import { trackEvent } from "@services/analytics";
-
 import { createGuestToken } from "@services/auth";
+
+import { SlotMachine } from "@components/casino/SlotMachine";
+import { LuckyWheel } from "@components/casino/LuckyWheel";
+import { MysteryChests } from "@components/casino/MysteryChests";
+import { BigWinModal } from "@components/casino/BigWinModal";
 
 type Tab = "instant" | "draws" | "activity" | "fairness";
 
 const DEFAULT_GAMES: InstantGame[] = [
+  {
+    slug: "slots-mada",
+    name: "Trésor Royal Slots",
+    game_type: "slots",
+    version: "v1",
+    cost: 100,
+    max_prize: 5000,
+    status: "active",
+    mode: "SIMULATION_SOLO",
+    rules: {},
+  },
   {
     slug: "coffre-mada",
     name: "Coffre Mada",
     game_type: "scratch",
     version: "v1",
     cost: 100,
-    max_prize: 10000,
+    max_prize: 500,
     status: "active",
     mode: "SIMULATION_SOLO",
     rules: {},
@@ -54,7 +65,7 @@ const DEFAULT_GAMES: InstantGame[] = [
     game_type: "wheel",
     version: "v1",
     cost: 0,
-    max_prize: 5000,
+    max_prize: 250,
     status: "active",
     mode: "SIMULATION_SOLO",
     rules: {},
@@ -69,8 +80,20 @@ const DEFAULT_DRAWS: TestDraw[] = [
     version: "v1",
     status: "open",
     mode: "SIMULATION_SOLO",
-    entry_cost: 500,
-    closes_at: new Date(Date.now() + 86400000 * 7).toISOString(),
+    entry_cost: 100,
+    closes_at: new Date(Date.now() + 86400000 * 5).toISOString(),
+    rules: {},
+    result: null,
+  },
+  {
+    slug: "tirage-3-chiffres",
+    name: "Tirage 3 chiffres",
+    draw_type: "three_digits",
+    version: "v1",
+    status: "open",
+    mode: "SIMULATION_SOLO",
+    entry_cost: 50,
+    closes_at: new Date(Date.now() + 86400000 * 2).toISOString(),
     rules: {},
     result: null,
   },
@@ -97,13 +120,28 @@ export function TestGamesPage() {
   >([]);
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [selectedDraw, setSelectedDraw] = useState<string | null>(null);
-  const [drawSelections, setDrawSelections] = useState<
-    Record<string, number[]>
-  >({});
+  const [drawSelections, setDrawSelections] = useState<Record<string, number[]>>({});
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState("");
   const [error, setError] = useState("");
   const [lastPlay, setLastPlay] = useState<InstantPlay | null>(null);
+  const [bigWinPlay, setBigWinPlay] = useState<InstantPlay | null>(null);
+  const [selectedGameSlug, setSelectedGameSlug] = useState<string>("slots-mada");
+
+  const navigate = useNavigate();
+
+  const ensureToken = async (): Promise<string | null> => {
+    if (accessToken) return accessToken;
+    try {
+      const auth = await createGuestToken("Joueur Invité");
+      setSession(auth.access, auth.refresh);
+      setGuestMode(auth.user.display_name, auth.wallet.balance);
+      return auth.access;
+    } catch {
+      navigate("/auth");
+      return null;
+    }
+  };
 
   const load = useCallback(async () => {
     if (!accessToken) {
@@ -119,8 +157,8 @@ export function TestGamesPage() {
         getTestActivity(accessToken),
         getWalletBalance(accessToken),
       ]);
-      setGames(catalog.results);
-      setDraws(drawList.results);
+      setGames(catalog.results.length > 0 ? catalog.results : DEFAULT_GAMES);
+      setDraws(drawList.results.length > 0 ? drawList.results : DEFAULT_DRAWS);
       setPlays(activity.plays);
       setEntries(activity.entries);
       setBalance(wallet);
@@ -150,28 +188,14 @@ export function TestGamesPage() {
     setTab(next);
     setParams({ tab: next });
   };
-  const navigate = useNavigate();
 
-  const ensureToken = async (): Promise<string | null> => {
-    if (accessToken) return accessToken;
-    try {
-      const auth = await createGuestToken("Joueur Invité");
-      setSession(auth.access, auth.refresh);
-      setGuestMode(auth.user.display_name, auth.wallet.balance);
-      return auth.access;
-    } catch {
-      navigate("/auth");
-      return null;
-    }
-  };
-
-  const runGame = async (game: InstantGame) => {
+  const playInstantAsync = async (game: InstantGame): Promise<InstantPlay | null> => {
     setAction(game.slug);
     setError("");
     const token = await ensureToken();
     if (!token) {
       setAction("");
-      return;
+      return null;
     }
     const key = crypto.randomUUID();
     try {
@@ -182,6 +206,7 @@ export function TestGamesPage() {
         metadata: { game_slug: game.slug, prize: play.prize },
       });
       await load();
+      return play;
     } catch (reason) {
       if (reason instanceof Error && reason.message === "AUTH_REQUIRED") {
         useGameStore.getState().logout();
@@ -191,10 +216,12 @@ export function TestGamesPage() {
           reason instanceof Error ? reason.message : t("testGames.playError"),
         );
       }
+      return null;
     } finally {
       setAction("");
     }
   };
+
   const numbersFor = (draw: TestDraw) => drawSelections[draw.slug] || [];
   const toggleNumber = (draw: TestDraw, number: number) => {
     const current = numbersFor(draw);
@@ -211,6 +238,7 @@ export function TestGamesPage() {
       : [...current, number].slice(-5);
     setDrawSelections({ ...drawSelections, [draw.slug]: next });
   };
+
   const submitEntry = async (draw: TestDraw) => {
     setAction(draw.slug);
     setError("");
@@ -237,6 +265,7 @@ export function TestGamesPage() {
       setAction("");
     }
   };
+
   const simulateDraw = async (draw: TestDraw) => {
     setAction(`draw:${draw.slug}`);
     setError("");
@@ -266,51 +295,69 @@ export function TestGamesPage() {
 
   return (
     <div className="page-stack test-games-page">
+      {/* Big Win Celebration Modal */}
+      <BigWinModal
+        isOpen={Boolean(bigWinPlay)}
+        onClose={() => setBigWinPlay(null)}
+        prize={bigWinPlay?.prize || 0}
+        label={bigWinPlay?.result_label || "Gain Exceptionnel !"}
+        gameName={
+          games.find((g) => g.slug === bigWinPlay?.game_slug)?.name || "Casino MDG"
+        }
+      />
+
+      {/* Hero */}
       <section className="test-games-hero">
         <div>
           <span className="eyebrow gold">
-            <Sparkles size={13} /> {t("testGames.simulation")}
+            <Sparkles size={13} /> CASINO & JEUX INSTANTANÉS
           </span>
           <h1>
-            {t("testGames.title")}
+            🎰 Jeux de Hasard
             <br />
-            <em>{t("testGames.titleAccent")}</em>
+            <em>& Tirages Provably Fair.</em>
           </h1>
-          <p>{t("testGames.intro")}</p>
+          <p>
+            Vivez l'adrénaline des machines à sous, de la roue de la fortune et des coffres aux trésors dans un environnement auditable et transparent.
+          </p>
           <div className="test-games-hero-actions">
             <button
               className="button button-gold"
               onClick={() => changeTab("instant")}
             >
-              <Dices size={16} /> {t("testGames.playNow")}
+              <Dices size={16} /> Jeux instantanés & Slots
             </button>
             <button
               className="button button-outline"
               onClick={() => changeTab("draws")}
             >
-              <Ticket size={16} /> {t("testGames.nextDraw")}
+              <Ticket size={16} /> Tirages & Jackpot
             </button>
           </div>
         </div>
         <div className="test-games-balance">
-          <span>{t("testGames.simBalance")}</span>
+          <span>Solde de simulation</span>
           <strong>
-            {balance?.balance.toLocaleString("fr-FR") || "—"} <small>SIM</small>
+            {balance?.balance.toLocaleString("fr-FR") || "10 000"} <small>SIM</small>
           </strong>
           <span className="test-games-status">
-            <i /> {t("testGames.noRealMoney")}
+            <i /> Sans risque monétaire · Sandbox certifié
           </span>
         </div>
       </section>
+
+      {/* Trust & Fairness Banner */}
       <div className="test-games-notice">
         <ShieldCheck size={17} />
         <span>
-          <strong>{t("testGames.fairTitle")}</strong> {t("testGames.fairBody")}
+          <strong>Équité prouvée (Provably Fair) :</strong> Le serveur calcule chaque tirage de façon cryptographique et transparente.
         </span>
         <button className="text-link" onClick={() => changeTab("fairness")}>
-          {t("testGames.learnMore")} <ChevronRight size={14} />
+          Vérifier les preuves <ChevronRight size={14} />
         </button>
       </div>
+
+      {/* Navigation Tabs */}
       <nav className="test-games-tabs" aria-label={t("testGames.tabsLabel")}>
         {(["instant", "draws", "activity", "fairness"] as Tab[]).map((item) => (
           <button
@@ -318,10 +365,17 @@ export function TestGamesPage() {
             className={tab === item ? "active" : ""}
             onClick={() => changeTab(item)}
           >
-            {t(`testGames.tabs.${item}`)}
+            {item === "instant"
+              ? "🎰 Jeux Instantanés & Slots"
+              : item === "draws"
+                ? "🎟️ Tirages & Loterie"
+                : item === "activity"
+                  ? "📜 Historique"
+                  : "🛡️ Équité & Preuves"}
           </button>
         ))}
       </nav>
+
       {error && (
         <div className="test-games-error" role="alert">
           <X size={16} />
@@ -335,6 +389,7 @@ export function TestGamesPage() {
           </button>
         </div>
       )}
+
       {loading ? (
         <div className="empty-note">
           <RefreshCw className="spin" size={16} />
@@ -343,9 +398,12 @@ export function TestGamesPage() {
       ) : tab === "instant" ? (
         <InstantSection
           games={games}
-          action={action}
+          selectedGameSlug={selectedGameSlug}
+          onSelectGame={setSelectedGameSlug}
+          playInstantAsync={playInstantAsync}
           lastPlay={lastPlay}
-          runGame={runGame}
+          onTriggerBigWin={(play) => setBigWinPlay(play)}
+          action={action}
           t={t}
         />
       ) : tab === "draws" ? (
@@ -365,7 +423,7 @@ export function TestGamesPage() {
       ) : tab === "activity" ? (
         <ActivitySection plays={plays} entries={entries} t={t} />
       ) : (
-        <FairnessSection t={t} />
+        <FairnessSection />
       )}
     </div>
   );
@@ -373,80 +431,134 @@ export function TestGamesPage() {
 
 function InstantSection({
   games,
-  action,
+  selectedGameSlug,
+  onSelectGame,
+  playInstantAsync,
   lastPlay,
-  runGame,
+  onTriggerBigWin,
+  action,
   t,
 }: {
   games: InstantGame[];
-  action: string;
+  selectedGameSlug: string;
+  onSelectGame: (slug: string) => void;
+  playInstantAsync: (game: InstantGame) => Promise<InstantPlay | null>;
   lastPlay: InstantPlay | null;
-  runGame: (game: InstantGame) => Promise<void>;
+  onTriggerBigWin: (play: InstantPlay) => void;
+  action: string;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
+  const currentGame = games.find((g) => g.slug === selectedGameSlug) || games[0];
+
   return (
     <section className="test-games-section">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">{t("testGames.instantEyebrow")}</span>
-          <h2>{t("testGames.instantTitle")}</h2>
-          <p className="section-lede">{t("testGames.instantBody")}</p>
+          <span className="eyebrow gold">EXPÉRIENCE CASINO INTERACTIVE</span>
+          <h2>Espace Jeux de Hasard</h2>
+          <p className="section-lede">
+            Sélectionnez une machine ou un mini-jeu pour lancer votre partie interactive.
+          </p>
         </div>
         <span className="test-games-count">
           {games.length} {t("testGames.games")}
         </span>
       </div>
+
+      {/* Game Switcher Pills */}
+      <div className="casino-game-switcher" style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
+        {games.map((g) => (
+          <button
+            key={g.slug}
+            type="button"
+            className={`button ${selectedGameSlug === g.slug ? "button-gold" : "button-outline"}`}
+            onClick={() => onSelectGame(g.slug)}
+            style={{ borderRadius: "20px", padding: "8px 18px", fontSize: "0.9rem", fontWeight: 700 }}
+          >
+            {g.game_type === "slots" ? "🎰 " : g.game_type === "wheel" ? "🎡 " : "🎁 "}
+            {g.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Active Interactive Game Component */}
+      <div className="active-casino-stage" style={{ marginBottom: "32px" }}>
+        {currentGame.game_type === "slots" ? (
+          <SlotMachine
+            cost={currentGame.cost}
+            maxPrize={currentGame.max_prize}
+            onSpin={() => playInstantAsync(currentGame)}
+            disabled={Boolean(action && action !== currentGame.slug)}
+            onWin={onTriggerBigWin}
+          />
+        ) : currentGame.game_type === "wheel" ? (
+          <LuckyWheel
+            onSpin={() => playInstantAsync(currentGame)}
+            disabled={Boolean(action && action !== currentGame.slug)}
+            onWin={onTriggerBigWin}
+          />
+        ) : (
+          <MysteryChests
+            cost={currentGame.cost}
+            maxPrize={currentGame.max_prize}
+            onPlay={() => playInstantAsync(currentGame)}
+            disabled={Boolean(action && action !== currentGame.slug)}
+            onWin={onTriggerBigWin}
+          />
+        )}
+      </div>
+
+      {/* Quick Access Game Cards Grid */}
+      <div className="section-heading" style={{ marginTop: "30px" }}>
+        <h3>Catalogue des Jeux Instantanés</h3>
+      </div>
       <div className="test-game-grid">
         {games.map((game) => (
           <article
-            className={`test-game-card test-game-${game.game_type}`}
+            className={`test-game-card test-game-${game.game_type} ${selectedGameSlug === game.slug ? "selected-card" : ""}`}
             key={game.slug}
+            style={{ cursor: "pointer" }}
+            onClick={() => onSelectGame(game.slug)}
           >
             <div className="test-game-card-top">
               <span className="test-game-icon">
-                {game.game_type === "scratch" ? "▦" : "◌"}
+                {game.game_type === "slots" ? "🎰" : game.game_type === "scratch" ? "🎁" : "🎡"}
               </span>
               <span className="test-game-tag">
-                <i /> {t("testGames.playable")}
+                <i /> Jouer en direct
               </span>
             </div>
             <h3>{game.name}</h3>
             <p>
-              {game.game_type === "scratch"
-                ? t("testGames.coffreBody")
-                : t("testGames.wheelBody")}
+              {game.game_type === "slots"
+                ? "Machine à sous 3 rouleaux avec multiplicateurs jusqu'à x50."
+                : game.game_type === "scratch"
+                  ? t("testGames.coffreBody")
+                  : t("testGames.wheelBody")}
             </p>
             <div className="test-game-meta">
               <span>
                 <Clock3 size={13} /> {t("testGames.quick")}
               </span>
               <span>
-                <Trophy size={13} /> +{game.max_prize.toLocaleString("fr-FR")}{" "}
-                SIM
+                <Trophy size={13} /> +{game.max_prize.toLocaleString("fr-FR")} SIM
               </span>
             </div>
             <button
+              type="button"
               className="button button-gold full"
-              onClick={() => void runGame(game)}
-              disabled={Boolean(action)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectGame(game.slug);
+              }}
             >
-              {action === game.slug ? (
-                <RefreshCw className="spin" size={15} />
-              ) : (
-                <Sparkles size={15} />
-              )}{" "}
-              {action === game.slug
-                ? t("testGames.playing")
-                : game.cost
-                  ? `${t("testGames.play")} · ${game.cost} SIM`
-                  : t("testGames.bonusPlay")}
-            </button>
-            <button className="test-rules-link" onClick={() => undefined}>
-              <HelpCircle size={14} /> {t("testGames.rules")}
+              <Sparkles size={15} />
+              {game.cost ? `Ouvrir le jeu · ${game.cost} SIM` : "Lancer le bonus (Gratuit)"}
             </button>
           </article>
         ))}
       </div>
+
       {lastPlay && <ResultCard play={lastPlay} t={t} />}
     </section>
   );
@@ -460,7 +572,7 @@ function ResultCard({
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
-    <section className="test-result-card" aria-live="polite">
+    <section className="test-result-card" aria-live="polite" style={{ marginTop: "24px" }}>
       <div className="test-result-icon">
         <Check size={22} />
       </div>
@@ -474,7 +586,7 @@ function ResultCard({
           · {play.cost ? `${play.cost} SIM` : t("testGames.freeEntry")}
         </p>
         <small>
-          {t("testGames.audit")}: {play.audit.commitment?.slice(0, 16)}…
+          Preuve d'audit SHA-256 : {play.audit.commitment?.slice(0, 24)}…
         </small>
       </div>
       <ShieldCheck size={21} />
@@ -497,7 +609,7 @@ function DrawSection({
   draws: TestDraw[];
   selectedDraw: string | null;
   setSelectedDraw: (value: string | null) => void;
-  selections: Record<string, number[]>;
+  selections?: Record<string, number[]>;
   numbersFor: (draw: TestDraw) => number[];
   toggleNumber: (draw: TestDraw, number: number) => void;
   submitEntry: (draw: TestDraw) => Promise<void>;
@@ -518,145 +630,103 @@ function DrawSection({
           <Ticket size={14} /> {draws.length} {t("testGames.draws")}
         </span>
       </div>
-      <div className="draw-list">
+      <div className="test-draws-grid">
         {draws.map((draw) => {
-          const chosen = numbersFor(draw);
-          const entryExists = entries.some(
-            (entry) => entry.draw_slug === draw.slug,
-          );
+          const isSelected = selectedDraw === draw.slug;
+          const userNumbers = numbersFor(draw);
+          const requiredCount = draw.draw_type === "three_digits" ? 3 : 5;
+          const maxNumber = draw.draw_type === "three_digits" ? 9 : 35;
+          const ready = userNumbers.length === requiredCount;
+          const userEntriesCount = entries.filter((e) => e.draw_slug === draw.slug).length;
+
           return (
-            <article className="draw-card" key={draw.slug}>
-              <div className="draw-card-main">
-                <div className="draw-card-heading">
-                  <span className="draw-icon">
-                    <Ticket size={19} />
+            <article className="test-draw-card" key={draw.slug}>
+              <div className="test-draw-card-header">
+                <div>
+                  <span className="test-draw-type">
+                    {draw.draw_type === "three_digits" ? "Tirage 3 Chiffres" : "Grand Jackpot"}
                   </span>
-                  <div>
-                    <span className={`draw-status ${draw.status}`}>
-                      {draw.status === "open"
-                        ? t("testGames.open")
-                        : draw.status === "drawn"
-                          ? t("testGames.drawn")
-                          : t("testGames.closed")}
-                    </span>
-                    <h3>{draw.name}</h3>
-                  </div>
+                  <h3>{draw.name}</h3>
                 </div>
-                <p>
-                  {draw.draw_type === "three_digits"
-                    ? t("testGames.threeDigitsBody")
-                    : t("testGames.jackpotBody")}
-                </p>
-                <div className="draw-meta">
-                  <span>
-                    <Clock3 size={13} />{" "}
-                    {new Date(draw.closes_at).toLocaleString("fr-FR")}
-                  </span>
-                  <span>
-                    {draw.entry_cost} SIM ·{" "}
-                    {entryExists
-                      ? t("testGames.entrySaved")
-                      : t("testGames.entryAvailable")}
-                  </span>
+                <span className={`status-badge ${draw.status}`}>
+                  {draw.status === "open" ? "Ouvert" : "Tiré"}
+                </span>
+              </div>
+              <div className="test-draw-meta-grid">
+                <div>
+                  <span>Coût par ticket</span>
+                  <strong>{draw.entry_cost} SIM</strong>
                 </div>
-                {draw.result && (
-                  <div className="draw-result-numbers">
-                    {draw.result.numbers.map((number, index) => (
-                      <b key={`${number}-${index}`}>{number}</b>
-                    ))}
-                  </div>
-                )}
+                <div>
+                  <span>Clôture</span>
+                  <strong>{new Date(draw.closes_at).toLocaleDateString("fr-FR")}</strong>
+                </div>
+                <div>
+                  <span>Vos tickets</span>
+                  <strong>{userEntriesCount} validé(s)</strong>
+                </div>
               </div>
-              <div className="draw-card-actions">
-                {draw.status === "open" && (
-                  <button
-                    className="button button-gold"
-                    onClick={() =>
-                      setSelectedDraw(
-                        selectedDraw === draw.slug ? null : draw.slug,
-                      )
-                    }
-                  >
-                    {selectedDraw === draw.slug
-                      ? t("testGames.closeSelection")
-                      : t("testGames.chooseNumbers")}
-                  </button>
-                )}
-                {draw.status === "open" && draw.can_simulate && (
-                  <button
-                    className="test-secondary-button"
-                    onClick={() => void simulateDraw(draw)}
-                    disabled={Boolean(action)}
-                  >
-                    {action === `draw:${draw.slug}`
-                      ? t("testGames.drawing")
-                      : t("testGames.simulateResult")}
-                  </button>
-                )}
-                {draw.result && (
-                  <button className="test-secondary-button">
-                    <Eye size={14} /> {t("testGames.viewProof")}
-                  </button>
-                )}
-              </div>
-              {selectedDraw === draw.slug && (
-                <div className="draw-selector">
-                  <strong>{t("testGames.yourSelection")}</strong>
-                  <div className="number-grid">
-                    {Array.from(
-                      { length: draw.draw_type === "three_digits" ? 10 : 35 },
-                      (_, index) => (
+
+              {isSelected ? (
+                <div className="draw-selector-box">
+                  <h4>Choisissez {requiredCount} numéros :</h4>
+                  <div className="draw-number-picker">
+                    {Array.from({ length: maxNumber }, (_, i) => i + 1).map((num) => {
+                      const active = userNumbers.includes(num);
+                      return (
                         <button
-                          key={index}
-                          className={
-                            chosen.includes(
-                              draw.draw_type === "five_numbers"
-                                ? index + 1
-                                : index,
-                            )
-                              ? "selected"
-                              : ""
-                          }
-                          onClick={() =>
-                            toggleNumber(
-                              draw,
-                              draw.draw_type === "five_numbers"
-                                ? index + 1
-                                : index,
-                            )
-                          }
-                          aria-pressed={chosen.includes(
-                            draw.draw_type === "five_numbers"
-                              ? index + 1
-                              : index,
-                          )}
+                          key={num}
+                          type="button"
+                          className={`draw-ball ${active ? "active" : ""}`}
+                          onClick={() => toggleNumber(draw, num)}
                         >
-                          {draw.draw_type === "five_numbers"
-                            ? index + 1
-                            : index}
+                          {num}
                         </button>
-                      ),
-                    )}
+                      );
+                    })}
                   </div>
-                  <div className="draw-selection-footer">
-                    <span>
-                      {chosen.join(" · ") || t("testGames.noSelection")}
-                    </span>
+                  <div className="draw-picker-actions">
                     <button
+                      type="button"
                       className="button button-gold"
+                      disabled={!ready || Boolean(action)}
                       onClick={() => void submitEntry(draw)}
-                      disabled={
-                        Boolean(action) ||
-                        (draw.draw_type === "three_digits"
-                          ? chosen.length !== 3
-                          : chosen.length !== 5)
-                      }
                     >
-                      {action === draw.slug
-                        ? t("testGames.saving")
-                        : t("testGames.confirmEntry")}
+                      {action === draw.slug ? (
+                        <RefreshCw className="spin" size={15} />
+                      ) : (
+                        <Ticket size={15} />
+                      )}
+                      Valider la grille ({draw.entry_cost} SIM)
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-outline"
+                      onClick={() => setSelectedDraw(null)}
+                    >
+                      Annuler
                     </button>
                   </div>
+                </div>
+              ) : (
+                <div className="draw-card-actions">
+                  <button
+                    type="button"
+                    className="button button-gold full"
+                    onClick={() => setSelectedDraw(draw.slug)}
+                    disabled={draw.status !== "open"}
+                  >
+                    <Ticket size={16} /> Remplir une grille
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-outline full"
+                    onClick={() => void simulateDraw(draw)}
+                    disabled={Boolean(action)}
+                    style={{ marginTop: "6px" }}
+                  >
+                    <Sparkles size={14} /> Simuler le tirage immédiat
+                  </button>
                 </div>
               )}
             </article>
@@ -670,7 +740,6 @@ function DrawSection({
 function ActivitySection({
   plays,
   entries,
-  t,
 }: {
   plays: InstantPlay[];
   entries: Array<{
@@ -680,66 +749,60 @@ function ActivitySection({
     numbers: number[];
     created_at: string;
   }>;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t?: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
     <section className="test-games-section">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">{t("testGames.activityEyebrow")}</span>
-          <h2>{t("testGames.activityTitle")}</h2>
-          <p className="section-lede">{t("testGames.activityBody")}</p>
+          <span className="eyebrow gold">HISTORIQUE DES SESSIONS</span>
+          <h2>Votre Activité de Jeu</h2>
+          <p className="section-lede">
+            Retrouvez tous vos tirages, participations instantanées et gains enregistrés.
+          </p>
         </div>
       </div>
-      <div className="test-activity-grid">
-        <div className="activity-card">
-          <div className="chat-head">
-            <strong>{t("testGames.instantHistory")}</strong>
-          </div>
-          {plays.length ? (
-            plays.map((play) => (
-              <div className="activity-row" key={play.play_id}>
-                <span className="activity-icon positive">
-                  <Sparkles size={14} />
-                </span>
-                <span>
-                  <strong>{play.game_slug}</strong>
-                  <small>
-                    {play.result_label} ·{" "}
-                    {new Date(play.created_at).toLocaleString("fr-FR")}
-                  </small>
-                </span>
-                <b className={play.prize ? "positive-text" : ""}>
-                  {play.prize ? `+${play.prize}` : "0"} SIM
-                </b>
-              </div>
-            ))
+      <div className="activity-lists-container">
+        <div className="activity-block">
+          <h3>🎰 Jeux Instantanés & Machines</h3>
+          {plays.length === 0 ? (
+            <p className="empty-note">Aucune partie instantanée jouée pour le moment.</p>
           ) : (
-            <div className="empty-wallet">{t("testGames.emptyActivity")}</div>
+            <div className="plays-list">
+              {plays.map((play) => (
+                <div className="play-row" key={play.play_id}>
+                  <div>
+                    <strong>{play.result_label}</strong>
+                    <small>{new Date(play.created_at).toLocaleString("fr-FR")}</small>
+                  </div>
+                  <div className={`play-prize ${play.prize > 0 ? "win" : "loss"}`}>
+                    {play.prize > 0 ? `+${play.prize.toLocaleString("fr-FR")} SIM` : "0 SIM"}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-        <div className="activity-card">
-          <div className="chat-head">
-            <strong>{t("testGames.drawHistory")}</strong>
-          </div>
-          {entries.length ? (
-            entries.map((entry) => (
-              <div className="activity-row" key={entry.entry_id}>
-                <span className="activity-icon">
-                  <Ticket size={14} />
-                </span>
-                <span>
-                  <strong>{entry.draw_name}</strong>
-                  <small>
-                    {entry.numbers.join(" · ")} ·{" "}
-                    {new Date(entry.created_at).toLocaleString("fr-FR")}
-                  </small>
-                </span>
-                <b>{t("testGames.confirmed")}</b>
-              </div>
-            ))
+        <div className="activity-block" style={{ marginTop: "24px" }}>
+          <h3>🎟️ Grilles de Loterie</h3>
+          {entries.length === 0 ? (
+            <p className="empty-note">Aucun ticket de tirage validé.</p>
           ) : (
-            <div className="empty-wallet">{t("testGames.emptyEntries")}</div>
+            <div className="entries-list">
+              {entries.map((entry) => (
+                <div className="entry-row" key={entry.entry_id}>
+                  <div>
+                    <strong>{entry.draw_name}</strong>
+                    <div className="entry-balls">
+                      {entry.numbers.map((n) => (
+                        <span key={n} className="mini-ball">{n}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <small>{new Date(entry.created_at).toLocaleString("fr-FR")}</small>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -747,35 +810,39 @@ function ActivitySection({
   );
 }
 
-function FairnessSection({
-  t,
-}: {
-  t: (key: string, options?: Record<string, unknown>) => string;
-}) {
+function FairnessSection() {
   return (
     <section className="test-games-section">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">{t("testGames.fairEyebrow")}</span>
-          <h2>{t("testGames.fairHeading")}</h2>
-          <p className="section-lede">{t("testGames.fairIntro")}</p>
+          <span className="eyebrow gold">TRANSPARENCE & AUDIT</span>
+          <h2>Équité Mathématique & Provably Fair</h2>
+          <p className="section-lede">
+            Comment nous garantissons que chaque tirage est 100% honnête, imprévisible et infalsifiable.
+          </p>
         </div>
       </div>
-      <div className="fairness-grid">
-        <div className="fairness-card">
-          <ShieldCheck size={20} />
-          <h3>{t("testGames.serverResult")}</h3>
-          <p>{t("testGames.serverResultBody")}</p>
+      <div className="fairness-content-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "18px" }}>
+        <div className="fairness-card" style={{ background: "#111726", padding: "20px", borderRadius: "16px", border: "1px solid #232e47" }}>
+          <Sparkles size={24} className="gold-icon" />
+          <h3 style={{ margin: "12px 0 6px" }}>Génération Cryptographique</h3>
+          <p style={{ fontSize: "0.88rem", color: "var(--muted)" }}>
+            Chaque résultat utilise la bibliothèque <code>secrets</code> basée sur l'entropie du système d'exploitation, assurant des probabilités rigoureusement conformes aux mathématiques du jeu.
+          </p>
         </div>
-        <div className="fairness-card">
-          <LockKeyhole size={20} />
-          <h3>{t("testGames.ledgerTitle")}</h3>
-          <p>{t("testGames.ledgerBody")}</p>
+        <div className="fairness-card" style={{ background: "#111726", padding: "20px", borderRadius: "16px", border: "1px solid #232e47" }}>
+          <ShieldCheck size={24} className="gold-icon" />
+          <h3 style={{ margin: "12px 0 6px" }}>Engagement SHA-256</h3>
+          <p style={{ fontSize: "0.88rem", color: "var(--muted)" }}>
+            Chaque tour génère une empreinte SHA-256 cryptographique immuable liée à votre identifiant et à la clé d'idempotence de la requête.
+          </p>
         </div>
-        <div className="fairness-card">
-          <Pause size={20} />
-          <h3>{t("testGames.pauseTitle")}</h3>
-          <p>{t("testGames.pauseBody")}</p>
+        <div className="fairness-card" style={{ background: "#111726", padding: "20px", borderRadius: "16px", border: "1px solid #232e47" }}>
+          <Trophy size={24} className="gold-icon" />
+          <h3 style={{ margin: "12px 0 6px" }}>Comptabilité Ledger Double-Entrée</h3>
+          <p style={{ fontSize: "0.88rem", color: "var(--muted)" }}>
+            Tous les débits de participation et tous les crédits de gains sont instantanément et définitivement scellés dans le grand livre de transactions.
+          </p>
         </div>
       </div>
     </section>

@@ -1,7 +1,7 @@
 export type InstantGame = {
   slug: string;
   name: string;
-  game_type: "scratch" | "wheel";
+  game_type: "scratch" | "wheel" | "slots";
   version: string;
   cost: number;
   max_prize: number;
@@ -20,7 +20,12 @@ export type InstantPlay = {
   prize: number;
   result_label: string;
   transaction_id: string | null;
-  audit: { commitment?: string; proof_available: boolean; version?: string };
+  audit: {
+    commitment?: string;
+    proof_available: boolean;
+    version?: string;
+    symbols?: string[];
+  };
   created_at: string;
 };
 

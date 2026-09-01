@@ -46,6 +46,26 @@ INSTANT_CATALOG = [
             ],
         },
     },
+    {
+        "slug": "slots-mada",
+        "name": "Trésor Royal Slots",
+        "game_type": "slots",
+        "version": "slots-mada-v1",
+        "cost": 100,
+        "max_prize": 5000,
+        "rules": {
+            "reels": 3,
+            "symbols": ["cherry", "lemon", "bell", "baobab", "diamond", "seven"],
+            "probabilities": {
+                "no_prize": 60,
+                "cherry_match": 20,
+                "bell_match": 10,
+                "baobab_match": 6,
+                "diamond_match": 3,
+                "jackpot_seven": 1,
+            },
+        },
+    },
 ]
 
 
@@ -128,13 +148,27 @@ def play_instant(user, game, idempotency_key):
             result_kind = "wheel_segment"
             result_label = outcome["label"]
             prize = outcome["prize"]
+        elif game.game_type == "slots":
+            outcome = _weighted_choice(
+                [
+                    {"label": "Pas de combinaison", "prize": 0, "weight": 60, "symbols": ["cherry", "bell", "lemon"]},
+                    {"label": "Trio Cerises (x2)", "prize": 200, "weight": 20, "symbols": ["cherry", "cherry", "cherry"]},
+                    {"label": "Trio Cloches (x5)", "prize": 500, "weight": 10, "symbols": ["bell", "bell", "bell"]},
+                    {"label": "Trio Baobabs (x10)", "prize": 1000, "weight": 6, "symbols": ["baobab", "baobab", "baobab"]},
+                    {"label": "Trio Diamants (x25)", "prize": 2500, "weight": 3, "symbols": ["diamond", "diamond", "diamond"]},
+                    {"label": "JACKPOT 777 (x50)", "prize": 5000, "weight": 1, "symbols": ["seven", "seven", "seven"]},
+                ]
+            )
+            result_kind = "slots_spin"
+            result_label = outcome["label"]
+            prize = outcome["prize"]
         else:
             outcome = _weighted_choice(
                 [
-                    {"label": "Pas de gain", "prize": 0, "weight": 70},
-                    {"label": "Petit symbole", "prize": 50, "weight": 20},
-                    {"label": "Double symbole", "prize": 150, "weight": 8},
-                    {"label": "Coffre rare", "prize": 500, "weight": 2},
+                    {"label": "Pas de gain", "prize": 0, "weight": 70, "symbols": ["baobab", "vanille", "zebu", "baobab", "vanille", "zebu", "baobab", "vanille", "zebu"]},
+                    {"label": "Petit symbole (x0.5)", "prize": 50, "weight": 20, "symbols": ["vanille", "vanille", "vanille", "baobab", "zebu", "baobab", "zebu", "baobab", "zebu"]},
+                    {"label": "Double symbole (x1.5)", "prize": 150, "weight": 8, "symbols": ["baobab", "baobab", "baobab", "vanille", "vanille", "zebu", "zebu", "vanille", "zebu"]},
+                    {"label": "Coffre Royal (x5)", "prize": 500, "weight": 2, "symbols": ["zebu", "zebu", "zebu", "zebu", "baobab", "baobab", "vanille", "vanille", "vanille"]},
                 ]
             )
             result_kind = "symbol_match"
@@ -168,6 +202,7 @@ def play_instant(user, game, idempotency_key):
                 "commitment": commitment,
                 "proof_available": True,
                 "version": game.version,
+                "symbols": outcome.get("symbols", []),
             },
         )
     return play, True
