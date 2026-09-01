@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bot,
   ChevronRight,
+  Dices,
   Gamepad2,
   Play,
   ShieldCheck,
@@ -223,6 +224,96 @@ export function HomePage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Casino & Jeux de Hasard Instantanés */}
+      <section className="section-block">
+        <div className="section-heading">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", width: "100%", flexWrap: "wrap", gap: "10px" }}>
+            <div>
+              <span className="eyebrow gold">
+                <Sparkles size={13} /> CASINO & JEUX INSTANTANÉS
+              </span>
+              <h2>Jeux de Hasard & Tirages</h2>
+              <p className="section-lede">
+                Tirages instantanés, Coffres Mystères et Roue de la fortune avec équité vérifiable (Provably Fair).
+              </p>
+            </div>
+            <Link to="/casino" className="button button-small button-gold">
+              <Dices size={15} /> Voir tous les jeux de hasard →
+            </Link>
+          </div>
+        </div>
+        <div className="game-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+          {/* Coffre Mada */}
+          <div className="game-card" style={{ borderTop: "3px solid #ffb74d" }}>
+            <div className="game-card-top">
+              <span className="game-icon" style={{ color: "#ffb74d" }}>
+                🎁
+              </span>
+              <span className="live-pill">
+                <i /> Instantané
+              </span>
+            </div>
+            <div className="game-card-bottom">
+              <div>
+                <h3>Coffre Mada</h3>
+                <p>Ouvrez les coffres mystères et tentez de décrocher le jackpot en jetons SIM !</p>
+              </div>
+            </div>
+            <div className="game-card-actions">
+              <Link to="/casino?tab=instant" className="button button-gold button-small full">
+                <Sparkles size={14} /> Ouvrir un coffre (100 SIM)
+              </Link>
+            </div>
+          </div>
+
+          {/* Roue MDG */}
+          <div className="game-card" style={{ borderTop: "3px solid #ba68c8" }}>
+            <div className="game-card-top">
+              <span className="game-icon" style={{ color: "#ba68c8" }}>
+                🎡
+              </span>
+              <span className="live-pill" style={{ background: "rgba(186, 104, 200, 0.15)", color: "#ba68c8" }}>
+                <i style={{ background: "#ba68c8" }} /> Bonus quotidien
+              </span>
+            </div>
+            <div className="game-card-bottom">
+              <div>
+                <h3>Roue de la Fortune</h3>
+                <p>Faites tourner la roue de la chance pour remporter des récompenses et multiplicateurs.</p>
+              </div>
+            </div>
+            <div className="game-card-actions">
+              <Link to="/casino?tab=instant" className="button button-gold button-small full">
+                <Sparkles size={14} /> Tourner la roue (Gratuit)
+              </Link>
+            </div>
+          </div>
+
+          {/* Jackpot MDG */}
+          <div className="game-card" style={{ borderTop: "3px solid #4db6ac" }}>
+            <div className="game-card-top">
+              <span className="game-icon" style={{ color: "#4db6ac" }}>
+                🎟️
+              </span>
+              <span className="live-pill" style={{ background: "rgba(77, 182, 172, 0.15)", color: "#4db6ac" }}>
+                <i style={{ background: "#4db6ac" }} /> Loterie
+              </span>
+            </div>
+            <div className="game-card-bottom">
+              <div>
+                <h3>Jackpot MDG</h3>
+                <p>Sélectionnez vos numéros porte-bonheur pour le grand tirage hebdomadaire.</p>
+              </div>
+            </div>
+            <div className="game-card-actions">
+              <Link to="/casino?tab=draws" className="button button-gold button-small full">
+                <Trophy size={14} /> Participer au tirage
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 

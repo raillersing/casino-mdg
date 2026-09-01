@@ -28,6 +28,8 @@ function App() {
         <Route path="/support" element={<SupportPage />} />
         <Route path="/backoffice" element={<BackofficePage />} />
         <Route path="/games/test" element={<TestGamesPage />} />
+        <Route path="/casino" element={<TestGamesPage />} />
+        <Route path="/games/hasard" element={<TestGamesPage />} />
         <Route path="/clubs" element={<ClubsPage />} />
         {/* Redirect old play hub route to lobby */}
         <Route path="/play" element={<Navigate to="/lobby" replace />} />

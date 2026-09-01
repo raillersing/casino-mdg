@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowUpRight,
   ArrowLeft,
+  Dices,
   Lock,
   Plus,
   Search,
@@ -289,8 +290,11 @@ export function LobbyPage() {
               ? t("startingSimulation")
               : t("tryDemo")}
           </button>
+          <Link to="/casino" className="button button-gold">
+            <Dices size={16} /> {t("nav.testGames") || "Jeux de hasard"}
+          </Link>
           <button
-            className="button button-gold"
+            className="button button-outline"
             onClick={() => {
               if (!accessToken) navigate("/auth");
               else setShowCreateTable(true);

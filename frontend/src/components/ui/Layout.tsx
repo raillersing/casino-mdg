@@ -38,6 +38,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const navItems = [
     { to: "/", label: t("nav.home"), icon: Home },
     { to: "/lobby", label: t("nav.play"), icon: Compass },
+    { to: "/casino", label: t("nav.testGames") || "Jeux de hasard", icon: Dices },
     { to: "/profile", label: t("nav.profile"), icon: CircleUserRound },
   ];
   const language = i18n.language.startsWith("mg") ? "MG" : "FR";
@@ -78,9 +79,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const isGamePage = location.pathname.startsWith("/game/");
   const fabGames = [
-    { id: "poker", name: t("games.poker"), icon: "♠", color: "#d3b06b" },
-    { id: "belote", name: t("games.belote"), icon: "♥", color: "#e57373" },
-    { id: "rami", name: t("games.rami"), icon: "♦", color: "#64b5f6" },
+    { id: "poker", name: t("games.poker"), icon: "♠", color: "#d3b06b", path: "/lobby?filter=poker" },
+    { id: "belote", name: t("games.belote"), icon: "♥", color: "#e57373", path: "/lobby?filter=belote" },
+    { id: "rami", name: t("games.rami"), icon: "♦", color: "#64b5f6", path: "/lobby?filter=rami" },
+    { id: "casino", name: t("nav.testGames") || "Jeux de hasard", icon: "🎲", color: "#ffb74d", path: "/casino" },
   ];
 
   return (
@@ -224,7 +226,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     className="fab-game-btn"
                     onClick={() => {
                       setFabOpen(false);
-                      navigate(`/lobby?filter=${game.id}`);
+                      navigate(game.path || `/lobby?filter=${game.id}`);
                     }}
                   >
                     <span className="fab-game-icon" style={{ color: game.color }}>

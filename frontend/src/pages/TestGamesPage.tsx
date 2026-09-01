@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Check,
   ChevronRight,
@@ -32,15 +32,59 @@ import {
 import { useGameStore } from "@stores/gameStore";
 import { trackEvent } from "@services/analytics";
 
+import { createGuestToken } from "@services/auth";
+
 type Tab = "instant" | "draws" | "activity" | "fairness";
+
+const DEFAULT_GAMES: InstantGame[] = [
+  {
+    slug: "coffre-mada",
+    name: "Coffre Mada",
+    game_type: "scratch",
+    version: "v1",
+    cost: 100,
+    max_prize: 10000,
+    status: "active",
+    mode: "SIMULATION_SOLO",
+    rules: {},
+  },
+  {
+    slug: "roue-mdg",
+    name: "Roue MDG",
+    game_type: "wheel",
+    version: "v1",
+    cost: 0,
+    max_prize: 5000,
+    status: "active",
+    mode: "SIMULATION_SOLO",
+    rules: {},
+  },
+];
+
+const DEFAULT_DRAWS: TestDraw[] = [
+  {
+    slug: "jackpot-mdg",
+    name: "Jackpot MDG",
+    draw_type: "five_numbers",
+    version: "v1",
+    status: "open",
+    mode: "SIMULATION_SOLO",
+    entry_cost: 500,
+    closes_at: new Date(Date.now() + 86400000 * 7).toISOString(),
+    rules: {},
+    result: null,
+  },
+];
 
 export function TestGamesPage() {
   const { t } = useTranslation();
   const accessToken = useGameStore((state) => state.accessToken);
+  const setSession = useGameStore((state) => state.setSession);
+  const setGuestMode = useGameStore((state) => state.setGuestMode);
   const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "instant");
-  const [games, setGames] = useState<InstantGame[]>([]);
-  const [draws, setDraws] = useState<TestDraw[]>([]);
+  const [games, setGames] = useState<InstantGame[]>(DEFAULT_GAMES);
+  const [draws, setDraws] = useState<TestDraw[]>(DEFAULT_DRAWS);
   const [plays, setPlays] = useState<InstantPlay[]>([]);
   const [entries, setEntries] = useState<
     Array<{
@@ -106,13 +150,32 @@ export function TestGamesPage() {
     setTab(next);
     setParams({ tab: next });
   };
+  const navigate = useNavigate();
+
+  const ensureToken = async (): Promise<string | null> => {
+    if (accessToken) return accessToken;
+    try {
+      const auth = await createGuestToken("Joueur Invité");
+      setSession(auth.access, auth.refresh);
+      setGuestMode(auth.user.display_name, auth.wallet.balance);
+      return auth.access;
+    } catch {
+      navigate("/auth");
+      return null;
+    }
+  };
+
   const runGame = async (game: InstantGame) => {
-    if (!accessToken) return;
-    const key = crypto.randomUUID();
     setAction(game.slug);
     setError("");
+    const token = await ensureToken();
+    if (!token) {
+      setAction("");
+      return;
+    }
+    const key = crypto.randomUUID();
     try {
-      const play = await playTestGame(accessToken, game.slug, key);
+      const play = await playTestGame(token, game.slug, key);
       setLastPlay(play);
       void trackEvent("test_game_played", {
         mode: "SIMULATION_SOLO",
@@ -149,12 +212,16 @@ export function TestGamesPage() {
     setDrawSelections({ ...drawSelections, [draw.slug]: next });
   };
   const submitEntry = async (draw: TestDraw) => {
-    if (!accessToken) return;
-    const numbers = numbersFor(draw);
     setAction(draw.slug);
     setError("");
+    const token = await ensureToken();
+    if (!token) {
+      setAction("");
+      return;
+    }
+    const numbers = numbersFor(draw);
     try {
-      await enterTestDraw(accessToken, draw.slug, numbers, crypto.randomUUID());
+      await enterTestDraw(token, draw.slug, numbers, crypto.randomUUID());
       setSelectedDraw(null);
       await load();
     } catch (reason) {
@@ -171,11 +238,15 @@ export function TestGamesPage() {
     }
   };
   const simulateDraw = async (draw: TestDraw) => {
-    if (!accessToken) return;
     setAction(`draw:${draw.slug}`);
     setError("");
+    const token = await ensureToken();
+    if (!token) {
+      setAction("");
+      return;
+    }
     try {
-      const result = await simulateTestDraw(accessToken, draw.slug);
+      const result = await simulateTestDraw(token, draw.slug);
       setDraws((current) =>
         current.map((item) => (item.slug === draw.slug ? result : item)),
       );
@@ -192,21 +263,6 @@ export function TestGamesPage() {
       setAction("");
     }
   };
-
-  if (!accessToken)
-    return (
-      <section className="test-games-login">
-        <div className="test-games-login-icon">
-          <LockKeyhole size={25} />
-        </div>
-        <span className="eyebrow gold">{t("testGames.simulation")}</span>
-        <h1>{t("testGames.loginTitle")}</h1>
-        <p>{t("testGames.loginBody")}</p>
-        <Link to="/auth" className="button button-gold">
-          {t("nav.login")} <ChevronRight size={16} />
-        </Link>
-      </section>
-    );
 
   return (
     <div className="page-stack test-games-page">
