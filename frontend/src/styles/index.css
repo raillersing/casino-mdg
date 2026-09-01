@@ -5515,10 +5515,22 @@ h3 {
   background: #080c14;
   border: 4px solid #3b4863;
   border-radius: 16px;
-  padding: 16px 12px;
+  padding: 12px;
   overflow: hidden;
+  height: 124px;
   box-shadow: inset 0 8px 16px rgba(0, 0, 0, 0.9);
   transition: all 0.3s ease;
+}
+
+.slot-glass-glare {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.08), transparent);
+  pointer-events: none;
+  z-index: 6;
 }
 
 .slot-reels-window.winner-glow {
@@ -5553,7 +5565,7 @@ h3 {
 }
 .slot-center-payline.active {
   background: #ffd700;
-  box-shadow: 0 0 12px #ffd700;
+  box-shadow: 0 0 15px #ffd700, 0 0 30px #ffd700;
   height: 3px;
 }
 
@@ -5561,35 +5573,48 @@ h3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  height: 100px;
 }
 
-.slot-reel-cylinder {
+.slot-reel-frame {
+  height: 100px;
+  position: relative;
+  overflow: hidden;
   background: #141b2b;
   border: 2px solid #232e47;
   border-radius: 12px;
-  padding: 18px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.6);
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: inset 0 6px 12px rgba(0, 0, 0, 0.7);
 }
 
-.slot-reel-cylinder.reel-spinning {
-  animation: reelBlur 0.08s infinite linear;
+.slot-reel-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
 }
 
-@keyframes reelBlur {
-  0% { transform: translateY(-8px) scaleY(1.08); filter: blur(1.5px); }
-  50% { transform: translateY(8px) scaleY(0.96); filter: blur(2px); }
-  100% { transform: translateY(-8px) scaleY(1.08); filter: blur(1.5px); }
+.slot-reel-strip.reel-strip-spinning {
+  animation: reelScrollDown 0.18s infinite linear;
+  filter: blur(1.5px);
 }
 
-.slot-symbol-card {
+.slot-reel-strip.reel-strip-stopped {
+  transition: transform 0.65s cubic-bezier(0.12, 0.8, 0.32, 1.25);
+}
+
+@keyframes reelScrollDown {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-600px); }
+}
+
+.slot-symbol-row {
+  height: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
 }
 
 .slot-symbol-emoji {
@@ -5607,13 +5632,24 @@ h3 {
 
 /* Slot Mechanical Lever */
 .slot-lever-container {
-  width: 32px;
+  width: 36px;
   height: 140px;
   position: relative;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.slot-lever-base {
+  position: absolute;
+  bottom: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #334155;
+  border: 2px solid #64748b;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
 }
 
 .slot-lever-stick {
@@ -5626,14 +5662,14 @@ h3 {
 }
 
 .slot-lever-knob {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #ff5252, #b71c1c);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4);
   position: absolute;
   top: 0;
-  left: 2px;
+  left: 3px;
   transition: top 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -5791,11 +5827,12 @@ h3 {
   color: #ffd700;
   z-index: 10;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.8));
-  transition: transform 0.05s ease;
+  transform-origin: top center;
+  transition: transform 0.04s ease;
 }
 
 .wheel-ticker-needle.tick-bump {
-  transform: translateX(-50%) rotate(-18deg);
+  transform: translateX(-50%) rotate(-22deg);
 }
 
 .wheel-disc {
@@ -5897,50 +5934,68 @@ h3 {
   margin-bottom: 22px;
 }
 
-.chest-cell {
-  background: #141b2b;
-  border: 2px solid #28354f;
-  border-radius: 16px;
-  aspect-ratio: 1 / 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.chest-flip-card {
+  perspective: 1000px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-  position: relative;
-  overflow: hidden;
+  aspect-ratio: 1 / 1;
 }
 
-.chest-cell.chest-closed:hover:not(:disabled) {
+.chest-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-style: preserve-3d;
+}
+
+.chest-flip-card.flipped .chest-flip-inner {
+  transform: rotateY(180deg);
+}
+
+.chest-card-front,
+.chest-card-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.chest-card-front {
+  background: #141b2b;
+  border: 2px solid #28354f;
+  transition: all 0.2s ease;
+}
+
+.chest-flip-card:hover .chest-card-front:not(.locked) {
   transform: translateY(-4px) scale(1.03);
   border-color: var(--gold);
   box-shadow: 0 10px 20px rgba(218, 170, 74, 0.3);
 }
 
-.chest-cell.chest-locked {
+.chest-card-front.locked {
   opacity: 0.7;
   cursor: default;
 }
 
-.chest-cell.chest-opened {
+.chest-card-back {
   background: radial-gradient(circle at center, #232e47 0%, #0d121f 100%);
+  border: 2px solid #ffd700;
+  transform: rotateY(180deg);
+}
+
+.chest-card-back.winner-glow {
   border-color: #ffd700;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-  animation: chestOpenPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes chestOpenPop {
-  0% { transform: scale(0.85); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
-}
-
-.chest-closed-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  box-shadow: 0 0 25px rgba(255, 215, 0, 0.8), inset 0 0 15px rgba(255, 215, 0, 0.4);
+  animation: pulseGlow 1s infinite alternate;
 }
 
 .chest-box-icon {
@@ -5952,14 +6007,6 @@ h3 {
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--muted);
-}
-
-.chest-revealed-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  animation: fadeIn 0.2s ease;
 }
 
 .chest-symbol-icon {
@@ -6023,4 +6070,5 @@ h3 {
   color: #ffd700;
   font-weight: 700;
 }
+
 

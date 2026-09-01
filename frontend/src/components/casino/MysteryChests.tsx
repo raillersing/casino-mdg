@@ -11,10 +11,10 @@ interface MysteryChestsProps {
   onWin: (play: InstantPlay) => void;
 }
 
-const SYMBOL_MAP: Record<string, { label: string; icon: string; color: string }> = {
-  zebu: { label: "Zébu d'Or", icon: "🐂", color: "#ffd700" },
-  baobab: { label: "Baobab Royal", icon: "🌴", color: "#68d391" },
-  vanille: { label: "Vanille Bourbon", icon: "🌸", color: "#f687b3" },
+const SYMBOL_MAP: Record<string, { label: string; icon: string; prizeText: string }> = {
+  zebu: { label: "Zébu d'Or", icon: "🐂", prizeText: "Jackpot 500 SIM" },
+  baobab: { label: "Baobab Royal", icon: "🌴", prizeText: "150 SIM" },
+  vanille: { label: "Vanille Bourbon", icon: "🌸", prizeText: "50 SIM" },
 };
 
 export function MysteryChests({
@@ -29,6 +29,7 @@ export function MysteryChests({
   const [currentPlay, setCurrentPlay] = useState<InstantPlay | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [winningSymbol, setWinningSymbol] = useState<string | null>(null);
 
   const startNewRound = async () => {
     if (isPlaying || disabled) return;
@@ -37,6 +38,7 @@ export function MysteryChests({
     setOpenedChests(Array(9).fill(false));
     setSymbols(Array(9).fill(""));
     setCurrentPlay(null);
+    setWinningSymbol(null);
 
     try {
       const result = await onPlay();
@@ -49,16 +51,40 @@ export function MysteryChests({
       const defaultSymbols =
         serverSymbols.length === 9
           ? serverSymbols
-          : [
-              "baobab", "vanille", "zebu",
-              "zebu", "baobab", "vanille",
-              "vanille", "zebu", "baobab",
-            ];
+          : result.prize >= 500
+            ? ["zebu", "zebu", "zebu", "baobab", "vanille", "baobab", "vanille", "zebu", "vanille"]
+            : result.prize >= 150
+              ? ["baobab", "baobab", "baobab", "vanille", "zebu", "vanille", "zebu", "baobab", "vanille"]
+              : result.prize > 0
+                ? ["vanille", "vanille", "vanille", "baobab", "zebu", "baobab", "zebu", "baobab", "zebu"]
+                : ["baobab", "vanille", "zebu", "zebu", "baobab", "vanille", "vanille", "zebu", "baobab"];
+
       setSymbols(defaultSymbols);
       setGameStarted(true);
       setIsPlaying(false);
     } catch {
       setIsPlaying(false);
+    }
+  };
+
+  const checkWinningMatch = (opened: boolean[], syms: string[], play: InstantPlay | null) => {
+    const counts: Record<string, number> = {};
+    opened.forEach((isOpen, idx) => {
+      if (isOpen && syms[idx]) {
+        counts[syms[idx]] = (counts[syms[idx]] || 0) + 1;
+      }
+    });
+
+    for (const [sym, count] of Object.entries(counts)) {
+      if (count >= 3) {
+        setWinningSymbol(sym);
+        if (play && play.prize > 0) {
+          setTimeout(() => {
+            onWin(play);
+          }, 450);
+        }
+        return;
+      }
     }
   };
 
@@ -70,24 +96,24 @@ export function MysteryChests({
     setOpenedChests(next);
     casinoAudio.playChestOpen();
 
-    // If all or 6 chests opened, check win
-    const openedCount = next.filter(Boolean).length;
-    if (openedCount === 9 && currentPlay && currentPlay.prize > 0) {
-      setTimeout(() => {
-        onWin(currentPlay);
-      }, 500);
-    }
+    checkWinningMatch(next, symbols, currentPlay);
   };
 
   const revealAll = () => {
     if (!gameStarted || isPlaying) return;
-    setOpenedChests(Array(9).fill(true));
-    casinoAudio.playChestOpen();
-    if (currentPlay && currentPlay.prize > 0) {
+
+    // Staggered cascade reveal
+    const next = [...openedChests];
+    symbols.forEach((_, i) => {
       setTimeout(() => {
-        onWin(currentPlay);
-      }, 500);
-    }
+        next[i] = true;
+        setOpenedChests([...next]);
+        casinoAudio.playChestOpen();
+        if (i === 8) {
+          checkWinningMatch(next, symbols, currentPlay);
+        }
+      }, i * 70);
+    });
   };
 
   return (
@@ -97,36 +123,40 @@ export function MysteryChests({
           <Sparkles size={13} /> JEU À GRATTER & COFFRES MYSTÈRES
         </span>
         <h2>COFFRE MADA</h2>
-        <p>Ouvrez les 9 coffres au trésor pour aligner 3 symboles identiques et gagner jusqu'à {maxPrize.toLocaleString("fr-FR")} SIM !</p>
+        <p>
+          Ouvrez les 9 coffres au trésor pour aligner 3 symboles identiques et gagner jusqu'à{" "}
+          {maxPrize.toLocaleString("fr-FR")} SIM !
+        </p>
       </div>
 
-      {/* 3x3 Chests Grid */}
+      {/* 3x3 Chests Grid with 3D Flip */}
       <div className="chests-grid-container">
         {Array.from({ length: 9 }).map((_, index) => {
           const isOpened = openedChests[index];
           const symbolKey = symbols[index] || "baobab";
           const symbolMeta = SYMBOL_MAP[symbolKey] || SYMBOL_MAP.baobab;
+          const isWinnerCell = isOpened && winningSymbol === symbolKey;
 
           return (
-            <button
+            <div
               key={index}
-              type="button"
-              className={`chest-cell ${isOpened ? "chest-opened" : "chest-closed"} ${!gameStarted ? "chest-locked" : ""}`}
+              className={`chest-flip-card ${isOpened ? "flipped" : ""} ${isWinnerCell ? "winner-cell" : ""}`}
               onClick={() => openChest(index)}
-              disabled={!gameStarted || isOpened || isPlaying}
             >
-              {isOpened ? (
-                <div className="chest-revealed-content">
-                  <span className="chest-symbol-icon">{symbolMeta.icon}</span>
-                  <span className="chest-symbol-name">{symbolMeta.label}</span>
-                </div>
-              ) : (
-                <div className="chest-closed-content">
+              <div className="chest-flip-inner">
+                {/* Front: Closed Chest */}
+                <div className={`chest-card-front ${!gameStarted ? "locked" : ""}`}>
                   <span className="chest-box-icon">🎁</span>
                   <span className="chest-box-number">#{index + 1}</span>
                 </div>
-              )}
-            </button>
+
+                {/* Back: Revealed Symbol */}
+                <div className={`chest-card-back ${isWinnerCell ? "winner-glow" : ""}`}>
+                  <span className="chest-symbol-icon">{symbolMeta.icon}</span>
+                  <span className="chest-symbol-name">{symbolMeta.label}</span>
+                </div>
+              </div>
+            </div>
           );
         })}
       </div>
@@ -149,7 +179,7 @@ export function MysteryChests({
               {isPlaying
                 ? "DISTRIBUTION..."
                 : gameStarted
-                  ? `REJOUER · ${cost} SIM`
+                  ? `NOUVELLE PARTIE · ${cost} SIM`
                   : `OUVRIR LES COFFRES · ${cost} SIM`}
             </span>
           </button>
