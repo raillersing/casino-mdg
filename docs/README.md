@@ -1,5 +1,7 @@
 # iGaming Madagascar Platform — Documentation Projet
 
+> **Plan de livraison courant — 14 septembre 2026 :** [Plan Directeur Multijoueur, Poker 9 Joueurs et Mise en Production](22-Plan-Directeur-Multijoueur-Poker9-Production.md), intégrant les formats Poker (Heads-Up, 6-Max, Full Ring 9 joueurs), la Belote et le Rami, ainsi que les jalons R1 (pilote 500 CCU) et R2 (10 000 CCU). Voir aussi le plan précédent [21](21-Plan-Livraison-Multijoueur-UX-Production.md) et l'[audit factuel](../reports/AUDIT-MULTIJOUEUR-2026-09-14.md).
+
 **Projet** : Casino MDG  
 **Version** : 3.0 (vision complète)  
 **Date** : 2026-08-12
@@ -40,7 +42,9 @@
 | **17** | **`GLOSSAIRE-JEUX-TEST.md`** | **Vocabulaire commun produit, UX, API, support et QA** | **Tous** |
 | **18** | **`BUSINESS-MODEL-CASINO-MDG.md`** | **Modèle de revenus, commissions, sponsoring et white-label** | **CEO, Finance, PM** |
 | **19** | **`IMPLEMENTATION-ROADMAP.md`** | **Roadmap d'implémentation et critères de sortie MVP** | **PM, CTO, QA** |
-| **20** | **`20-Roadmap-Activation-Multijoueur-Jeux-Test.md`** | **Roadmap active : activation, démo IA, matchmaking humain, pilote et gates conformité** | **PM, CTO, UX, Backend, Frontend, QA** |
+| **20** | **`20-Roadmap-Activation-Multijoueur-Jeux-Test.md`** | **Historique d'activation et périmètre SIM ; consolidé par le plan 21** | **PM, CTO, UX, Backend, Frontend, QA** |
+| **21** | **[`21-Plan-Livraison-Multijoueur-UX-Production.md`](21-Plan-Livraison-Multijoueur-UX-Production.md)** | **Plan de livraison post-audit (47 tâches, R1 et R2)** | **PO, UX, FE, BE, GE, QA, OPS** |
+| **22** | **[`22-Plan-Directeur-Multijoueur-Poker9-Production.md`](22-Plan-Directeur-Multijoueur-Poker9-Production.md)** | **Plan directeur unifié : Poker jusqu'à 9 joueurs (Full Ring), 6-Max, Belote 4, Rami et passage à l'échelle R1/R2** | **PO, UX, FE, BE, GE, QA, OPS** |
 | 00 | `README.md` | Index et guide navigation | Tous |
 
 ## 🏗️ Fichiers projet

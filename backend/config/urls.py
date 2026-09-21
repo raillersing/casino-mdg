@@ -32,6 +32,7 @@ def metrics(request):
 
 urlpatterns = [
     path("healthz/", healthz, name="healthz"),
+    path("api/v1/ping/", healthz, name="api_ping"),
     path("readyz/", readyz, name="readyz"),
     path("metrics/", metrics, name="metrics"),
     path("admin/", admin.site.urls),

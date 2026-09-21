@@ -9,7 +9,7 @@ interface LuckyWheelProps {
   onWin: (play: InstantPlay) => void;
 }
 
-export const WHEEL_SEGMENTS = [
+const WHEEL_SEGMENTS = [
   { label: "Pause (0 SIM)", prize: 0, color: "#1e293b", text: "#94a3b8", icon: "⏸️" },
   { label: "+50 SIM", prize: 50, color: "#2563eb", text: "#ffffff", icon: "💎" },
   { label: "+100 SIM", prize: 100, color: "#d97706", text: "#ffffff", icon: "🪙" },
@@ -22,16 +22,20 @@ export const WHEEL_SEGMENTS = [
 
 export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps) {
   const [spinning, setSpinning] = useState(false);
+  const [settling, setSettling] = useState(false);
   const [turboMode, setTurboMode] = useState(false);
   const [soundMuted, setSoundMuted] = useState(false);
   const [currentAngle, setCurrentAngle] = useState(0);
   const [needleFlick, setNeedleFlick] = useState(false);
   const [wonSegment, setWonSegment] = useState<string | null>(null);
+  const [isWin, setIsWin] = useState(false);
   const [activeLedIndex, setActiveLedIndex] = useState(0);
 
   const angleRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
   const ledIntervalRef = useRef<number | null>(null);
+  const needleTimeoutRef = useRef<number | null>(null);
+  const pendingWinRef = useRef<number | null>(null);
 
   const toggleSound = () => {
     const next = !soundMuted;
@@ -39,84 +43,152 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
     localStorage.setItem("mdg-poker-sound", next ? "off" : "on");
   };
 
+  useEffect(() => {
+    const saved = localStorage.getItem("mdg-poker-sound");
+    if (saved === "off") setSoundMuted(true);
+  }, []);
+
   const handleSpin = async () => {
     if (spinning || disabled) return;
 
     setSpinning(true);
+    setSettling(false);
     setWonSegment(null);
+    setIsWin(false);
+    if (pendingWinRef.current) {
+      clearTimeout(pendingWinRef.current);
+      pendingWinRef.current = null;
+    }
 
     const startAngle = angleRef.current;
 
-    // Chaser LED animation
+    // Chaser LED animation — speed depends on turbo
+    if (ledIntervalRef.current) clearInterval(ledIntervalRef.current);
     ledIntervalRef.current = window.setInterval(() => {
       setActiveLedIndex((prev) => (prev + 1) % 24);
-    }, 60);
+    }, turboMode ? 35 : 60);
 
+    // Keep reference for animation even if daily limit (null)
+    let result: import("@services/testGames").InstantPlay | null = null;
+    let isDailyLimit = false;
     try {
-      const result = await onSpin();
+      result = await onSpin();
       if (!result) {
-        if (ledIntervalRef.current) clearInterval(ledIntervalRef.current);
-        setSpinning(false);
-        return;
+        isDailyLimit = true;
+        // Will animate to Pause segment and show limit message instead of abrupt stop
       }
-
-      // Find matching target segment index
-      let targetIndex = WHEEL_SEGMENTS.findIndex(
-        (s) => s.prize === result.prize && (result.prize === 0 ? s.prize === 0 : true),
-      );
-      if (targetIndex === -1) targetIndex = 0;
-
-      // Segment angle is 360 / 8 = 45 degrees
-      const segmentAngle = 360 / WHEEL_SEGMENTS.length;
-      // Target position at 12 o'clock pointer
-      const targetAngle = 360 - (targetIndex * segmentAngle + segmentAngle / 2);
-
-      // Duration & rotations based on turbo
-      const duration = turboMode ? 2400 : 7200; // ms
-      const spinsCount = turboMode ? 3 : 8;
-      const extraRotations = spinsCount * 360;
-      const delta = ((targetAngle - (startAngle % 360)) % 360 + 360) % 360;
-      const endAngle = startAngle + extraRotations + delta;
-
-      const startTime = performance.now();
-      let lastPegCrossed = Math.floor(startAngle / segmentAngle);
-
-      const animate = (now: number) => {
-        const elapsed = now - startTime;
-        const progress = Math.min(1, elapsed / duration);
-
-        // Quintic ease-out curve for thrilling deceleration
-        const ease = 1 - Math.pow(1 - progress, 5);
-        const animatedAngle = startAngle + (endAngle - startAngle) * ease;
-
-        angleRef.current = animatedAngle;
-        setCurrentAngle(animatedAngle);
-
-        // Check peg crossing
-        const currentPeg = Math.floor(animatedAngle / segmentAngle);
-        if (currentPeg > lastPegCrossed) {
-          lastPegCrossed = currentPeg;
-          setNeedleFlick(true);
-          casinoAudio.playWheelTick();
-          setTimeout(() => setNeedleFlick(false), 30);
-        }
-
-        if (progress < 1) {
-          animFrameRef.current = requestAnimationFrame(animate);
-        } else {
-          if (ledIntervalRef.current) clearInterval(ledIntervalRef.current);
-          setSpinning(false);
-          setWonSegment(WHEEL_SEGMENTS[targetIndex].label);
-          if (result.prize > 0) {
-            onWin(result);
-          }
-        }
-      };
-
-      animFrameRef.current = requestAnimationFrame(animate);
     } catch {
       if (ledIntervalRef.current) clearInterval(ledIntervalRef.current);
       setSpinning(false);
+      setSettling(false);
+      return;
+    }
+
+    // If daily limit, force target to a Pause segment (0 or 4) so wheel still spins fully
+    let effectiveTargetIndex: number | null = null;
+    if (isDailyLimit) {
+      const pauseIndices = WHEEL_SEGMENTS.map((s, i) => (s.prize === 0 ? i : -1)).filter((i) => i !== -1);
+      effectiveTargetIndex =
+        pauseIndices[Math.floor(Math.random() * pauseIndices.length)] ?? 0;
+    }
+
+    // Determine target: random among matching prize segments, or Pause if daily limit
+    let finalTargetIndex: number;
+    if (isDailyLimit) {
+      finalTargetIndex = effectiveTargetIndex ?? 0;
+    } else if (result) {
+      const eligibleIndices = WHEEL_SEGMENTS.map((s, i) => (s.prize === result.prize ? i : -1)).filter(
+        (i) => i !== -1,
+      );
+      if (eligibleIndices.length === 0) finalTargetIndex = 0;
+      else if (eligibleIndices.length === 1) finalTargetIndex = eligibleIndices[0];
+      else finalTargetIndex = eligibleIndices[Math.floor(Math.random() * eligibleIndices.length)];
+    } else {
+      // No result and not daily limit (should not happen) — fallback to Pause
+      finalTargetIndex = 0;
+    }
+
+    const segmentAngle = 360 / WHEEL_SEGMENTS.length;
+    // SVG segments are drawn with -90deg offset: segment i spans [i*angle-90, (i+1)*angle-90).
+    // Its center is i*angle + angle/2 -90. Needle at top = 270deg (-90deg).
+    // Rotation needed: needleAngle - segmentCenter = 270 - (i*angle+22.5-90) = 337.5 - i*angle
+    const targetCenter = 337.5 - finalTargetIndex * segmentAngle;
+    const normalizedTarget = ((targetCenter % 360) + 360) % 360;
+
+    const duration = turboMode ? 2400 : 7200; // ms
+    const spinsCount = turboMode ? 3 : 8;
+    const extraRotations = spinsCount * 360;
+    const startMod = ((startAngle % 360) + 360) % 360;
+    const delta = ((normalizedTarget - startMod) % 360 + 360) % 360;
+    const endAngle = startAngle + extraRotations + delta;
+
+    const startTime = performance.now();
+    let lastPegCrossed = Math.floor(startAngle / segmentAngle);
+    let lastTickTime = 0;
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+
+      // Quintic ease-out
+      const ease = 1 - Math.pow(1 - progress, 5);
+      const animatedAngle = startAngle + (endAngle - startAngle) * ease;
+
+      angleRef.current = animatedAngle;
+      setCurrentAngle(animatedAngle);
+
+      // Needle tick — throttled + RAF-based, no setTimeout leak
+      const currentPeg = Math.floor(animatedAngle / segmentAngle);
+      if (currentPeg > lastPegCrossed && now - lastTickTime > 30) {
+        lastPegCrossed = currentPeg;
+        lastTickTime = now;
+        setNeedleFlick(true);
+        casinoAudio.playWheelTick();
+        if (needleTimeoutRef.current) clearTimeout(needleTimeoutRef.current);
+        needleTimeoutRef.current = window.setTimeout(() => setNeedleFlick(false), 55);
+      }
+
+      if (progress < 1) {
+        animFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        // Settling bounce phase — keep chaser alive during bounce then clear
+        // Show result immediately as wheel begins to settle (no gap)
+        if (isDailyLimit) {
+          setWonSegment("Limite quotidienne atteinte — revenez demain !");
+          setIsWin(false);
+        } else {
+          setWonSegment(WHEEL_SEGMENTS[finalTargetIndex].label);
+          setIsWin(!!result && result.prize > 0);
+        }
+        setSettling(true);
+        const settleTimeout = window.setTimeout(() => {
+          if (ledIntervalRef.current) clearInterval(ledIntervalRef.current);
+          setSettling(false);
+          setSpinning(false);
+          if (!isDailyLimit && result && result.prize > 0) {
+            // Short delay so the bounce is perceived, then celebrate
+            pendingWinRef.current = window.setTimeout(() => {
+              onWin(result);
+            }, 280);
+          } else if (isDailyLimit) {
+            // Daily limit: no modal, just inline message + soft thud
+            casinoAudio.playSlotStop(0.7);
+          } else {
+            // Lose: subtle thud + no modal (just inline alert)
+            casinoAudio.playSlotStop(0.85);
+          }
+        }, 420);
+        pendingWinRef.current = settleTimeout as unknown as number;
+      }
+    };
+
+    try {
+      animFrameRef.current = requestAnimationFrame(animate);
+    } catch {
+      if (ledIntervalRef.current) clearInterval(ledIntervalRef.current);
+      if (needleTimeoutRef.current) clearTimeout(needleTimeoutRef.current);
+      setSpinning(false);
+      setSettling(false);
     }
   };
 
@@ -124,6 +196,8 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (ledIntervalRef.current) clearInterval(ledIntervalRef.current);
+      if (needleTimeoutRef.current) clearTimeout(needleTimeoutRef.current);
+      if (pendingWinRef.current) clearTimeout(pendingWinRef.current);
     };
   }, []);
 
@@ -138,7 +212,6 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
           <p>Tournez la roue pour débloquer jusqu'à 500 crédits SIM !</p>
         </div>
 
-        {/* Outer Circular Chaser Lights */}
         <div className="wheel-stage-container">
           <div className="wheel-chaser-ring">
             {Array.from({ length: 24 }).map((_, idx) => (
@@ -161,17 +234,16 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
           </div>
 
           <div className="wheel-stage">
-            {/* Top Fixed Needle Pointer */}
-            <div className={`wheel-ticker-needle ${needleFlick ? "tick-bump" : ""}`}>
-              ▼
-            </div>
+            <div className={`wheel-ticker-needle ${needleFlick ? "tick-bump" : ""}`}>▼</div>
 
-            {/* Rotating Wheel Disc */}
             <div
-              className="wheel-disc"
-              style={{
-                transform: `rotate(${currentAngle}deg)`,
-              }}
+              className={`wheel-disc ${settling ? "wheel-settling" : ""} ${spinning ? "spinning" : ""}`}
+              style={
+                {
+                  transform: `rotate(${currentAngle}deg)`,
+                  ["--wheel-angle" as string]: `${currentAngle}deg`,
+                } as React.CSSProperties
+              }
             >
               <svg viewBox="0 0 300 300" className="wheel-svg">
                 {WHEEL_SEGMENTS.map((seg, i) => {
@@ -191,12 +263,7 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
 
                   return (
                     <g key={i}>
-                      <path
-                        d={path}
-                        fill={seg.color}
-                        stroke="#d4af37"
-                        strokeWidth="2.5"
-                      />
+                      <path d={path} fill={seg.color} stroke="#d4af37" strokeWidth="2.5" />
                       <text
                         x={textX}
                         y={textY}
@@ -212,7 +279,6 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
                     </g>
                   );
                 })}
-                {/* Outer Golden Rim & Pins */}
                 <circle cx="150" cy="150" r="147" fill="none" stroke="#d4af37" strokeWidth="6" />
                 {WHEEL_SEGMENTS.map((_, i) => {
                   const angle = (i * (360 / WHEEL_SEGMENTS.length) - 90) * (Math.PI / 180);
@@ -232,7 +298,6 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
                 })}
               </svg>
 
-              {/* Center Golden Knob with Star */}
               <div className="wheel-center-hub">
                 <Trophy size={22} className="wheel-hub-icon" />
               </div>
@@ -240,12 +305,13 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
           </div>
         </div>
 
-        {/* Action Controls & Options */}
         <div className="wheel-actions">
           {wonSegment && (
-            <div className="wheel-win-alert">
+            <div className={`wheel-win-alert ${isWin ? "win" : "lose"}`}>
               <CheckCircle2 size={18} className="gold-icon" />
-              <span>Résultat : <strong>{wonSegment}</strong></span>
+              <span>
+                Résultat : <strong>{wonSegment}</strong> {isWin ? "🎉" : "— retentez demain !"}
+              </span>
             </div>
           )}
 
@@ -272,14 +338,14 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
               type="button"
               className="button button-gold wheel-spin-btn"
               onClick={handleSpin}
-              disabled={spinning || disabled}
+              disabled={spinning || settling || disabled}
             >
-              {spinning ? (
+              {spinning || settling ? (
                 <RefreshCw className="spin" size={18} />
               ) : (
                 <Sparkles size={18} />
               )}
-              <span>{spinning ? "ROTATION EN SUSPENSE..." : "TOURNER LA ROUE (GRATUIT)"}</span>
+              <span>{spinning || settling ? "ROTATION EN SUSPENSE..." : "TOURNER LA ROUE (GRATUIT)"}</span>
             </button>
           </div>
         </div>

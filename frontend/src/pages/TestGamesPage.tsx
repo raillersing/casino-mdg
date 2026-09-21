@@ -143,12 +143,12 @@ export function TestGamesPage() {
     }
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (background = false) => {
     if (!accessToken) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!background) setLoading(true);
     setError("");
     try {
       const [catalog, drawList, activity, wallet] = await Promise.all([
@@ -172,7 +172,7 @@ export function TestGamesPage() {
         );
       }
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   }, [accessToken, t]);
 
@@ -205,7 +205,13 @@ export function TestGamesPage() {
         mode: "SIMULATION_SOLO",
         metadata: { game_slug: game.slug, prize: play.prize },
       });
-      await load();
+      // Background refresh without unmounting the casino stage — preserves reel/wheel/chest animation
+      void load(true);
+      // Also optimistically update plays/balance without waiting for load
+      setPlays((prev) => [play, ...prev].slice(0, 30));
+      if (play.prize > 0 || play.cost > 0) {
+        void getWalletBalance(token).then(setBalance).catch(() => {});
+      }
       return play;
     } catch (reason) {
       if (reason instanceof Error && reason.message === "AUTH_REQUIRED") {
@@ -546,14 +552,15 @@ function InstantSection({
             </div>
             <button
               type="button"
-              className="button button-gold full"
+              className={`button full ${selectedGameSlug === game.slug ? "button-primary" : "button-secondary"}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectGame(game.slug);
               }}
+              aria-pressed={selectedGameSlug === game.slug}
             >
               <Sparkles size={15} />
-              {game.cost ? `Ouvrir le jeu · ${game.cost} SIM` : "Lancer le bonus (Gratuit)"}
+              {selectedGameSlug === game.slug ? "Sélectionné" : game.cost ? `Configurer · ${game.cost} SIM` : "Configurer (Gratuit)"}
             </button>
           </article>
         ))}

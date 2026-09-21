@@ -13,11 +13,12 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { useGameStore } from "@stores/gameStore";
 import { useTranslation } from "react-i18next";
 import { trackEvent } from "@services/analytics";
-import { useGameStore } from "@stores/gameStore";
-import { startBotSimulation } from "@services/games";
 import { createGuestToken } from "@services/auth";
+import { startBotSimulation } from "@services/games";
+import { BotCountSelector } from "@components/game/BotCountSelector";
 
 const games = [
   {
@@ -59,6 +60,21 @@ export function HomePage() {
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [guestInput, setGuestInput] = useState("");
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
+  const [botCounts, setBotCounts] = useState<Record<string, number>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("mdg-bot-counts") || "{}");
+      return { poker: saved.poker ?? 3, belote: saved.belote ?? 3, rami: saved.rami ?? 1, ...saved };
+    } catch {
+      return { poker: 3, belote: 3, rami: 1 };
+    }
+  });
+  const setBotCount = (gameId: string, value: number) => {
+    setBotCounts((prev) => {
+      const next = { ...prev, [gameId]: value };
+      localStorage.setItem("mdg-bot-counts", JSON.stringify(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
     void trackEvent("activation_viewed", { metadata: { source: "home" } });
@@ -75,7 +91,7 @@ export function HomePage() {
     }
   };
 
-  const launchDemo = async (gameId: string) => {
+  const launchDemo = async (gameId: string, botCountOverride?: number) => {
     setDemoError("");
     if (!accessToken && !isGuest) {
       setShowGuestModal(true);
@@ -99,6 +115,7 @@ export function HomePage() {
       setStartingDemo(null);
       return;
     }
+    const botCount = botCountOverride ?? botCounts[gameId] ?? (gameId === "rami" ? 1 : 3);
     const idempotencyKey = `home-${gameId}-${Date.now()}`;
     try {
       const session = await startBotSimulation(
@@ -106,6 +123,7 @@ export function HomePage() {
         gameId as "poker" | "belote" | "rami",
         "balanced",
         idempotencyKey,
+        botCount,
       );
       void trackEvent("bot_simulation_started", {
         mode: "demo",
@@ -113,7 +131,7 @@ export function HomePage() {
         metadata: { source: "home_card" },
       });
       navigate(
-        `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}`,
+        `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}${session.admission_token ? `&admission_token=${session.admission_token}` : ""}`,
       );
     } catch (err) {
       console.error("Demo launch failed:", err);
@@ -206,11 +224,17 @@ export function HomePage() {
                   <p>{t(game.meta)}</p>
                 </div>
               </div>
+              <BotCountSelector
+                gameType={game.id as "poker" | "belote" | "rami"}
+                value={botCounts[game.id] ?? (game.id === "rami" ? 1 : 3)}
+                onChange={(v) => setBotCount(game.id, v)}
+                disabled={startingDemo === game.id}
+              />
               <div className="game-card-actions">
                 <button
                   className="button button-small"
                   disabled={startingDemo === game.id}
-                  onClick={() => launchDemo(game.id)}
+                  onClick={() => launchDemo(game.id, botCounts[game.id])}
                 >
                   <Bot size={13} />{" "}
                   {startingDemo === game.id ? t("startingSimulation") : t("hub.practice")}

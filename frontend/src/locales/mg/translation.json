@@ -18,7 +18,10 @@
     "clubs": "Kluby",
     "login": "Miditra",
     "logout": "Mivoaka",
-    "more": "Bebe kokoa"
+    "more": "Bebe kokoa",
+    "desktopVersion": "Kinova Solosaina",
+    "mobileVersion": "Kinova Finday",
+    "autoVersion": "Fikirana Mahazatra"
   },
   "humanOnline": "Mpilalao tena izy {{count}} azo alaina",
   "findHuman": "Mitady mpilalao tena izy",
@@ -26,7 +29,7 @@
   "matchmakingTimedOut": "Efa {{seconds}} segondra no nitadiavana · tsy mbola misy match.",
   "matchmakingTimeoutTitle": "Ela kokoa noho ny nampoizina ny fikarohana",
   "matchmakingTimeoutBody": "Afaka manafoana ianao, miandry ihany, na manomboka démo IA voamarika mazava.",
-  "tryDemo": "Alefaso ny lalao IA",
+  "tryDemo": "S’entraîner (vs Bots)",
   "startingSimulation": "Mamorona lalao…",
   "simulationUnavailable": "Tsy azo ampiasaina vetivety ny simulation.",
   "cancelSearch": "Ajanony ny fikarohana",
@@ -147,7 +150,12 @@
     "watch": "Jereo ny latabatra",
     "privateHint": "Hiseho eto ny latabatra manokana rehefa manasa anao ny namanao.",
     "testGames": "Lalao kisendrasendra",
-    "spectate": "Hijery"
+    "spectate": "Hijery",
+    "fastPlayTitle": "Lalao Haingana",
+    "fastMatchSubtitle": "Miditra latabatra avy hatrany",
+    "quickPlay": "Hilalao avy hatrany",
+    "allStakes": "Mise rehetra",
+    "freeDemo": "Maimaimpoana"
   },
   "wallet": {
     "balance": "Vola",
@@ -468,6 +476,12 @@
     "submit": "Mamorona kluby",
     "creating": "Mamorona…",
     "close": "Hidio",
+    "certified": "Voamarina",
+    "requestCertification": "Hangataka fanamarinana",
+    "certificationPending": "Eo am-pandinihana ny fangatahana",
+    "certificationDesc": "Mahazo mpikambana hatramin'ny 250 sy marika fahatokisana MDG ireo klioba voamarina.",
+    "shareWhatsApp": "Hanasaka amin'ny WhatsApp",
+    "clubChat": "Resaka Klioba",
     "roles": {
       "owner": "Mpanorina",
       "admin": "Administratera",

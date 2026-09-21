@@ -13,15 +13,24 @@ class Club(models.Model):
     language = models.CharField(max_length=2, default="fr")
     visibility = models.CharField(max_length=10, choices=VISIBILITY, default="open")
     member_limit = models.PositiveIntegerField(default=50)
+    code = models.CharField(max_length=20, blank=True, null=True)
+    is_certified = models.BooleanField(default=False)
+    certification_status = models.CharField(max_length=20, default="none")
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="owned_clubs"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        if not self.code:
+            import secrets
+            self.code = f"MDG-{secrets.randbelow(9000) + 1000}"
+        super().save(*args, **kwargs)
+
     class Meta:
         db_table = "clubs"
-        ordering = ["-updated_at"]
+        ordering = ["-is_certified", "-updated_at"]
 
 
 class ClubMembership(models.Model):
@@ -100,3 +109,18 @@ class ClubEventParticipant(models.Model):
                 fields=["event", "user"], name="unique_club_event_participant"
             )
         ]
+
+
+class ClubChatMessage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="chat_messages")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="club_chat_messages"
+    )
+    body = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "club_chat_messages"
+        ordering = ["created_at"]
+

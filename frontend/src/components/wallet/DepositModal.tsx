@@ -49,7 +49,15 @@ const OPERATORS = [
   },
 ];
 
-const PRESET_AMOUNTS = [5000, 10000, 20000, 50000, 100000, 200000];
+function formatMdgPhone(input: string): string {
+  const digits = input.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+  if (digits.length <= 8) return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
+  return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 10)}`;
+}
+
+const PRESET_AMOUNTS = [2000, 5000, 10000, 20000, 50000, 100000];
 
 export function DepositModal({
   isOpen,
@@ -59,9 +67,9 @@ export function DepositModal({
   onDepositSuccess,
 }: DepositModalProps) {
   const [operator, setOperator] = useState<"mvola" | "orange" | "airtel">("mvola");
-  const [phone, setPhone] = useState(defaultPhone.replace("+261", "0"));
-  const [amount, setAmount] = useState<number>(10000);
-  const [customAmount, setCustomAmount] = useState<string>("10000");
+  const [phone, setPhone] = useState(formatMdgPhone(defaultPhone.replace("+261", "0")));
+  const [amount, setAmount] = useState<number>(5000);
+  const [customAmount, setCustomAmount] = useState<string>("5000");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<PaymentIntentResponse | null>(null);
@@ -69,8 +77,9 @@ export function DepositModal({
   if (!isOpen) return null;
 
   const handlePhoneChange = (val: string) => {
-    setPhone(val);
-    const cleaned = val.replace(/\s+/g, "");
+    const formatted = formatMdgPhone(val);
+    setPhone(formatted);
+    const cleaned = val.replace(/\D/g, "");
     if (cleaned.startsWith("034") || cleaned.startsWith("038")) {
       setOperator("mvola");
     } else if (cleaned.startsWith("032") || cleaned.startsWith("037")) {
@@ -119,7 +128,7 @@ export function DepositModal({
         operator,
         "deposit",
         amount,
-        phone,
+        phone.replace(/\s+/g, ""),
         idempotencyKey,
         true // sandbox/simulation
       );

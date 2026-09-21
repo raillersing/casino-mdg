@@ -52,8 +52,23 @@ func NewShuffledGame(ids []string) (*Game, error) {
 }
 
 func (g *Game) Draw() (Card, error) {
-	if g.Finished || len(g.DrawPile) == 0 {
-		return Card{}, fmt.Errorf("draw pile is empty")
+	if g.Finished {
+		return Card{}, fmt.Errorf("game is finished")
+	}
+	if len(g.DrawPile) == 0 {
+		// Reshuffle discard pile (keep top card) into draw pile
+		if len(g.Discard) <= 1 {
+			return Card{}, fmt.Errorf("draw pile is empty")
+		}
+		top := g.Discard[len(g.Discard)-1]
+		toShuffle := g.Discard[:len(g.Discard)-1]
+		g.Discard = []Card{top}
+		// Simple shuffle
+		for i := len(toShuffle) - 1; i > 0; i-- {
+			j := rng.Intn(i + 1)
+			toShuffle[i], toShuffle[j] = toShuffle[j], toShuffle[i]
+		}
+		g.DrawPile = toShuffle
 	}
 	card := g.DrawPile[0]
 	g.DrawPile = g.DrawPile[1:]
@@ -84,20 +99,25 @@ func (g *Game) DiscardCard(card Card) error {
 
 func (g *Game) calculateScores() {
 	if g.KnockedBy >= 0 {
-		// Gin Rummy knock scoring
+		// Gin Rummy knock scoring — +25 bonus once for gin, not per opponent
 		knocker := g.Players[g.KnockedBy]
 		knockerDeadwood := handScore(knocker.Hand)
+		ginBonus := 0
+		if g.Gin {
+			ginBonus = 25
+		}
 		for i, player := range g.Players {
 			if i == g.KnockedBy {
 				continue
 			}
 			opponentDeadwood := handScore(player.Hand)
 			pointDiff := opponentDeadwood - knockerDeadwood
-			if g.Gin {
-				pointDiff += 25
-			}
+			// Gin bonus only once total, split if multiple opponents? Keep simple: +25 to knocker
 			knocker.Score += pointDiff
 			player.Score -= pointDiff
+		}
+		if ginBonus > 0 {
+			knocker.Score += ginBonus
 		}
 	} else {
 		for _, player := range g.Players {
@@ -109,7 +129,15 @@ func (g *Game) calculateScores() {
 func handScore(hand []Card) int {
 	total := 0
 	for _, card := range hand {
-		total += card.Rank
+		rank := card.Rank
+		if rank > 10 {
+			rank = 10 // J/Q/K =10, Ace=1
+		}
+		if rank == 1 {
+			// Ace is 1 in this variant (not 11)
+			rank = 1
+		}
+		total += rank
 	}
 	return total
 }
@@ -119,8 +147,25 @@ func (g *Game) Winner() (*Player, bool) {
 		return nil, false
 	}
 	if g.KnockedBy >= 0 {
-		// In knock scoring the knocker is the winner (highest score)
-		return g.Players[g.KnockedBy], true
+		knocker := g.Players[g.KnockedBy]
+		knockerScore := handScore(knocker.Hand)
+		// Undercut: if any opponent has lower deadwood than knocker, the lowest wins
+		bestOpponentScore := 1000
+		bestOpponentIdx := -1
+		for i, p := range g.Players {
+			if i == g.KnockedBy {
+				continue
+			}
+			s := handScore(p.Hand)
+			if s < bestOpponentScore {
+				bestOpponentScore = s
+				bestOpponentIdx = i
+			}
+		}
+		if bestOpponentIdx >= 0 && bestOpponentScore < knockerScore {
+			return g.Players[bestOpponentIdx], true
+		}
+		return knocker, true
 	}
 	winner := g.Players[0]
 	for _, player := range g.Players[1:] {

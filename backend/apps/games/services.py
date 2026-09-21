@@ -1,8 +1,36 @@
+import os
+from datetime import datetime, timezone
+
+import jwt
 from django.conf import settings
 from django.db import transaction
 
 from .models import GameTable, TableSeat
 from .modes import HUMAN_MATCH
+
+
+def generate_admission_token(
+    user, table, seat_index=None, role="player", lifetime_seconds=60
+):
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user.pk),
+        "name": (
+            getattr(user, "display_name", "")
+            or getattr(user, "username", "")
+            or str(user.pk)[:8]
+        ),
+        "table_id": str(table.pk),
+        "seat_id": seat_index if seat_index is not None else -1,
+        "role": role,
+        "mode": table.mode,
+        "game_type": table.game_type,
+        "type": "admission",
+        "iat": int(now.timestamp()),
+        "exp": int(now.timestamp()) + lifetime_seconds,
+    }
+    secret = os.getenv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes")
+    return jwt.encode(payload, secret, algorithm="HS256")
 
 
 def seed_demo_tables():

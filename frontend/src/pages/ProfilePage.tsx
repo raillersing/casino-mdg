@@ -9,7 +9,9 @@ import {
   HeartHandshake,
   LifeBuoy,
   LogOut,
+  Monitor,
   ShieldCheck,
+  Smartphone,
   Trophy,
   UserRound,
   UsersRound,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 import { getGameStats, getLeaderboard, type GameStats } from "@services/games";
 import { useGameStore } from "@stores/gameStore";
+import { useDeviceMode } from "@hooks/useDeviceMode";
 import { getKYCStatus, type KYCStatus } from "@services/kyc";
 import { KYCModal } from "@components/KYCModal";
 import {
@@ -41,6 +44,7 @@ export function ProfilePage() {
   const user = useGameStore((state) => state.user);
   const logout = useGameStore((state) => state.logout);
   const accessToken = useGameStore((state) => state.accessToken);
+  const { isMobile, toggleMode } = useDeviceMode();
   const name = user?.displayName || t("profile.visitor");
   const [stats, setStats] = useState<GameStats>({
     played: 0,
@@ -149,7 +153,7 @@ export function ProfilePage() {
             <span className="online-dot" /> {t("profile.online")}
           </p>
         </div>
-        <button className="button button-outline edit-button">
+        <button type="button" className="button button-outline edit-button" disabled aria-disabled="true" title="Bientôt disponible">
           <Edit3 size={15} /> {t("profile.edit")}
         </button>
       </div>
@@ -169,7 +173,7 @@ export function ProfilePage() {
           <span>{t("nav.clubs")}</span>
           <ChevronRight size={16} />
         </Link>
-        <Link to="/games/test" className="quick-link-card">
+        <Link to="/casino" className="quick-link-card">
           <Dices size={20} />
           <span>{t("nav.testGames")}</span>
           <ChevronRight size={16} />
@@ -257,6 +261,12 @@ export function ProfilePage() {
           <div className="settings-list">
             <div
               onClick={() => setIsKycModalOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setIsKycModalOpen(true);
+                }
+              }}
               style={{ cursor: "pointer" }}
               role="button"
               tabIndex={0}
@@ -314,6 +324,35 @@ export function ProfilePage() {
               <div>
                 <strong>{t("profile.publicProfile")}</strong>
                 <span>{t("profile.publicProfileHint")}</span>
+              </div>
+              <ChevronRight size={17} />
+            </div>
+            <div
+              onClick={toggleMode}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleMode();
+                }
+              }}
+              style={{ cursor: "pointer" }}
+              role="button"
+              tabIndex={0}
+            >
+              <span className="setting-icon">
+                {isMobile ? <Monitor size={17} /> : <Smartphone size={17} />}
+              </span>
+              <div>
+                <strong>
+                  {isMobile
+                    ? t("nav.desktopVersion") || "Version Ordinateur (Bureau)"
+                    : t("nav.mobileVersion") || "Version Smartphone"}
+                </strong>
+                <span>
+                  {isMobile
+                    ? "Afficher la disposition grand écran avec barre latérale"
+                    : "Afficher l'interface ergonomique pour smartphone"}
+                </span>
               </div>
               <ChevronRight size={17} />
             </div>

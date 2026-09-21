@@ -19,7 +19,8 @@ export type ProductEventName =
   | "invite_sent"
   | "invite_joined"
   | "reconnection_succeeded"
-  | "heartbeat_latency";
+  | "heartbeat_latency"
+  | "table_joined";
 
 type EventContext = {
   mode?: string;

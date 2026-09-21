@@ -12,6 +12,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -25,9 +26,32 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var serverRandMu sync.Mutex
+
+func safeRandIntnServer(n int) int {
+	serverRandMu.Lock()
+	defer serverRandMu.Unlock()
+	return rand.Intn(n)
+}
+
+func safeRandFloat64Server() float64 {
+	serverRandMu.Lock()
+	defer serverRandMu.Unlock()
+	return rand.Float64()
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		u, err := url.Parse(origin)
+		if err != nil {
+			return false
+		}
+		host := u.Hostname()
+		return host == "localhost" || host == "127.0.0.1" || host == "backend" || host == "frontend" || strings.HasSuffix(host, ".mdg.local") || strings.HasSuffix(host, "casino-mdg.mg") || strings.HasSuffix(host, "casino-mdg.com")
 	},
 	ReadBufferSize:   1024,
 	WriteBufferSize:  1024,
@@ -67,6 +91,7 @@ type Server struct {
 	snapshots   *state.SnapshotManager
 	mu          sync.RWMutex
 	botRuns     map[string]*botRun
+	nodeID      string
 }
 
 func (s *Server) ClientCount() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.clients) }
@@ -108,7 +133,8 @@ func (s *Server) AttachBots(w http.ResponseWriter, r *http.Request) {
 		if profile == "" {
 			profile = "balanced"
 		}
-		if _, err := s.roomManager.JoinBotPlayerWithProfile(request.TableID, bot.ID, bot.Name, len(table.Players)+1, profile); err != nil {
+		// Let the manager assign the next seat atomically (0 = auto)
+		if _, err := s.roomManager.JoinBotPlayerWithProfile(request.TableID, bot.ID, bot.Name, 0, profile); err != nil {
 			http.Error(w, fmt.Sprintf("attach bot: %v", err), http.StatusConflict)
 			return
 		}
@@ -121,29 +147,37 @@ func (s *Server) AttachBots(w http.ResponseWriter, r *http.Request) {
 }
 
 type Client struct {
-	conn       *websocket.Conn
-	playerID   string
-	tableID    string
-	spectator  bool
-	isBot      bool
-	name       string
-	botTableID string
-	send       chan []byte
-	lastPong   time.Time
+	conn             *websocket.Conn
+	playerID         string
+	tableID          string
+	spectator        bool
+	isBot            bool
+	name             string
+	botTableID       string
+	admissionTableID string
+	admissionSeatID  int
+	admissionRole    string
+	send             chan []byte
+	lastPong         time.Time
 }
 
 func NewServer(cfg *config.Config, rm *room.Manager) *Server {
+	nodeID := cfg.NodeID
+	if nodeID == "" {
+		nodeID = "engine-node-1"
+	}
 	return &Server{
 		config:      cfg,
 		roomManager: rm,
 		clients:     make(map[string]*Client),
 		botRuns:     make(map[string]*botRun),
-		snapshots:   state.NewSnapshotManager(cfg.RedisURL),
+		snapshots:   state.NewSnapshotManagerWithNode(cfg.RedisURL, nodeID),
+		nodeID:      nodeID,
 	}
 }
 
 func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
-	playerID, isBot, name, botTableID, ok := authenticateConnection(r, s.config)
+	playerID, isBot, name, botTableID, admissionTableID, admissionSeatID, admissionRole, ok := authenticateConnection(r, s.config)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -156,13 +190,16 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	client := &Client{
-		conn:       conn,
-		send:       make(chan []byte, 1024),
-		lastPong:   time.Now(),
-		playerID:   playerID,
-		isBot:      isBot,
-		name:       name,
-		botTableID: botTableID,
+		conn:             conn,
+		send:             make(chan []byte, 1024),
+		lastPong:         time.Now(),
+		playerID:         playerID,
+		isBot:            isBot,
+		name:             name,
+		botTableID:       botTableID,
+		admissionTableID: admissionTableID,
+		admissionSeatID:  admissionSeatID,
+		admissionRole:    admissionRole,
 	}
 	go s.writePump(client)
 	s.readPump(client)
@@ -177,6 +214,7 @@ func (s *Server) readPump(client *Client) {
 		client.conn.Close()
 	}()
 
+	client.conn.SetReadLimit(64 * 1024)
 	if err := client.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
 		return
 	}
@@ -259,23 +297,45 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		s.sendMessage(client, &Message{Type: MsgError, Payload: "bot token is bound to another table", Timestamp: time.Now()})
 		return
 	}
+	if client.admissionTableID != "" && msg.TableID != client.admissionTableID {
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "admission ticket is bound to another table", Timestamp: time.Now()})
+		return
+	}
 	table, ok := s.roomManager.GetTable(msg.TableID)
 	if !ok {
 		var snapshot room.TableSnapshot
 		if err := s.snapshots.GetSnapshotInto(msg.TableID, &snapshot); err != nil {
+			if !client.isBot && client.admissionTableID == "" {
+				s.sendMessage(client, &Message{Type: MsgError, Payload: "unauthorized table creation requires admission ticket", Timestamp: time.Now()})
+				return
+			}
 			gameType := gameTypeFromPayload(msg.Payload)
 			if !validGameType(gameType) {
 				s.sendMessage(client, &Message{Type: MsgError, Payload: "invalid game type", Timestamp: time.Now()})
 				return
 			}
+			gen, leaseErr := s.snapshots.AcquireTableLease(context.Background(), msg.TableID, s.nodeID, 30*time.Second)
+			if leaseErr != nil {
+				log.Printf("lease acquire error table=%s node=%s: %v", msg.TableID, s.nodeID, leaseErr)
+			}
 			table = s.roomManager.CreateTableWithID(msg.TableID, gameType)
+			if gen > 0 {
+				s.roomManager.SetTableGeneration(msg.TableID, gen)
+			}
 		} else {
+			gen, leaseErr := s.snapshots.AcquireTableLease(context.Background(), msg.TableID, s.nodeID, 30*time.Second)
+			if leaseErr != nil {
+				log.Printf("lease acquire error on restore table=%s node=%s: %v", msg.TableID, s.nodeID, leaseErr)
+			}
 			restored, restoreErr := s.roomManager.RestoreSnapshot(snapshot)
 			if restoreErr != nil {
 				s.sendMessage(client, &Message{Type: MsgError, Payload: "invalid table snapshot", Timestamp: time.Now()})
 				return
 			}
 			table = restored
+			if gen > 0 {
+				s.roomManager.SetTableGeneration(msg.TableID, gen)
+			}
 		}
 	}
 
@@ -290,7 +350,7 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		return
 	}
 	s.addClient(client)
-	client.spectator = !client.isBot && roleFromPayload(msg.Payload) == "spectator"
+	client.spectator = (!client.isBot && roleFromPayload(msg.Payload) == "spectator") || client.admissionRole == "spectator"
 	if !client.spectator {
 		name := client.name
 		if name == "" {
@@ -298,15 +358,13 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		}
 		var err error
 		if client.isBot {
-			_, err = s.roomManager.JoinBotPlayer(msg.TableID, client.playerID, name, len(table.Players)+1)
+			_, err = s.roomManager.JoinBotPlayer(msg.TableID, client.playerID, name, 0)
 		} else {
-			// Bot sessions attach their AI seats first, but the human must own
-			// seat 0 so the initial hand starts with an immediately playable turn.
-			seat := len(table.Players) + 1
-			if len(table.Players) > 0 && allPlayersAreBots(table.Players) {
-				seat = 0
+			seatIndex := 0
+			if client.admissionSeatID >= 0 {
+				seatIndex = client.admissionSeatID
 			}
-			_, err = s.roomManager.JoinPlayer(msg.TableID, client.playerID, name, seat)
+			_, err = s.roomManager.JoinPlayer(msg.TableID, client.playerID, name, seatIndex)
 		}
 		if err != nil {
 			s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: err.Error(), Timestamp: time.Now()})
@@ -423,23 +481,23 @@ func (s *Server) startBotTurns(tableID string) {
 			}
 			switch profile {
 			case "maniac":
-				delay = time.Duration(600+rand.Intn(600)) * time.Millisecond
+				delay = time.Duration(600+safeRandIntnServer(600)) * time.Millisecond
 			case "rock":
-				delay = time.Duration(800+rand.Intn(700)) * time.Millisecond
+				delay = time.Duration(800+safeRandIntnServer(700)) * time.Millisecond
 			case "shark":
 				// Complex decisions take longer
 				if turn.Action == "raise" || turn.Action == "all_in" {
-					delay = time.Duration(1500+rand.Intn(2500)) * time.Millisecond
+					delay = time.Duration(1500+safeRandIntnServer(2500)) * time.Millisecond
 				} else {
-					delay = time.Duration(1000+rand.Intn(1500)) * time.Millisecond
+					delay = time.Duration(1000+safeRandIntnServer(1500)) * time.Millisecond
 				}
 			case "donkey":
-				delay = time.Duration(500+rand.Intn(4500)) * time.Millisecond
+				delay = time.Duration(500+safeRandIntnServer(4500)) * time.Millisecond
 			case "fish":
 				if turn.Action == "fold" {
-					delay = time.Duration(1200+rand.Intn(1800)) * time.Millisecond
+					delay = time.Duration(1200+safeRandIntnServer(1800)) * time.Millisecond
 				} else {
-					delay = time.Duration(1000+rand.Intn(1000)) * time.Millisecond
+					delay = time.Duration(1000+safeRandIntnServer(1000)) * time.Millisecond
 				}
 			default:
 				if s.config.BotProfile == "fast" {
@@ -478,28 +536,28 @@ func (s *Server) broadcastBotEmotes(tableID string, winners []string, handRanks 
 				continue
 			}
 			// Skip most of the time to avoid spam
-			if rand.Float64() > 0.35 {
+			if safeRandFloat64Server() > 0.35 {
 				continue
 			}
 			msgList := messages["loss"]
-			emote := emotes[rand.Intn(len(emotes))]
+			emote := emotes[safeRandIntnServer(len(emotes))]
 			if winnerSet[p.ID] {
 				msgList = messages["win"]
-				if rand.Float64() < 0.5 {
+				if safeRandFloat64Server() < 0.5 {
 					emote = "😎"
 				} else {
 					emote = "🎉"
 				}
 			} else if rank, hasRank := handRanks[p.ID]; hasRank && rank != "" {
 				msgList = messages["close"]
-				if rand.Float64() < 0.5 {
+				if safeRandFloat64Server() < 0.5 {
 					emote = "😱"
 				} else {
 					emote = "👍"
 				}
 			}
 			if len(msgList) > 0 {
-				text := msgList[rand.Intn(len(msgList))]
+				text := msgList[safeRandIntnServer(len(msgList))]
 				s.broadcastToTable(tableID, &Message{
 					Type: MsgAction, TableID: tableID, PlayerID: p.ID, Action: "bot_chat",
 					Payload: map[string]interface{}{"text": text, "emote": emote},
@@ -529,6 +587,21 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 					revealedCards[player.ID] = player.Cards
 					handRanks[player.ID] = poker.HandRankName(append(append([]poker.Card{}, player.Cards...), game.Community...))
 				}
+			}
+		}
+		// Live hand rank + outs for the requesting player (for stats display pre-showdown)
+		liveHandRank := ""
+		liveHandOuts := 0
+		liveHandProb := 0.0
+		liveHandTarget := ""
+		for _, player := range game.Players {
+			if player.ID == playerID && len(player.Cards) > 0 {
+				liveHandRank = poker.HandRankName(append(append([]poker.Card{}, player.Cards...), game.Community...))
+				outs, prob, target := poker.HandOuts(player.Cards, game.Community)
+				liveHandOuts = outs
+				liveHandProb = prob
+				liveHandTarget = target
+				break
 			}
 		}
 		if game.Phase == "showdown" {
@@ -602,7 +675,7 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 		if !game.ActionDeadline.IsZero() {
 			deadline = game.ActionDeadline
 		}
-		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "pots": poker.CalculatePots(game.Players), "current": game.Current, "current_player_id": currentPlayerID, "phase": game.Phase, "finish_reason": game.FinishReason, "action_deadline": deadline, "button": game.Button, "button_player_id": playerIDAt(game, game.Button), "small_blind": game.SmallBlind, "small_blind_player_id": playerIDAt(game, small), "big_blind": game.BigBlind, "big_blind_player_id": playerIDAt(game, big), "min_raise": minRaise, "min_raise_to": minRaiseTo, "max_raise_to": maxRaise, "to_call": toCallForPlayer, "allowed_actions": allowedActions, "winners": winners, "revealed_cards": revealedCards, "best_cards": bestCards, "hand_ranks": handRanks, "payouts": payouts}
+		return map[string]interface{}{"players": players, "community": game.Community, "pot": game.Pot, "pots": poker.CalculatePots(game.Players), "current": game.Current, "current_player_id": currentPlayerID, "phase": game.Phase, "finish_reason": game.FinishReason, "action_deadline": deadline, "button": game.Button, "button_player_id": playerIDAt(game, game.Button), "small_blind": game.SmallBlind, "small_blind_player_id": playerIDAt(game, small), "big_blind": game.BigBlind, "big_blind_player_id": playerIDAt(game, big), "min_raise": minRaise, "min_raise_to": minRaiseTo, "max_raise_to": maxRaise, "to_call": toCallForPlayer, "allowed_actions": allowedActions, "winners": winners, "revealed_cards": revealedCards, "best_cards": bestCards, "hand_ranks": handRanks, "hand_rank": liveHandRank, "hand_outs": liveHandOuts, "hand_prob": liveHandProb, "hand_target": liveHandTarget, "payouts": payouts}
 	case *belote.Round:
 		players := make([]map[string]interface{}, 0, len(game.Players))
 		for _, player := range game.Players {
@@ -783,7 +856,12 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 	previousPhase := s.roomManager.PokerPhase(msg.TableID)
 	event, replayed, err := s.roomManager.ApplyActionIdempotent(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload, msg.EventID)
 	if err != nil {
-		s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
+		if err.Error() == "game_over" {
+			s.broadcastToTable(msg.TableID, &Message{Type: MsgError, TableID: msg.TableID, Payload: "game_over", Timestamp: time.Now()})
+			s.broadcastState(msg.TableID)
+		} else {
+			s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
+		}
 		return
 	}
 	actionMessage := &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: actionDetails(s.roomManager, msg.TableID, client.playerID, event.Action, msg.Payload), EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp}
@@ -814,7 +892,7 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 				if share > 0 {
 					outcome = "win"
 				}
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": outcome, "amount": share, "signature": signResult(s.config.ResultSecret, msg.TableID, "poker", outcome, int(share))}, Sequence: event.Sequence, Timestamp: time.Now()})
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": outcome, "amount": share, "signature": signResult(s.config.ResultSecret, msg.TableID, "poker", outcome, int(share), playerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
 			}
 			if showdownPayouts, revealed, pot, finishReason, ok := s.roomManager.PokerShowdown(msg.TableID); ok {
 				winners := make([]string, 0, len(showdownPayouts))
@@ -880,10 +958,10 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		winners, losers, points, finished := s.roomManager.FinishedBeloteResults(msg.TableID)
 		if finished {
 			for _, playerID := range winners {
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": points, "signature": signResult(s.config.ResultSecret, msg.TableID, "belote", "win", int(points))}, Sequence: event.Sequence, Timestamp: time.Now()})
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": points, "signature": signResult(s.config.ResultSecret, msg.TableID, "belote", "win", int(points), playerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
 			}
 			for _, playerID := range losers {
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "belote", "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "belote", "loss", 0, playerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
 			}
 			// Auto-restart next round after a short delay if humans are still present.
 			table, _ := s.roomManager.GetTable(msg.TableID)
@@ -896,12 +974,12 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			}
 		}
 	}
-	if !replayed && msg.Action == "discard" {
+	if !replayed && (msg.Action == "discard" || msg.Action == "knock") {
 		winnerID, losers, amount, finished := s.roomManager.FinishedRamiResults(msg.TableID)
 		if finished {
-			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": amount, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "win", int(amount))}, Sequence: event.Sequence, Timestamp: time.Now()})
+			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": amount, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "win", int(amount), winnerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
 			for _, playerID := range losers {
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "loss", 0)}, Sequence: event.Sequence, Timestamp: time.Now()})
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "loss", 0, playerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
 			}
 			// Auto-restart next game after a short delay if humans are still present.
 			table, _ := s.roomManager.GetTable(msg.TableID)
@@ -1101,8 +1179,15 @@ func pokerCommunity(manager *room.Manager, tableID string) []poker.Card {
 	return nil
 }
 
-func signResult(secret, gameID, gameType, outcome string, amount int) string {
-	payload, _ := json.Marshal(map[string]interface{}{"amount": amount, "game_id": gameID, "game_type": gameType, "metadata": map[string]interface{}{}, "outcome": outcome})
+func signResult(secret, gameID, gameType, outcome string, amount int, playerID string) string {
+	payload, _ := json.Marshal(map[string]interface{}{
+		"amount":    amount,
+		"game_id":   gameID,
+		"game_type": gameType,
+		"metadata":  map[string]interface{}{},
+		"outcome":   outcome,
+		"player_id": playerID,
+	})
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write(payload)
 	return hex.EncodeToString(mac.Sum(nil))
@@ -1114,9 +1199,10 @@ func (s *Server) persistSnapshot(tableID string) {
 		return
 	}
 	go func() {
-		if err := s.snapshots.SaveSnapshot(tableID, snapshot); err != nil {
+		if err := s.snapshots.SaveVersionedSnapshot(tableID, snapshot.Sequence, snapshot.Generation, snapshot); err != nil {
 			log.Printf("snapshot save failed table=%s: %v", tableID, err)
 		}
+		_ = s.snapshots.RenewTableLease(context.Background(), tableID, s.nodeID, 30*time.Second)
 	}()
 }
 
@@ -1174,25 +1260,52 @@ func (s *Server) broadcastToTable(tableID string, msg *Message) {
 	}
 }
 
-func authenticate(token, secret string) (string, bool) {
+type userClaims struct {
+	Sub      string          `json:"sub"`
+	Name     string          `json:"name"`
+	TableID  string          `json:"table_id"`
+	SeatID   int             `json:"seat_id"`
+	Role     string          `json:"role"`
+	Type     string          `json:"type"`
+	RawExp   json.RawMessage `json:"exp"`
+	RawIat   json.RawMessage `json:"iat"`
+	Expires  int64           `json:"-"`
+	IssuedAt int64           `json:"-"`
+}
+
+func authenticate(token, secret string) (userClaims, bool) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return "", false
+		return userClaims{}, false
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(parts[0] + "." + parts[1]))
 	signature, err := base64.RawURLEncoding.DecodeString(parts[2])
 	if err != nil || !hmac.Equal(mac.Sum(nil), signature) {
-		return "", false
+		return userClaims{}, false
 	}
-	var claims struct {
-		Sub string `json:"sub"`
-	}
+	var claims userClaims
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil || json.Unmarshal(payload, &claims) != nil || claims.Sub == "" {
-		return "", false
+		return userClaims{}, false
 	}
-	return claims.Sub, true
+	if len(claims.RawExp) > 0 && string(claims.RawExp) != "null" {
+		var f float64
+		if err := json.Unmarshal(claims.RawExp, &f); err == nil {
+			claims.Expires = int64(f)
+		}
+	}
+	if len(claims.RawIat) > 0 && string(claims.RawIat) != "null" {
+		var f float64
+		if err := json.Unmarshal(claims.RawIat, &f); err == nil {
+			claims.IssuedAt = int64(f)
+		}
+	}
+	// Expired token check (10 seconds clock skew tolerance)
+	if claims.Expires > 0 && time.Now().Unix() > claims.Expires+10 {
+		return userClaims{}, false
+	}
+	return claims, true
 }
 
 type botTokenClaims struct {
@@ -1202,19 +1315,25 @@ type botTokenClaims struct {
 	Expires int64  `json:"exp"`
 }
 
-// authenticateConnection accepts normal user JWTs or a short-lived internal
-// bot token. The bot token is bound to a single table and never accepted from
-// the regular `token` query parameter.
-func authenticateConnection(r *http.Request, cfg *config.Config) (string, bool, string, string, bool) {
+// authenticateConnection accepts normal user JWTs, signed admission tokens,
+// or a short-lived internal bot token.
+func authenticateConnection(r *http.Request, cfg *config.Config) (string, bool, string, string, string, int, string, bool) {
 	if botToken := r.URL.Query().Get("bot_token"); botToken != "" {
 		claims, ok := authenticateBot(botToken, r.URL.Query().Get("table_id"), cfg.BotServiceSecret)
 		if !ok {
-			return "", false, "", "", false
+			return "", false, "", "", "", -1, "", false
 		}
-		return claims.BotID, true, claims.Name, claims.TableID, true
+		return claims.BotID, true, claims.Name, claims.TableID, claims.TableID, -1, "player", true
 	}
-	playerID, ok := authenticate(r.URL.Query().Get("token"), cfg.JWTSecret)
-	return playerID, false, "", "", ok
+	claims, ok := authenticate(r.URL.Query().Get("token"), cfg.JWTSecret)
+	if !ok {
+		return "", false, "", "", "", -1, "", false
+	}
+	role := claims.Role
+	if role == "" {
+		role = "player"
+	}
+	return claims.Sub, false, claims.Name, "", claims.TableID, claims.SeatID, role, true
 }
 
 func authenticateBot(token, tableID, secret string) (botTokenClaims, bool) {

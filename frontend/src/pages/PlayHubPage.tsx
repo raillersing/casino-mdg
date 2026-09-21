@@ -19,6 +19,7 @@ import { trackEvent } from "@services/analytics";
 import { useGameStore } from "@stores/gameStore";
 import { startBotSimulation } from "@services/games";
 import { createGuestToken } from "@services/auth";
+import { BotCountSelector } from "@components/game/BotCountSelector";
 
 const GAME_META: Record<
   string,
@@ -136,7 +137,7 @@ export function PlayHubPage() {
           metadata: { source: "play_hub" },
         });
         navigate(
-          `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}`,
+          `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}${session.admission_token ? `&admission_token=${session.admission_token}` : ""}`,
         );
         return;
       } catch {
@@ -314,19 +315,17 @@ export function PlayHubPage() {
             );
           })}
         </div>
-        <div className="hub-bot-count">
-          <label>
-            <span>Nombre de bots</span>
-            <input
-              type="range"
-              min={1}
-              max={gameType === "poker" ? 8 : 3}
-              step={1}
-              value={botCount}
-              onChange={(e) => setBotCount(Number(e.target.value))}
-            />
-            <output>{botCount}</output>
-          </label>
+        <div style={{ marginTop: "16px", padding: "14px 18px", background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+          <div>
+            <strong style={{ display: "block", fontSize: "0.95rem", color: "var(--soft)" }}>Adversaires IA (Entraînement)</strong>
+            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Ajustez le nombre de robots simulés autour de la table pour votre partie</span>
+          </div>
+          <BotCountSelector
+            gameType={gameType as "poker" | "belote" | "rami"}
+            value={botCount}
+            onChange={setBotCount}
+            disabled={startingMode === "demo"}
+          />
         </div>
       </section>
 

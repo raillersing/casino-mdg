@@ -134,9 +134,104 @@ class BotSimulationParticipant(models.Model):
         ]
 
 
+class GameSession(models.Model):
+    STATUS_CHOICES = [
+        ("active", "En cours"),
+        ("completed", "Terminée"),
+        ("cancelled", "Annulée"),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    table = models.ForeignKey(
+        GameTable, on_delete=models.CASCADE, related_name="game_sessions"
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "game_sessions"
+        ordering = ["-started_at"]
+
+
+class GameRound(models.Model):
+    STATUS_CHOICES = [
+        ("started", "Démarrée"),
+        ("showdown", "Abattage"),
+        ("settled", "Réglée"),
+        ("cancelled", "Annulée"),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(
+        GameSession, on_delete=models.CASCADE, related_name="rounds"
+    )
+    round_number = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="started")
+    pot_total = models.PositiveBigIntegerField(default=0)
+    side_pots = models.JSONField(default=list, blank=True)
+    community_cards = models.JSONField(default=list, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    settled_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "game_rounds"
+        ordering = ["session", "round_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["session", "round_number"], name="unique_session_round"
+            )
+        ]
+
+
+class GameParticipant(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    round = models.ForeignKey(
+        GameRound, on_delete=models.CASCADE, related_name="participants"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="game_participations",
+    )
+    bot_key = models.CharField(max_length=40, blank=True)
+    is_bot = models.BooleanField(default=False)
+    seat_index = models.PositiveSmallIntegerField()
+    bet_amount = models.PositiveBigIntegerField(default=0)
+    payout = models.PositiveBigIntegerField(default=0)
+    net_gain = models.BigIntegerField(default=0)
+    outcome = models.CharField(
+        max_length=10, choices=[("win", "Victoire"), ("loss", "Défaite"), ("draw", "Égalité")], default="draw"
+    )
+    hand_rank = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        db_table = "game_participants"
+        ordering = ["round", "seat_index"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["round", "seat_index"], name="unique_round_seat"
+            )
+        ]
+
+
 class GameResult(models.Model):
     OUTCOMES = [("win", "Victoire"), ("loss", "Défaite"), ("draw", "Égalité")]
-    game_id = models.UUIDField(unique=True)
+    game_id = models.UUIDField(db_index=True)
+    round = models.ForeignKey(
+        GameRound,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="results",
+    )
+    participant = models.ForeignKey(
+        GameParticipant,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="results",
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="game_results"
     )
@@ -156,6 +251,12 @@ class GameResult(models.Model):
     class Meta:
         db_table = "game_results"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["game_id", "user"],
+                name="unique_game_result_per_user",
+            )
+        ]
 
 
 class DailyRewardClaim(models.Model):
@@ -348,3 +449,64 @@ class MatchmakingTicket(models.Model):
             )
         ]
         indexes = [models.Index(fields=["game_type", "status", "created_at"])]
+
+
+class Tournament(models.Model):
+    STATUS_CHOICES = [
+        ("registering", "Inscriptions ouvertes"),
+        ("running", "En cours"),
+        ("completed", "Terminé"),
+        ("cancelled", "Annulé"),
+    ]
+    FORMAT_CHOICES = [
+        ("sit_and_go", "Sit & Go"),
+        ("scheduled", "Programmé"),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=120)
+    game_type = models.CharField(max_length=20, choices=GameTable.GAME_TYPES, default="poker")
+    format = models.CharField(max_length=20, choices=FORMAT_CHOICES, default="sit_and_go")
+    buy_in = models.PositiveBigIntegerField(default=1000)
+    starting_chips = models.PositiveIntegerField(default=1500)
+    max_players = models.PositiveIntegerField(default=6)
+    blind_interval_minutes = models.PositiveIntegerField(default=3)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="registering")
+    club = models.ForeignKey("clubs.Club", null=True, blank=True, on_delete=models.SET_NULL, related_name="tournaments")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_tournaments")
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def prize_pool(self):
+        return self.buy_in * self.participants.count()
+
+    class Meta:
+        db_table = "tournaments"
+        ordering = ["-created_at"]
+
+
+class TournamentParticipant(models.Model):
+    STATUS_CHOICES = [
+        ("registered", "Inscrit"),
+        ("playing", "À table"),
+        ("eliminated", "Éliminé"),
+        ("winner", "Vainqueur"),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name="participants")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tournament_participations")
+    chips = models.PositiveIntegerField(default=1500)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="registered")
+    rank = models.PositiveIntegerField(null=True, blank=True)
+    payout = models.PositiveBigIntegerField(default=0)
+    registered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "tournament_participants"
+        constraints = [
+            models.UniqueConstraint(fields=["tournament", "user"], name="unique_tournament_participant")
+        ]
+        ordering = ["rank", "-chips", "registered_at"]
+

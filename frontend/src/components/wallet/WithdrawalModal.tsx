@@ -47,6 +47,14 @@ const OPERATORS = [
   },
 ];
 
+function formatMdgPhone(input: string): string {
+  const digits = input.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+  if (digits.length <= 8) return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
+  return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 10)}`;
+}
+
 export function WithdrawalModal({
   isOpen,
   onClose,
@@ -56,7 +64,7 @@ export function WithdrawalModal({
   onWithdrawalSuccess,
 }: WithdrawalModalProps) {
   const [operator, setOperator] = useState<"mvola" | "orange" | "airtel">("mvola");
-  const [phone, setPhone] = useState(defaultPhone.replace("+261", "0"));
+  const [phone, setPhone] = useState(formatMdgPhone(defaultPhone.replace("+261", "0")));
   const [amount, setAmount] = useState<number>(availableBalance > 5000 ? 5000 : availableBalance);
   const [customAmount, setCustomAmount] = useState<string>(
     availableBalance > 5000 ? "5000" : availableBalance.toString()
@@ -68,8 +76,9 @@ export function WithdrawalModal({
   if (!isOpen) return null;
 
   const handlePhoneChange = (val: string) => {
-    setPhone(val);
-    const cleaned = val.replace(/\s+/g, "");
+    const formatted = formatMdgPhone(val);
+    setPhone(formatted);
+    const cleaned = val.replace(/\D/g, "");
     if (cleaned.startsWith("034") || cleaned.startsWith("038")) {
       setOperator("mvola");
     } else if (cleaned.startsWith("032") || cleaned.startsWith("037")) {
@@ -117,7 +126,7 @@ export function WithdrawalModal({
         operator,
         "withdrawal",
         amount,
-        phone,
+        phone.replace(/\s+/g, ""),
         idempotencyKey,
         true
       );

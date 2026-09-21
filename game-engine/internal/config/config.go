@@ -21,6 +21,7 @@ type Config struct {
 	Blinds               bool
 	BotActionDelay       time.Duration
 	BotProfile           string
+	NodeID               string
 }
 
 func Load() (*Config, error) {
@@ -38,6 +39,7 @@ func Load() (*Config, error) {
 		Blinds:               true,
 		BotActionDelay:       botActionDelay(),
 		BotProfile:           botProfile(),
+		NodeID:               getEnv("NODE_ID", "engine-node-1"),
 	}, nil
 }
 

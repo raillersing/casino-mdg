@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,20 @@ import (
 	"github.com/casino-mdg/game-engine/internal/game/rami"
 	"github.com/google/uuid"
 )
+
+var botRandMu sync.Mutex
+
+func safeRandFloat64() float64 {
+	botRandMu.Lock()
+	defer botRandMu.Unlock()
+	return rand.Float64()
+}
+
+func safeRandIntn(n int) int {
+	botRandMu.Lock()
+	defer botRandMu.Unlock()
+	return rand.Intn(n)
+}
 
 // Table represents a game table (Poker, Belote, Rami)
 type Table struct {
@@ -41,6 +56,7 @@ type Table struct {
 	// Belote multi-round state
 	BeloteTeamScores  [2]int
 	BeloteTargetScore int
+	Generation        uint64
 	mu               sync.RWMutex
 }
 
@@ -67,6 +83,7 @@ type TableSnapshot struct {
 	PokerHandsPlayed int                `json:"poker_hands_played"`
 	PokerSmallBlind  int64              `json:"poker_small_blind"`
 	PokerBigBlind    int64              `json:"poker_big_blind"`
+	Generation       uint64             `json:"generation,omitempty"`
 }
 
 type Player struct {
@@ -181,7 +198,7 @@ func (m *Manager) BeloteFinished(tableID string) (bool, bool) {
 	table.mu.RLock()
 	defer table.mu.RUnlock()
 	if round, isBelote := table.State.(*belote.Round); isBelote {
-		return round.Finished(), true
+		return round.Finished() || round.Phase == "all_passed", true
 	}
 	return false, false
 }
@@ -281,6 +298,37 @@ func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int
 		existing.JoinedAt = time.Now()
 		return Event{TableID: tableID, PlayerID: playerID, Action: "reconnected", Sequence: table.Sequence}, nil
 	}
+	if seat <= 0 {
+		// For demo tables the human must own seat 0 so the hand starts with them to act
+		if !isBot && len(table.Players) > 0 {
+			allBots := true
+			for _, p := range table.Players {
+				if !p.IsBot {
+					allBots = false
+					break
+				}
+			}
+			if allBots {
+				seat = 0
+			} else {
+				maxSeat := -1
+				for _, p := range table.Players {
+					if p.Seat > maxSeat {
+						maxSeat = p.Seat
+					}
+				}
+				seat = maxSeat + 1
+			}
+		} else {
+			maxSeat := -1
+			for _, p := range table.Players {
+				if p.Seat > maxSeat {
+					maxSeat = p.Seat
+				}
+			}
+			seat = maxSeat + 1
+		}
+	}
 	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, IsBot: isBot, BotProfile: botProfile, JoinedAt: time.Now()}
 	if initialize && table.GameType == "poker" && len(table.Players) >= 2 && table.State == nil {
 		if err := initializePokerHand(table); err != nil {
@@ -322,12 +370,17 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 		}
 		gamePlayer := game.Players[game.Current]
 		seat, exists := table.Players[gamePlayer.ID]
-		if !exists || !seat.IsBot {
-			return BotTurn{}, false
-		}
-		profile := seat.BotProfile
-		if profile == "" {
+		profile := "balanced"
+		if exists && seat.IsBot {
+			profile = seat.BotProfile
+			if profile == "" {
+				profile = "balanced"
+			}
+		} else if !exists && strings.Contains(gamePlayer.ID, "bot-") {
+			// Bot was removed from table.Players after grace period but still in Hand
 			profile = "balanced"
+		} else {
+			return BotTurn{}, false
 		}
 		highest := int64(0)
 		for _, player := range game.Players {
@@ -341,8 +394,14 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 			return BotTurn{}, false
 		}
 		gamePlayer := game.Players[game.Current]
+		if len(gamePlayer.Hand) == 0 {
+			return BotTurn{}, false
+		}
 		seat, exists := table.Players[gamePlayer.ID]
-		if !exists || !seat.IsBot || len(gamePlayer.Hand) == 0 {
+		if exists && !seat.IsBot {
+			return BotTurn{}, false
+		}
+		if !exists && !strings.Contains(gamePlayer.ID, "bot-") {
 			return BotTurn{}, false
 		}
 		return decideBeloteBotTurn(game, gamePlayer, table.Sequence), true
@@ -352,7 +411,10 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 		}
 		gamePlayer := game.Players[game.Current]
 		seat, exists := table.Players[gamePlayer.ID]
-		if !exists || !seat.IsBot {
+		if exists && !seat.IsBot {
+			return BotTurn{}, false
+		}
+		if !exists && !strings.Contains(gamePlayer.ID, "bot-") {
 			return BotTurn{}, false
 		}
 		if len(gamePlayer.Hand) <= 7 {
@@ -404,10 +466,23 @@ func (m *Manager) TimedOutAction(tableID string) (BotTurn, bool) {
 			// Auto-pass on timeout during bidding
 			return BotTurn{PlayerID: player.ID, Action: "pass", Sequence: table.Sequence}, true
 		}
-		// Playing phase — play first legal card
+		// Playing phase — play first legal card (respect must-follow / must-cut)
 		card := player.Hand[0]
 		for _, candidate := range player.Hand {
-			if game.LeadSuit < 0 || candidate.Suit == game.LeadSuit || !hasBeloteSuit(player.Hand, game.LeadSuit) {
+			legal := false
+			if game.LeadSuit < 0 {
+				legal = true
+			} else if candidate.Suit == game.LeadSuit {
+				legal = true
+			} else if !hasBeloteSuit(player.Hand, game.LeadSuit) {
+				// Cannot follow: must cut if has trump and card is trump or no trump
+				if game.Trump >= 0 && hasBeloteSuit(player.Hand, game.Trump) {
+					legal = candidate.Suit == game.Trump
+				} else {
+					legal = true
+				}
+			}
+			if legal {
 				card = candidate
 				break
 			}
@@ -477,7 +552,7 @@ func normalizeBotProfile(profile string) string {
 	default:
 		// balanced or anything else → random personality for variety
 		personalities := []string{"fish", "rock", "maniac", "shark", "donkey"}
-		return personalities[rand.Intn(len(personalities))]
+		return personalities[safeRandIntn(len(personalities))]
 	}
 }
 
@@ -511,14 +586,10 @@ func botPositionCategory(game *poker.Hand, playerID string) string {
 }
 
 func botIsOnTilt(table *Table, playerID string) bool {
-	table.mu.RLock()
-	defer table.mu.RUnlock()
 	return table.BotTilt[playerID] > 0
 }
 
 func botTiltFactor(table *Table, playerID string) float64 {
-	table.mu.RLock()
-	defer table.mu.RUnlock()
 	if table.BotTilt[playerID] > 0 {
 		return 0.75
 	}
@@ -562,7 +633,7 @@ func botShouldBluff(profile, position, phase string, board []poker.Card, table *
 	if botIsOnTilt(table, "") {
 		// We need the actual playerID here; handled in caller
 	}
-	return rand.Float64() < baseProb
+	return safeRandFloat64() < baseProb
 }
 
 func botShouldSlowPlay(profile string, strength int, phase string) bool {
@@ -580,7 +651,7 @@ func botShouldSlowPlay(profile string, strength int, phase string) bool {
 	case "fish", "donkey":
 		prob = 0.05
 	}
-	return rand.Float64() < prob
+	return safeRandFloat64() < prob
 }
 
 // botBetSize returns an amount scaled by profile and pot ratio.
@@ -611,7 +682,7 @@ func botBetSize(profile string, game *poker.Hand, base int64, strength int) int6
 	case "fish":
 		return minInt64(base+pot/3, game.BigBlind*2)
 	case "donkey":
-		if rand.Float64() < 0.5 {
+		if safeRandFloat64() < 0.5 {
 			return minInt64(base+pot, game.BigBlind*6)
 		}
 		return minInt64(base+pot/3, game.BigBlind*2)
@@ -655,15 +726,15 @@ func decidePokerBotTurn(game *poker.Hand, player *poker.Player, table *Table, pr
 		phase = "preflop"
 	}
 
-	// Donkey : 30 % des décisions sont aléatoires
-	if profile == "donkey" && rand.Float64() < 0.30 {
-		choices := []string{"check", "call", "fold"}
+	// Donkey : 30 % des décisions sont aléatoires — check only legal when toCall==0
+	if profile == "donkey" && safeRandFloat64() < 0.30 {
+		choices := []string{"call", "fold"}
 		if toCall == 0 {
-			choices = append(choices, "bet")
+			choices = []string{"check", "call", "fold", "bet"}
 		} else {
 			choices = append(choices, "raise", "all_in")
 		}
-		action := choices[rand.Intn(len(choices))]
+		action := choices[safeRandIntn(len(choices))]
 		if action == "bet" {
 			amount := game.BigBlind
 			if amount > player.Stack {
@@ -945,8 +1016,8 @@ func decideBeloteBotTurn(game *belote.Round, player *belote.Player, sequence uin
 	}
 
 	// Playing phase — respect belote obligations
-	// First, check if we should announce belote
-	if game.HasBelote(playerIndexInRound(game, player.ID)) {
+	// First, check if we should announce belote (only once per player)
+	if idx := playerIndexInRound(game, player.ID); idx >= 0 && idx < len(game.BeloteAnnounced) && !game.BeloteAnnounced[idx] && game.HasBelote(idx) {
 		return BotTurn{PlayerID: player.ID, Action: "announce_belote", Sequence: sequence}
 	}
 
@@ -1056,13 +1127,35 @@ func beloteBeatsCard(candidate, current belote.Card, leadSuit, trump int) bool {
 }
 
 func decideRamiBotTurn(player *rami.Player, sequence uint64) BotTurn {
-	// If deadwood is low enough, knock
+	// If deadwood is low enough, knock — use proper gin scoring (face=10)
 	deadwood := 0
 	for _, card := range player.Hand {
-		deadwood += card.Rank
+		rank := card.Rank
+		if rank > 10 {
+			rank = 10
+		}
+		deadwood += rank
 	}
 	if deadwood <= 10 {
 		return BotTurn{PlayerID: player.ID, Action: "knock", Sequence: sequence}
+	}
+	// If has a valid meld, play it before discarding
+	for i := 0; i < len(player.Hand)-2; i++ {
+		for j := i + 1; j < len(player.Hand)-1; j++ {
+			for k := j + 1; k < len(player.Hand); k++ {
+				candidate := []rami.Card{player.Hand[i], player.Hand[j], player.Hand[k]}
+				if rami.ValidMeld(candidate) {
+					// Also try 4-card melds
+					for l := k + 1; l < len(player.Hand); l++ {
+						four := []rami.Card{player.Hand[i], player.Hand[j], player.Hand[k], player.Hand[l]}
+						if rami.ValidMeld(four) {
+							return BotTurn{PlayerID: player.ID, Action: "meld", Payload: map[string]interface{}{"cards": four}, Sequence: sequence}
+						}
+					}
+					return BotTurn{PlayerID: player.ID, Action: "meld", Payload: map[string]interface{}{"cards": candidate}, Sequence: sequence}
+				}
+			}
+		}
 	}
 	// Discard the card that is least likely to form a meld
 	if len(player.Hand) == 0 {
@@ -1085,8 +1178,12 @@ func decideRamiBotTurn(player *rami.Player, sequence uint64) BotTurn {
 				score += 3
 			}
 		}
-		// Prefer discarding high cards (they count more against you if someone else wins)
-		score -= card.Rank
+		// Prefer discarding high cards (they count more against you if someone else wins) — face=10
+		rankVal := card.Rank
+		if rankVal > 10 {
+			rankVal = 10
+		}
+		score -= rankVal
 		if score < bestScore {
 			bestScore = score
 			bestIdx = i
@@ -1133,13 +1230,32 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 		} else if table.GameType == "belote" {
 			// Cumulate previous round scores before resetting
 			if round, ok := table.State.(*belote.Round); ok {
-				table.BeloteTeamScores[0] += round.TeamPoints[0]
-				table.BeloteTeamScores[1] += round.TeamPoints[1]
+				if round.Phase == "finished" {
+					table.BeloteTeamScores[0] += round.TeamPoints[0]
+					table.BeloteTeamScores[1] += round.TeamPoints[1]
+					round.CumulativeScores = table.BeloteTeamScores
+					round.Phase = "settled"
+				}
 			}
 			if table.BeloteTargetScore == 0 {
 				table.BeloteTargetScore = 501
 			}
 			if table.BeloteTeamScores[0] >= table.BeloteTargetScore || table.BeloteTeamScores[1] >= table.BeloteTargetScore {
+				if round, ok := table.State.(*belote.Round); ok && round.Phase == "settled_reported" {
+					table.BeloteTeamScores = [2]int{0, 0}
+					if err := initializeBeloteRound(table); err != nil {
+						return Event{}, false, err
+					}
+					event := appendEvent(table, playerID, action, payload)
+					if eventID != "" {
+						event.ID = eventID
+						table.Events[len(table.Events)-1].ID = eventID
+					}
+					return event, false, nil
+				}
+				if round, ok := table.State.(*belote.Round); ok {
+					round.Phase = "settled_reported"
+				}
 				return Event{}, false, fmt.Errorf("game_over")
 			}
 			if err := initializeBeloteRound(table); err != nil {
@@ -1304,7 +1420,7 @@ func (m *Manager) RecordBotShowdownResult(tableID string) {
 		table.BotRecentStrength[player.ID] = strength
 		// Tilt = lost with strong hand
 		if !winnerSet[player.ID] && strength >= 60 {
-			table.BotTilt[player.ID] = 1 + rand.Intn(3) // 1–3 hands
+			table.BotTilt[player.ID] = 1 + safeRandIntn(3) // 1–3 hands
 		}
 	}
 }
@@ -1414,6 +1530,23 @@ func (m *Manager) FinishedRamiResults(tableID string) (winnerID string, losers [
 	return winnerID, losers, amount, true
 }
 
+func (m *Manager) SetTableGeneration(tableID string, generation uint64) {
+	if table, ok := m.GetTable(tableID); ok {
+		table.mu.Lock()
+		defer table.mu.Unlock()
+		table.Generation = generation
+	}
+}
+
+func (m *Manager) TableGeneration(tableID string) uint64 {
+	if table, ok := m.GetTable(tableID); ok {
+		table.mu.RLock()
+		defer table.mu.RUnlock()
+		return table.Generation
+	}
+	return 0
+}
+
 func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
@@ -1434,6 +1567,7 @@ func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 		ActionDeadline: table.ActionDeadline,
 		PokerLevel: table.PokerLevel, PokerHandsPlayed: table.PokerHandsPlayed,
 		PokerSmallBlind: table.PokerSmallBlind, PokerBigBlind: table.PokerBigBlind,
+		Generation: table.Generation,
 	}, nil
 }
 
@@ -1460,6 +1594,8 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 		ActionDeadline: snapshot.ActionDeadline,
 		PokerLevel: snapshot.PokerLevel, PokerHandsPlayed: snapshot.PokerHandsPlayed,
 		PokerSmallBlind: snapshot.PokerSmallBlind, PokerBigBlind: snapshot.PokerBigBlind,
+		BotTilt: make(map[string]int), BotRecentStrength: make(map[string]int),
+		Generation: snapshot.Generation,
 	}
 	if snapshot.GameType == "poker" && len(snapshot.State) > 0 {
 		var hand poker.Hand
@@ -1569,7 +1705,30 @@ func startNextPokerHand(table *Table) error {
 	if err != nil {
 		return err
 	}
-	next.Button = (hand.Button + 1) % len(players)
+	prevButtonSeat := -1
+	if hand.Button >= 0 && hand.Button < len(hand.Players) {
+		prevPlayerID := hand.Players[hand.Button].ID
+		if p, ok := table.Players[prevPlayerID]; ok {
+			prevButtonSeat = p.Seat
+		}
+	}
+	nextButtonIndex := 0
+	if prevButtonSeat >= 0 {
+		found := false
+		for i, p := range seats {
+			if p.Seat > prevButtonSeat {
+				nextButtonIndex = i
+				found = true
+				break
+			}
+		}
+		if !found {
+			nextButtonIndex = 0
+		}
+	} else {
+		nextButtonIndex = (hand.Button + 1) % len(players)
+	}
+	next.Button = nextButtonIndex
 
 	// Advance level every 8 hands
 	table.PokerHandsPlayed++

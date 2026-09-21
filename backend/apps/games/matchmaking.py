@@ -18,7 +18,7 @@ def active_presence(game_type=None):
 
 
 @transaction.atomic
-def queue_player(user, game_type):
+def queue_player(user, game_type, target_size=None):
     now = timezone.now()
     PlayerPresence.objects.update_or_create(
         user=user,
@@ -40,12 +40,22 @@ def queue_player(user, game_type):
         .first()
     )
     if opponent:
+        try:
+            target_int = int(target_size) if target_size is not None else None
+        except (TypeError, ValueError):
+            target_int = None
+        if game_type == "poker":
+            max_players = target_int if target_int in (2, 6, 9) else 2
+        elif game_type == "belote":
+            max_players = 4
+        else:
+            max_players = target_int if target_int in (2, 4) else 4
         table = GameTable.objects.create(
             table_code=f"match-{str(ticket.id)[:8]}",
             name=f"Match {game_type.title()}",
             game_type=game_type,
             stakes="Simulation",
-            max_players=2 if game_type == "poker" else 4,
+            max_players=max_players,
             status="open",
         )
         join_table(table, opponent.user)

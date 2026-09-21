@@ -206,8 +206,13 @@ func (h *Hand) Apply(index int, action Action, amount int64) error {
 			h.LastRaise = newHighest - previousHighest
 		}
 	case AllIn:
+		previousHighest := h.highestBet()
 		if err := h.commit(index, p.Stack, false); err != nil {
 			return err
+		}
+		newHighest := h.highestBet()
+		if newHighest > previousHighest && newHighest-previousHighest >= h.BigBlind {
+			h.LastRaise = newHighest - previousHighest
 		}
 	default:
 		return fmt.Errorf("invalid action")
@@ -565,6 +570,69 @@ func HandRankName(cards []Card) string {
 	default:
 		return "Carte haute"
 	}
+}
+
+// HandOuts computes outs for improving the current hand by one street.
+// It enumerates the 52 - (hole+board) remaining cards and counts how many
+// improve BestRank. Returns outs, probability % for next card, and target rank name.
+func HandOuts(hole, community []Card) (outs int, prob float64, target string) {
+	if len(hole) == 0 {
+		return 0, 0, ""
+	}
+	current := append(append([]Card{}, hole...), community...)
+	curRank := BestRank(current)
+	if curRank >= 8 {
+		return 0, 0, ""
+	}
+	// Build set of used cards
+	used := make(map[Card]bool, len(current))
+	for _, c := range current {
+		used[c] = true
+	}
+	deck := makeDeck()
+	remaining := 0
+	bestTargetRank := curRank + 1
+	// Count outs that improve at least one category
+	for _, c := range deck {
+		if used[c] {
+			continue
+		}
+		remaining++
+		next := append(append([]Card{}, current...), c)
+		r := BestRank(next)
+		if r > curRank {
+			outs++
+			if r > bestTargetRank {
+				bestTargetRank = r
+			}
+		}
+	}
+	if remaining == 0 {
+		return 0, 0, ""
+	}
+	prob = float64(outs) / float64(remaining) * 100
+	// Target rank name for display
+	switch bestTargetRank {
+	case 8:
+		target = "Quinte flush"
+	case 7:
+		target = "Carré"
+	case 6:
+		target = "Full"
+	case 5:
+		target = "Couleur"
+	case 4:
+		target = "Quinte"
+	case 3:
+		target = "Brelan"
+	case 2:
+		target = "Double paire"
+	case 1:
+		target = "Paire"
+	default:
+		target = ""
+	}
+	return outs, prob, target
 }
 func makeDeck() []Card {
 	deck := make([]Card, 0, 52)

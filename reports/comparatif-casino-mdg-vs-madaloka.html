@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Étude Comparative Approfondie : Casino-MDG vs MadaLoka.com</title>
+  <style>
+    :root {
+      --bg-main: #0c0f14;
+      --bg-card: #151b24;
+      --bg-card-hover: #1c2430;
+      --bg-header: rgba(12, 15, 20, 0.88);
+      --border: #242f3e;
+      --border-accent: #37465b;
+      --text-main: #e6edf3;
+      --text-muted: #8b9baa;
+      --text-dim: #5c6c7d;
+      
+      --gold: #e5b342;
+      --gold-light: #f7d584;
+      --gold-dark: #b8861e;
+      --gold-bg: rgba(229, 179, 66, 0.12);
+      
+      --emerald: #10b981;
+      --emerald-bg: rgba(16, 185, 129, 0.12);
+      --emerald-border: #059669;
+      
+      --crimson: #f43f5e;
+      --crimson-bg: rgba(244, 63, 94, 0.12);
+      
+      --blue: #38bdf8;
+      --blue-bg: rgba(56, 189, 248, 0.12);
+      
+      --purple: #a855f7;
+      --purple-bg: rgba(168, 85, 247, 0.12);
+      
+      --radius: 12px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 80px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-main);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-accent);
+      border-radius: 4px;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(14px);
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+    }
+
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .logo-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+      color: #120e04;
+      font-weight: 900;
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      padding: 6px 10px;
+      border-radius: 8px;
+      text-transform: uppercase;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .header-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .nav-btn:hover {
+      background: var(--bg-card);
+      color: #fff;
+    }
+
+    /* Hero Banner */
+    .hero {
+      padding: 48px 0 32px;
+      border-bottom: 1px solid var(--border);
+      background: radial-gradient(circle at 50% 0%, rgba(229, 179, 66, 0.08) 0%, transparent 70%);
+    }
+
+    .hero-tagline {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      background: var(--gold-bg);
+      border: 1px solid rgba(229, 179, 66, 0.3);
+      color: var(--gold);
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 {
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1.25;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+
+    .hero p {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 860px;
+    }
+
+    /* KPI Highlights */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin: 32px 0;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--border-accent);
+    }
+
+    .kpi-card.gold::before { background: var(--gold); }
+    .kpi-card.emerald::before { background: var(--emerald); }
+    .kpi-card.blue::before { background: var(--blue); }
+    .kpi-card.crimson::before { background: var(--crimson); }
+
+    .kpi-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .kpi-values {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .kpi-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .kpi-tag {
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .tag-madaloka {
+      background: rgba(198, 81, 47, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(198, 81, 47, 0.4);
+    }
+
+    .tag-mdg {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-live { background: var(--emerald-bg); color: var(--emerald); border: 1px solid var(--emerald-border); }
+    .badge-sandbox { background: var(--blue-bg); color: var(--blue); border: 1px solid #0284c7; }
+    .badge-win { background: var(--gold-bg); color: var(--gold); border: 1px solid var(--gold); }
+
+    /* Section Styles */
+    section {
+      padding: 40px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-head {
+      margin-bottom: 24px;
+    }
+
+    .section-num {
+      font-family: var(--font-mono);
+      color: var(--gold);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .section-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 15px;
+      margin-top: 6px;
+    }
+
+    /* Comparison Grid */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 850px) {
+      .compare-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .side-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+
+    .side-card.highlight {
+      border-color: rgba(229, 179, 66, 0.4);
+      background: linear-gradient(180deg, rgba(229, 179, 66, 0.03) 0%, var(--bg-card) 100%);
+    }
+
+    .side-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+
+    .side-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .side-body {
+      font-size: 14px;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .icon-check {
+      color: var(--emerald);
+      flex-shrink: 0;
+      margin-top: 2px;
+      font-weight: bold;
+    }
+
+    .icon-cross {
+      color: var(--crimson);
+      flex-shrink: 0;
+      margin-top: 2px;
+      font-weight: bold;
+    }
+
+    .icon-warn {
+      color: var(--gold);
+      flex-shrink: 0;
+      margin-top: 2px;
+      font-weight: bold;
+    }
+
+    /* Detailed Table */
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-top: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background: #11161f;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    /* Callout Box */
+    .callout {
+      background: rgba(229, 179, 66, 0.06);
+      border: 1px solid rgba(229, 179, 66, 0.3);
+      border-left: 4px solid var(--gold);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+
+    .callout-title {
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .callout p {
+      color: #d1d5db;
+      line-height: 1.5;
+    }
+
+    /* SWOT Grid */
+    .swot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .swot-box {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 20px;
+    }
+
+    .swot-box.s { border-top: 4px solid var(--emerald); }
+    .swot-box.w { border-top: 4px solid var(--crimson); }
+    .swot-box.o { border-top: 4px solid var(--blue); }
+    .swot-box.t { border-top: 4px solid var(--gold); }
+
+    .swot-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .swot-box.s .swot-title { color: var(--emerald); }
+    .swot-box.w .swot-title { color: var(--crimson); }
+    .swot-box.o .swot-title { color: var(--blue); }
+    .swot-box.t .swot-title { color: var(--gold); }
+
+    .swot-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-main);
+    }
+
+    /* Action List */
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .action-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .action-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: var(--gold-bg);
+      color: var(--gold);
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .action-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .action-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Next Step Teaser */
+    .next-step-box {
+      background: linear-gradient(135deg, #131922 0%, #1e2838 100%);
+      border: 1px solid var(--blue);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-top: 40px;
+      text-align: center;
+    }
+
+    .next-step-box h3 {
+      font-size: 22px;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .next-step-box p {
+      color: var(--text-muted);
+      max-width: 720px;
+      margin: 0 auto 16px;
+      font-size: 15px;
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 60px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #f7d584;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sticky Header -->
+  <header>
+    <div class="container header-inner">
+      <div class="logo-block">
+        <span class="logo-badge">MDG Research</span>
+        <div>
+          <div class="header-title">Casino-MDG vs MadaLoka.com</div>
+          <div class="header-meta">Rapport stratégique & audit technique comparatif · 21 Septembre 2026</div>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a href="#kpi" class="nav-btn">KPIs</a>
+        <a href="#legal" class="nav-btn">Juridique</a>
+        <a href="#games" class="nav-btn">Jeux</a>
+        <a href="#ux" class="nav-btn">UX / 3G</a>
+        <a href="#economy" class="nav-btn">Économie</a>
+        <a href="#tech" class="nav-btn">Tech & Infra</a>
+        <a href="#payments" class="nav-btn">Mobile Money</a>
+        <a href="#social" class="nav-btn">Social</a>
+        <a href="#swot" class="nav-btn">SWOT & Actions</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <div class="hero">
+    <div class="container">
+      <span class="hero-tagline">Analyse Concurrentielle & Benchmarking</span>
+      <h1>Duel iGaming à Madagascar : MadaLoka vs MDG Game Club</h1>
+      <p>
+        Analyse détaillée et comparative entre <strong>MadaLoka.com</strong> (plateforme live de jeux de mise lancée sous statut de « jeux d'adresse ») et <strong>MDG Game Club (Casino-MDG)</strong> (notre plateforme sociale, bilingue, dotée d'un moteur Go résilient et d'un système de clubs communautaires).
+      </p>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- Section: KPIs -->
+    <div id="kpi" class="kpi-grid">
+      <div class="kpi-card emerald">
+        <div class="kpi-label">Statut & Échéance</div>
+        <div class="kpi-values">
+          <div class="kpi-row">
+            <span>MadaLoka</span>
+            <span class="kpi-tag tag-madaloka">En Production Réelle</span>
+          </div>
+          <div class="kpi-row">
+            <span>Casino-MDG</span>
+            <span class="kpi-tag tag-mdg">Sandbox Avancée (Moteur Go)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card gold">
+        <div class="kpi-label">Commission (Rake)</div>
+        <div class="kpi-values">
+          <div class="kpi-row">
+            <span>MadaLoka</span>
+            <span class="kpi-tag tag-madaloka">5.0% fixe sur pot</span>
+          </div>
+          <div class="kpi-row">
+            <span>Casino-MDG</span>
+            <span class="kpi-tag tag-mdg">3.5% à 5.0% (Cible 3.5%)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card blue">
+        <div class="kpi-label">Localisation Linguistique</div>
+        <div class="kpi-values">
+          <div class="kpi-row">
+            <span>MadaLoka</span>
+            <span class="kpi-tag tag-madaloka">Français seul</span>
+          </div>
+          <div class="kpi-row">
+            <span>Casino-MDG</span>
+            <span class="kpi-tag tag-mdg">Bilingue Natif (MG + FR)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card crimson">
+        <div class="kpi-label">Moteur Temps Réel</div>
+        <div class="kpi-values">
+          <div class="kpi-row">
+            <span>MadaLoka</span>
+            <span class="kpi-tag tag-madaloka">Node.js / Socket.io</span>
+          </div>
+          <div class="kpi-row">
+            <span>Casino-MDG</span>
+            <span class="kpi-tag tag-mdg">Microservice Go autonome</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 1: Juridique & Réglementation -->
+    <section id="legal">
+      <div class="section-head">
+        <span class="section-num">01 / Cadre Légal & Réglementaire</span>
+        <h2 class="section-title">Deux Stratégies Réglementaires Radicale­ment Différentes</h2>
+        <p class="section-desc">Comment chaque plateforme navigue dans le cadre juridique des jeux d'argent à Madagascar.</p>
+      </div>
+
+      <div class="compare-grid">
+        <div class="side-card">
+          <div class="side-header">
+            <div class="side-brand">
+              <span>MadaLoka</span>
+              <span class="badge badge-live">Live</span>
+            </div>
+            <span class="kpi-tag tag-madaloka">Stratégie « Jeux d'adresse »</span>
+          </div>
+          <div class="side-body">
+            <p><strong>Entité exploitante :</strong> QUALITECH MDG SARL (Capital : 2 000 000 Ar, NIF : 5019184372, STAT : 47411 11 2025 0 02985, Lot IL 14C Antsahalava Anjomakely, Responsable : Tendry Rakotoarivony).</p>
+            <ul class="feature-list">
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Biais légal assumé :</strong> Défini dans ses CGU comme une plateforme de <em>« jeux d'adresse et de réflexion »</em> (échecs, dames, belote, domino) pour échapper à la lourdeur d'une licence de casino pur.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-warn">⚠</span>
+                <span><strong>Zone de friction :</strong> Propose du Poker Texas Hold'em en argent réel, ce qui expose l'éditeur à une requalification éventuelle par les régulateurs malgaches.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Jeu Responsable 21+ :</strong> Outils intégrés de limitation des dépôts journaliers et bouton d'auto-exclusion temporaire irréversible.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="side-card highlight">
+          <div class="side-header">
+            <div class="side-brand">
+              <span>Casino-MDG</span>
+              <span class="badge badge-sandbox">Sandbox / V2</span>
+            </div>
+            <span class="kpi-tag tag-mdg">Stratégie « Sandbox & Double Licence »</span>
+          </div>
+          <div class="side-body">
+            <p><strong>Philosophie produit :</strong> Conçu dès l'origine pour respecter les standards casino internationaux (auditabilité, double-entry ledger, conformité progressive).</p>
+            <ul class="feature-list">
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Phase 1 (Sandbox SIM) :</strong> Monnaie virtuelle <code>SIM</code> sans flux d'argent réel au lancement, permettant de valider l'UX et la rétention sans risque pénal ni blocage administratif.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Phase 2 (Agrément & Opérateurs) :</strong> Signature de partenariats régulés ou white-label avec des acteurs déjà licenciés (ex. modèle Bet261 / opérateurs locaux).</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Conformité AML / KYC Tiers :</strong> Module KYC complet avec upload de justificatifs sur stockage immuable chiffré.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Catalogue de Jeux & Gameplay -->
+    <section id="games">
+      <div class="section-head">
+        <span class="section-num">02 / Catalogue de Jeux & Gameplay</span>
+        <h2 class="section-title">Jeux Traditionnels de Rue vs Jeux de Cartes & Instantanés</h2>
+        <p class="section-desc">Analyse exhaustive des titres jouables, règles et mécaniques de jeu.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Jeu / Catégorie</th>
+              <th>MadaLoka</th>
+              <th>Casino-MDG</th>
+              <th>Analyse de Marché & Impact Culturel</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Belote / Giretra</strong></td>
+              <td><span class="badge badge-live">Giretra 150 pts</span></td>
+              <td><span class="badge badge-win">Classique & Coinchée</span></td>
+              <td><strong>Jeu #1 à Madagascar.</strong> MadaLoka propose la version malgache classique (2 équipes de 2). Casino-MDG a développé un moteur complet avec gestion des annonces et variantes coinchées.</td>
+            </tr>
+            <tr>
+              <td><strong>Poker Texas Hold'em</strong></td>
+              <td><span class="badge badge-live">Cash Game (2 à 6j)</span></td>
+              <td><span class="badge badge-win">Cash Game & Tournois</span></td>
+              <td>MadaLoka se limite à 2 limites (20/50 Ar et 100/200 Ar blinds). Casino-MDG dispose d'un moteur Go avec side pots illimités, mode tournoi et tables privées.</td>
+            </tr>
+            <tr>
+              <td><strong>Rami Traditionnel</strong></td>
+              <td><span class="icon-cross">✗ Non disponible</span></td>
+              <td><span class="badge badge-win">Moteur Go P0</span></td>
+              <td><strong>Avantage stratégique majeur pour Casino-MDG.</strong> Le Rami est joué dans tous les foyers malgaches et manque cruellement sur MadaLoka.</td>
+            </tr>
+            <tr>
+              <td><strong>Dominos</strong></td>
+              <td><span class="badge badge-live">2 à 3 joueurs</span></td>
+              <td><span class="icon-warn">Roadmap V2</span></td>
+              <td>MadaLoka propose le mode pioche/bloqué avec règles avancées (le blanc paye la mise). Succès populaire immédiat dans les quartiers populaires.</td>
+            </tr>
+            <tr>
+              <td><strong>Échecs & Dames</strong></td>
+              <td><span class="badge badge-live">1v1 (Bullet à Classique)</span></td>
+              <td><span class="icon-cross">Hors cible initiale</span></td>
+              <td>Permet à MadaLoka de crédibiliser son étiquette « jeux d'adresse ». Moins monétisable que les jeux de cartes rapides.</td>
+            </tr>
+            <tr>
+              <td><strong>Billard (8-Pool) & Ludo</strong></td>
+              <td><span class="badge badge-live">1v1 et 2-4 joueurs</span></td>
+              <td><span class="icon-cross">Hors cible</span></td>
+              <td>Jeux casual très populaires sur mobile chez les 18-35 ans à Madagascar.</td>
+            </tr>
+            <tr>
+              <td><strong>Jeux Instantanés / Loterie</strong></td>
+              <td><span class="icon-cross">✗ Absent</span></td>
+              <td><span class="badge badge-win">Coffre Mada, Roue, Jackpot</span></td>
+              <td><strong>Atout monétisation pour Casino-MDG.</strong> Permet de combler les temps d'attente entre deux parties multijoueurs.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 3: UX, UI & Contexte Réseau 3G/JIRAMA -->
+    <section id="ux">
+      <div class="section-head">
+        <span class="section-num">03 / Expérience Utilisateur & Réalité Réseau</span>
+        <h2 class="section-title">Comment Dompter la 3G Lente et les Coupures de Courant</h2>
+        <p class="section-desc">Optimisations mobiles pour l'infrastructure télécom de Madagascar.</p>
+      </div>
+
+      <div class="compare-grid">
+        <div class="side-card">
+          <div class="side-header">
+            <div class="side-brand">MadaLoka</div>
+            <span class="badge badge-live">UX "Madagascar-Proof"</span>
+          </div>
+          <div class="side-body">
+            <ul class="feature-list">
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Splash Screen CSS Brut :</strong> Injection directe dans le <code>&lt;head&gt;</code> d'une animation en CSS pur (tuile de domino animée). Zéro écran noir en attendant le bundle JavaScript.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Google Fonts Asynchrone :</strong> Astuce <code>media="print" onload="this.media='all'"</code> évitant 1 à 1,5 seconde de gel d'affichage sur les téléphones d'entrée de gamme (Tecno, Itel).</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-cross">✗</span>
+                <span><strong>Absence du Malgache :</strong> Interface 100 % en français. Crée une barrière d'accès pour les joueurs des provinces et du secteur informel.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="side-card highlight">
+          <div class="side-header">
+            <div class="side-brand">Casino-MDG</div>
+            <span class="badge badge-win">PWA & Bilinguisme Natif</span>
+          </div>
+          <div class="side-body">
+            <ul class="feature-list">
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Bilinguisme Intégral P0 (Malgache + Français) :</strong> Traduction complète des termes de jeu, boutons et aides contextuelles. Confiance utilisateur décuplée.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Résilience Déconnexion JIRAMA :</strong> Grace period de <strong>30 secondes</strong> permettant à un joueur déconnecté par coupure réseau de reprendre sa main sans perdre ses jetons engagés.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Snapshots d'état Redis :</strong> Chaque action à la table est immédiatement snapshotée dans Redis pour une restauration d'état instantanée.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Modèle Économique & Rake -->
+    <section id="economy">
+      <div class="section-head">
+        <span class="section-num">04 / Modèle Économique, Rake & Monétisation</span>
+        <h2 class="section-title">Structure des Tarifs, Commissions et Flux Financiers</h2>
+        <p class="section-desc">Comparaison des prélèvements et des leviers de revenus.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Indicateur Financier</th>
+              <th>MadaLoka</th>
+              <th>Casino-MDG</th>
+              <th>Avantage Concurrentiel</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Taux de Commission (Rake)</strong></td>
+              <td><code>5.0 %</code> prélevé sur le pot gagnant</td>
+              <td><code>3.5 % à 5.0 %</code> (Cible <code>3.5 %</code>)</td>
+              <td><strong>Casino-MDG est plus compétitif.</strong> Un taux de 3.5 % attire les "gros" joueurs qui fuient le prélèvement élevé de 5 %.</td>
+            </tr>
+            <tr>
+              <td><strong>Échelle des Mises (Stakes)</strong></td>
+              <td>0, 200, 1 000, 5 000, 10 000, 50 000 Ar</td>
+              <td>Paliers ajustables par niveau de table</td>
+              <td>MadaLoka a calibré ses paliers sur le pouvoir d'achat malgache réel (tables à 200 Ar très actives).</td>
+            </tr>
+            <tr>
+              <td><strong>Dépôt Minimum</strong></td>
+              <td><code>5 000 Ar</code></td>
+              <td>Configurable (Cible <code>2 000 Ar</code>)</td>
+              <td>Casino-MDG peut abaisser le ticket d'entrée pour booster l'activation des nouveaux comptes.</td>
+            </tr>
+            <tr>
+              <td><strong>Retraits</strong></td>
+              <td>Max 1 retrait / jour, frais opérateur déduits</td>
+              <td>Plafonds journaliers / hebdomadaires</td>
+              <td>MadaLoka limite les retraits à 1 par jour pour préserver sa trésorerie opérationnelle.</td>
+            </tr>
+            <tr>
+              <td><strong>Leviers de Revenus Annexes</strong></td>
+              <td>Rake uniquement</td>
+              <td><strong>Frais tournois + Abonnements Clubs VIP + Sponsoring</strong></td>
+              <td><strong>Casino-MDG diversifie ses rentrées d'argent</strong> sans dépendre exclusivement des mises individuelles.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">
+          <span>💡</span> Formule du NGR (Net Gaming Revenue) dans le contexte Malgache
+        </div>
+        <p>
+          Le volume brut des mises n'est pas le chiffre d'affaires réel. La marge nette dépend de :<br/>
+          <code>NGR = Revenu brut de jeu − Frais Mobile Money (1 à 2%) − Taxes locales − Pertes fraude & litiges − Bonus parrainage</code>.<br/>
+          En optimisant les adaptateurs Mobile Money directs, Casino-MDG peut réduire ses coûts d'intermédiation de 0.8% à 1.2% comparé à l'agrégateur tiers de MadaLoka.
+        </p>
+      </div>
+    </section>
+
+    <!-- Section 5: Architecture & Performance -->
+    <section id="tech">
+      <div class="section-head">
+        <span class="section-num">05 / Architecture Technique & Performance</span>
+        <h2 class="section-title">Microservices Go Autonomes vs Monolithe Node.js / Socket.io</h2>
+        <p class="section-desc">Comparaison des choix d'ingénierie logicielle pour le temps réel.</p>
+      </div>
+
+      <div class="compare-grid">
+        <div class="side-card">
+          <div class="side-header">
+            <div class="side-brand">Stack MadaLoka</div>
+            <span class="badge badge-live">Simple & Rapide</span>
+          </div>
+          <div class="side-body">
+            <ul class="feature-list">
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Frontend :</strong> React 18 + Vite + Tailwind CSS + Lucide Icons. Code splitting par page de jeu.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-warn">⚠</span>
+                <span><strong>Temps Réel :</strong> Socket.io sur Node.js. Facile à développer mais consommateur en mémoire (150-300 Mo par millier de connexions actives).</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-warn">⚠</span>
+                <span><strong>Hébergement :</strong> Serveur privé virtuel unique chez OVH (Roubaix, France). Risque de latence supplémentaire (~180-220 ms aller-retour Antananarivo - Roubaix).</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="side-card highlight">
+          <div class="side-header">
+            <div class="side-brand">Stack Casino-MDG</div>
+            <span class="badge badge-win">Haute Disponibilité</span>
+          </div>
+          <div class="side-body">
+            <ul class="feature-list">
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Game Engine Dédié (Go) :</strong> Goroutines ultra-légères (4 Ko par connexion), calculs d'équité sub-milliseconde, tolérance aux pannes isolée du backend métier.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Backend Métier (Django / DRF / Celery) :</strong> Gestion stricte des comptes, KYC, portefeuille et tâches asynchrones planifiées.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Bus d'événements & Cache :</strong> RabbitMQ + Redis Cluster + PostgreSQL avec partitionnement temporel pour le grand livre comptable.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Paiements & Mobile Money -->
+    <section id="payments">
+      <div class="section-head">
+        <span class="section-num">06 / Intégration Mobile Money & Comptabilité</span>
+        <h2 class="section-title">La Bataille du Paiement : MVola, Orange Money, Airtel Money</h2>
+        <p class="section-desc">Gestion des dépôts, retraits et tenue du grand livre d'escrow.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Canal de Paiement</th>
+              <th>MadaLoka</th>
+              <th>Casino-MDG</th>
+              <th>Détail Opérationnel</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>MVola (Telma)</strong></td>
+              <td><span class="icon-check">✓</span> Via agrégateur</td>
+              <td><span class="icon-check">✓</span> Adaptateur direct</td>
+              <td>MadaLoka détecte automatiquement l'opérateur via le préfixe téléphonique (<code>034</code>, <code>038</code>). Casino-MDG dispose d'un connecteur API direct réduisant les commissions intermédiaires.</td>
+            </tr>
+            <tr>
+              <td><strong>Orange Money</strong></td>
+              <td><span class="icon-check">✓</span> Via agrégateur</td>
+              <td><span class="icon-check">✓</span> Adaptateur direct</td>
+              <td>Reconnaissance automatique des numéros <code>032</code> et <code>037</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>Airtel Money</strong></td>
+              <td><span class="icon-check">✓</span> Via agrégateur</td>
+              <td><span class="icon-check">✓</span> Adaptateur direct</td>
+              <td>Reconnaissance automatique des numéros <code>033</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>Carte Bancaire</strong></td>
+              <td><span class="icon-check">✓</span> Stripe</td>
+              <td><span class="icon-check">✓</span> Stripe Elements</td>
+              <td>Zéro stockage de PAN en base pour rester en conformité PCI-DSS SAQ A.</td>
+            </tr>
+            <tr>
+              <td><strong>Séquestre & Grand Livre</strong></td>
+              <td>Grand livre ledger en base</td>
+              <td><code>LedgerAccount</code> Double-Entry</td>
+              <td>Casino-MDG implémente un système bancaire à double entrée strict (comptes <em>player, platform, bonus, escrow</em>) avec clés d'idempotence anti-doublon.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 7: Social & Gamification -->
+    <section id="social">
+      <div class="section-head">
+        <span class="section-num">07 / Social & Gamification : Notre Atout Maître</span>
+        <h2 class="section-title">Pourquoi Casino-MDG Va Gagner sur la Rétention</h2>
+        <p class="section-desc">À Madagascar, le jeu est avant tout un acte communautaire de quartier.</p>
+      </div>
+
+      <div class="compare-grid">
+        <div class="side-card">
+          <div class="side-header">
+            <div class="side-brand">MadaLoka</div>
+            <span class="badge badge-live">Modèle Solo / Transactionnel</span>
+          </div>
+          <div class="side-body">
+            <p>MadaLoka se concentre sur l'efficacité de la table de jeu, mais offre peu de raisons de revenir hors de la volonté de miser de l'argent :</p>
+            <ul class="feature-list">
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span>Chat public "Salon MadaLoka" et chat par table.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span>Système de parrainage classique avec code d'invitation.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-cross">✗</span>
+                <span>Aucun système de guildes, de clans ou de clubs.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-cross">✗</span>
+                <span>Pas de quêtes journalières, pas de progression XP, pas de ligues.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="side-card highlight">
+          <div class="side-header">
+            <div class="side-brand">Casino-MDG</div>
+            <span class="badge badge-win">Modèle Social & Viral</span>
+          </div>
+          <div class="side-body">
+            <p>Casino-MDG intègre les mécaniques virales des meilleurs jeux mobiles modernes :</p>
+            <ul class="feature-list">
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Système de Clubs Privés :</strong> Permet aux bandes d'amis, collègues ou clubs de cartes réels de créer leur propre salon avec logo, classement et tables privées.</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Quêtes & Daily Streaks :</strong> Récompenses de connexion journalière (5 000 jetons), missions ("Gagne 2 Belote"), niveaux de joueur (titres honorifiques).</span>
+              </li>
+              <li class="feature-item">
+                <span class="icon-check">✓</span>
+                <span><strong>Mode Spectateur & Audio :</strong> Possibilité de regarder les parties de ses amis et chat vocal optionnel pour reproduire l'ambiance de fête des tournois de Belote malgaches.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 8: Matrice SWOT & Plan d'action -->
+    <section id="swot">
+      <div class="section-head">
+        <span class="section-num">08 / Matrice SWOT & Décisions Stratégiques</span>
+        <h2 class="section-title">Analyse Stratégique & Actions Prioritaires</h2>
+        <p class="section-desc">Ce que nous devons apprendre de MadaLoka et nos prochaines étapes.</p>
+      </div>
+
+      <div class="swot-grid">
+        <div class="swot-box s">
+          <div class="swot-title"><span>🛡️</span> Forces (Casino-MDG)</div>
+          <ul class="swot-list">
+            <li>• Bilinguisme Malgache natif P0 (+ Français).</li>
+            <li>• Moteur Go temps réel ultra-performant.</li>
+            <li>• Présence du Rami et de la Belote coinchée.</li>
+            <li>• Architecture de Clubs et gamification addictive.</li>
+            <li>• Rake prévisionnel plus attractif (3.5% vs 5.0%).</li>
+          </ul>
+        </div>
+
+        <div class="swot-box w">
+          <div class="swot-title"><span>⚠️</span> Faiblesses (Casino-MDG)</div>
+          <ul class="swot-list">
+            <li>• Pas encore en production monétisée réelle.</li>
+            <li>• Absence des Dominos et du Ludo au lancement.</li>
+            <li>• Complexité d'infrastructure microservices plus lourde.</li>
+          </ul>
+        </div>
+
+        <div class="swot-box o">
+          <div class="swot-title"><span>🚀</span> Opportunités de Marché</div>
+          <ul class="swot-list">
+            <li>• Capter les joueurs délaissés par l'interface 100% FR de MadaLoka.</li>
+            <li>• Fédérer les clubs de Belote et de Rami à travers Madagascar.</li>
+            <li>• Proposer des tournois sponsorisés par de grandes marques locales.</li>
+          </ul>
+        </div>
+
+        <div class="swot-box t">
+          <div class="swot-title"><span>⚡</span> Menaces</div>
+          <ul class="swot-list">
+            <li>• Avance de MadaLoka sur l'acquisition et le SEO.</li>
+            <li>• Évolution de la réglementation malgache sur le skill gaming.</li>
+            <li>• Dépendance aux politiques des opérateurs télécoms (Telma/Orange).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Action Plan -->
+      <h3 style="margin-top: 32px; font-size: 18px; color: #fff;">Plan d'Action Immédiat pour Dépasser MadaLoka</h3>
+      <div class="action-grid">
+        <div class="action-card">
+          <div class="action-num">1</div>
+          <div class="action-title">Splash Screen CSS "Zero-Delay"</div>
+          <div class="action-desc">Intégrer immédiatement dans notre <code>index.html</code> un loader en CSS pur non bloquant inspiré de MadaLoka pour supprimer tout écran noir sous 3G.</div>
+        </div>
+
+        <div class="action-card">
+          <div class="action-num">2</div>
+          <div class="action-title">Intégrer le Domino au Roadmap</div>
+          <div class="action-desc">Le domino avec mise en Ariary est un puissant aimant à liquidité. L'ajouter en P1 juste après la stabilisation de notre trio Poker/Belote/Rami.</div>
+        </div>
+
+        <div class="action-card">
+          <div class="action-num">3</div>
+          <div class="action-title">Activer l'Expérience 100% Malagasy</div>
+          <div class="action-desc">Mettre en avant dans nos campagnes d'acquisition le fait d'être la <strong>seule vraie plateforme malgache</strong> conçue en malgache pour les Malgaches.</div>
+        </div>
+
+        <div class="action-card">
+          <div class="action-num">4</div>
+          <div class="action-title">Lancer la V1 Clubs Privés</div>
+          <div class="action-desc">Donner le pouvoir aux ambassadeurs locaux de créer des clubs privés. C'est l'argument viral que MadaLoka ne possède pas.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Next Step Box -->
+    <div class="next-step-box">
+      <h3>Étape Suivante : Cartographie Complète de l'iGaming à Madagascar</h3>
+      <p>
+        MadaLoka n'est qu'un des acteurs du paysage malgache. Nous allons maintenant dresser la liste et la typologie complète de l'ensemble des plateformes de jeux en ligne, paris et loteries actives à Madagascar (Bet261, 1xBet, Premier Bet, Superbet, Loto Mada, etc.).
+      </p>
+      <span class="badge badge-win" style="padding: 8px 16px; font-size: 13px;">Prêt pour la suite de l'analyse</span>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <p>Rapport d'ingénierie et d'intelligence économique généré pour le projet <strong>MDG Game Club</strong> · Document interne confidentiel.</p>
+    </footer>
+
+  </div>
+
+</body>
+</html>

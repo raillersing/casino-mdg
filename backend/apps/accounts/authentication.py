@@ -13,8 +13,8 @@ def encode_token(user, token_type="access", lifetime_seconds=900):
         {
             "sub": str(user.pk),
             "type": token_type,
-            "iat": now,
-            "exp": now.timestamp() + lifetime_seconds,
+            "iat": int(now.timestamp()),
+            "exp": int(now.timestamp()) + lifetime_seconds,
         },
         os.getenv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes"),
         algorithm="HS256",

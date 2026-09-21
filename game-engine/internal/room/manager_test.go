@@ -575,3 +575,114 @@ func TestPokerBotStrongHandNeverFolds(t *testing.T) {
 		})
 	}
 }
+
+func TestPokerButtonClockwiseRotationAcrossEliminations(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30, Deterministic: true, Blinds: false})
+	table := m.CreateTable("poker")
+	// 5 players at sparse seats: 0, 2, 4, 6, 8 (initialize hand once all 5 have joined)
+	_, _ = m.joinPlayer(table.ID, "p0", "P0", 0, false, false)
+	_, _ = m.joinPlayer(table.ID, "p2", "P2", 2, false, false)
+	_, _ = m.joinPlayer(table.ID, "p4", "P4", 4, false, false)
+	_, _ = m.joinPlayer(table.ID, "p6", "P6", 6, false, false)
+	_, _ = m.joinPlayer(table.ID, "p8", "P8", 8, false, true)
+
+	hand, ok := table.State.(*poker.Hand)
+	if !ok || len(hand.Players) != 5 {
+		t.Fatalf("expected 5-player hand, got %T, players=%d", table.State, len(hand.Players))
+	}
+	// Initial button is index 0 (seat 0)
+	hand.Button = 0
+	hand.Phase = "showdown"
+
+	// Player at seat 2 busts (stack = 0 in both hand and table)
+	for _, p := range hand.Players {
+		if p.ID == "p2" {
+			p.Stack = 0
+		}
+	}
+	table.Players["p2"].Stack = 0
+
+	// Trigger new_hand
+	_, _, err := m.ApplyActionIdempotent(table.ID, "p0", "new_hand", table.Sequence, nil, "nh-1")
+	if err != nil {
+		t.Fatalf("new_hand failed: %v", err)
+	}
+
+	nextHand := table.State.(*poker.Hand)
+	// Remaining players are seats: 0, 4, 6, 8 (4 players)
+	if len(nextHand.Players) != 4 {
+		t.Fatalf("expected 4 players after elimination, got %d", len(nextHand.Players))
+	}
+	// Button should advance clockwise from seat 0 to seat 4 (which is index 1 in remaining [0, 4, 6, 8])
+	if nextHand.Button != 1 || nextHand.Players[nextHand.Button].ID != "p4" {
+		t.Fatalf("expected button at seat 4 (index 1), got button=%d (player %s)", nextHand.Button, nextHand.Players[nextHand.Button].ID)
+	}
+
+	// Now player at seat 4 busts and hand 2 finishes
+	nextHand.Phase = "showdown"
+	for _, p := range nextHand.Players {
+		if p.ID == "p4" {
+			p.Stack = 0
+		}
+	}
+	table.Players["p4"].Stack = 0
+	_, _, err = m.ApplyActionIdempotent(table.ID, "p0", "new_hand", table.Sequence, nil, "nh-2")
+	if err != nil {
+		t.Fatalf("new_hand 2 failed: %v", err)
+	}
+
+	thirdHand := table.State.(*poker.Hand)
+	// Remaining: seats 0, 6, 8 (3 players)
+	// Clockwise from seat 4 is seat 6 (index 1 in remaining [0, 6, 8])
+	if thirdHand.Button != 1 || thirdHand.Players[thirdHand.Button].ID != "p6" {
+		t.Fatalf("expected button at seat 6 (index 1), got button=%d (player %s)", thirdHand.Button, thirdHand.Players[thirdHand.Button].ID)
+	}
+}
+
+func TestBeloteMultiRoundScoreCumulativeAndGameOver(t *testing.T) {
+	m := NewManager(&config.Config{GracePeriod: 30 * time.Second, Deterministic: true})
+	table := m.CreateTable("belote")
+	table.BeloteTargetScore = 501
+	for index := 0; index < 4; index++ {
+		if _, err := m.JoinPlayer(table.ID, fmt.Sprintf("b%d", index), "Joueur", index); err != nil {
+			t.Fatal(err)
+		}
+	}
+	round := table.State.(*belote.Round)
+	round.Phase = "finished"
+	round.TeamPoints = [2]int{300, 100}
+
+	// Round 1 new_hand
+	_, _, err := m.ApplyActionIdempotent(table.ID, "b0", "new_hand", table.Sequence, nil, "nh-b1")
+	if err != nil {
+		t.Fatalf("round 1 new_hand failed: %v", err)
+	}
+	if table.BeloteTeamScores[0] != 300 || table.BeloteTeamScores[1] != 100 {
+		t.Fatalf("expected cumulative scores [300, 100], got %v", table.BeloteTeamScores)
+	}
+	round2 := table.State.(*belote.Round)
+	if round2.CumulativeScores[0] != 300 || round2.CumulativeScores[1] != 100 {
+		t.Fatalf("expected round2 cumulative [300, 100], got %v", round2.CumulativeScores)
+	}
+
+	// Round 2 finishes with Team 0 scoring 250 points (total 550 >= 501)
+	round2.Phase = "finished"
+	round2.TeamPoints = [2]int{250, 50}
+
+	_, _, err = m.ApplyActionIdempotent(table.ID, "b0", "new_hand", table.Sequence, nil, "nh-b2")
+	if err == nil || err.Error() != "game_over" {
+		t.Fatalf("expected game_over error, got: %v", err)
+	}
+	if table.BeloteTeamScores[0] != 550 || table.BeloteTeamScores[1] != 150 {
+		t.Fatalf("expected cumulative scores [550, 150], got %v", table.BeloteTeamScores)
+	}
+
+	// Replay / reset match on subsequent new_hand
+	_, _, err = m.ApplyActionIdempotent(table.ID, "b0", "new_hand", table.Sequence, nil, "nh-b3")
+	if err != nil {
+		t.Fatalf("expected match reset on subsequent new_hand, got: %v", err)
+	}
+	if table.BeloteTeamScores[0] != 0 || table.BeloteTeamScores[1] != 0 {
+		t.Fatalf("expected reset scores [0, 0], got %v", table.BeloteTeamScores)
+	}
+}
