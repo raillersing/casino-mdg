@@ -1,5 +1,7 @@
 # MDG Game Club — Roadmap active d’activation des jeux de hasard
 
+> **Actualisation du 14 septembre 2026 :** le [plan 21 — Multijoueur, UX et production](21-Plan-Livraison-Multijoueur-UX-Production.md) fixe désormais l'ordre de livraison des améliorations issues de l'audit. Ce document conserve l'historique d'activation et les frontières SIM. Ses déclarations de livraison doivent être rapprochées des preuves de l'[audit du 14 septembre](../reports/AUDIT-MULTIJOUEUR-2026-09-14.md).
+
 **Version :** 2.0 — roadmap active
 **Date :** 12 août 2026
 **Statut :** planification approuvée, implémentation à poursuivre après validation des décisions ouvertes

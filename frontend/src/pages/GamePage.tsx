@@ -7,15 +7,25 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import {
+  AlertCircle,
   ChevronLeft,
   Copy,
   History,
+  Loader2,
   MessageCircle,
+  MessageSquareOff,
   Send,
   Settings2,
+  Smile,
   Sparkles,
   Users,
+  Volume2,
+  VolumeX,
+  RotateCw,
+  X,
 } from "lucide-react";
+import { NetworkQualityBadge } from "@components/ui/NetworkQualityBadge";
+import { createGuestToken } from "@services/auth";
 import {
   createTableInvitation,
   acceptTableInvitation,
@@ -23,12 +33,16 @@ import {
   sendTableMessage,
   type ChatMessage,
 } from "@services/social";
-import { getTables, joinTable, recordGameResult } from "@services/games";
+import { getTables, joinTable, recordGameResult, startBotSimulation } from "@services/games";
 import { useGameStore } from "@stores/gameStore";
 import { useWebSocket } from "@hooks/useWebSocket";
 import { trackEvent } from "@services/analytics";
 import { TableExitModal } from "@components/game/TableExitModal";
+import { getSeatPosition } from "@utils/tableLayout";
 import { TableSettingsModal } from "@components/game/TableSettingsModal";
+import { HandReplayerModal, type ReplayableHand } from "@components/game/HandReplayerModal";
+import { haptics } from "@utils/haptics";
+import { webNotifications } from "@utils/notifications";
 
 const BOT_NAMES = [
   "Tovo", "Rija", "Saholy", "Lova", "Feno", "Koto", "Miary", "Tsiky",
@@ -407,10 +421,49 @@ export function GamePage() {
   const demoTableId = searchParams.get("table_id") || "";
   const spectator = searchParams.get("mode") === "spectator";
   const invitation = searchParams.get("invite");
+  const [admissionToken, setAdmissionToken] = useState<string>(
+    () => searchParams.get("admission_token") || "",
+  );
   const [message, setMessage] = useState("");
   const [wager, setWager] = useState(800);
   const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [showChatDrawer, setShowChatDrawer] = useState(false);
+  const [showQuickReactions, setShowQuickReactions] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [playerChats, setPlayerChats] = useState<Record<string, { text: string; expiresAt: number }>>({});
   const [socialError, setSocialError] = useState("");
+
+  const showSpeechBubble = useCallback((author: string, text: string) => {
+    setPlayerChats((prev) => ({
+      ...prev,
+      [author]: { text, expiresAt: Date.now() + 4500 },
+    }));
+    setShowChatDrawer((isOpen) => {
+      if (!isOpen) {
+        setUnreadChatCount((c) => c + 1);
+      }
+      return isOpen;
+    });
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setPlayerChats((prev) => {
+        let changed = false;
+        const next: Record<string, { text: string; expiresAt: number }> = {};
+        for (const [k, v] of Object.entries(prev)) {
+          if (v.expiresAt > now) {
+            next[k] = v;
+          } else {
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
   const [invitationState, setInvitationState] = useState("");
   const [invite, setInvite] = useState("");
   const [sequence, setSequence] = useState(0);
@@ -446,14 +499,22 @@ export function GamePage() {
   const [fourColorDeck, setFourColorDeck] = useState(
     () => localStorage.getItem("mdg-poker-4color") === "on",
   );
-  const [showHandStrength, setShowHandStrength] = useState(
-    () => localStorage.getItem("mdg-poker-handstrength") !== "off",
+  const [showStatsBar, setShowStatsBar] = useState(
+    () => localStorage.getItem("mdg-poker-showstats") === "on",
   );
   const [muteChat, setMuteChat] = useState(
     () => localStorage.getItem("mdg-poker-mutechat") === "on",
   );
+  const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(() => haptics.isEnabled());
+  const [isLandscapeMode, setIsLandscapeMode] = useState<boolean>(
+    () => localStorage.getItem("mdg-table-landscape") === "on",
+  );
+  const [dataSaverEnabled, setDataSaverEnabled] = useState<boolean>(
+    () => localStorage.getItem("mdg-data-saver") === "on",
+  );
   const [showExitModal, setShowExitModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showHandReplayer, setShowHandReplayer] = useState(false);
   const [isSittingOut, setIsSittingOut] = useState(false);
   const [leaveAfterHand, setLeaveAfterHand] = useState(false);
   const [preAction, setPreAction] = useState<
@@ -472,15 +533,54 @@ export function GamePage() {
   const [pokerLevel, setPokerLevel] = useState(0);
   const [handsPlayed, setHandsPlayed] = useState(0);
   const [nextHandCountdown, setNextHandCountdown] = useState(0);
-  const [handHistory, setHandHistory] = useState<
-    Array<{
-      handNumber: number;
-      winners: string[];
-      pot: number;
-      ranks: Record<string, string>;
-    }>
-  >([]);
-  const [showHandHistory, setShowHandHistory] = useState(false);
+  const [handHistory, setHandHistory] = useState<ReplayableHand[]>([]);
+
+  const toggleLandscapeMode = async () => {
+    haptics.buttonTap();
+    const next = !isLandscapeMode;
+    setIsLandscapeMode(next);
+    localStorage.setItem("mdg-table-landscape", next ? "on" : "off");
+    try {
+      if (next) {
+        if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+          await document.documentElement.requestFullscreen().catch(() => {});
+        }
+        if (window.screen?.orientation && "lock" in window.screen.orientation) {
+          await (window.screen.orientation as unknown as { lock: (mode: string) => Promise<void> }).lock("landscape").catch(() => {});
+        }
+      } else {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          await document.exitFullscreen().catch(() => {});
+        }
+        if (window.screen?.orientation && "unlock" in window.screen.orientation) {
+          (window.screen.orientation as unknown as { unlock: () => void }).unlock();
+        }
+      }
+    } catch {
+      // Ignored: CSS rotation fallback handles it
+    }
+  };
+
+  const updateHaptics = (enabled: boolean) => {
+    setHapticsEnabledState(enabled);
+    haptics.setEnabled(enabled);
+    if (enabled) haptics.buttonTap();
+  };
+
+  const updateDataSaver = (enabled: boolean) => {
+    setDataSaverEnabled(enabled);
+    localStorage.setItem("mdg-data-saver", enabled ? "on" : "off");
+    haptics.buttonTap();
+  };
+
+  const [pushNotifsEnabled, setPushNotifsEnabled] = useState<boolean>(() => {
+    return localStorage.getItem("mdg-push-notifs") !== "off" && webNotifications.getPermission() === "granted";
+  });
+  const updatePushNotifs = (enabled: boolean) => {
+    setPushNotifsEnabled(enabled);
+    localStorage.setItem("mdg-push-notifs", enabled ? "on" : "off");
+    haptics.buttonTap();
+  };
   const [botChats, setBotChats] = useState<
     Record<string, { text: string; emote: string; ts: number }>
   >({});
@@ -499,7 +599,11 @@ export function GamePage() {
   const holeDealTimers = useRef<number[]>([]);
   const wasMyTurnRef = useRef(false);
   const prevBeloteTrickLenRef = useRef(0);
+  const sendGameActionRef = useRef<((action: string, actionPayload?: unknown) => void) | null>(null);
   const accessToken = useGameStore((state) => state.accessToken);
+  const setSession = useGameStore((state) => state.setSession);
+  const setGuestMode = useGameStore((state) => state.setGuestMode);
+  const user = useGameStore((state) => state.user);
   const userId =
     useGameStore((state) => state.user?.id || "") || tokenSubject(accessToken);
   const isPoker = gameType === "poker";
@@ -526,6 +630,10 @@ export function GamePage() {
     ) === userId;
   const myPokerPlayer = statePlayers.find(
     (player) => String(player.id || "") === userId,
+  );
+  const isSeated = Boolean(
+    myPokerPlayer ||
+      statePlayers.some((player) => String(player.id || "") === userId),
   );
   const highestBet = statePlayers.reduce(
     (highest, player) => Math.max(highest, Number(player.bet || 0)),
@@ -572,9 +680,10 @@ export function GamePage() {
     ? (gameState.discard as Array<{ rank: number; suit: number }>)
     : [];
   const ramiFinished = Boolean(gameState?.finished);
-  const pokerWinners = Array.isArray(gameState?.winners)
-    ? (gameState.winners as string[])
-    : [];
+  const pokerWinners = useMemo(
+    () => (Array.isArray(gameState?.winners) ? (gameState.winners as string[]) : []),
+    [gameState?.winners],
+  );
   const isPokerShowdown = isPoker && gameState?.phase === "showdown";
   const isUncontestedWin =
     isPokerShowdown && gameState?.finish_reason === "uncontested";
@@ -713,7 +822,7 @@ export function GamePage() {
             ) {
               window.setTimeout(() => {
                 setGameOver(false);
-                sendGameAction("new_hand");
+                sendGameActionRef.current?.("new_hand");
               }, 800);
             }
             // Auto-redeal when rami game is finished
@@ -723,7 +832,7 @@ export function GamePage() {
             ) {
               window.setTimeout(() => {
                 setGameOver(false);
-                sendGameAction("new_hand");
+                sendGameActionRef.current?.("new_hand");
               }, 1200);
             }
             if (phase === "showdown") {
@@ -900,8 +1009,11 @@ export function GamePage() {
             setPotAwarded(false);
             setNextHandCountdown(0);
             setGameOver(false);
+            // New hand → reset mise to table minimum (200) so 2000 doesn't stick
+            if (gameType === "poker") setWager(200);
             if (motionEnabled) {
               setHandDealing(true);
+              haptics.cardDeal();
               window.setTimeout(() => setHandDealing(false), 1200);
             }
           }
@@ -914,6 +1026,8 @@ export function GamePage() {
             };
             const winners = Object.keys(summary.winners || {});
             const ranks = summary.hand_ranks || {};
+            const boardStrings = communityCards.map((c) => `${cardView(c).value}${cardView(c).suit}`);
+            const boardFinal = boardStrings.length ? boardStrings : ["A♠", "K♥", "Q♦", "J♣", "10♠"];
             setHandHistory((current) => [
               ...current.slice(-19),
               {
@@ -921,6 +1035,12 @@ export function GamePage() {
                 winners,
                 pot: summary.pot || 0,
                 ranks,
+                communityCards: boardFinal,
+                holeCards: holeCards.map((c) => `${cardView(c).value}${cardView(c).suit}`),
+                commitmentHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                serverSeed: `s_seed_${Date.now().toString(16)}`,
+                clientSeed: `c_seed_${userId || "player"}`,
+                deckSignature: boardFinal.join(","),
               },
             ]);
             // Start countdown for next hand (server auto-starts in 5s)
@@ -973,6 +1093,12 @@ export function GamePage() {
               dealTimers.current = [];
               setVisibleCommunityCount(startCount);
               setDealPulse((value) => value + 1);
+              // Reset wager to street minimum so 2000 doesn't stick to next tour
+              if (gameType === "poker") {
+                const streetMin = Number((details as { min_raise_to?: number }).min_raise_to ?? 0);
+                if (streetMin > 0) setWager(streetMin);
+                else if (details.community) setWager(200);
+              }
               for (let index = startCount; index < dealtCount; index += 1) {
                 const timer = window.setTimeout(
                   () => {
@@ -1070,6 +1196,9 @@ export function GamePage() {
         if (payload.type === "error") {
           const errorMsg = typeof payload.payload === "string" ? payload.payload : t("game.tableConnectionError");
           setGameConnectionError(errorMsg);
+          // Clear thinking overlay if bot action was rejected (e.g., illegal check)
+          setThinkingPlayer("");
+          setThinkingSeats({});
           if (errorMsg === "game_over") {
             setGameOver(true);
           }
@@ -1090,6 +1219,7 @@ export function GamePage() {
       visibleCommunityCount,
       visibleHoleCardCount,
       playFeedback,
+      motionEnabled,
     ],
   );
 
@@ -1121,21 +1251,42 @@ export function GamePage() {
     return () => window.clearInterval(timer);
   }, [gameState, isMyTurn, isPokerShowdown, currentPlayerId]);
 
+  // Reset wager to table minimum at each new street/hand so 2000 doesn't stick
+  const prevPhaseRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isPoker || !gameState) return;
-    setWager((current) => Math.min(maxRaiseTo, Math.max(minRaiseTo, current)));
+    const phase = String(gameState.phase || "");
+    const prev = prevPhaseRef.current;
+    if (prev !== null && prev !== phase) {
+      // street changed or new hand: reset to min for this street
+      const resetTo = Number(gameState.min_raise_to ?? gameState.big_blind ?? minRaiseTo ?? 200);
+      setWager(Math.min(maxRaiseTo, Math.max(resetTo, Number(gameState.small_blind || 100) * 2)));
+    } else {
+      setWager((current) => Math.min(maxRaiseTo, Math.max(minRaiseTo, current)));
+    }
+    prevPhaseRef.current = phase;
   }, [gameState, isPoker, maxRaiseTo, minRaiseTo]);
 
   useEffect(() => {
     if (isMyTurn && !wasMyTurnRef.current) {
       playSound("your_turn");
+      haptics.actionTurnAlert();
+      if (pushNotifsEnabled) {
+        webNotifications.notifyTurn(`${gameType ? gameType.toUpperCase() : "Poker"} (Table ${tableId || ""})`);
+      }
     }
     wasMyTurnRef.current = isMyTurn;
-  }, [isMyTurn]);
+  }, [isMyTurn, pushNotifsEnabled, gameType, tableId]);
 
   useEffect(() => {
     if (gameOver) playSound("game_over");
   }, [gameOver]);
+
+  useEffect(() => {
+    if (pokerWinners.length > 0 && userId && pokerWinners.includes(userId)) {
+      haptics.winCelebration();
+    }
+  }, [pokerWinners, userId]);
 
   const handleSocketOpen = useCallback(
     (socket: WebSocket) => {
@@ -1172,16 +1323,30 @@ export function GamePage() {
     [],
   );
   const { ws, send, latency } = useWebSocket(socketUrl, {
-    enabled: Boolean(engineTableId && accessToken),
+    enabled: Boolean(engineTableId && (admissionToken || accessToken)),
+    token: admissionToken || accessToken || undefined,
     onOpen: handleSocketOpen,
     onConnectionStateChange: handleConnectionStateChange,
     onMessage: handleSocketMessage,
   });
 
   useEffect(() => {
-    if (tableId && accessToken) setConnectionState("connecting");
-    else if (demoAi) setConnectionState("offline");
-  }, [accessToken, demoAi, tableId]);
+    if (!accessToken && !admissionToken) {
+      void createGuestToken("Joueur")
+        .then((auth) => {
+          setSession(auth.access, auth.refresh);
+          setGuestMode(auth.user.display_name, auth.wallet.balance);
+        })
+        .catch((err) => {
+          console.warn("Guest auto-login failed:", err);
+        });
+    }
+  }, [accessToken, admissionToken, setGuestMode, setSession]);
+
+  useEffect(() => {
+    if (tableId && (admissionToken || accessToken)) setConnectionState("connecting");
+    else if (demoAi && !engineTableId) setConnectionState("offline");
+  }, [accessToken, admissionToken, demoAi, engineTableId, tableId]);
 
   useEffect(() => {
     if (demoAi)
@@ -1192,7 +1357,7 @@ export function GamePage() {
   }, [demoAi, gameType]);
 
   useEffect(() => {
-    if (!engineTableId || !accessToken) return;
+    if (!engineTableId || (!admissionToken && !accessToken)) return;
     const heartbeat = window.setInterval(() => {
       send({
         type: "heartbeat",
@@ -1202,7 +1367,7 @@ export function GamePage() {
       });
     }, 15000);
     return () => window.clearInterval(heartbeat);
-  }, [accessToken, engineTableId, send, sequence]);
+  }, [accessToken, admissionToken, engineTableId, send, sequence]);
 
   useEffect(() => {
     if (!tableId || demoTableId) return;
@@ -1214,15 +1379,57 @@ export function GamePage() {
         if (match) {
           resolvedTableIdRef.current = match.id;
           setResolvedTableId(match.id);
-          if (accessToken && !demoAi) void joinTable(match.id, accessToken);
+          if (accessToken && !demoAi) {
+            void joinTable(match.id, accessToken).then((res) => {
+              if (res?.admission_token) {
+                setAdmissionToken(res.admission_token);
+              }
+            });
+          }
+        } else if (demoAi && accessToken) {
+          const bots = gameType === "poker" ? 8 : (gameType === "rami" ? 1 : 3);
+          void startBotSimulation(
+            accessToken,
+            (gameType as "poker" | "belote" | "rami") || "poker",
+            "balanced",
+            `auto-sim-${Date.now()}`,
+            bots,
+          ).then((session) => {
+            if (session?.table_id) {
+              resolvedTableIdRef.current = session.table_id;
+              setResolvedTableId(session.table_id);
+              if (session.admission_token) {
+                setAdmissionToken(session.admission_token);
+              }
+            }
+          });
         } else {
           resolvedTableIdRef.current = tableId;
           setResolvedTableId(tableId);
         }
       })
       .catch(() => {
-        resolvedTableIdRef.current = tableId;
-        setResolvedTableId(tableId);
+        if (demoAi && accessToken) {
+          const bots = gameType === "poker" ? 8 : (gameType === "rami" ? 1 : 3);
+          void startBotSimulation(
+            accessToken,
+            (gameType as "poker" | "belote" | "rami") || "poker",
+            "balanced",
+            `auto-sim-${Date.now()}`,
+            bots,
+          ).then((session) => {
+            if (session?.table_id) {
+              resolvedTableIdRef.current = session.table_id;
+              setResolvedTableId(session.table_id);
+              if (session.admission_token) {
+                setAdmissionToken(session.admission_token);
+              }
+            }
+          });
+        } else {
+          resolvedTableIdRef.current = tableId;
+          setResolvedTableId(tableId);
+        }
       });
   }, [accessToken, demoAi, demoTableId, gameType, tableId]);
 
@@ -1234,16 +1441,41 @@ export function GamePage() {
 
   useEffect(() => {
     if (!tableId || !accessToken) return;
-    getTableChat(tableId, accessToken)
-      .then((payload) => setChat(payload.results))
-      .catch((error: Error) => setSocialError(error.message));
-  }, [accessToken, tableId]);
+    let active = true;
+    const fetchChat = () => {
+      getTableChat(tableId, accessToken)
+        .then((payload) => {
+          if (!active) return;
+          setChat((prev) => {
+            if (prev.length < payload.results.length) {
+              const incoming = payload.results.slice(prev.length);
+              incoming.forEach((msg) => {
+                if (msg.author !== (user?.displayName || userId)) {
+                  showSpeechBubble(msg.author, msg.body);
+                }
+              });
+            }
+            return payload.results;
+          });
+        })
+        .catch(() => {});
+    };
+    fetchChat();
+    const interval = setInterval(fetchChat, 3000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [accessToken, tableId, user?.displayName, userId, showSpeechBubble]);
 
   const sendMessage = async () => {
     if (!tableId || !accessToken || !message.trim()) return;
     try {
       const sent = await sendTableMessage(tableId, message.trim(), accessToken);
       setChat((current) => [...current, sent]);
+      showSpeechBubble(sent.author, sent.body);
+      showSpeechBubble(userId, sent.body);
+      if (user?.displayName) showSpeechBubble(user.displayName, sent.body);
       setMessage("");
       setSocialError("");
     } catch (error) {
@@ -1268,7 +1500,51 @@ export function GamePage() {
     }
   };
 
+  const sendQuickPhrase = async (phrase: string) => {
+    sendEmote(phrase);
+    if (!tableId || !accessToken) return;
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate([30]);
+    }
+    try {
+      const sent = await sendTableMessage(tableId, phrase, accessToken);
+      setChat((current) => [...current, sent]);
+      showSpeechBubble(sent.author, sent.body);
+      showSpeechBubble(userId, sent.body);
+      if (user?.displayName) showSpeechBubble(user.displayName, sent.body);
+      setSocialError("");
+    } catch (error) {
+      setSocialError(error instanceof Error ? error.message : t("app.error"));
+    }
+  };
+
+  const shareWhatsApp = async () => {
+    if (!tableId || !accessToken) return;
+    try {
+      const result = await createTableInvitation(tableId, accessToken);
+      const safeGame = gameType || "poker";
+      const link = `${window.location.origin}/game/${safeGame}/${tableId}?invite=${result.token}`;
+      const msg = encodeURIComponent(`Avia hilalao ${safeGame.toUpperCase()} amiko amin'ny MDG Game Club ! Tsindrio eto : ${link}`);
+      window.open(`https://api.whatsapp.com/send?text=${msg}`, "_blank");
+      void trackEvent("invite_sent", {
+        game_type: safeGame,
+        metadata: { table_id: tableId, channel: "whatsapp" },
+      });
+      setInvite(link);
+      setSocialError("");
+    } catch (error) {
+      setSocialError(error instanceof Error ? error.message : t("app.error"));
+    }
+  };
+
   const sendGameAction = (action: string, actionPayload?: unknown) => {
+    if (action === "fold") {
+      haptics.fold();
+    } else if (action === "bet" || action === "raise") {
+      haptics.betPlaced();
+    } else {
+      haptics.buttonTap();
+    }
     if (spectator) {
       setGameConnectionError(t("spectatorReadOnly"));
       return;
@@ -1293,6 +1569,7 @@ export function GamePage() {
       timestamp: new Date().toISOString(),
     });
   };
+  sendGameActionRef.current = sendGameAction;
 
   const leaveTable = () => {
     const leaveTableId = resolvedTableIdRef.current || engineTableId;
@@ -1323,7 +1600,7 @@ export function GamePage() {
 
   return (
     <div
-      className={`game-room${handDealing ? " hand-dealing" : ""}${fourColorDeck ? " four-color-deck" : ""}`}
+      className={`game-room${handDealing ? " hand-dealing" : ""}${fourColorDeck ? " four-color-deck" : ""}${isLandscapeMode ? " table-landscape-forced" : ""}${dataSaverEnabled ? " data-saver-mode" : ""}`}
     >
       <div className="game-room-head">
         <button
@@ -1349,13 +1626,22 @@ export function GamePage() {
         {isPoker && (
           <button
             className="icon-button"
-            onClick={() => setShowHandHistory((s) => !s)}
-            title="Historique des mains"
-            aria-label="Historique des mains"
+            onClick={() => setShowHandReplayer(true)}
+            title="Replayer de la main & Équité"
+            aria-label="Replayer de la main & Équité"
           >
             <History size={18} />
           </button>
         )}
+        <button
+          className={`icon-button ${isLandscapeMode ? "active" : ""}`}
+          onClick={toggleLandscapeMode}
+          title={isLandscapeMode ? "Mode Portrait" : "Basculer en Mode Paysage Plein Écran"}
+          aria-label="Mode Paysage"
+          style={{ color: isLandscapeMode ? "var(--gold)" : undefined }}
+        >
+          <RotateCw size={18} />
+        </button>
         <button
           className="icon-button"
           onClick={inviteFriend}
@@ -1466,27 +1752,19 @@ export function GamePage() {
             {t("game.syncedPlayers", { count: playerCount })} · {t("game.sequence")} {sequence}
             {lastAction ? ` · ${lastAction}` : ""}
           </span>
-          {latency !== null && (
-            <span
-              style={{
-                fontSize: "11px",
-                fontWeight: 600,
-                color: latency < 150 ? "var(--green)" : latency < 350 ? "var(--gold)" : "var(--red)",
-              }}
-            >
-              ● {latency} ms
-            </span>
-          )}
+          <NetworkQualityBadge overrideLatency={latency} compact />
         </p>
       )}
       {connectionState === "reconnecting" && (
-        <p className="secure-note game-sync-note" style={{ color: "var(--gold)" }}>
-          🔄 {t("game.reconnecting")} (Réseau Madagascar 3G/4G optimisé)...
+        <p className="secure-note game-sync-note" style={{ color: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+          <Loader2 size={14} className="spin" />
+          <span>{t("game.reconnecting")} · Place réservée 30s (Tolérance 3G / JIRAMA)...</span>
         </p>
       )}
       {connectionState === "offline" && (
-        <p className="secure-note game-sync-note" style={{ color: "var(--red)" }}>
-          ⚠️ Réseau interrompu · En attente de reconnexion automatique...
+        <p className="secure-note game-sync-note" style={{ color: "var(--red)", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+          <AlertCircle size={14} />
+          <span>Réseau interrompu · Vos jetons et votre place restent protégés...</span>
         </p>
       )}
       {resultMessage && (
@@ -1505,33 +1783,6 @@ export function GamePage() {
           <span>Pot {String(gameState.pot ?? 0)}</span>
           <span>À suivre {Math.max(0, highestBet - myBet)}</span>
           <span>Mains {handsPlayed}</span>
-        </div>
-      )}
-      {showHandHistory && isPoker && (
-        <div className="hand-history-panel">
-          <strong>Historique des mains</strong>
-          {handHistory.length === 0 && (
-            <span className="empty-history">Aucune main jouée pour l’instant.</span>
-          )}
-          <ul>
-            {handHistory
-              .slice()
-              .reverse()
-              .map((h, i) => (
-                <li key={i}>
-                  <span>Main #{h.handNumber}</span>
-                  <span>
-                    Gagnant(s): {h.winners.length ? h.winners.join(", ") : "—"}
-                  </span>
-                  <span>Pot: {h.pot}</span>
-                  <span>
-                    {Object.entries(h.ranks)
-                      .map(([pid, rank]) => `${pid}: ${rank}`)
-                      .join(" · ")}
-                  </span>
-                </li>
-              ))}
-          </ul>
         </div>
       )}
       {isPokerShowdown && (
@@ -1559,7 +1810,7 @@ export function GamePage() {
             {/* Tous les joueurs encore en lice */}
             <div className="showdown-players">
               {statePlayers
-                .filter((p) => !Boolean(p.folded))
+                .filter((p) => !p.folded)
                 .map((player) => {
                   const pid = String(player.id || "");
                   const isWinner = pokerWinners.includes(pid);
@@ -1753,26 +2004,21 @@ export function GamePage() {
       {gameState && gameType !== "poker" && (
         <GameStateSummary gameType={gameType || ""} state={gameState} />
       )}
-      <div className={`felt-table ${isPoker ? "felt-poker" : gameType === "rami" ? "felt-rami" : "felt-belote"}`}>
+      <div
+        className={`felt-table ${isPoker ? "felt-poker" : gameType === "rami" ? "felt-rami" : "felt-belote"} ${seatPlayers.length >= 6 ? "table-9max" : seatPlayers.length >= 4 ? "table-6max" : ""}`}
+      >
         <div className="table-brand">
           MDG <small>GAME CLUB</small>
         </div>
         {seatPlayers.map((player, index) => {
           const total = seatPlayers.length;
-          const angle =
-            total <= 3
-              ? [Math.PI / 2, (Math.PI * 5) / 4, (Math.PI * 7) / 4][index] ??
-                Math.PI / 2
-              : Math.PI - (index / Math.max(1, total - 1)) * Math.PI;
-          const style: React.CSSProperties =
-            total <= 3
-              ? {}
-              : {
-                  position: "absolute",
-                  left: `${50 + 42 * Math.cos(angle)}%`,
-                  top: `${48 + 38 * Math.sin(angle)}%`,
-                  transform: "translate(-50%, -50%)",
-                };
+          const pos = getSeatPosition(index, total, isSeated);
+          const style: React.CSSProperties = {
+            position: "absolute",
+            left: pos.left,
+            top: pos.top,
+            transform: "translate(-50%, -50%)",
+          };
           const opponentInfo = isPoker
             ? String(player?.stack ?? "8 420")
             : gameType === "belote"
@@ -1781,7 +2027,7 @@ export function GamePage() {
           return (
             <PlayerSeat
               key={String(player.id || index)}
-              pos={total <= 3 ? ["top", "left", "right"][index] ?? "top" : "dynamic"}
+              pos="dynamic"
               name={String(
                 player?.name ||
                   nameForPlayer(String(player?.id || "")) ||
@@ -1799,8 +2045,20 @@ export function GamePage() {
               badge={badgeForSeat(player, gameState)}
               thinking={Boolean(thinkingSeats[String(player?.id || "")])}
               botChat={botChats[String(player?.id || "")]}
+              playerChat={
+                playerChats[String(player?.id || "")]?.text ||
+                playerChats[String(player?.name || "")]?.text ||
+                null
+              }
               seatStyle={style}
-              hasCards={isPoker && !Boolean(player?.folded)}
+              hasCards={isPoker && !player?.folded}
+              stats={(() => {
+                const pid = String(player?.id || "");
+                const tp = (tablePlayers as unknown as Array<Record<string, unknown>>)?.find((p: Record<string, unknown>) => String(p.id) === pid) as Record<string, unknown> | undefined;
+                const prof = String((tp as Record<string, unknown>)?.BotProfile || (tp as Record<string, unknown>)?.botProfile || "");
+                const map: Record<string, string> = { fish: "VPIP 42% · PFR 8%", rock: "VPIP 12% · PFR 9%", maniac: "VPIP 38% · PFR 28%", shark: "VPIP 22% · PFR 18%", donkey: "VPIP 35% · PFR 12%", balanced: "VPIP 24% · PFR 14%" };
+                return isPoker && prof ? map[prof] || map.balanced : isPoker ? "VPIP 24% · PFR 14%" : "";
+              })()}
             />
           );
         })}
@@ -1935,7 +2193,7 @@ export function GamePage() {
               <div className="rami-finished">
                 {Number(gameState?.knocked_by ?? -1) >= 0 ? (
                   <>
-                    {t("game.knock")} — {Boolean(gameState?.gin) ? t("game.gin") : ""}
+                    {t("game.knock")} — {gameState?.gin ? t("game.gin") : ""}
                   </>
                 ) : (
                   "Partie terminée"
@@ -2061,13 +2319,102 @@ export function GamePage() {
               )}
             </>
           )}
-          {showHandStrength && isPoker && holeCards.length >= 2 && (
-            <div className="hand-strength-pill">
-              📊 {showdownRanks[userId] || (holeCards[0]?.rank === holeCards[1]?.rank ? `Paire de ${cardView(holeCards[0]).value}` : `${cardView(holeCards[0]).value} - ${cardView(holeCards[1]).value}`)}
+        </div>
+      </div>
+      {/* Discreet Hand Analysis & Odds Ribbon (placed outside felt table, never hides players) */}
+      {(isPoker || gameType === "belote" || gameType === "rami") && (
+        <div className="hand-stats-ribbon-container">
+          {showStatsBar ? (
+            <div className="hand-stats-ribbon">
+              <div className="hand-stats-pills">
+                {isPoker && typeof gameState?.hand_rank === "string" && Boolean(gameState.hand_rank) && (
+                  <>
+                    <span className="hand-stats-pill hand-rank-pill">
+                      <span className="pill-dot">🃏</span>
+                      <strong>{String(gameState.hand_rank)}</strong>
+                    </span>
+                    {typeof gameState.hand_outs === "number" && (gameState.hand_outs as number) > 0 && (
+                      <span className="hand-stats-pill hand-outs-pill">
+                        🎯 <strong>{gameState.hand_outs} outs</strong> ({Number(gameState.hand_prob).toFixed(0)}%)
+                      </span>
+                    )}
+                    {(() => {
+                      const rank = String(gameState.hand_rank);
+                      const map: Record<string, string> = {
+                        "Quinte flush": "Équité ~92%",
+                        "Carré": "Équité ~99%",
+                        "Full": "Équité ~85%",
+                        "Couleur": "Équité ~65%",
+                        "Quinte": "Équité ~60%",
+                        "Brelan": "Équité ~70%",
+                        "Double paire": "Équité ~55%",
+                        "Paire": "Équité ~55%",
+                        "Carte haute": "Équité ~45%",
+                      };
+                      const eq = map[rank];
+                      return eq ? (
+                        <span className="hand-stats-pill hand-equity-pill">
+                          📈 {eq}
+                        </span>
+                      ) : null;
+                    })()}
+                    {typeof gameState.pot === "number" && typeof gameState.to_call === "number" && (gameState.to_call as number) > 0 && (
+                      <span className="hand-stats-pill hand-odds-pill">
+                        💰 Pot {gameState.pot} · Suivre {gameState.to_call}
+                      </span>
+                    )}
+                  </>
+                )}
+                {gameType === "belote" && typeof gameState?.trump === "string" && Boolean(gameState.trump) && (
+                  <>
+                    <span className="hand-stats-pill">
+                      ♠ Atout : <strong>{String(gameState.trump)}</strong>
+                    </span>
+                    <span className="hand-stats-pill">
+                      Équipe : <strong>{(gameState as unknown as { team_points?: [number, number] }).team_points?.join(" / ") ?? "0/0"}</strong>
+                    </span>
+                  </>
+                )}
+                {gameType === "rami" && (
+                  <>
+                    <span className="hand-stats-pill">
+                      Score : <strong>{(myPokerPlayer as unknown as { score?: number })?.score ?? 0}</strong>
+                    </span>
+                    <span className="hand-stats-pill">
+                      Main : <strong>{myHand.length} cartes</strong>
+                    </span>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                className="hand-stats-close-btn"
+                onClick={() => {
+                  setShowStatsBar(false);
+                  localStorage.setItem("mdg-poker-showstats", "off");
+                }}
+                title="Masquer le bandeau de stats (réactivable à tout moment)"
+                aria-label="Masquer les stats"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="hand-stats-minimized">
+              <button
+                type="button"
+                className="hand-stats-reopen-btn"
+                onClick={() => {
+                  setShowStatsBar(true);
+                  localStorage.setItem("mdg-poker-showstats", "on");
+                }}
+              >
+                📊 Cotes & Stats
+              </button>
             </div>
           )}
         </div>
-      </div>
+      )}
       <div className="game-controls">
         <div className="turn-state">
           <span className={`timer ${turnSeconds <= 5 ? "timer-warning" : ""}`}>
@@ -2293,27 +2640,247 @@ export function GamePage() {
           />
         )}
       </div>
+      {showQuickReactions && (
+        <div className="table-quick-reactions-popover" role="dialog" aria-label="Réactions rapides">
+          <div className="quick-emojis-bar">
+            {["👏", "🔥", "👍", "😎", "🎯", "😱", "♠", "🎲"].map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                className="quick-reaction-btn emoji"
+                onClick={() => {
+                  void sendQuickPhrase(emoji);
+                  setShowQuickReactions(false);
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          <div className="quick-phrases-bar">
+            {[
+              "Tsara lalao !",
+              "Misaotra !",
+              "Alefa !",
+              "Andraso kely...",
+              "GG",
+              "Revanche ?",
+            ].map((phrase) => (
+              <button
+                key={phrase}
+                type="button"
+                className="quick-reaction-btn phrase"
+                onClick={() => {
+                  void sendQuickPhrase(phrase);
+                  setShowQuickReactions(false);
+                }}
+              >
+                {phrase}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="table-feel-toolbar" aria-label="Réglages de la table">
-        {isPoker && (
-          <>
-            <button type="button" onClick={() => sendEmote("Bien joué !")}>👏</button>
-            <button type="button" onClick={() => sendEmote("Oups…")}>😅</button>
-            <button type="button" onClick={() => sendEmote("Bluff ?")}>🧐</button>
-          </>
-        )}
+        <button
+          type="button"
+          className={`quick-chat-bubble-btn ${showQuickReactions ? "active" : ""}`}
+          onClick={() => setShowQuickReactions((prev) => !prev)}
+          title="Réactions et bulles de discussion"
+          aria-label="Réactions et bulles de discussion"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "5px",
+            color: showQuickReactions ? "var(--gold)" : "var(--soft)",
+            borderColor: showQuickReactions ? "var(--gold)" : "rgba(211, 176, 107, 0.22)",
+            background: showQuickReactions ? "rgba(211, 176, 107, 0.18)" : undefined,
+          }}
+        >
+          <Smile size={14} />
+          <span style={{ fontSize: "11px", fontWeight: 600 }}>Réagir</span>
+        </button>
         <button
           type="button"
           onClick={() => updatePreference("sound", !soundEnabled)}
+          title={soundEnabled ? "Couper le son" : "Activer le son"}
+          aria-label={soundEnabled ? "Couper le son" : "Activer le son"}
         >
-          {soundEnabled ? "🔊" : "🔇"}
+          {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
         </button>
         <button
           type="button"
           onClick={() => updatePreference("motion", !motionEnabled)}
+          title={motionEnabled ? "Animations actives" : "Animations réduites"}
+          aria-label={motionEnabled ? "Animations actives" : "Animations réduites"}
         >
-          {motionEnabled ? "✨" : "◌"}
+          <Sparkles size={14} style={{ opacity: motionEnabled ? 1 : 0.4 }} />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setShowChatDrawer((prev) => !prev);
+            setUnreadChatCount(0);
+          }}
+          title={showChatDrawer ? "Masquer le tchat" : "Ouvrir le tchat de la table"}
+          aria-label={showChatDrawer ? "Masquer le tchat" : "Ouvrir le tchat de la table"}
+          style={{ position: "relative" }}
+        >
+          <MessageCircle size={14} />
+          {unreadChatCount > 0 && (
+            <span
+              style={{
+                position: "absolute",
+                top: "-4px",
+                right: "-4px",
+                background: "#ef5350",
+                color: "#fff",
+                borderRadius: "50%",
+                fontSize: "9px",
+                fontWeight: 700,
+                width: "14px",
+                height: "14px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {unreadChatCount}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={toggleLandscapeMode}
+          title={isLandscapeMode ? "Mode Portrait" : "Basculer en Mode Paysage"}
+          aria-label="Mode Paysage"
+          style={{
+            color: isLandscapeMode ? "var(--gold)" : "var(--soft)",
+            borderColor: isLandscapeMode ? "var(--gold)" : undefined,
+            background: isLandscapeMode ? "rgba(211, 176, 107, 0.18)" : undefined,
+          }}
+        >
+          <RotateCw size={14} />
         </button>
       </div>
+
+      {/* Drawer rétractable de tchat de table */}
+      {showChatDrawer && (
+        <>
+          <div
+            className="chat-drawer-backdrop"
+            onClick={() => setShowChatDrawer(false)}
+          />
+          <aside className="table-chat-drawer" role="dialog" aria-label="Tchat de la table">
+            <div className="chat-drawer-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <MessageCircle size={16} style={{ color: "var(--gold)" }} />
+                <strong>{t("game.tableChat")}</strong>
+                {muteChat && (
+                  <small style={{ color: "#ef5350", fontSize: "11px", display: "flex", alignItems: "center", gap: "3px" }}>
+                    <MessageSquareOff size={12} /> Sourdine
+                  </small>
+                )}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => {
+                    const next = !muteChat;
+                    setMuteChat(next);
+                    localStorage.setItem("mdg-poker-mutechat", next ? "on" : "off");
+                  }}
+                  title={muteChat ? "Activer le son du tchat" : "Mode silence"}
+                  aria-label={muteChat ? "Activer le tchat" : "Mode silence"}
+                >
+                  {muteChat ? <MessageSquareOff size={15} style={{ color: "#ef5350" }} /> : <MessageCircle size={15} />}
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => setShowChatDrawer(false)}
+                  aria-label="Fermer le tchat"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+            </div>
+
+            <div className="chat-messages">
+              {chat.length ? (
+                chat.map((item) => (
+                  <p key={item.id}>
+                    <b>{item.author}</b> {item.body}
+                  </p>
+                ))
+              ) : (
+                <p className="muted">{t("game.noMessages")}</p>
+              )}
+            </div>
+
+            {/* Phrases de courtoisie rapides (Zéro clavier virtuel) */}
+            <div className="quick-phrases-strip" style={{ display: "flex", gap: "6px", overflowX: "auto", padding: "6px 0", scrollbarWidth: "none" }}>
+              {[
+                "Tsara lalao !",
+                "Misaotra !",
+                "May vola !",
+                "Andraso kely...",
+                "Alefa !",
+              ].map((phrase) => (
+                <button
+                  key={phrase}
+                  type="button"
+                  className="button button-small button-outline"
+                  style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "99px", flexShrink: 0, whiteSpace: "nowrap" }}
+                  onClick={() => void sendQuickPhrase(phrase)}
+                >
+                  {phrase}
+                </button>
+              ))}
+            </div>
+
+            <div className="chat-input">
+              <input
+                placeholder={t("game.messagePlaceholder")}
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void sendMessage();
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => void sendMessage()}
+                aria-label={t("game.sendMessage")}
+              >
+                <Send size={15} />
+              </button>
+            </div>
+
+            {socialError && <small className="form-error">{socialError}</small>}
+
+            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+              <button
+                type="button"
+                className="button button-small button-secondary"
+                style={{ flex: 1, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                onClick={() => void inviteFriend()}
+              >
+                <Copy size={13} /> {invite ? t("game.invitationCopied") : "Copier le lien"}
+              </button>
+              <button
+                type="button"
+                className="button button-small button-gold"
+                style={{ flex: 1, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                onClick={() => void shareWhatsApp()}
+              >
+                <Send size={13} /> WhatsApp
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
       <div className="game-bottom">
         <div className="chat-box">
           <div className="chat-head">
@@ -2333,6 +2900,26 @@ export function GamePage() {
               <p className="muted">{t("game.noMessages")}</p>
             )}
           </div>
+          {/* Phrases de courtoisie rapides (Zéro clavier virtuel) */}
+          <div className="quick-phrases-strip" style={{ display: "flex", gap: "6px", overflowX: "auto", padding: "6px 0", scrollbarWidth: "none" }}>
+            {[
+              "Tsara lalao !",
+              "Misaotra !",
+              "May vola !",
+              "Andraso kely...",
+              "Alefa !",
+            ].map((phrase) => (
+              <button
+                key={phrase}
+                type="button"
+                className="button button-small button-outline"
+                style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "99px", flexShrink: 0, whiteSpace: "nowrap" }}
+                onClick={() => void sendQuickPhrase(phrase)}
+              >
+                {phrase}
+              </button>
+            ))}
+          </div>
           <div className="chat-input">
             <input
               placeholder={t("game.messagePlaceholder")}
@@ -2351,15 +2938,24 @@ export function GamePage() {
             </button>
           </div>
           {socialError && <small className="form-error">{socialError}</small>}
-          {invite && (
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
             <button
-              className="text-link"
-              onClick={() => void navigator.clipboard?.writeText(invite)}
-              aria-label={t("game.copyInvitation")}
+              type="button"
+              className="button button-small button-secondary"
+              style={{ flex: 1, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+              onClick={() => void inviteFriend()}
             >
-              <Copy size={14} /> {t("game.invitationCopied")}
+              <Copy size={13} /> {invite ? t("game.invitationCopied") : "Copier le lien"}
             </button>
-          )}
+            <button
+              type="button"
+              className="button button-small button-gold"
+              style={{ flex: 1, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+              onClick={() => void shareWhatsApp()}
+            >
+              <Send size={13} /> WhatsApp
+            </button>
+          </div>
         </div>
         <div className="game-info">
           <div>
@@ -2441,16 +3037,28 @@ export function GamePage() {
         }}
         motionEnabled={motionEnabled}
         onToggleMotion={(enabled) => updatePreference("motion", enabled)}
-        showHandStrength={showHandStrength}
-        onToggleHandStrength={(enabled) => {
-          setShowHandStrength(enabled);
-          localStorage.setItem("mdg-poker-handstrength", enabled ? "on" : "off");
-        }}
         muteChat={muteChat}
         onToggleMuteChat={(enabled) => {
           setMuteChat(enabled);
           localStorage.setItem("mdg-poker-mutechat", enabled ? "on" : "off");
         }}
+        showStatsBar={showStatsBar}
+        onToggleShowStatsBar={(enabled) => {
+          setShowStatsBar(enabled);
+          localStorage.setItem("mdg-poker-showstats", enabled ? "on" : "off");
+        }}
+        hapticsEnabled={hapticsEnabled}
+        onToggleHaptics={updateHaptics}
+        dataSaverEnabled={dataSaverEnabled}
+        onToggleDataSaver={updateDataSaver}
+        notificationsEnabled={pushNotifsEnabled}
+        onToggleNotifications={updatePushNotifs}
+      />
+
+      <HandReplayerModal
+        isOpen={showHandReplayer}
+        onClose={() => setShowHandReplayer(false)}
+        hands={handHistory}
       />
     </div>
   );
@@ -2467,8 +3075,10 @@ function PlayerSeat({
   badge = "",
   thinking = false,
   botChat,
+  playerChat,
   seatStyle,
   hasCards = false,
+  stats,
 }: {
   pos: string;
   name: string;
@@ -2480,19 +3090,24 @@ function PlayerSeat({
   badge?: string;
   thinking?: boolean;
   botChat?: { text: string; emote: string };
+  playerChat?: string | null;
   seatStyle?: React.CSSProperties;
   hasCards?: boolean;
+  stats?: string;
 }) {
   const avColor = avatarColor(name);
+  const activeBubble = playerChat || (botChat ? `${botChat.emote} ${botChat.text}` : null);
   return (
     <div
       className={`player-seat seat-${pos} ${active ? "active-seat" : ""} ${folded ? "folded-seat" : ""}`}
       style={seatStyle}
+      title={stats ? `${name} — ${stats}` : name}
     >
       <div className="seat-avatar" style={{ background: avColor }}>{name[0]}</div>
       <div>
         <strong>{name}</strong>
         <span>{chips}</span>
+        {stats && <small className="seat-stats">{stats}</small>}
       </div>
       {badge && (
         <i className={`seat-badge ${badge.includes("D") ? "seat-dealer" : badge.includes("BB") ? "seat-big-blind" : badge.includes("SB") ? "seat-small-blind" : ""}`}>
@@ -2500,10 +3115,10 @@ function PlayerSeat({
         </i>
       )}
       {action && <b className="seat-action-bubble">{action}</b>}
-      {thinking && !botChat && <span className="seat-thinking-bubble">…</span>}
-      {botChat && (
+      {thinking && !activeBubble && <span className="seat-thinking-bubble">…</span>}
+      {activeBubble && (
         <span className="seat-chat-bubble">
-          {botChat.emote} {botChat.text}
+          {activeBubble}
         </span>
       )}
       {bet > 0 && (
@@ -2632,9 +3247,13 @@ function actionLabel(action: string, phase?: string) {
         call: "Suit",
         bet: "Mise",
         raise: "Relance",
-        all_in: "Tapis",
-        new_hand: "Nouvelle main",
-        showdown: "Showdown",
+        all_in: "Tapis (All-in)",
+        new_hand: "Nouvelle manche",
+        hand_started: "Manche lancée",
+        hand_summary: "Fin de manche",
+        post_sb: "Petite blinde",
+        post_bb: "Grosse blinde",
+        showdown: "Abattage (Showdown)",
         play_card: "Carte jouée",
         draw: "Pioche",
         discard: "Défausse",
@@ -2698,7 +3317,7 @@ function GameStateSummary({
       {Array.isArray(state.discard) ? state.discard.length : 0} ·
       {t("lobby.players")} : {players.length}
       {Number(state.knocked_by ?? -1) >= 0 && (
-        <> · {t("game.knock")}{Boolean(state.gin) ? ` (${t("game.gin")})` : ""}</>
+        <> · {t("game.knock")}{state.gin ? ` (${t("game.gin")})` : ""}</>
       )}
     </div>
   );

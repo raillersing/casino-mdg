@@ -21,7 +21,7 @@ interface SlotMachineProps {
   onWin: (play: InstantPlay) => void;
 }
 
-export const SLOT_SYMBOLS = [
+const SLOT_SYMBOLS = [
   { id: "seven", label: "7️⃣ Sept d'Or", icon: "7️⃣", multiplier: 50, tier: "jackpot" },
   { id: "diamond", label: "💎 Diamant Royal", icon: "💎", multiplier: 25, tier: "high" },
   { id: "baobab", label: "🌴 Baobab MDG", icon: "🌴", multiplier: 10, tier: "high" },
@@ -41,6 +41,7 @@ const REEL_STRIP = [
 ];
 
 const ROW_HEIGHT = 80; // height of each visible row in px
+const SYMBOL_COUNT = SLOT_SYMBOLS.length;
 
 export function SlotMachine({
   cost,
@@ -71,8 +72,28 @@ export function SlotMachine({
 
   const spinSoundInterval = useRef<number | null>(null);
   const heartbeatInterval = useRef<number | null>(null);
+  const timeoutRefs = useRef<number[]>([]);
+  const spinningRef = useRef(false);
   const autoPlayRef = useRef(false);
   autoPlayRef.current = isAutoPlaying;
+  spinningRef.current = spinning;
+
+  const clearAllTimeouts = useCallback(() => {
+    timeoutRefs.current.forEach((id) => clearTimeout(id));
+    timeoutRefs.current = [];
+  }, []);
+
+  const clearIntervals = useCallback(() => {
+    if (spinSoundInterval.current) {
+      clearInterval(spinSoundInterval.current);
+      spinSoundInterval.current = null;
+    }
+    if (heartbeatInterval.current) {
+      clearInterval(heartbeatInterval.current);
+      heartbeatInterval.current = null;
+    }
+    casinoAudio.stopAnticipation();
+  }, []);
 
   const toggleSound = () => {
     const next = !soundMuted;
@@ -80,10 +101,19 @@ export function SlotMachine({
     localStorage.setItem("mdg-poker-sound", next ? "off" : "on");
   };
 
+  useEffect(() => {
+    const saved = localStorage.getItem("mdg-poker-sound");
+    if (saved === "off") setSoundMuted(true);
+  }, []);
+
   const handlePullSpin = useCallback(async () => {
-    if (spinning || disabled) return;
+    if (spinningRef.current || disabled) return;
+
+    clearAllTimeouts();
+    clearIntervals();
 
     setSpinning(true);
+    spinningRef.current = true;
     setIsAnticipation(false);
     setWinningPaylines([]);
     setLastWinText("");
@@ -100,10 +130,13 @@ export function SlotMachine({
       const result = await onSpin();
 
       if (!result) {
-        if (spinSoundInterval.current) clearInterval(spinSoundInterval.current);
+        clearIntervals();
+        clearAllTimeouts();
         setSpinning(false);
+        spinningRef.current = false;
         setReelStates(["idle", "idle", "idle"]);
         setIsAutoPlaying(false);
+        autoPlayRef.current = false;
         return;
       }
 
@@ -116,133 +149,156 @@ export function SlotMachine({
             ? ["seven", "seven", "seven"]
             : ["cherry", "bell", "lemon"];
 
-      // Find indices in middle strip
+      // Find indices
       const s1 = SLOT_SYMBOLS.findIndex((s) => s.id === centerIds[0]);
       const s2 = SLOT_SYMBOLS.findIndex((s) => s.id === centerIds[1]);
       const s3 = SLOT_SYMBOLS.findIndex((s) => s.id === centerIds[2]);
 
       // Calculate target top-row index so that centerIds land exactly on middle row (offset + 1)
-      // center row is (offset + 1) % 6, so offset = (centerIdx - 1 + 6) % 6
-      const base1 = (s1 - 1 + 6) % 6;
-      const base2 = (s2 - 1 + 6) % 6;
-      const base3 = (s3 - 1 + 6) % 6;
+      const idx1 = s1 === -1 ? 0 : s1;
+      const idx2 = s2 === -1 ? 1 : s2;
+      const idx3 = s3 === -1 ? 2 : s3;
+      const base1 = (idx1 - 1 + SYMBOL_COUNT) % SYMBOL_COUNT;
+      const base2 = (idx2 - 1 + SYMBOL_COUNT) % SYMBOL_COUNT;
+      const base3 = (idx3 - 1 + SYMBOL_COUNT) % SYMBOL_COUNT;
 
-      const targetOffset1 = 6 + base1;
-      const targetOffset2 = 12 + base2;
-      const targetOffset3 = 18 + base3;
+      // Spread across different repeats to ensure smooth CSS transition
+      const targetOffset1 = SYMBOL_COUNT * 1 + base1;
+      const targetOffset2 = SYMBOL_COUNT * 2 + base2;
+      const targetOffset3 = SYMBOL_COUNT * 3 + base3;
 
-      // Check if Reel 1 & 2 match on high/jackpot tier to trigger SUSPENSE ANTICIPATION!
-      const isHighMatch =
-        centerIds[0] === centerIds[1] &&
-        (centerIds[0] === "seven" || centerIds[0] === "diamond" || centerIds[0] === "baobab");
+      // Anticipation logic: any pair triggers suspense, high tier longer
+      const isPairMatch = centerIds[0] === centerIds[1];
+      const isHighPair =
+        isPairMatch && (centerIds[0] === "seven" || centerIds[0] === "diamond" || centerIds[0] === "baobab");
+      const shouldAnticipate = isPairMatch && !turboMode;
 
       const t1 = turboMode ? 400 : 1200;
       const t2 = turboMode ? 800 : 2200;
-      const t3 = turboMode ? 1200 : isHighMatch ? 4600 : 3400;
+      const t3 = turboMode ? 1200 : isHighPair ? 4600 : isPairMatch ? 3800 : 3400;
 
       // Reel 1 Stop
-      setTimeout(() => {
+      const id1 = window.setTimeout(() => {
         setReelStates((prev) => ["stopped", prev[1], prev[2]]);
         setReelOffsets((prev) => [targetOffset1, prev[1], prev[2]]);
         casinoAudio.playSlotStop(1.0);
       }, t1);
+      timeoutRefs.current.push(id1);
 
       // Reel 2 Stop
-      setTimeout(() => {
+      const id2 = window.setTimeout(() => {
         setReelStates((prev) => [prev[0], "stopped", prev[2]]);
         setReelOffsets((prev) => [prev[0], targetOffset2, prev[2]]);
         casinoAudio.playSlotStop(1.1);
 
-        // Check if Reel 3 should enter slow-motion high-tension anticipation!
-        if (isHighMatch && !turboMode) {
+        if (shouldAnticipate) {
           setIsAnticipation(true);
           setReelStates((prev) => [prev[0], prev[1], "anticipation"]);
           casinoAudio.startAnticipation();
-
-          // Heartbeat loop
           casinoAudio.playHeartbeat();
           heartbeatInterval.current = window.setInterval(() => {
             casinoAudio.playHeartbeat();
           }, 450);
         }
       }, t2);
+      timeoutRefs.current.push(id2);
 
-      // Reel 3 Stop & Final Win Resolution
-      setTimeout(() => {
-        if (spinSoundInterval.current) clearInterval(spinSoundInterval.current);
-        if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
-        casinoAudio.stopAnticipation();
-
-        setIsAnticipation(false);
-        setReelStates(["idle", "idle", "idle"]);
+      // Reel 3 Stop & Final Win Resolution — keep spinning locked until CSS transition finishes
+      const id3 = window.setTimeout(() => {
+        // Don't clear heartbeat yet — let it ring through the settle for continuity
+        if (spinSoundInterval.current) {
+          clearInterval(spinSoundInterval.current);
+          spinSoundInterval.current = null;
+        }
         setReelOffsets([targetOffset1, targetOffset2, targetOffset3]);
-        setSpinning(false);
+        // Set reels to stopped (not idle) to keep transition active; keep anticipation glow during settle
+        setReelStates(["stopped", "stopped", "stopped"]);
         casinoAudio.playSlotStop(1.3);
 
+        // Show win feedback immediately as the reel begins to settle, not after a gap
         if (result.prize > 0) {
-          // Highlight middle payline (payline 1)
           setWinningPaylines([1]);
           setLastWinText(result.result_label);
           setLastWinAmount(result.prize);
-          casinoAudio.playPaylineWin(1);
-
-          setTimeout(() => {
-            onWin(result);
-          }, 500);
-
-          // Stop autoplay on big win
-          if (result.prize >= cost * 5) {
-            setIsAutoPlaying(false);
-          }
         } else {
           setLastWinText("Rien cette fois. Retentez votre chance !");
         }
 
-        // Handle auto-play continuation
-        if (autoPlayRef.current) {
-          setAutoSpinsLeft((prev) => {
-            const next = prev - 1;
-            if (next > 0) {
-              setTimeout(() => {
-                if (autoPlayRef.current) void handlePullSpin();
-              }, 1200);
-            } else {
+        // Wait for the 650ms CSS transform transition to fully settle before unlocking
+        const settleId = window.setTimeout(() => {
+          clearIntervals(); // now stop heartbeat/anticipation after the reel has landed
+          setIsAnticipation(false);
+          setReelStates(["idle", "idle", "idle"]);
+          setSpinning(false);
+          spinningRef.current = false;
+
+          if (result.prize > 0) {
+            casinoAudio.playPaylineWin(1);
+            const winId = window.setTimeout(() => {
+              onWin(result);
+            }, 220);
+            timeoutRefs.current.push(winId);
+
+            if (result.prize >= cost * 5) {
               setIsAutoPlaying(false);
+              autoPlayRef.current = false;
             }
-            return Math.max(0, next);
-          });
-        }
+          }
+
+          // Auto-play continuation — only after full settle + win delay
+          if (autoPlayRef.current) {
+            setAutoSpinsLeft((prev) => {
+              const next = prev - 1;
+              if (next > 0) {
+                const autoId = window.setTimeout(() => {
+                  if (autoPlayRef.current && !spinningRef.current) void handlePullSpin();
+                }, 900);
+                timeoutRefs.current.push(autoId);
+              } else {
+                setIsAutoPlaying(false);
+                autoPlayRef.current = false;
+              }
+              return Math.max(0, next);
+            });
+          }
+        }, 680);
+        timeoutRefs.current.push(settleId);
       }, t3);
+      timeoutRefs.current.push(id3);
     } catch {
-      if (spinSoundInterval.current) clearInterval(spinSoundInterval.current);
-      if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
-      casinoAudio.stopAnticipation();
+      clearIntervals();
+      clearAllTimeouts();
       setSpinning(false);
+      spinningRef.current = false;
       setIsAnticipation(false);
       setReelStates(["idle", "idle", "idle"]);
       setIsAutoPlaying(false);
+      autoPlayRef.current = false;
     }
-  }, [spinning, disabled, onSpin, turboMode, cost, onWin]);
+  }, [disabled, onSpin, turboMode, cost, onWin, clearAllTimeouts, clearIntervals]);
 
   const startAutoPlay = (count: number) => {
-    if (spinning || disabled) return;
+    if (spinningRef.current || disabled) return;
     setAutoSpinsLeft(count);
     setIsAutoPlaying(true);
+    autoPlayRef.current = true;
     void handlePullSpin();
   };
 
   const stopAutoPlay = () => {
     setIsAutoPlaying(false);
+    autoPlayRef.current = false;
     setAutoSpinsLeft(0);
+    clearAllTimeouts();
+    // keep current spin running but prevent next auto
   };
 
   useEffect(() => {
     return () => {
-      if (spinSoundInterval.current) clearInterval(spinSoundInterval.current);
-      if (heartbeatInterval.current) clearInterval(heartbeatInterval.current);
-      casinoAudio.stopAnticipation();
+      clearAllTimeouts();
+      clearIntervals();
     };
-  }, []);
+  }, [clearAllTimeouts, clearIntervals]);
 
   return (
     <div className={`slot-machine-wrapper ${isAnticipation ? "anticipation-mode" : ""}`}>
@@ -284,7 +340,7 @@ export function SlotMachine({
           <span className="slot-jackpot-tag">
             JACKPOT 777 : {maxPrize.toLocaleString("fr-FR")} SIM (x50)
           </span>
-          <span className="slot-paylines-tag">5 LIGNES DE PAIEMENT</span>
+          <span className="slot-paylines-tag">LIGNE CENTRALE ACTIVE</span>
         </div>
       </div>
 
@@ -292,11 +348,17 @@ export function SlotMachine({
       <div className="slot-cabinet">
         {/* Left Payline Number Markers */}
         <div className="slot-payline-gutter left">
-          {[1, 2, 3, 4, 5].map((lineNum) => (
+          {[1].map((lineNum) => (
             <span
               key={lineNum}
               className={`payline-badge ${winningPaylines.includes(lineNum) ? "active" : ""}`}
             >
+              {lineNum}
+            </span>
+          ))}
+          {/* Inactive paylines shown muted */}
+          {[2, 3, 4, 5].map((lineNum) => (
+            <span key={lineNum} className="payline-badge muted" title="Ligne inactive — seule la ligne centrale est évaluée">
               {lineNum}
             </span>
           ))}
@@ -343,7 +405,6 @@ export function SlotMachine({
                     }}
                   >
                     {REEL_STRIP.map((sym, sIdx) => {
-                      // Check if this specific symbol is in the winning center row
                       const isCenterRow = sIdx === offsetIndex + 1;
                       const isWinningSymbol =
                         isCenterRow && winningPaylines.includes(1) && lastWinAmount > 0;
@@ -367,11 +428,16 @@ export function SlotMachine({
 
         {/* Right Payline Number Markers */}
         <div className="slot-payline-gutter right">
-          {[1, 2, 3, 4, 5].map((lineNum) => (
+          {[1].map((lineNum) => (
             <span
               key={lineNum}
               className={`payline-badge ${winningPaylines.includes(lineNum) ? "active" : ""}`}
             >
+              {lineNum}
+            </span>
+          ))}
+          {[2, 3, 4, 5].map((lineNum) => (
+            <span key={lineNum} className="payline-badge muted" title="Ligne inactive">
               {lineNum}
             </span>
           ))}
@@ -391,7 +457,6 @@ export function SlotMachine({
 
       {/* Control Dashboard & Live Counters */}
       <div className="slot-controls-bar">
-        {/* Cost & Win Displays */}
         <div className="slot-metrics-group">
           <div className="slot-info-box">
             <span className="slot-info-title">MISE DU TOUR</span>
@@ -405,7 +470,6 @@ export function SlotMachine({
           </div>
         </div>
 
-        {/* Live Status Messaging */}
         <div className="slot-status-message">
           {isAnticipation ? (
             <span className="slot-msg-anticipation">
@@ -425,9 +489,7 @@ export function SlotMachine({
           )}
         </div>
 
-        {/* Main Spin & Auto Actions */}
         <div className="slot-actions-group">
-          {/* Turbo toggle */}
           <button
             type="button"
             className={`button button-small ${turboMode ? "button-gold" : "button-outline"}`}
@@ -437,7 +499,6 @@ export function SlotMachine({
             <Zap size={15} /> {turboMode ? "TURBO ON" : "TURBO"}
           </button>
 
-          {/* Sound toggle */}
           <button
             type="button"
             className="button button-small button-outline"
@@ -447,7 +508,6 @@ export function SlotMachine({
             {soundMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
           </button>
 
-          {/* Auto-play or Stop */}
           {isAutoPlaying ? (
             <button
               type="button"
@@ -470,7 +530,6 @@ export function SlotMachine({
             </div>
           )}
 
-          {/* Big Master Spin Button */}
           <button
             type="button"
             className="button button-gold slot-spin-big-btn"
@@ -487,7 +546,6 @@ export function SlotMachine({
         </div>
       </div>
 
-      {/* Paytable & Rules Drawer */}
       <div className="slot-footer-bar">
         <button
           type="button"
@@ -495,15 +553,15 @@ export function SlotMachine({
           onClick={() => setShowPaytable((v) => !v)}
         >
           <HelpCircle size={15} />
-          {showPaytable ? "Masquer les gains" : "Table des gains & Lignes de paiement"}
+          {showPaytable ? "Masquer les gains" : "Table des gains · Ligne centrale"}
         </button>
       </div>
 
       {showPaytable && (
         <div className="slot-paytable-modal">
-          <h4>🏆 Tableau des 5 Lignes de Paiement & Multiplicateurs</h4>
+          <h4>🏆 Tableau des Gains — Ligne Centrale</h4>
           <p className="paytable-hint">
-            Les combinaisons s'évaluent sur 3 symboles alignés de gauche à droite sur les 5 lignes actives.
+            Seule la ligne centrale (3 symboles alignés) est évaluée. Les lignes 2–5 sont décoratives dans cette version.
           </p>
           <div className="slot-paytable-grid">
             {SLOT_SYMBOLS.map((s) => (

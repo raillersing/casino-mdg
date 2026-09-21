@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowDownLeft,
@@ -45,7 +45,7 @@ export function WalletPage() {
   const accessToken = useGameStore((state) => state.accessToken);
   const user = useGameStore((state) => state.user);
 
-  const loadWalletData = () => {
+  const loadWalletData = useCallback(() => {
     if (!accessToken) {
       setLoading(false);
       return;
@@ -68,11 +68,11 @@ export function WalletPage() {
         ),
       )
       .finally(() => setLoading(false));
-  };
+  }, [accessToken, currencyFilter]);
 
   useEffect(() => {
     loadWalletData();
-  }, [accessToken, currencyFilter]);
+  }, [loadWalletData]);
 
   const openTransaction = async (transaction: WalletTransaction) => {
     if (!accessToken) return;
@@ -97,7 +97,7 @@ export function WalletPage() {
           <h1>{t("wallet.title")}</h1>
           <p>Gérez vos jetons de jeu et votre solde en Ariary réel via Mobile Money.</p>
         </div>
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div className="wallet-header-actions">
           <button
             type="button"
             className="button button-secondary"
@@ -119,7 +119,7 @@ export function WalletPage() {
       <div className="wallet-layout">
         <section>
           {/* Cartes de soldes */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "16px" }}>
+          <div className="wallet-balance-grid">
             {/* Solde Ariary Réel */}
             <div className="balance-card" style={{ border: "1px solid rgba(211, 176, 107, 0.4)" }}>
               <div className="balance-top">
@@ -225,7 +225,7 @@ export function WalletPage() {
 
           {tab === "history" && (
             <>
-              <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className={`button button-sm ${currencyFilter === "" ? "button-primary" : "button-secondary"}`}

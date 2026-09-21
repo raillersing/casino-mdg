@@ -173,3 +173,113 @@ class TableApiTests(TestCase):
             HTTP_X_GAME_ENGINE_BOT_SECRET=settings.GAME_ENGINE_BOT_SECRET,
         )
         self.assertEqual(response.status_code, 404)
+
+    def test_join_returns_signed_admission_token(self):
+        table = GameTable.objects.create(
+            table_code="test-adm-001", name="Test Admission", game_type="poker", max_players=6
+        )
+        self.client.force_authenticate(self.user)
+        response = self.client.post(f"/api/v1/games/tables/{table.pk}/join/")
+        self.assertEqual(response.status_code, 201)
+        self.assertIn("admission_token", response.data)
+        token = response.data["admission_token"]
+        self.assertTrue(token.startswith("ey"))
+
+    def test_admission_endpoint_returns_token_for_seated_and_spectator(self):
+        table = GameTable.objects.create(
+            table_code="test-adm-002", name="Test Admission Spec", game_type="poker", max_players=6
+        )
+        self.client.force_authenticate(self.user)
+        # As spectator (not seated yet)
+        response = self.client.post(f"/api/v1/games/tables/{table.pk}/admission/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["role"], "spectator")
+        self.assertIn("admission_token", response.data)
+
+        # As player (after joining)
+        self.client.post(f"/api/v1/games/tables/{table.pk}/join/")
+        response_seated = self.client.post(f"/api/v1/games/tables/{table.pk}/admission/")
+        self.assertEqual(response_seated.status_code, 200)
+        self.assertEqual(response_seated.data["role"], "player")
+        self.assertEqual(response_seated.data["seat_index"], 0)
+
+    def test_full_ring_9_players_table_creation_and_seating(self):
+        self.client.force_authenticate(self.user)
+        # Create a 9-player Full Ring table via API (creator is seated at index 0)
+        create_resp = self.client.post(
+            "/api/v1/games/tables/",
+            {
+                "name": "Full Ring 9-Max",
+                "game_type": "poker",
+                "max_players": 9,
+            },
+            format="json",
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        table_id = create_resp.data["id"]
+        table = GameTable.objects.get(pk=table_id)
+        self.assertEqual(table.max_players, 9)
+        self.assertEqual(table.seats.count(), 1)
+        self.assertEqual(table.seats.first().user, self.user)
+
+        # 8 additional distinct players join (seats 1 to 8)
+        other_players = [
+            User.objects.create_user(
+                email=f"frplayer{i}@mdg.local",
+                phone=f"+26134000010{i}",
+                display_name=f"Player {i}",
+            )
+            for i in range(1, 9)
+        ]
+        for idx, player in enumerate(other_players):
+            seat_num = idx + 1
+            self.client.force_authenticate(player)
+            resp = self.client.post(f"/api/v1/games/tables/{table_id}/join/")
+            self.assertEqual(resp.status_code, 201)
+            self.assertEqual(resp.data["seat_index"], seat_num)
+
+        # 10th player is rejected with 409
+        tenth = User.objects.create_user(
+            email="tenth@mdg.local",
+            phone="+261340000199",
+            display_name="Tenth",
+        )
+        self.client.force_authenticate(tenth)
+        rejected = self.client.post(f"/api/v1/games/tables/{table_id}/join/")
+        self.assertEqual(rejected.status_code, 409)
+        table.refresh_from_db()
+        self.assertEqual(table.status, "running")
+        self.assertEqual(table.seats.count(), 9)
+
+    def test_matchmaking_creates_table_with_configured_size(self):
+        player_a = self.user
+        player_b = User.objects.create_user(
+            email="mmb@mdg.local",
+            phone="+261340000201",
+            display_name="MM Player B",
+        )
+        # Player A queues for 6-max poker
+        self.client.force_authenticate(player_a)
+        resp_a = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "poker", "max_players": 6},
+            format="json",
+        )
+        self.assertEqual(resp_a.status_code, 201)
+
+        # Player B queues for 6-max poker and matches Player A
+        self.client.force_authenticate(player_b)
+        resp_b = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "poker", "max_players": 6},
+            format="json",
+        )
+        self.assertEqual(resp_b.status_code, 201)
+        self.assertEqual(resp_b.data["ticket"]["status"], "matched")
+        matched_table_id = resp_b.data["ticket"]["table_id"]
+        matched_table = GameTable.objects.get(pk=matched_table_id)
+        self.assertEqual(matched_table.max_players, 6)
+        self.assertEqual(matched_table.game_type, "poker")
+        self.assertEqual(matched_table.seats.count(), 2)
+
+

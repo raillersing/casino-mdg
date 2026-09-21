@@ -12,6 +12,7 @@ from .views import (
     MatchmakingHeartbeatView,
     MatchmakingQueueView,
     MatchmakingStatusView,
+    TableAdmissionView,
     TableJoinView,
     TableListCreateView,
     TestDrawEntryView,
@@ -20,6 +21,9 @@ from .views import (
     TestGamesActivityView,
     TestGamesCatalogView,
     TestInstantPlayView,
+    TournamentListCreateView,
+    TournamentDetailView,
+    TournamentRegisterView,
 )
 
 urlpatterns = [
@@ -41,6 +45,11 @@ urlpatterns = [
     ),
     path("tables/", TableListCreateView.as_view(), name="table-list-create"),
     path("tables/<uuid:table_id>/join/", TableJoinView.as_view(), name="table-join"),
+    path(
+        "tables/<uuid:table_id>/admission/",
+        TableAdmissionView.as_view(),
+        name="table-admission",
+    ),
     path(
         "matchmaking/status/",
         MatchmakingStatusView.as_view(),
@@ -86,4 +95,7 @@ urlpatterns = [
         TestDrawResultView.as_view(),
         name="test-draw-result",
     ),
+    path("tournaments/", TournamentListCreateView.as_view(), name="tournament-list-create"),
+    path("tournaments/<uuid:tournament_id>/", TournamentDetailView.as_view(), name="tournament-detail"),
+    path("tournaments/<uuid:tournament_id>/register/", TournamentRegisterView.as_view(), name="tournament-register"),
 ]

@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import { NavLink, Link, useLocation, useNavigate } from "react-router-dom";
+import { ReactNode, useState, useEffect } from "react";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import {
   Bell,
   CircleUserRound,
@@ -8,17 +8,18 @@ import {
   Dices,
   Home,
   LogIn,
-  Menu,
+  Smartphone,
   WalletCards,
-  LifeBuoy,
   Sparkles,
-  X,
-  Gamepad2,
+  Flame,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useEffect, useState } from "react";
 import { getCurrentUser, refreshAccessToken } from "@services/auth";
 import { useGameStore } from "@stores/gameStore";
+import { useDeviceMode } from "@hooks/useDeviceMode";
+
+import { NetworkQualityBadge } from "@components/ui/NetworkQualityBadge";
+import { DailyMissionsModal } from "@components/game/DailyMissionsModal";
 
 export function Layout({ children }: { children: ReactNode }) {
   const user = useGameStore((state) => state.user);
@@ -30,27 +31,29 @@ export function Layout({ children }: { children: ReactNode }) {
   const logout = useGameStore((state) => state.logout);
   const { i18n, t } = useTranslation();
   const location = useLocation();
-  const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [fabOpen, setFabOpen] = useState(false);
+  const { setMode } = useDeviceMode();
+  const [showMissionsModal, setShowMissionsModal] = useState(false);
 
-  // Simplified nav: Home, Play (lobby), Profile
-  const navItems = [
+  // Desktop sidebar navigation items
+  const sidebarNavItems = [
     { to: "/", label: t("nav.home"), icon: Home },
     { to: "/lobby", label: t("nav.play"), icon: Compass },
+    { to: "/clubs", label: t("nav.clubs"), icon: UsersRound },
     { to: "/casino", label: t("nav.testGames") || "Jeux de hasard", icon: Dices },
+    { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
     { to: "/profile", label: t("nav.profile"), icon: CircleUserRound },
   ];
-  const language = i18n.language.startsWith("mg") ? "MG" : "FR";
 
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileMenuOpen(false);
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [mobileMenuOpen]);
+  // Mobile bottom bar: 5 direct, essential thumb destinations (Zero redundancy)
+  const mobileNavItems = [
+    { to: "/lobby", label: t("nav.lobby") || "Lobby", icon: Compass },
+    { to: "/clubs", label: t("nav.clubs") || "Clubs", icon: UsersRound },
+    { to: "/casino", label: t("nav.testGames") || "Hasard", icon: Dices },
+    { to: "/wallet", label: t("nav.wallet") || "Portefeuille", icon: WalletCards },
+    { to: "/profile", label: t("nav.profile") || "Profil", icon: CircleUserRound },
+  ];
+
+  const language = i18n.language.startsWith("mg") ? "MG" : "FR";
 
   useEffect(() => {
     if (!accessToken || user) return;
@@ -78,15 +81,10 @@ export function Layout({ children }: { children: ReactNode }) {
   }, [accessToken, logout, refreshToken, setSession, setUser, user]);
 
   const isGamePage = location.pathname.startsWith("/game/");
-  const fabGames = [
-    { id: "poker", name: t("games.poker"), icon: "♠", color: "#d3b06b", path: "/lobby?filter=poker" },
-    { id: "belote", name: t("games.belote"), icon: "♥", color: "#e57373", path: "/lobby?filter=belote" },
-    { id: "rami", name: t("games.rami"), icon: "♦", color: "#64b5f6", path: "/lobby?filter=rami" },
-    { id: "casino", name: t("nav.testGames") || "Jeux de hasard", icon: "🎲", color: "#ffb74d", path: "/casino" },
-  ];
 
   return (
     <div className="app-shell">
+      {/* Sidebar Desktop */}
       <aside className="sidebar">
         <Link to="/" className="brand-lockup">
           <span className="brand-mark">♠</span>
@@ -96,8 +94,8 @@ export function Layout({ children }: { children: ReactNode }) {
           </span>
         </Link>
         <div className="sidebar-label">{t("nav.navigation")}</div>
-        <nav className="sidebar-nav" aria-label={t("a11y.primaryNavigation")}>
-          {navItems.map(({ to, label, icon: Icon }) => (
+        <nav className="sidebar-nav" aria-label={`${t("a11y.primaryNavigation")} — bureau`}>
+          {sidebarNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -139,7 +137,19 @@ export function Layout({ children }: { children: ReactNode }) {
             </>
           )}
         </div>
+        <div className="sidebar-device-toggle">
+          <button
+            type="button"
+            onClick={() => setMode("mobile")}
+            className="device-switch-btn"
+            title={t("nav.mobileVersion")}
+          >
+            <Smartphone size={14} />
+            <span>{t("nav.mobileVersion")}</span>
+          </button>
+        </div>
       </aside>
+
       <div className="main-shell">
         {isGuest && !accessToken && (
           <div className="guest-banner" role="status">
@@ -152,22 +162,44 @@ export function Layout({ children }: { children: ReactNode }) {
             </Link>
           </div>
         )}
+
+        {/* Topbar Globale */}
         <header className="topbar">
-          <div className="mobile-brand">
+          <Link to="/" className="mobile-brand" aria-label={t("nav.home")}>
             <span className="brand-mark">♠</span>
             <strong>MDG</strong>
-          </div>
+          </Link>
           <div className="topbar-balance">
             {user ? (
-              <Link to="/wallet" className="balance-pill">
+              <Link to="/wallet" className="balance-pill" aria-label={t("nav.wallet")}>
                 <WalletCards size={14} />
                 <span>{user.balance.toLocaleString()} Ar</span>
               </Link>
             ) : (
-              <span className="balance-pill muted">MDG Game Club</span>
+              <span className="balance-pill muted">
+                <span className="hide-on-mobile">MDG Game Club</span>
+                <span className="show-on-mobile">♠ MDG</span>
+              </span>
             )}
           </div>
           <div className="topbar-actions">
+            <NetworkQualityBadge compact />
+            {user && (
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setShowMissionsModal(true)}
+                title="Missions quotidiennes & Bonus Série"
+                aria-label="Missions quotidiennes & Bonus Série"
+                style={{
+                  color: "#ff7043",
+                  background: "rgba(255, 112, 67, 0.12)",
+                  borderColor: "rgba(255, 112, 67, 0.3)",
+                }}
+              >
+                <Flame size={18} />
+              </button>
+            )}
             <button
               className="language-toggle"
               onClick={() =>
@@ -197,59 +229,22 @@ export function Layout({ children }: { children: ReactNode }) {
                 <LogIn size={16} /> {t("nav.login")}
               </Link>
             )}
-            <button
-              className="icon-button mobile-menu"
-              aria-label={
-                mobileMenuOpen ? t("a11y.closeMenu") : t("a11y.openMenu")
-              }
-              aria-expanded={mobileMenuOpen}
-              aria-controls="mobile-navigation"
-              onClick={() => setMobileMenuOpen((open) => !open)}
-            >
-              <Menu size={20} />
-            </button>
           </div>
         </header>
+
         <main className="content">{children}</main>
 
-        {/* Floating Action Button (FAB) — visible on all pages except game */}
-        {!isGamePage && (
-          <div className="fab-container">
-            {fabOpen && (
-              <div className="fab-menu">
-                <button className="fab-close" onClick={() => setFabOpen(false)}>
-                  <X size={18} />
-                </button>
-                {fabGames.map((game) => (
-                  <button
-                    key={game.id}
-                    className="fab-game-btn"
-                    onClick={() => {
-                      setFabOpen(false);
-                      navigate(game.path || `/lobby?filter=${game.id}`);
-                    }}
-                  >
-                    <span className="fab-game-icon" style={{ color: game.color }}>
-                      {game.icon}
-                    </span>
-                    <span className="fab-game-label">{game.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            <button
-              className={`fab-main ${fabOpen ? "active" : ""}`}
-              onClick={() => setFabOpen((open) => !open)}
-              aria-label={t("nav.play")}
-            >
-              <Gamepad2 size={22} />
-            </button>
-          </div>
-        )}
+        <DailyMissionsModal
+          isOpen={showMissionsModal}
+          onClose={() => setShowMissionsModal(false)}
+        />
 
-        {/* Bottom Navigation Bar (mobile) */}
-        <nav className="bottom-nav" aria-label={t("a11y.primaryNavigation")}>
-          {navItems.map(({ to, label, icon: Icon }) => (
+        {/* Bottom Navigation Bar (mobile) — 5 onglets directs et ergonomiques */}
+        <nav
+          className={`bottom-nav ${isGamePage ? "hidden" : ""}`}
+          aria-label={`${t("a11y.primaryNavigation")} — mobile barre`}
+        >
+          {mobileNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -257,46 +252,6 @@ export function Layout({ children }: { children: ReactNode }) {
               className={({ isActive }) => (isActive ? "active" : "")}
             >
               <Icon size={20} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
-          <button
-            className="bottom-nav-more"
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <Menu size={20} />
-            <span>{t("nav.more")}</span>
-          </button>
-        </nav>
-
-        {mobileMenuOpen && (
-          <button
-            type="button"
-            className="mobile-menu-backdrop"
-            aria-label={t("a11y.closeMenu")}
-            onClick={() => setMobileMenuOpen(false)}
-          />
-        )}
-        <nav
-          id="mobile-navigation"
-          className={`mobile-nav ${mobileMenuOpen ? "open" : ""}`}
-          aria-label={t("a11y.primaryNavigation")}
-        >
-          {[
-            ...navItems,
-            { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
-            { to: "/clubs", label: t("nav.clubs"), icon: UsersRound },
-            { to: "/games/test", label: t("nav.testGames"), icon: Dices },
-            { to: "/support", label: t("nav.support"), icon: LifeBuoy },
-          ].map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              onClick={() => setMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-              <Icon size={19} />
               <span>{label}</span>
             </NavLink>
           ))}

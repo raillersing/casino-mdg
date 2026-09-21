@@ -1,4 +1,5 @@
-import { Settings2, Volume2, VolumeX, Eye, Sparkles, MessageSquareOff, HelpCircle, X } from "lucide-react";
+import { Settings2, Volume2, VolumeX, Eye, Sparkles, MessageSquareOff, BarChart3, Vibrate, Zap, Bell, X } from "lucide-react";
+import { webNotifications } from "@utils/notifications";
 
 interface TableSettingsModalProps {
   isOpen: boolean;
@@ -9,10 +10,16 @@ interface TableSettingsModalProps {
   onToggleFourColorDeck: (enabled: boolean) => void;
   motionEnabled: boolean;
   onToggleMotion: (enabled: boolean) => void;
-  showHandStrength: boolean;
-  onToggleHandStrength: (enabled: boolean) => void;
   muteChat: boolean;
   onToggleMuteChat: (enabled: boolean) => void;
+  showStatsBar?: boolean;
+  onToggleShowStatsBar?: (enabled: boolean) => void;
+  hapticsEnabled?: boolean;
+  onToggleHaptics?: (enabled: boolean) => void;
+  dataSaverEnabled?: boolean;
+  onToggleDataSaver?: (enabled: boolean) => void;
+  notificationsEnabled?: boolean;
+  onToggleNotifications?: (enabled: boolean) => void;
 }
 
 export function TableSettingsModal({
@@ -24,10 +31,16 @@ export function TableSettingsModal({
   onToggleFourColorDeck,
   motionEnabled,
   onToggleMotion,
-  showHandStrength,
-  onToggleHandStrength,
   muteChat,
   onToggleMuteChat,
+  showStatsBar,
+  onToggleShowStatsBar,
+  hapticsEnabled = true,
+  onToggleHaptics,
+  dataSaverEnabled = false,
+  onToggleDataSaver,
+  notificationsEnabled,
+  onToggleNotifications,
 }: TableSettingsModalProps) {
   if (!isOpen) return null;
 
@@ -173,38 +186,40 @@ export function TableSettingsModal({
             </label>
           </div>
 
-          {/* Indicateur de force de la main */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "12px 14px",
-              background: "rgba(255, 255, 255, 0.03)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "10px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <HelpCircle size={20} style={{ color: "var(--accent)" }} />
-              <div>
-                <span style={{ display: "block", fontSize: "0.95rem", fontWeight: 600 }}>
-                  Aide : Force de la main en direct
-                </span>
-                <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
-                  Affiche votre combinaison actuelle (ex: Deux Paires, Tirage Quinte)
-                </span>
+          {/* Bandeau d'analyse et cotes discret */}
+          {onToggleShowStatsBar && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "12px 14px",
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <BarChart3 size={20} style={{ color: "var(--gold)" }} />
+                <div>
+                  <span style={{ display: "block", fontSize: "0.95rem", fontWeight: 600 }}>
+                    Bandeau d'analyse & cotes discret
+                  </span>
+                  <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                    Affiche la combinaison, outs et équité sous la table sans masquer les joueurs
+                  </span>
+                </div>
               </div>
+              <label className="switch-toggle" style={{ cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={showStatsBar ?? true}
+                  onChange={(e) => onToggleShowStatsBar(e.target.checked)}
+                />
+                <span className="slider round" />
+              </label>
             </div>
-            <label className="switch-toggle" style={{ cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={showHandStrength}
-                onChange={(e) => onToggleHandStrength(e.target.checked)}
-              />
-              <span className="slider round" />
-            </label>
-          </div>
+          )}
 
           {/* Mode Silence / Masquer le chat */}
           <div
@@ -238,6 +253,118 @@ export function TableSettingsModal({
               <span className="slider round" />
             </label>
           </div>
+
+          {/* Retour Haptique (Vibrations tactiles smartphone) */}
+          {onToggleHaptics && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "12px 14px",
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <Vibrate size={20} style={{ color: "var(--gold)" }} />
+                <div>
+                  <span style={{ display: "block", fontSize: "0.95rem", fontWeight: 600 }}>
+                    Retour haptique (Vibrations tactiles)
+                  </span>
+                  <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                    Pulsations tactiles lors des distributions, mises et alertes de tour
+                  </span>
+                </div>
+              </div>
+              <label className="switch-toggle" style={{ cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={hapticsEnabled}
+                  onChange={(e) => onToggleHaptics(e.target.checked)}
+                />
+                <span className="slider round" />
+              </label>
+            </div>
+          )}
+
+          {/* Mode Économie de Données (Spécial 3G / Forfaits Data) */}
+          {onToggleDataSaver && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "12px 14px",
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <Zap size={20} style={{ color: dataSaverEnabled ? "#4caf50" : "var(--muted)" }} />
+                <div>
+                  <span style={{ display: "block", fontSize: "0.95rem", fontWeight: 600 }}>
+                    Mode Économie de Données (Spécial 3G)
+                  </span>
+                  <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                    Allège les échanges réseau (&lt; 500 Ko/h) et réduit les effets visuels
+                  </span>
+                </div>
+              </div>
+              <label className="switch-toggle" style={{ cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={dataSaverEnabled}
+                  onChange={(e) => onToggleDataSaver(e.target.checked)}
+                />
+                <span className="slider round" />
+              </label>
+            </div>
+          )}
+
+          {/* Notifications Push Web & Alertes de tour */}
+          {webNotifications.isSupported() && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "12px 14px",
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <Bell size={20} style={{ color: "var(--gold)" }} />
+                <div>
+                  <span style={{ display: "block", fontSize: "0.95rem", fontWeight: 600 }}>
+                    Alertes Web Push & Tours de jeu
+                  </span>
+                  <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                    Notification système dès que c'est votre tour d'action ou au début d'un tournoi
+                  </span>
+                </div>
+              </div>
+              <label className="switch-toggle" style={{ cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={notificationsEnabled ?? (webNotifications.getPermission() === "granted")}
+                  onChange={async (e) => {
+                    if (e.target.checked) {
+                      const res = await webNotifications.requestPermission();
+                      onToggleNotifications?.(res === "granted");
+                    } else {
+                      onToggleNotifications?.(false);
+                    }
+                  }}
+                />
+                <span className="slider round" />
+              </label>
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: "18px", textAlign: "right" }}>

@@ -18,7 +18,10 @@
     "clubs": "Clubs",
     "login": "Connexion",
     "logout": "Déconnexion",
-    "more": "Plus"
+    "more": "Plus",
+    "desktopVersion": "Version Ordinateur",
+    "mobileVersion": "Version Smartphone",
+    "autoVersion": "Mode Automatique"
   },
   "humanOnline": "{{count}} joueur(s) humain(s) disponible(s)",
   "findHuman": "Trouver des humains",
@@ -26,7 +29,7 @@
   "matchmakingTimedOut": "Recherche en cours depuis {{seconds}} s · aucun match confirmé.",
   "matchmakingTimeoutTitle": "La recherche prend plus de temps que prévu",
   "matchmakingTimeoutBody": "Vous pouvez annuler, continuer à attendre ou démarrer une démo IA clairement identifiée.",
-  "tryDemo": "Lancer une partie IA",
+  "tryDemo": "S’entraîner (vs Bots)",
   "startingSimulation": "Création de la partie…",
   "simulationUnavailable": "La simulation est temporairement indisponible.",
   "cancelSearch": "Annuler la recherche",
@@ -160,7 +163,12 @@
     "watch": "Voir la table",
     "privateHint": "Les tables privées apparaissent ici lorsque vos amis vous invitent.",
     "testGames": "Jeux de hasard",
-    "spectate": "Regarder"
+    "spectate": "Regarder",
+    "fastPlayTitle": "Partie Rapide",
+    "fastMatchSubtitle": "Rejoindre une table en 1 clic",
+    "quickPlay": "Jouer maintenant",
+    "allStakes": "Toutes les mises",
+    "freeDemo": "Gratuit (Bots)"
   },
   "wallet": {
     "balance": "Solde",
@@ -468,6 +476,12 @@
     "submit": "Créer le club",
     "creating": "Création…",
     "close": "Fermer",
+    "certified": "Certifié",
+    "requestCertification": "Demander la certification",
+    "certificationPending": "Demande en cours d'examen",
+    "certificationDesc": "Les clubs certifiés bénéficient d'une limite de 250 membres et du badge de confiance officiel MDG.",
+    "shareWhatsApp": "Inviter sur WhatsApp",
+    "clubChat": "Salon du Club",
     "roles": {
       "owner": "Fondateur",
       "admin": "Administrateur",

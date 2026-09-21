@@ -8,31 +8,52 @@ export type DailyMission = {
   claimable: boolean;
 };
 
-export async function getDailyMissions(token: string) {
-  const response = await fetch("/api/v1/games/missions/", {
-    headers: { Authorization: `Bearer ${token}` },
+export type DailyStreakInfo = {
+  current_day: number;
+  claimed: boolean;
+  reward: number;
+  schedule: number[];
+};
+
+export type DailyMissionsPayload = {
+  date: string;
+  missions: DailyMission[];
+  streak: DailyStreakInfo;
+};
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api/v1";
+
+export async function fetchDailyMissions(accessToken: string): Promise<DailyMissionsPayload> {
+  const res = await fetch(`${API_BASE}/games/missions/`, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
   });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok)
-    throw new Error(payload.detail || "Impossible de charger les missions.");
-  return payload as { date: string; missions: DailyMission[] };
+  if (!res.ok) {
+    throw new Error("Impossible de charger les missions quotidiennes.");
+  }
+  return res.json();
 }
 
-export async function claimDailyMission(token: string, key: string) {
-  const response = await fetch("/api/v1/games/missions/", {
+export async function claimMissionOrStreak(
+  accessToken: string,
+  key: string,
+): Promise<{ claimed: boolean; reward?: number; day?: number; duplicate?: boolean }> {
+  const res = await fetch(`${API_BASE}/games/missions/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ key }),
   });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok)
-    throw new Error(payload.detail || "Mission non disponible.");
-  return payload as {
-    claimed: boolean;
-    duplicate: boolean;
-    transaction_id: string;
-  };
+  if (!res.ok) {
+    throw new Error("Impossible de réclamer la récompense.");
+  }
+  return res.json();
 }
+
+export const getDailyMissions = fetchDailyMissions;
+export const claimDailyMission = claimMissionOrStreak;
+

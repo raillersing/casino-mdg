@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "react-query";
+import { DeviceProvider } from "./hooks/useDeviceMode";
 import App from "./App";
 import "./i18n";
 import "./styles/index.css";
@@ -19,9 +20,11 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <DeviceProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </DeviceProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );

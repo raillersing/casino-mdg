@@ -172,3 +172,106 @@ class ClubApiTests(TestCase):
         self.assertEqual(
             self.client.get(f"/api/v1/clubs/{club_id}/leaderboard/").status_code, 403
         )
+
+    def test_club_certification_flow_and_eligibility(self):
+        from apps.games.models import GameTable
+        from apps.kyc.models import KYCRequest
+
+        self.client.force_authenticate(self.owner)
+        club = self.client.post(
+            "/api/v1/clubs/", {"name": "Madagascar Elite Club"}, format="json"
+        )
+        club_id = club.data["id"]
+
+        # Stranger cannot consult or request certification
+        self.client.force_authenticate(self.stranger)
+        self.assertEqual(
+            self.client.get(f"/api/v1/clubs/{club_id}/request-certification/").status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(f"/api/v1/clubs/{club_id}/request-certification/").status_code,
+            403,
+        )
+
+        # Owner gets eligibility overview
+        self.client.force_authenticate(self.owner)
+        overview = self.client.get(f"/api/v1/clubs/{club_id}/request-certification/")
+        self.assertEqual(overview.status_code, 200)
+        self.assertFalse(overview.data["is_certified"])
+        self.assertFalse(overview.data["criteria"]["founder_kyc_approved"])
+        self.assertFalse(overview.data["criteria"]["can_certify"])
+        self.assertEqual(overview.data["criteria"]["member_count"], 1)
+
+        # Requesting without meeting full criteria puts it in pending
+        pending_resp = self.client.post(f"/api/v1/clubs/{club_id}/request-certification/")
+        self.assertEqual(pending_resp.status_code, 200)
+        self.assertEqual(pending_resp.data["certification_status"], "pending")
+        self.assertFalse(pending_resp.data["is_certified"])
+
+        # Fulfill criteria: Approve KYC, add 4 members (total 5), add 1 table
+        KYCRequest.objects.create(
+            user=self.owner, requested_level="verified", status="approved"
+        )
+        for i in range(4):
+            u = User.objects.create_user(
+                email=f"member{i}@mdg.local", phone=f"+26134000900{i}", display_name=f"M{i}"
+            )
+            ClubMembership.objects.create(club_id=club_id, user=u)
+
+        GameTable.objects.create(
+            club_id=club_id,
+            name="Table Club Certifiée",
+            game_type="poker",
+            created_by=self.owner,
+        )
+
+        # Overview reflects satisfied criteria
+        updated_overview = self.client.get(
+            f"/api/v1/clubs/{club_id}/request-certification/"
+        )
+        self.assertTrue(updated_overview.data["criteria"]["founder_kyc_approved"])
+        self.assertTrue(updated_overview.data["criteria"]["members_satisfied"])
+        self.assertTrue(updated_overview.data["criteria"]["tables_satisfied"])
+        self.assertTrue(updated_overview.data["criteria"]["can_certify"])
+
+        # Request certification -> immediate certification
+        certified_resp = self.client.post(
+            f"/api/v1/clubs/{club_id}/request-certification/"
+        )
+        self.assertEqual(certified_resp.status_code, 200)
+        self.assertTrue(certified_resp.data["is_certified"])
+        self.assertEqual(certified_resp.data["certification_status"], "certified")
+        self.assertEqual(certified_resp.data["club"]["member_limit"], 250)
+
+        # Table created under club has club_is_certified = True
+        table_res = self.client.get("/api/v1/games/tables/")
+        club_table = next(
+            t for t in table_res.data["results"] if t["name"] == "Table Club Certifiée"
+        )
+        self.assertTrue(club_table["club_is_certified"])
+
+        # Subsequent request rejected because already certified
+        duplicate = self.client.post(
+            f"/api/v1/clubs/{club_id}/request-certification/"
+        )
+        self.assertEqual(duplicate.status_code, 400)
+
+    def test_club_league_leaderboard_endpoint(self):
+        self.client.force_authenticate(self.owner)
+        club_res = self.client.post(
+            "/api/v1/clubs/",
+            {"name": "League Champions Club", "visibility": "open"},
+            format="json",
+        )
+        self.assertEqual(club_res.status_code, 201)
+        league_res = self.client.get("/api/v1/clubs/league/")
+        self.assertEqual(league_res.status_code, 200)
+        self.assertIn("league", league_res.data)
+        self.assertTrue(len(league_res.data["league"]) >= 1)
+        first = league_res.data["league"][0]
+        self.assertEqual(first["rank"], 1)
+        self.assertIn("tier", first)
+        self.assertIn("total_points", first)
+
+

@@ -4,12 +4,15 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/casino-mdg/game-engine/internal/config"
+	"github.com/casino-mdg/game-engine/internal/game/belote"
+	"github.com/casino-mdg/game-engine/internal/game/rami"
 	"github.com/casino-mdg/game-engine/internal/room"
 	"github.com/gorilla/websocket"
 )
@@ -17,6 +20,16 @@ import (
 func testToken(subject, secret string) string {
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
 	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"` + subject + `"}`))
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(header + "." + payload))
+	return header + "." + payload + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func testAdmissionToken(subject, tableID string, seatID int, role, secret string, exp int64) string {
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	claimsJSON := fmt.Sprintf(`{"sub":"%s","table_id":"%s","seat_id":%d,"role":"%s","type":"admission","exp":%d}`,
+		subject, tableID, seatID, role, exp)
+	payload := base64.RawURLEncoding.EncodeToString([]byte(claimsJSON))
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(header + "." + payload))
 	return header + "." + payload + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
@@ -278,7 +291,7 @@ func TestAuthenticatedWebSocketProvisionsRoomFromJoinPayload(t *testing.T) {
 	server := NewServer(cfg, room.NewManager(cfg))
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
-	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testToken("player-2", cfg.JWTSecret)
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testAdmissionToken("player-2", "table-code-01", 0, "player", cfg.JWTSecret, time.Now().Unix()+300)
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
@@ -359,4 +372,278 @@ func TestSpectatorReceivesStateButCannotAct(t *testing.T) {
 	}
 }
 
+func TestWebSocketRejectsArbitraryRoomProvisionWithoutAdmissionTicket(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	server := NewServer(cfg, room.NewManager(cfg))
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+
+	// Token without admission table_id trying to create an arbitrary table
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testToken("player-3", cfg.JWTSecret)
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("dial failed: %v", err)
+	}
+	defer conn.Close()
+
+	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: "arbitrary-table-999", Payload: map[string]string{"game_type": "poker"}}); err != nil {
+		t.Fatal(err)
+	}
+	var msg Message
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatal(err)
+	}
+	if msg.Type != MsgError || msg.Payload != "unauthorized table creation requires admission ticket" {
+		t.Fatalf("expected unauthorized table creation error, got: %+v", msg)
+	}
+}
+
+func TestWebSocketRejectsExpiredAdmissionToken(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	manager := room.NewManager(cfg)
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+
+	expiredToken := testAdmissionToken("player-1", "table-1", 0, "player", cfg.JWTSecret, time.Now().Unix()-100)
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + expiredToken
+	_, response, err := websocket.DefaultDialer.Dial(url, nil)
+	if err == nil {
+		t.Fatal("expected dial error with expired token, got nil")
+	}
+	if response != nil && response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected status 401 Unauthorized, got %d", response.StatusCode)
+	}
+}
+
+func TestWebSocketAdmissionTokenBindsToSpecificTable(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	manager := room.NewManager(cfg)
+	tableA := manager.CreateTable("poker")
+	tableB := manager.CreateTable("poker")
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+
+	tokenForA := testAdmissionToken("player-1", tableA.ID, 0, "player", cfg.JWTSecret, time.Now().Unix()+300)
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + tokenForA
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("dial failed: %v", err)
+	}
+	defer conn.Close()
+
+	// Try to join table B with ticket for table A
+	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: tableB.ID}); err != nil {
+		t.Fatal(err)
+	}
+	var msg Message
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Fatal(err)
+	}
+	if msg.Type != MsgError || msg.Payload != "admission ticket is bound to another table" {
+		t.Fatalf("expected admission mismatch error, got: %+v", msg)
+	}
+}
+
+func TestRamiKnockSettlementAndHMAC(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	manager := room.NewManager(cfg)
+	table := manager.CreateTable("rami")
+	if _, err := manager.JoinPlayer(table.ID, "r0", "Joueur 0", 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.JoinPlayer(table.ID, "r1", "Joueur 1", 1); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+	url := "ws" + httpServer.URL[len("http"):]
+
+	connect := func(player string) *websocket.Conn {
+		conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?token="+testToken(player, cfg.JWTSecret), nil)
+		if err != nil {
+			t.Fatalf("dial %s failed: %v", player, err)
+		}
+		if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
+			t.Fatalf("join %s failed: %v", player, err)
+		}
+		var msg Message
+		if err := conn.ReadJSON(&msg); err != nil {
+			t.Fatalf("read %s failed: %v", player, err)
+		}
+		return conn
+	}
+
+	c0 := connect("r0")
+	defer c0.Close()
+	c1 := connect("r1")
+	defer c1.Close()
+
+	game := table.State.(*rami.Game)
+	// Give r0 a hand with deadwood = 3 <= 10
+	game.Players[0].Hand = []rami.Card{{Suit: 0, Rank: 1}, {Suit: 0, Rank: 2}}
+	game.Players[1].Hand = []rami.Card{{Suit: 1, Rank: 10}, {Suit: 2, Rank: 10}}
+	game.Current = 0
+	game.Finished = false
+
+	seq := manager.TableSequence(table.ID)
+	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "knock", Sequence: seq}); err != nil {
+		t.Fatal(err)
+	}
+
+	var r0Result *Message
+	for i := 0; i < 5; i++ {
+		var m Message
+		if err := c0.ReadJSON(&m); err != nil {
+			t.Fatal(err)
+		}
+		if m.Action == "result" && m.PlayerID == "r0" {
+			r0Result = &m
+			break
+		}
+	}
+	if r0Result == nil {
+		t.Fatal("expected result message for r0 upon knock")
+	}
+	payload, ok := r0Result.Payload.(map[string]interface{})
+	if !ok {
+		t.Fatalf("payload type=%T", r0Result.Payload)
+	}
+	if payload["outcome"] != "win" {
+		t.Fatalf("expected win outcome, got %v", payload["outcome"])
+	}
+	if payload["signature"] == nil || payload["signature"] == "" {
+		t.Fatal("expected non-empty HMAC signature for r0 result")
+	}
+
+	var r1Result *Message
+	for i := 0; i < 5; i++ {
+		var m Message
+		if err := c1.ReadJSON(&m); err != nil {
+			t.Fatal(err)
+		}
+		if m.Action == "result" && m.PlayerID == "r1" {
+			r1Result = &m
+			break
+		}
+	}
+	if r1Result == nil {
+		t.Fatal("expected result message for r1 upon knock")
+	}
+	payload1, ok := r1Result.Payload.(map[string]interface{})
+	if !ok {
+		t.Fatalf("payload1 type=%T", r1Result.Payload)
+	}
+	if payload1["outcome"] != "loss" {
+		t.Fatalf("expected loss outcome for r1, got %v", payload1["outcome"])
+	}
+	if payload1["signature"] == nil || payload1["signature"] == "" {
+		t.Fatal("expected non-empty HMAC signature for r1 result")
+	}
+}
+
+func TestBeloteGameOverBroadcastToAllPlayers(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	manager := room.NewManager(cfg)
+	table := manager.CreateTable("belote")
+	table.BeloteTargetScore = 501
+	for i := 0; i < 4; i++ {
+		if _, err := manager.JoinPlayer(table.ID, fmt.Sprintf("b%d", i), fmt.Sprintf("Belote%d", i), i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+	url := "ws" + httpServer.URL[len("http"):]
+
+	connect := func(player string) *websocket.Conn {
+		conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?token="+testToken(player, cfg.JWTSecret), nil)
+		if err != nil {
+			t.Fatalf("dial %s failed: %v", player, err)
+		}
+		if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
+			t.Fatalf("join %s failed: %v", player, err)
+		}
+		var msg Message
+		if err := conn.ReadJSON(&msg); err != nil {
+			t.Fatalf("read %s failed: %v", player, err)
+		}
+		return conn
+	}
+
+	c0 := connect("b0")
+	defer c0.Close()
+	c1 := connect("b1")
+	defer c1.Close()
+
+	round := table.State.(*belote.Round)
+	round.Phase = "finished"
+	round.TeamPoints = [2]int{550, 100}
+
+	seq := manager.TableSequence(table.ID)
+	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "new_hand", Sequence: seq}); err != nil {
+		t.Fatal(err)
+	}
+
+	checkGameOver := func(c *websocket.Conn, name string) {
+		gotGameOver := false
+		for i := 0; i < 5; i++ {
+			var m Message
+			if err := c.ReadJSON(&m); err != nil {
+				t.Fatalf("read %s failed: %v", name, err)
+			}
+			if m.Type == MsgError && m.Payload == "game_over" {
+				gotGameOver = true
+				break
+			}
+		}
+		if !gotGameOver {
+			t.Fatalf("expected game_over error broadcast on %s", name)
+		}
+	}
+
+	checkGameOver(c0, "c0")
+	checkGameOver(c1, "c1")
+}
+
 func serverHandler(server *Server) http.Handler { return http.HandlerFunc(server.HandleConnection) }
+
+func TestAuthenticateSupportsFloatAndIntegerExpTimestamps(t *testing.T) {
+	secret := "test-secret"
+
+	// 1. Token with float exp (e.g. from Python datetime.now().timestamp() + 900)
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payloadFloat := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"sub":"user-float-1","exp":%f,"iat":%f}`, float64(time.Now().Unix()+3600)+0.873957, float64(time.Now().Unix())+0.123456)))
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(header + "." + payloadFloat))
+	tokenFloat := header + "." + payloadFloat + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+
+	claims, ok := authenticate(tokenFloat, secret)
+	if !ok {
+		t.Fatal("expected float exp JWT to authenticate successfully, got false")
+	}
+	if claims.Sub != "user-float-1" {
+		t.Fatalf("expected sub user-float-1, got %s", claims.Sub)
+	}
+	if claims.Expires <= time.Now().Unix() {
+		t.Fatalf("expected future expiration, got %d", claims.Expires)
+	}
+
+	// 2. Token with standard integer exp
+	payloadInt := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"sub":"user-int-1","exp":%d,"iat":%d}`, time.Now().Unix()+3600, time.Now().Unix())))
+	mac2 := hmac.New(sha256.New, []byte(secret))
+	mac2.Write([]byte(header + "." + payloadInt))
+	tokenInt := header + "." + payloadInt + "." + base64.RawURLEncoding.EncodeToString(mac2.Sum(nil))
+
+	claims2, ok2 := authenticate(tokenInt, secret)
+	if !ok2 {
+		t.Fatal("expected int exp JWT to authenticate successfully, got false")
+	}
+	if claims2.Sub != "user-int-1" {
+		t.Fatalf("expected sub user-int-1, got %s", claims2.Sub)
+	}
+}
+

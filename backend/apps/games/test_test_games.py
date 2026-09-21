@@ -33,7 +33,7 @@ class TestGamesApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             {item["slug"] for item in response.data["results"]},
-            {"coffre-mada", "roue-mdg"},
+            {"coffre-mada", "roue-mdg", "slots-mada"},
         )
         self.assertEqual(response.data["currency"], "SIM")
         self.assertEqual(

@@ -114,6 +114,7 @@ services:
     environment:
       DEBUG: ${DEBUG:-True}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-change-me}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me-32-bytes}
       DB_HOST: postgres
       DB_NAME: ${DB_NAME:-casino_mdg}
       DB_USER: ${DB_USER:-postgres}
@@ -164,6 +165,7 @@ services:
       - redis
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me-32-bytes}
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672//
       CELERY_RESULT_BACKEND: redis://redis:6379/1
     volumes:
@@ -188,6 +190,7 @@ services:
       - redis
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me-32-bytes}
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672//
       CELERY_RESULT_BACKEND: redis://redis:6379/1
     volumes:

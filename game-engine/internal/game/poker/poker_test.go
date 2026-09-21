@@ -1,6 +1,9 @@
 package poker
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestHandUsesInjectedDeterministicDeck(t *testing.T) {
 	players := []*Player{{ID: "a", Stack: 1000}, {ID: "b", Stack: 1000}}
@@ -157,5 +160,109 @@ func TestPayoutsUseOnlyEligiblePlayersForEachPot(t *testing.T) {
 	payouts := hand.Payouts()
 	if payouts["a"] != 150 || payouts["b"] != 350 || len(payouts) != 2 {
 		t.Fatalf("payouts=%v", payouts)
+	}
+}
+
+func TestPokerFullRing9PlayersDealingAndPositions(t *testing.T) {
+	players := make([]*Player, 9)
+	for i := 0; i < 9; i++ {
+		players[i] = &Player{ID: fmt.Sprintf("p%d", i), Stack: 1000}
+	}
+	hand, err := NewHand(players, func(deck []Card) {})
+	if err != nil {
+		t.Fatalf("failed to create 9-player hand: %v", err)
+	}
+	// Verify all 9 players received 2 private cards each
+	for i, p := range hand.Players {
+		if len(p.Cards) != 2 {
+			t.Fatalf("player %d has %d cards, expected 2", i, len(p.Cards))
+		}
+	}
+	// Start hand with SB=10, BB=20
+	if err := hand.StartHand(10, 20); err != nil {
+		t.Fatalf("failed to start hand: %v", err)
+	}
+	// For button = 0: SB should be 1, BB should be 2
+	sb, bb := hand.BlindSeatsForPresentation()
+	if sb != 1 || bb != 2 {
+		t.Fatalf("expected sb=1, bb=2, got sb=%d, bb=%d", sb, bb)
+	}
+	// Preflop starts left of BB: seat 3 (UTG)
+	if hand.Current != 3 {
+		t.Fatalf("expected UTG seat 3 to act first preflop, got %d", hand.Current)
+	}
+	// Players 3..8, 0, 1 call 20
+	for seat := 3; seat < 9; seat++ {
+		if hand.Current != seat {
+			t.Fatalf("expected seat %d, got %d", seat, hand.Current)
+		}
+		if err := hand.Apply(seat, Call, 0); err != nil {
+			t.Fatalf("seat %d call failed: %v", seat, err)
+		}
+	}
+	// Button (seat 0) calls 20
+	if hand.Current != 0 {
+		t.Fatalf("expected button seat 0, got %d", hand.Current)
+	}
+	if err := hand.Apply(0, Call, 0); err != nil {
+		t.Fatalf("button call failed: %v", err)
+	}
+	// SB (seat 1) completes the blind
+	if hand.Current != 1 {
+		t.Fatalf("expected sb seat 1, got %d", hand.Current)
+	}
+	if err := hand.Apply(1, Call, 0); err != nil {
+		t.Fatalf("sb call failed: %v", err)
+	}
+	// BB (seat 2) checks option
+	if hand.Current != 2 {
+		t.Fatalf("expected bb seat 2, got %d", hand.Current)
+	}
+	if err := hand.Apply(2, Check, 0); err != nil {
+		t.Fatalf("bb check failed: %v", err)
+	}
+	// Verify transition to flop
+	if hand.Phase != "flop" || len(hand.Community) != 3 {
+		t.Fatalf("expected flop with 3 cards, got phase=%s cards=%d", hand.Phase, len(hand.Community))
+	}
+	// Postflop action starts left of button (seat 1, SB)
+	if hand.Current != 1 {
+		t.Fatalf("expected postflop action to start at seat 1 (SB), got %d", hand.Current)
+	}
+}
+
+func TestPokerMultipleSidePots9PlayersAllIn(t *testing.T) {
+	// 9 players all-in with increasing stacks:
+	// p0: 10, p1: 20, p2: 30, p3: 40, p4: 50, p5: 60, p6: 70, p7: 80, p8: 90
+	players := make([]*Player, 9)
+	for i := 0; i < 9; i++ {
+		bet := int64((i + 1) * 10)
+		players[i] = &Player{
+			ID:       fmt.Sprintf("p%d", i),
+			Stack:    0,
+			Bet:      bet,
+			TotalBet: bet,
+			AllIn:    true,
+		}
+	}
+	pots := CalculatePots(players)
+	if len(pots) != 9 {
+		t.Fatalf("expected 9 side pots, got %d", len(pots))
+	}
+	// Pot 0: main pot (10 * 9 = 90 chips, eligible: p0..p8)
+	if pots[0].Amount != 90 || len(pots[0].Eligible) != 9 {
+		t.Fatalf("pot 0: amount=%d (expected 90), eligible=%d (expected 9)", pots[0].Amount, len(pots[0].Eligible))
+	}
+	// Pot 8: highest side pot (10 * 1 = 10 chips, eligible: p8 only)
+	if pots[8].Amount != 10 || len(pots[8].Eligible) != 1 || pots[8].Eligible[0] != "p8" {
+		t.Fatalf("pot 8: amount=%d (expected 10), eligible=%v (expected [p8])", pots[8].Amount, pots[8].Eligible)
+	}
+	// Total across all pots must equal 10+20+30+40+50+60+70+80+90 = 450
+	totalPots := int64(0)
+	for _, p := range pots {
+		totalPots += p.Amount
+	}
+	if totalPots != 450 {
+		t.Fatalf("expected total pots 450, got %d", totalPots)
 	}
 }

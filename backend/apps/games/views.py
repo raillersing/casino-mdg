@@ -1,6 +1,8 @@
 import hashlib
 import hmac
 import json
+import uuid
+from datetime import timedelta
 
 import requests
 from django.conf import settings
@@ -29,23 +31,29 @@ from .models import (
     InstantGameDefinition,
     InstantPlay,
     MatchmakingTicket,
+    TableSeat,
 )
 from .modes import DEMO_AI, SIMULATION_SOLO
-from .services import join_table, seed_demo_tables
+from .services import generate_admission_token, join_table, seed_demo_tables
 from .test_games import create_draw_entry, draw_now, ensure_test_catalog, play_instant
 
 MATCHMAKING_TIMEOUT_SECONDS = 20
 
 
-def game_result_signature_payload(game_id, game_type, outcome, amount, metadata):
+def game_result_signature_payload(
+    game_id, game_type, outcome, amount, metadata, player_id=None
+):
+    payload = {
+        "amount": amount,
+        "game_id": str(game_id),
+        "game_type": game_type,
+        "metadata": metadata or {},
+        "outcome": outcome,
+    }
+    if player_id is not None:
+        payload["player_id"] = str(player_id)
     return json.dumps(
-        {
-            "amount": amount,
-            "game_id": str(game_id),
-            "game_type": game_type,
-            "metadata": metadata or {},
-            "outcome": outcome,
-        },
+        payload,
         separators=(",", ":"),
         sort_keys=True,
     ).encode()
@@ -53,12 +61,36 @@ def game_result_signature_payload(game_id, game_type, outcome, amount, metadata)
 
 def valid_engine_signature(request, game_id, game_type, outcome, amount, metadata):
     received = request.headers.get("X-Game-Engine-Signature", "")
-    expected = hmac.new(
+    if not received:
+        return False
+    player_id = (
+        str(request.user.pk)
+        if request.user and request.user.is_authenticated
+        else None
+    )
+    if player_id is not None:
+        expected_bound = hmac.new(
+            settings.GAME_ENGINE_RESULT_SECRET.encode(),
+            game_result_signature_payload(
+                game_id,
+                game_type,
+                outcome,
+                amount,
+                metadata,
+                player_id=player_id,
+            ),
+            hashlib.sha256,
+        ).hexdigest()
+        if hmac.compare_digest(received, expected_bound):
+            return True
+    expected_legacy = hmac.new(
         settings.GAME_ENGINE_RESULT_SECRET.encode(),
-        game_result_signature_payload(game_id, game_type, outcome, amount, metadata),
+        game_result_signature_payload(
+            game_id, game_type, outcome, amount, metadata
+        ),
         hashlib.sha256,
     ).hexdigest()
-    return bool(received) and hmac.compare_digest(received, expected)
+    return hmac.compare_digest(received, expected_legacy)
 
 
 def table_payload(table, request):
@@ -75,6 +107,7 @@ def table_payload(table, request):
         "is_private": table.is_private,
         "club_id": str(table.club_id) if table.club_id else None,
         "club_name": table.club.name if table.club_id else None,
+        "club_is_certified": bool(table.club.is_certified) if table.club_id else False,
         "joined": bool(
             request.user.is_authenticated
             and table.seats.filter(user=request.user).exists()
@@ -91,6 +124,9 @@ def bot_simulation_payload(session):
         "mode": DEMO_AI,
         "profile": session.profile,
         "status": session.status,
+        "admission_token": generate_admission_token(
+            session.owner, session.table, seat_index=0, role="player"
+        ),
         "bots": [
             {
                 "bot_key": bot.bot_key,
@@ -136,9 +172,7 @@ class BotSimulationView(APIView):
         if profile not in dict(BotSimulationSession.PROFILE_CHOICES):
             return Response({"detail": "Profil bot inconnu."}, status=400)
         if not idempotency_key:
-            return Response(
-                {"detail": "Une clé d'idempotence est requise."}, status=400
-            )
+            idempotency_key = f"auto-{uuid.uuid4()}"
         existing = BotSimulationSession.objects.filter(
             owner=request.user, idempotency_key=idempotency_key
         ).first()
@@ -372,15 +406,68 @@ class TableJoinView(APIView):
             return Response({"detail": "Table introuvable."}, status=404)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=409)
+        admission_token = generate_admission_token(
+            request.user, table, seat_index=seat.seat_index, role="player"
+        )
         return Response(
             {
                 "table": table_payload(table, request),
                 "table_id": str(table.id),
                 "seat_index": seat.seat_index,
+                "admission_token": admission_token,
                 "created": created,
             },
             status=201 if created else 200,
         )
+
+
+class TableAdmissionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, table_id):
+        try:
+            table = GameTable.objects.get(pk=table_id)
+            if table.status == "finished":
+                return Response({"detail": "Cette table est terminée."}, status=409)
+            if (
+                table.club_id
+                and not ClubMembership.objects.filter(
+                    club_id=table.club_id, user=request.user
+                ).exists()
+            ):
+                return Response(
+                    {"detail": "Cette table est réservée aux membres du club."},
+                    status=403,
+                )
+            if (
+                table.is_private
+                and not table.club_id
+                and not (
+                    table.created_by_id == request.user.pk
+                    or table.seats.filter(user=request.user).exists()
+                )
+            ):
+                return Response(
+                    {"detail": "Cette salle est accessible sur invitation."},
+                    status=403,
+                )
+            seat = TableSeat.objects.filter(table=table, user=request.user).first()
+            role = "player" if seat else "spectator"
+            seat_index = seat.seat_index if seat else None
+            admission_token = generate_admission_token(
+                request.user, table, seat_index=seat_index, role=role
+            )
+            return Response(
+                {
+                    "admission_token": admission_token,
+                    "table_id": str(table.id),
+                    "seat_index": seat_index,
+                    "role": role,
+                    "expires_in": 60,
+                }
+            )
+        except GameTable.DoesNotExist:
+            return Response({"detail": "Table introuvable."}, status=404)
 
 
 def matchmaking_payload(ticket):
@@ -468,7 +555,12 @@ class MatchmakingQueueView(APIView):
         game_type = request.data.get("game_type", "poker")
         if game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
-        ticket, created = queue_player(request.user, game_type)
+        target_size = request.data.get("max_players") or request.data.get(
+            "target_size"
+        )
+        ticket, created = queue_player(
+            request.user, game_type, target_size=target_size
+        )
         return Response(
             {"ticket": matchmaking_payload(ticket), "created": created},
             status=201 if created else 200,
@@ -545,13 +637,10 @@ class GameResultCreateView(APIView):
                 {"detail": "Une victoire doit être attestée par le moteur de jeu."},
                 status=403,
             )
-        existing = GameResult.objects.filter(game_id=game_id).first()
+        existing = GameResult.objects.filter(
+            game_id=game_id, user=request.user
+        ).first()
         if existing:
-            if existing.user_id != request.user.id:
-                return Response(
-                    {"detail": "Ce résultat appartient déjà à un autre joueur."},
-                    status=409,
-                )
             if (
                 existing.game_type,
                 existing.outcome,
@@ -594,12 +683,7 @@ class GameResultCreateView(APIView):
                     )
                     created = created_transaction or transaction_entry is None
             except IntegrityError:
-                result = GameResult.objects.get(game_id=game_id)
-                if result.user_id != request.user.id:
-                    return Response(
-                        {"detail": "Ce résultat appartient déjà à un autre joueur."},
-                        status=409,
-                    )
+                result = GameResult.objects.get(game_id=game_id, user=request.user)
                 if (
                     result.game_type,
                     result.outcome,
@@ -952,17 +1036,81 @@ class DailyMissionsView(APIView):
                     "claimable": progress >= mission["goal"] and key not in claims,
                 }
             )
-        return {"date": today.isoformat(), "missions": payload}
+
+        streak_claimed = "daily_streak" in claims
+        streak_count = 1
+        for day_offset in range(1, 7):
+            past_date = today - timedelta(days=day_offset)
+            if (
+                GameResult.objects.filter(user=user, created_at__date=past_date).exists()
+                or DailyRewardClaim.objects.filter(user=user, mission_date=past_date).exists()
+            ):
+                streak_count += 1
+            else:
+                break
+        streak_rewards = [100, 200, 300, 500, 750, 1000, 2500]
+        streak_reward = streak_rewards[min(streak_count - 1, len(streak_rewards) - 1)]
+
+        return {
+            "date": today.isoformat(),
+            "missions": payload,
+            "streak": {
+                "current_day": streak_count,
+                "claimed": streak_claimed,
+                "reward": streak_reward,
+                "schedule": streak_rewards,
+            },
+        }
 
     def get(self, request):
         return Response(self._payload(request.user))
 
     def post(self, request):
         key = str(request.data.get("key", ""))
+        today = timezone.localdate()
+
+        if key == "daily_streak":
+            with transaction.atomic():
+                claim = (
+                    DailyRewardClaim.objects.select_for_update()
+                    .filter(user=request.user, mission_key="daily_streak", mission_date=today)
+                    .first()
+                )
+                if claim:
+                    return Response({"claimed": True, "duplicate": True})
+                streak_count = 1
+                for day_offset in range(1, 7):
+                    past_date = today - timedelta(days=day_offset)
+                    if (
+                        GameResult.objects.filter(user=request.user, created_at__date=past_date).exists()
+                        or DailyRewardClaim.objects.filter(user=request.user, mission_date=past_date).exists()
+                    ):
+                        streak_count += 1
+                    else:
+                        break
+                rewards = [100, 200, 300, 500, 750, 1000, 2500]
+                reward_amt = rewards[min(streak_count - 1, len(rewards) - 1)]
+                wallet_transaction, _ = credit_simulation_reward(
+                    request.user,
+                    f"daily-streak:{request.user.pk}:{today}",
+                    reward_amt,
+                    f"Bonus Série Jour {streak_count}",
+                )
+                DailyRewardClaim.objects.create(
+                    user=request.user,
+                    mission_key="daily_streak",
+                    mission_date=today,
+                    amount=reward_amt,
+                    transaction=wallet_transaction,
+                )
+                return Response(
+                    {"claimed": True, "reward": reward_amt, "day": streak_count},
+                    status=201,
+                )
+
         mission = MISSIONS.get(key)
         if not mission:
             return Response({"detail": "Mission inconnue."}, status=400)
-        today = timezone.localdate()
         results = GameResult.objects.filter(user=request.user, created_at__date=today)
         progress = (
             results.filter(outcome=mission["outcome"]).count()
@@ -1018,3 +1166,190 @@ class DailyMissionsView(APIView):
             },
             status=201,
         )
+
+
+def tournament_payload(tournament, user=None):
+    participants = tournament.participants.all()
+    user_participant = (
+        participants.filter(user=user).first()
+        if user and user.is_authenticated
+        else None
+    )
+    return {
+        "id": str(tournament.id),
+        "name": tournament.name,
+        "game_type": tournament.game_type,
+        "format": tournament.format,
+        "buy_in": tournament.buy_in,
+        "starting_chips": tournament.starting_chips,
+        "max_players": tournament.max_players,
+        "registered_count": participants.count(),
+        "blind_interval_minutes": tournament.blind_interval_minutes,
+        "status": tournament.status,
+        "prize_pool": tournament.prize_pool,
+        "club_id": str(tournament.club_id) if tournament.club_id else None,
+        "registered": user_participant is not None,
+        "user_status": user_participant.status if user_participant else None,
+        "created_at": tournament.created_at.isoformat(),
+        "prizes": (
+            [
+                {"place": 1, "percent": 50, "amount": int(tournament.prize_pool * 0.5)},
+                {"place": 2, "percent": 30, "amount": int(tournament.prize_pool * 0.3)},
+                {"place": 3, "percent": 20, "amount": int(tournament.prize_pool * 0.2)},
+            ]
+            if tournament.max_players >= 6
+            else [
+                {"place": 1, "percent": 70, "amount": int(tournament.prize_pool * 0.7)},
+                {"place": 2, "percent": 30, "amount": int(tournament.prize_pool * 0.3)},
+            ]
+        ),
+    }
+
+
+def seed_default_tournaments():
+    from .models import Tournament
+
+    defaults = [
+        {
+            "name": "Sit & Go Turbo 6-Max - 1 000 Ar",
+            "game_type": "poker",
+            "format": "sit_and_go",
+            "buy_in": 1000,
+            "starting_chips": 1500,
+            "max_players": 6,
+            "blind_interval_minutes": 3,
+        },
+        {
+            "name": "Sit & Go Deepstack - 2 500 Ar",
+            "game_type": "poker",
+            "format": "sit_and_go",
+            "buy_in": 2500,
+            "starting_chips": 3000,
+            "max_players": 6,
+            "blind_interval_minutes": 5,
+        },
+        {
+            "name": "Grand Tournoi Hebdo Poker - 5 000 Ar",
+            "game_type": "poker",
+            "format": "scheduled",
+            "buy_in": 5000,
+            "starting_chips": 5000,
+            "max_players": 9,
+            "blind_interval_minutes": 7,
+        },
+    ]
+    for d in defaults:
+        Tournament.objects.get_or_create(name=d["name"], defaults=d)
+
+
+class TournamentListCreateView(APIView):
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def get(self, request):
+        from .models import Tournament
+
+        if not Tournament.objects.exists():
+            seed_default_tournaments()
+
+        tournaments = Tournament.objects.all().order_by(
+            "-status", "-created_at"
+        )[:30]
+        return Response(
+            {"results": [tournament_payload(t, request.user) for t in tournaments]}
+        )
+
+    def post(self, request):
+        from .models import Tournament
+
+        name = request.data.get("name")
+        if not name:
+            return Response({"detail": "Le nom du tournoi est requis."}, status=400)
+        buy_in = int(request.data.get("buy_in", 1000))
+        max_players = int(request.data.get("max_players", 6))
+        game_type = request.data.get("game_type", "poker")
+        tournament = Tournament.objects.create(
+            name=name,
+            buy_in=buy_in,
+            max_players=max_players,
+            game_type=game_type,
+            created_by=request.user,
+        )
+        return Response(tournament_payload(tournament, request.user), status=201)
+
+
+class TournamentDetailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, tournament_id):
+        from .models import Tournament
+
+        try:
+            tournament = Tournament.objects.get(pk=tournament_id)
+        except Tournament.DoesNotExist:
+            return Response({"detail": "Tournoi introuvable."}, status=404)
+        participants = tournament.participants.select_related("user").all()
+        participants_data = [
+            {
+                "user_id": str(p.user.id),
+                "display_name": p.user.display_name or p.user.email,
+                "chips": p.chips,
+                "status": p.status,
+                "rank": p.rank,
+                "payout": p.payout,
+            }
+            for p in participants
+        ]
+        return Response(
+            {
+                "tournament": tournament_payload(tournament, request.user),
+                "participants": participants_data,
+            }
+        )
+
+
+class TournamentRegisterView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, tournament_id):
+        from .models import Tournament, TournamentParticipant
+
+        try:
+            tournament = Tournament.objects.get(pk=tournament_id)
+        except Tournament.DoesNotExist:
+            return Response({"detail": "Tournoi introuvable."}, status=404)
+
+        if tournament.status != "registering":
+            return Response(
+                {"detail": "Les inscriptions pour ce tournoi sont fermées."},
+                status=400,
+            )
+
+        if tournament.participants.filter(user=request.user).exists():
+            return Response({"detail": "Vous êtes déjà inscrit à ce tournoi."}, status=400)
+
+        if tournament.participants.count() >= tournament.max_players:
+            return Response({"detail": "Ce tournoi est complet."}, status=400)
+
+        with transaction.atomic():
+            TournamentParticipant.objects.create(
+                tournament=tournament,
+                user=request.user,
+                chips=tournament.starting_chips,
+            )
+            # If SNG reaches max_players, launch tournament!
+            if tournament.participants.count() >= tournament.max_players:
+                tournament.status = "running"
+                tournament.started_at = timezone.now()
+                tournament.save(update_fields=["status", "started_at"])
+
+        return Response(
+            {
+                "status": "registered",
+                "tournament": tournament_payload(tournament, request.user),
+            },
+            status=201,
+        )
+

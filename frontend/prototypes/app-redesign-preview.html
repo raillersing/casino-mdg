@@ -1,0 +1,2346 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MDG Game Club — Interface Responsive & Icônes Officielles</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
+  <style>
+    /* ==========================================================================
+       1. CHARTE OFFICIELLE CASINO-MDG (COULEURS EXACTES & TYPOGRAPHIES)
+       ========================================================================== */
+    :root {
+      --bg: #0a0d12;
+      --panel: #11161e;
+      --panel-2: #171d27;
+      --panel-hover: #1c2432;
+      --line: rgba(255, 255, 255, 0.08);
+      --line-accent: rgba(211, 176, 107, 0.35);
+      
+      --text: #f4f2ec;
+      --muted: #89919f;
+      --soft: #b8bec9;
+      
+      --gold: #d3b06b;
+      --gold-light: #ebd49c;
+      --gold-dim: rgba(211, 176, 107, 0.12);
+      
+      --green: #69d6a0;
+      --green-dim: rgba(105, 214, 160, 0.12);
+      
+      --red: #e87878;
+      --red-dim: rgba(232, 120, 120, 0.12);
+
+      --felt-belote: #1a3a5f;
+      --felt-poker: #1a5f2a;
+      --felt-rami: #5f1a3a;
+      
+      --serif: "Playfair Display", Georgia, serif;
+      --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --mono: "DM Mono", monospace;
+      
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-full: 9999px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      width: 100%;
+      overflow-x: hidden;
+    }
+
+    /* ==========================================================================
+       2. ICÔNES SOBRES ET MONOCHROMES (EXACTES LUCIDE, AUCUNE COULEUR EN PROPRE)
+       ========================================================================== */
+    .icon {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      flex-shrink: 0;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .icon-sm { width: 14px; height: 14px; stroke-width: 1.8; }
+    .icon-md { width: 18px; height: 18px; stroke-width: 1.75; }
+    .icon-lg { width: 22px; height: 22px; stroke-width: 1.75; }
+
+    /* ==========================================================================
+       3. STUDIO TOOLBAR (TESTEUR DE RÉACTIVITÉ : MOBILE / TABLETTE / BUREAU)
+       ========================================================================== */
+    .prototype-device-bar {
+      background: #06080b;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      font-size: 12px;
+    }
+
+    .device-bar-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      color: var(--soft);
+      white-space: nowrap;
+    }
+
+    .device-badge {
+      background: var(--gold-dim);
+      color: var(--gold-light);
+      border: 1px solid var(--line-accent);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: var(--mono);
+      letter-spacing: 0.05em;
+    }
+
+    .device-presets {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+    }
+
+    .preset-btn {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .preset-btn:hover {
+      background: var(--panel-2);
+      color: var(--text);
+    }
+
+    .preset-btn.active {
+      background: var(--panel-2);
+      color: var(--gold-light);
+      border-color: var(--gold);
+    }
+
+    /* Simulation de conteneur d'appareil quand un preset fixe est activé */
+    .viewport-outer-container {
+      width: 100%;
+      min-height: calc(100vh - 42px);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      background: #070a0e;
+      transition: all 0.3s ease;
+      padding: 0;
+    }
+
+    .viewport-outer-container.mode-mobile {
+      padding: 20px 0 40px;
+      background: radial-gradient(circle at center, rgba(211, 176, 107, 0.04) 0%, #05070a 100%);
+    }
+
+    .viewport-outer-container.mode-mobile-mini {
+      padding: 20px 0 40px;
+      background: radial-gradient(circle at center, rgba(211, 176, 107, 0.04) 0%, #05070a 100%);
+    }
+
+    .viewport-outer-container.mode-tablet {
+      padding: 20px 0 40px;
+      background: radial-gradient(circle at center, rgba(211, 176, 107, 0.04) 0%, #05070a 100%);
+    }
+
+    .device-frame-wrapper {
+      width: 100%;
+      min-height: calc(100vh - 42px);
+      background: var(--bg);
+      position: relative;
+      transition: width 0.3s ease, border-radius 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .viewport-outer-container.mode-mobile .device-frame-wrapper {
+      width: 390px;
+      min-height: 844px;
+      height: 844px;
+      border: 8px solid #1a202c;
+      border-radius: 40px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .viewport-outer-container.mode-mobile-mini .device-frame-wrapper {
+      width: 360px;
+      min-height: 740px;
+      height: 740px;
+      border: 6px solid #1a202c;
+      border-radius: 32px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .viewport-outer-container.mode-tablet .device-frame-wrapper {
+      width: 768px;
+      min-height: 1024px;
+      height: 1024px;
+      border: 10px solid #1a202c;
+      border-radius: 28px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    body.forced-mobile .mobile-bottom-nav,
+    body.forced-tablet .mobile-bottom-nav {
+      position: sticky;
+      bottom: 0;
+      width: 100%;
+    }
+
+    body.forced-mobile .game-live-overlay,
+    body.forced-tablet .game-live-overlay {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+    }
+
+    body.forced-mobile .modal-ussd-overlay,
+    body.forced-tablet .modal-ussd-overlay {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+    }
+
+    /* ==========================================================================
+       4. STRUCTURE RESPONSIVE PRINCIPALE (DESKTOP SIDEBAR + MOBILE BOTTOM NAV)
+       ========================================================================== */
+    .app-layout {
+      display: flex;
+      min-height: 100%;
+      width: 100%;
+      position: relative;
+    }
+
+    /* Sidebar Desktop (Visible sur écrans larges >= 1024px) */
+    .desktop-sidebar {
+      display: none;
+      width: 240px;
+      background: rgba(14, 18, 25, 0.98);
+      border-right: 1px solid var(--line);
+      padding: 24px 16px;
+      position: fixed;
+      top: 42px; /* Sous la barre studio */
+      bottom: 0;
+      left: 0;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+    }
+
+    /* Règle média standard */
+    @media (min-width: 1024px) {
+      body:not(.forced-mobile):not(.forced-tablet) .desktop-sidebar {
+        display: flex;
+      }
+      body:not(.forced-mobile):not(.forced-tablet) .main-body-wrapper {
+        margin-left: 240px;
+      }
+      body:not(.forced-mobile):not(.forced-tablet) .topbar-mobile-brand {
+        display: none;
+      }
+      body:not(.forced-mobile):not(.forced-tablet) .mobile-bottom-nav {
+        display: none;
+      }
+    }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 26px;
+      cursor: pointer;
+    }
+
+    .brand-mark-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      background: var(--gold-dim);
+    }
+
+    .brand-title-box {
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: #fff;
+      font-size: 15px;
+      line-height: 1.1;
+    }
+
+    .brand-title-box small {
+      display: block;
+      color: var(--muted);
+      font: 9px var(--mono);
+      letter-spacing: 0.22em;
+      margin-top: 2px;
+    }
+
+    .sidebar-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .sidebar-item:hover {
+      background: var(--panel-2);
+      color: var(--text);
+    }
+
+    .sidebar-item.active {
+      background: var(--panel-2);
+      color: var(--gold-light);
+      border-left: 3px solid var(--gold);
+      font-weight: 700;
+    }
+
+    .sidebar-promo-card {
+      background: linear-gradient(135deg, rgba(211, 176, 107, 0.09) 0%, transparent 100%);
+      border: 1px solid rgba(211, 176, 107, 0.25);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .sidebar-promo-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .sidebar-promo-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+
+    .sidebar-promo-link {
+      font-size: 11px;
+      color: var(--gold);
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .sidebar-footer-user {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .user-avatar-mini {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--panel-2);
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+
+    /* ==========================================================================
+       5. CORPS PRINCIPAL RESPONSIVE & TOPBAR
+       ========================================================================== */
+    .main-body-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .global-topbar {
+      height: 56px;
+      background: rgba(10, 13, 18, 0.95);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .topbar-mobile-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .topbar-right-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+
+    .top-balance-pill {
+      background: var(--panel);
+      border: 1px solid var(--line-accent);
+      border-radius: var(--radius-full);
+      padding: 5px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: var(--text);
+      transition: all 0.2s ease;
+    }
+
+    .top-balance-pill:hover {
+      background: var(--panel-2);
+      border-color: var(--gold);
+    }
+
+    .balance-val {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      font-family: var(--sans);
+    }
+
+    .btn-plus-icon {
+      color: var(--gold);
+      font-size: 14px;
+      font-weight: 900;
+      margin-left: 2px;
+    }
+
+    .lang-btn {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      color: var(--gold-light);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .lang-btn:hover {
+      border-color: var(--gold);
+    }
+
+    .icon-button-top {
+      width: 32px;
+      height: 32px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .icon-button-top:hover {
+      color: var(--text);
+      border-color: var(--line-accent);
+    }
+
+    .unread-dot {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 6px;
+      height: 6px;
+      background: var(--gold);
+      border-radius: 50%;
+    }
+
+    /* Zone de Contenu */
+    .view-content-canvas {
+      flex: 1;
+      padding: 16px 14px 85px;
+      max-width: 1140px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    @media (min-width: 768px) {
+      .view-content-canvas {
+        padding: 24px 24px 40px;
+      }
+    }
+
+    .page-section {
+      display: none;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .page-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==========================================================================
+       6. LOBBY DES JEUX (INSPIRÉ DE MADALOKA, DESIGN CASINO-MDG SOBRE)
+       ========================================================================== */
+    
+    /* 1. Défilement des catégories */
+    .category-scroll-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      scrollbar-width: none;
+    }
+
+    .category-scroll-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .cat-btn-pill {
+      flex-shrink: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-full);
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--soft);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .cat-btn-pill.active {
+      background: var(--panel-2);
+      border-color: var(--gold);
+      color: var(--gold-light);
+    }
+
+    /* 2. Filtres de Mises en Ariary */
+    .stake-scroll-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+      scrollbar-width: none;
+    }
+
+    .stake-scroll-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .stake-filter-btn {
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-full);
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .stake-filter-btn.active {
+      background: var(--gold);
+      color: #0a0d12;
+      border-color: var(--gold);
+    }
+
+    /* 3. Module Partie Rapide (Fast-Seat) */
+    .fast-match-card {
+      background: linear-gradient(135deg, #131A26 0%, #0D121B 100%);
+      border: 1px solid var(--line-accent);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fast-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .fast-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .fast-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .btn-fast-start {
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      color: #0a0d12;
+      font-size: 12px;
+      font-weight: 800;
+      border: none;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: transform 0.15s;
+    }
+
+    .btn-fast-start:active {
+      transform: scale(0.97);
+    }
+
+    /* 4. Grille des Tables Responsive */
+    .tables-flow-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    @media (min-width: 640px) {
+      .tables-flow-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .tables-flow-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .table-box-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .table-box-card:hover {
+      border-color: var(--line-accent);
+      transform: translateY(-2px);
+    }
+
+    .t-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .t-stake {
+      font-family: var(--serif);
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .t-unit {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+
+    .t-status-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .badge-live {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid var(--red);
+    }
+
+    .badge-wait {
+      background: var(--gold-dim);
+      color: var(--gold);
+      border: 1px solid var(--gold);
+    }
+
+    .badge-bot {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid var(--green);
+    }
+
+    .t-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .t-detail-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .t-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+
+    .t-title-str {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--soft);
+    }
+
+    .btn-enter-tbl {
+      background: var(--panel-2);
+      border: 1px solid var(--gold);
+      color: var(--gold-light);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-enter-tbl:hover {
+      background: var(--gold);
+      color: #0a0d12;
+    }
+
+    /* ==========================================================================
+       7. TABLE DE JEU EN DIRECT (MOBILE & PC DESKTOP ADAPTATIF)
+       ========================================================================== */
+    .game-live-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #06090d;
+      z-index: 500;
+      flex-direction: column;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .table-top-bar {
+      padding: 10px 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-exit-table {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      color: var(--soft);
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .table-mid-info {
+      text-align: center;
+    }
+
+    .table-mid-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .table-ping-box {
+      font-size: 10px;
+      color: var(--green);
+      font-family: var(--mono);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .ping-circle {
+      width: 5px;
+      height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+    }
+
+    /* Tapis Oval - Responsive Centré */
+    .game-felt-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      min-height: 0;
+    }
+
+    .game-felt-board {
+      width: 100%;
+      max-width: 840px;
+      height: 100%;
+      max-height: 520px;
+      border-radius: 40px;
+      border: 6px solid #131A26;
+      box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.9);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 12px;
+      overflow: hidden;
+      background: radial-gradient(ellipse at center, var(--felt-belote) 0%, #091422 100%);
+    }
+
+    /* Sièges des Joueurs */
+    .seat-marker {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      z-index: 10;
+    }
+
+    .pos-top { top: 12px; left: 50%; transform: translateX(-50%); }
+    .pos-left { top: 38%; left: 16px; }
+    .pos-right { top: 38%; right: 16px; }
+
+    .seat-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--panel-2);
+      border: 2px solid var(--line);
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .seat-circle.turn-active {
+      border-color: var(--gold);
+      box-shadow: 0 0 16px rgba(211, 176, 107, 0.7);
+    }
+
+    .turn-timer {
+      position: absolute;
+      bottom: -5px;
+      background: var(--gold);
+      color: #0a0d12;
+      font-size: 8px;
+      font-weight: 900;
+      padding: 1px 5px;
+      border-radius: 99px;
+      font-family: var(--mono);
+    }
+
+    .seat-caption {
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.85);
+      background: rgba(0, 0, 0, 0.6);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    /* Pot Central */
+    .pot-center-pill {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pot-val-tag {
+      background: rgba(10, 13, 18, 0.85);
+      border: 1px solid var(--gold);
+      border-radius: var(--radius-full);
+      padding: 3px 14px;
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--gold-light);
+    }
+
+    .trick-cards-wrap {
+      display: flex;
+      gap: 6px;
+    }
+
+    .trick-card-mini {
+      width: 38px;
+      height: 56px;
+      background: #fff;
+      border-radius: 4px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 3px;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .card-red { color: #dc2626; }
+    .card-black { color: #111827; }
+
+    /* Main du joueur & Zone Tactile Basse */
+    .player-tray-bottom {
+      background: rgba(10, 13, 18, 0.96);
+      border-top: 1px solid var(--line);
+      padding: 10px 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 30;
+    }
+
+    .hand-row-touch {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 6px 0;
+    }
+
+    .card-touchable {
+      width: 50px;
+      height: 72px;
+      background: #fff;
+      border-radius: 5px;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 5px;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .card-touchable:active {
+      transform: translateY(-16px);
+      border: 2px solid var(--gold);
+    }
+
+    .action-btn-row {
+      display: flex;
+      gap: 8px;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .btn-thumb-tap {
+      flex: 1;
+      height: 44px;
+      font-size: 12px;
+      font-weight: 800;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .btn-act-muted {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      color: var(--soft);
+    }
+
+    .btn-act-primary {
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      color: #0a0d12;
+    }
+
+    .btn-act-bubble {
+      width: 44px;
+      height: 44px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      color: var(--soft);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .table-phrases-drawer {
+      display: none;
+      position: absolute;
+      bottom: 125px;
+      left: 14px;
+      right: 14px;
+      background: var(--panel);
+      border: 1px solid var(--gold);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      z-index: 100;
+    }
+
+    .table-phrases-drawer.open {
+      display: grid;
+    }
+
+    .phrase-item-btn {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 4px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .speech-bubble-msg {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(17, 22, 30, 0.95);
+      border: 1px solid var(--gold);
+      color: var(--gold-light);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 99px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+      animation: popIn 0.2s ease;
+      white-space: nowrap;
+      z-index: 50;
+    }
+
+    @keyframes popIn {
+      from { transform: translate(-50%, 8px) scale(0.9); opacity: 0; }
+      to { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    }
+
+    /* ==========================================================================
+       8. CAISSE / POKETRA (RESPONSIVE 2 COLONNES SUR PC)
+       ========================================================================== */
+    .wallet-layout-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 860px) {
+      .wallet-layout-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .wallet-form-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .balance-hero-block {
+      background: linear-gradient(135deg, var(--panel-2) 0%, rgba(211, 176, 107, 0.08) 100%);
+      border: 1px solid var(--line-accent);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+    }
+
+    .balance-caption {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .balance-num-large {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .operator-grid-box {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .operator-select-item {
+      background: var(--panel-2);
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 10px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .operator-select-item.selected {
+      border-color: var(--gold);
+      background: var(--gold-dim);
+    }
+
+    .op-code-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .op-prefix-sub {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-top: 2px;
+    }
+
+    .phone-native-input {
+      width: 100%;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      color: #fff;
+      font-family: var(--mono);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .phone-native-input:focus {
+      border-color: var(--gold);
+    }
+
+    .ledger-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 18px;
+    }
+
+    .ledger-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ledger-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    .ledger-item:last-child {
+      border-bottom: none;
+    }
+
+    /* ==========================================================================
+       9. PROFIL & STATS (RESPONSIVE 2 COLONNES SUR PC)
+       ========================================================================== */
+    .profile-layout-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 860px) {
+      .profile-layout-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .profile-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .profile-banner-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .profile-round-avatar {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: var(--panel-2);
+      border: 2px solid var(--gold);
+      color: var(--gold);
+      font-size: 20px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .profile-text-group {
+      flex: 1;
+    }
+
+    .profile-username {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .profile-user-tier {
+      font-size: 11px;
+      color: var(--gold-light);
+      font-family: var(--mono);
+    }
+
+    .profile-stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .p-stat-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      text-align: center;
+    }
+
+    .p-stat-tag {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .p-stat-value {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    .profile-box-section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .profile-box-header {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--soft);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ==========================================================================
+       10. BOTTOM NAVIGATION BAR (MOBILE SEULEMENT, ICÔNES SANS COULEUR)
+       ========================================================================== */
+    .mobile-bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: rgba(10, 13, 18, 0.98);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 90;
+      padding: 0 4px;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .mobile-tab-btn {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      position: relative;
+      transition: color 0.15s ease;
+    }
+
+    .mobile-tab-btn span {
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .mobile-tab-btn.active {
+      color: var(--gold);
+    }
+
+    .mobile-tab-btn.active .icon {
+      transform: scale(1.08);
+      color: var(--gold);
+    }
+
+    .mobile-tab-btn.active::after {
+      content: "";
+      position: absolute;
+      bottom: 6px;
+      width: 14px;
+      height: 2px;
+      background: var(--gold);
+      border-radius: 2px;
+    }
+
+    /* Modal USSD */
+    .modal-ussd-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(6px);
+      z-index: 600;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-ussd-overlay.open {
+      display: flex;
+    }
+
+    .modal-ussd-card {
+      width: 100%;
+      max-width: 320px;
+      background: var(--panel);
+      border: 1px solid var(--gold);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== STUDIO TOOLBAR (SWITCHER RÉACTIF) ==================== -->
+  <header class="prototype-device-bar">
+    <div class="device-bar-title">
+      <span>MDG Game Club</span>
+      <span class="device-badge" id="viewport-size-indicator">Auto / Responsive</span>
+    </div>
+    <div class="device-presets">
+      <button class="preset-btn active" id="btn-mode-auto" onclick="setDeviceMode('auto')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+        <span>Auto (Plein écran)</span>
+      </button>
+      <button class="preset-btn" id="btn-mode-mobile" onclick="setDeviceMode('mobile')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>
+        <span>Mobile (390px)</span>
+      </button>
+      <button class="preset-btn" id="btn-mode-mobile-mini" onclick="setDeviceMode('mobile-mini')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>
+        <span>Mobile Mini (360px)</span>
+      </button>
+      <button class="preset-btn" id="btn-mode-tablet" onclick="setDeviceMode('tablet')">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>
+        <span>Tablette (768px)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== CONTENEUR DU VIEWPORT ==================== -->
+  <div class="viewport-outer-container" id="viewport-container">
+    <div class="device-frame-wrapper" id="device-wrapper">
+
+      <div class="app-layout">
+
+        <!-- ==================== SIDEBAR DESKTOP (SUR ÉCRAN PC >= 1024px) ==================== -->
+        <aside class="desktop-sidebar">
+          <div>
+            <div class="brand-header" onclick="goToTab('lobby')">
+              <div class="brand-mark-circle">♠</div>
+              <div class="brand-title-box">
+                <strong>MDG</strong>
+                <small>GAME CLUB</small>
+              </div>
+            </div>
+
+            <nav class="sidebar-menu">
+              <div class="sidebar-item active" id="side-item-lobby" onclick="goToTab('lobby')">
+                <!-- Compass (Lobby) officiel Lucide -->
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                <span data-i18n="nav_play">Lobby / Tables</span>
+              </div>
+
+              <div class="sidebar-item" id="side-item-clubs" onclick="goToTab('clubs')">
+                <!-- UsersRound (Clubs) officiel Lucide -->
+                <svg class="icon" viewBox="0 0 24 24"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/></svg>
+                <span data-i18n="nav_clubs">Clubs & Fokontany</span>
+              </div>
+
+              <div class="sidebar-item" id="side-item-casino" onclick="goToTab('casino')">
+                <!-- Dices (Hasard) officiel Lucide -->
+                <svg class="icon" viewBox="0 0 24 24"><rect width="12" height="12" x="2" y="10" rx="2" ry="2"/><path d="m17.92 14 3.5-3.5a2.41 2.41 0 0 0 0-3.41l-4.51-4.51a2.41 2.41 0 0 0-3.41 0L10 6.08"/><path d="M6 14h.01"/><path d="M10 18h.01"/><path d="M6 18h.01"/><path d="M10 14h.01"/><path d="M15 6h.01"/><path d="M18 9h.01"/></svg>
+                <span data-i18n="nav_casino">Jeux de hasard</span>
+              </div>
+
+              <div class="sidebar-item" id="side-item-wallet" onclick="goToTab('wallet')">
+                <!-- WalletCards (Poketra) officiel Lucide -->
+                <svg class="icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2"/><path d="M3 11h3c.8 0 1.6.3 2.1.9l1.1.9c.5.6 1.3.9 2.1.9H21"/></svg>
+                <span data-i18n="nav_wallet">Portefeuille (Poketra)</span>
+              </div>
+
+              <div class="sidebar-item" id="side-item-profile" onclick="goToTab('profile')">
+                <!-- CircleUserRound (Profil) officiel Lucide -->
+                <svg class="icon" viewBox="0 0 24 24"><path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/><circle cx="12" cy="12" r="10"/></svg>
+                <span data-i18n="nav_profile">Mon Profil & Stats</span>
+              </div>
+            </nav>
+          </div>
+
+          <div>
+            <div class="sidebar-promo-card">
+              <div class="sidebar-promo-title">Club Belote Fokontany</div>
+              <div class="sidebar-promo-desc">Créez votre club de quartier et touchez 1% sur chaque partie jouée.</div>
+              <div class="sidebar-promo-link" onclick="goToTab('clubs')">
+                <span>Créer un club</span>
+                <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </div>
+            </div>
+
+            <div class="sidebar-footer-user" onclick="goToTab('profile')">
+              <div class="user-avatar-mini">R</div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-size:13px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Rabe_261</div>
+                <div style="font-size:11px; color:var(--gold); font-family:var(--mono);">Niveau 14 · VIP 1</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- ==================== CORPS PRINCIPAL RESPONSIVE ==================== -->
+        <div class="main-body-wrapper">
+
+          <!-- Topbar Globale -->
+          <header class="global-topbar">
+            <!-- Logo Mobile -->
+            <div class="topbar-mobile-brand" onclick="goToTab('lobby')">
+              <div class="brand-mark-circle" style="width:28px; height:28px; font-size:14px;">♠</div>
+              <strong style="color:#fff; font-size:15px; letter-spacing:0.1em;">MDG</strong>
+            </div>
+
+            <div class="topbar-right-actions">
+              <div class="top-balance-pill" onclick="goToTab('wallet')">
+                <svg class="icon icon-sm" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2"/><path d="M3 11h3c.8 0 1.6.3 2.1.9l1.1.9c.5.6 1.3.9 2.1.9H21"/></svg>
+                <span class="balance-val" id="top-balance-text">42 500 Ar</span>
+                <span class="btn-plus-icon">+</span>
+              </div>
+
+              <button class="lang-btn" onclick="toggleLanguage()">
+                <span id="lang-code-text">MG</span>
+              </button>
+
+              <button class="icon-button-top" onclick="alert('Aucune nouvelle notification.')" aria-label="Notifications">
+                <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                <span class="unread-dot"></span>
+              </button>
+            </div>
+          </header>
+
+          <!-- Zone de Contenu -->
+          <main class="view-content-canvas">
+
+            <!-- ==================== ONGLET 1 : LOBBY DES TABLES ==================== -->
+            <section class="page-section active" id="tab-lobby">
+              
+              <!-- Filtres de Catégories (Icônes sobres sans couleur) -->
+              <div class="category-scroll-bar">
+                <div class="cat-btn-pill active" onclick="filterCat(this, 'all')">
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                  <span data-i18n="cat_all">Rehetra (Tous)</span>
+                </div>
+                <div class="cat-btn-pill" onclick="filterCat(this, 'belote')">
+                  <span>Belote Giretra</span>
+                </div>
+                <div class="cat-btn-pill" onclick="filterCat(this, 'rami')">
+                  <span>Rami 51</span>
+                </div>
+                <div class="cat-btn-pill" onclick="filterCat(this, 'poker')">
+                  <span>Poker Hold'em</span>
+                </div>
+                <div class="cat-btn-pill" onclick="filterCat(this, 'casino')">
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><rect width="12" height="12" x="2" y="10" rx="2" ry="2"/><path d="m17.92 14 3.5-3.5a2.41 2.41 0 0 0 0-3.41l-4.51-4.51a2.41 2.41 0 0 0-3.41 0L10 6.08"/></svg>
+                  <span data-i18n="cat_casino">Hasard & Roue</span>
+                </div>
+              </div>
+
+              <!-- Filtres par Montant de Mises en Ariary (Inspiration Madaloka) -->
+              <div class="stake-scroll-bar">
+                <div class="stake-filter-btn active" onclick="filterStake(this, 'all')">Toutes les mises</div>
+                <div class="stake-filter-btn" onclick="filterStake(this, '0')">Gratuit (Bots)</div>
+                <div class="stake-filter-btn" onclick="filterStake(this, '200')">200 Ar</div>
+                <div class="stake-filter-btn" onclick="filterStake(this, '500')">500 Ar</div>
+                <div class="stake-filter-btn" onclick="filterStake(this, '1000')">1 000 Ar</div>
+                <div class="stake-filter-btn" onclick="filterStake(this, '5000')">5 000 Ar</div>
+                <div class="stake-filter-btn" onclick="filterStake(this, '10000')">10 000 Ar</div>
+              </div>
+
+              <!-- Fast-Seat (Matchmaking 1 Clic) -->
+              <div class="fast-match-card">
+                <div class="fast-left">
+                  <div class="fast-title">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <span data-i18n="fast_heading">Lalao Haingana</span>
+                  </div>
+                  <span class="fast-sub" data-i18n="fast_sub">Belote Giretra · Mise 1 000 Ar</span>
+                </div>
+                <button class="btn-fast-start" onclick="openGame('Belote Express #104', '1 000 Ar', 'belote')">
+                  <span data-i18n="btn_quick_play">Hilalao avy hatrany</span>
+                </button>
+              </div>
+
+              <!-- Cartes des Tables (Grille Responsive 1 col mobile, 2 col tablette, 3 col PC) -->
+              <div class="tables-flow-grid">
+                
+                <!-- Table 1 -->
+                <div class="table-box-card" onclick="openGame('Belote Ambatobe', '1 000 Ar', 'belote')">
+                  <div class="t-top">
+                    <div>
+                      <span class="t-stake">1 000 Ar</span>
+                      <span class="t-unit">/ mpilalao</span>
+                    </div>
+                    <span class="t-status-badge badge-wait" data-i18n="b_waiting">Miandry</span>
+                  </div>
+                  <div class="t-details">
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <span>3 / 4 mpilalao</span>
+                    </span>
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                      <span>150 isa</span>
+                    </span>
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span>30s</span>
+                    </span>
+                  </div>
+                  <div class="t-bottom">
+                    <span class="t-title-str">Belote Ambatobe</span>
+                    <button class="btn-enter-tbl" data-i18n="btn_join">Miditra</button>
+                  </div>
+                </div>
+
+                <!-- Table 2 -->
+                <div class="table-box-card" onclick="openGame('Rami Tsena Sabotsy', '2 000 Ar', 'rami')">
+                  <div class="t-top">
+                    <div>
+                      <span class="t-stake">2 000 Ar</span>
+                      <span class="t-unit">/ mpilalao</span>
+                    </div>
+                    <span class="t-status-badge badge-live">Live</span>
+                  </div>
+                  <div class="t-details">
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <span>2 / 4 mpilalao</span>
+                    </span>
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                      <span>Rami 51</span>
+                    </span>
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                      <span>Pot 8 000 Ar</span>
+                    </span>
+                  </div>
+                  <div class="t-bottom">
+                    <span class="t-title-str">Rami Tsena Sabotsy</span>
+                    <button class="btn-enter-tbl" data-i18n="btn_join">Miditra</button>
+                  </div>
+                </div>
+
+                <!-- Table 3 (Bot) -->
+                <div class="table-box-card" onclick="openGame('Fanazaran-tena Belote', '0 Ar', 'belote')">
+                  <div class="t-top">
+                    <div>
+                      <span class="t-stake" style="color:var(--green);">Gratuit</span>
+                      <span class="t-unit">0 Ar risika</span>
+                    </div>
+                    <span class="t-status-badge badge-bot">Bots IA</span>
+                  </div>
+                  <div class="t-details">
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                      <span>3 Bots IA MDG</span>
+                    </span>
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                      <span>Fanazaran-tena</span>
+                    </span>
+                  </div>
+                  <div class="t-bottom">
+                    <span class="t-title-str">Table Entraînement</span>
+                    <button class="btn-enter-tbl" data-i18n="btn_train">Hizatra</button>
+                  </div>
+                </div>
+
+                <!-- Table 4 (Poker) -->
+                <div class="table-box-card" onclick="openGame('Poker Ankorondrano', '5 000 Ar', 'poker')">
+                  <div class="t-top">
+                    <div>
+                      <span class="t-stake">5 000 Ar</span>
+                      <span class="t-unit">blinds 50/100</span>
+                    </div>
+                    <span class="t-status-badge badge-wait" data-i18n="b_waiting">Miandry</span>
+                  </div>
+                  <div class="t-details">
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <span>4 / 6 mpilalao</span>
+                    </span>
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                      <span>Texas Cash</span>
+                    </span>
+                  </div>
+                  <div class="t-bottom">
+                    <span class="t-title-str">Poker Ankorondrano</span>
+                    <button class="btn-enter-tbl" data-i18n="btn_join">Miditra</button>
+                  </div>
+                </div>
+
+                <!-- Table 5 (Belote Express) -->
+                <div class="table-box-card" onclick="openGame('Belote Express Itaosy', '500 Ar', 'belote')">
+                  <div class="t-top">
+                    <div>
+                      <span class="t-stake">500 Ar</span>
+                      <span class="t-unit">/ mpilalao</span>
+                    </div>
+                    <span class="t-status-badge badge-wait" data-i18n="b_waiting">Miandry</span>
+                  </div>
+                  <div class="t-details">
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <span>1 / 4 mpilalao</span>
+                    </span>
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                      <span>100 isa</span>
+                    </span>
+                  </div>
+                  <div class="t-bottom">
+                    <span class="t-title-str">Belote Express Itaosy</span>
+                    <button class="btn-enter-tbl" data-i18n="btn_join">Miditra</button>
+                  </div>
+                </div>
+
+                <!-- Table 6 (Rami Mahamasina) -->
+                <div class="table-box-card" onclick="openGame('Rami Mahamasina High', '10 000 Ar', 'rami')">
+                  <div class="t-top">
+                    <div>
+                      <span class="t-stake">10 000 Ar</span>
+                      <span class="t-unit">/ mpilalao</span>
+                    </div>
+                    <span class="t-status-badge badge-live">Live</span>
+                  </div>
+                  <div class="t-details">
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <span>3 / 4 mpilalao</span>
+                    </span>
+                    <span class="t-detail-item">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                      <span>Pot 40 000 Ar</span>
+                    </span>
+                  </div>
+                  <div class="t-bottom">
+                    <span class="t-title-str">Rami Mahamasina High</span>
+                    <button class="btn-enter-tbl" data-i18n="btn_join">Miditra</button>
+                  </div>
+                </div>
+
+              </div>
+            </section>
+
+            <!-- ==================== ONGLET 2 : CLUBS & FOKONTANY ==================== -->
+            <section class="page-section" id="tab-clubs">
+              <div style="background:var(--panel); border:1px solid var(--line-accent); border-radius:var(--radius-md); padding:18px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="font-size:16px; color:#fff;">Club Belote Antanimena</strong>
+                  <span style="font-size:11px; font-weight:700; color:var(--gold); font-family:var(--mono);">Rang #2</span>
+                </div>
+                <div style="font-size:12px; color:var(--muted); margin:4px 0 12px;">28 mpikambana ao amin'ny fokontany</div>
+                <div style="background:var(--panel-2); padding:10px; border-radius:6px; font-size:12px; margin-bottom:14px; border:1px solid var(--line); display:flex; align-items:center; gap:8px;">
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                  <div><strong>Tournoi du Dimanche</strong> : Prize Pool 250 000 Ar !</div>
+                </div>
+                <button class="btn-fast-start" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="alert('Lien d\'invitation WhatsApp copié !')">
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  <span>Hanafy namana amin'ny WhatsApp</span>
+                </button>
+              </div>
+            </section>
+
+            <!-- ==================== ONGLET 3 : JEUX DE HASARD ==================== -->
+            <section class="page-section" id="tab-casino">
+              <div class="tables-flow-grid">
+                <div class="table-box-card">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <svg class="icon" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                    <strong style="color:#fff; font-size:15px;">Coffre Mada</strong>
+                  </div>
+                  <p style="font-size:12px; color:var(--muted);">Coffres mystères avec multiplicateurs immédiats.</p>
+                  <button class="btn-enter-tbl" style="margin-top:10px; width:100%;" onclick="alert('Coffre ouvert !')">Hilalao (Jouer)</button>
+                </div>
+
+                <div class="table-box-card">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+                    <strong style="color:#fff; font-size:15px;">Roue MDG (Lucky Wheel)</strong>
+                  </div>
+                  <p style="font-size:12px; color:var(--muted);">1 tour gratuit quotidien disponible.</p>
+                  <button class="btn-enter-tbl" style="margin-top:10px; width:100%;" onclick="alert('Roue tournée !')">Ahodina (Tourner)</button>
+                </div>
+              </div>
+            </section>
+
+            <!-- ==================== ONGLET 4 : CAISSE (POKETRA) ==================== -->
+            <section class="page-section" id="tab-wallet">
+              <div class="wallet-layout-grid">
+                
+                <!-- Colonne Gauche : Formulaire Dépôt / Retrait -->
+                <div class="wallet-form-box">
+                  <div class="balance-hero-block">
+                    <div class="balance-caption">Solde disponible en Ariary</div>
+                    <div class="balance-num-large" id="main-balance-val">42 500 Ar</div>
+                    <div style="font-size:11px; color:var(--green); font-weight:700; display:flex; align-items:center; justify-content:center; gap:5px;">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                      <span>Retraits instantanés par Mobile Money</span>
+                    </div>
+                  </div>
+
+                  <label style="font-size:11px; font-weight:700; color:var(--muted);">Opérateur Mobile Money :</label>
+                  <div class="operator-grid-box">
+                    <div class="operator-select-item selected" id="op-sel-mvola" onclick="pickOperator('mvola')">
+                      <div class="op-code-title">MVola</div>
+                      <div class="op-prefix-sub">034 / 038</div>
+                    </div>
+                    <div class="operator-select-item" id="op-sel-orange" onclick="pickOperator('orange')">
+                      <div class="op-code-title">Orange</div>
+                      <div class="op-prefix-sub">032 / 037</div>
+                    </div>
+                    <div class="operator-select-item" id="op-sel-airtel" onclick="pickOperator('airtel')">
+                      <div class="op-code-title">Airtel</div>
+                      <div class="op-prefix-sub">033</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style="font-size:11px; font-weight:700; color:var(--muted); margin-bottom:5px; display:block;">Numéro de téléphone récepteur :</label>
+                    <input type="text" class="phone-native-input" id="phone-input-val" value="034 12 345 67" oninput="autoDetectOperator(this.value)" />
+                  </div>
+
+                  <div>
+                    <label style="font-size:11px; font-weight:700; color:var(--muted); margin-bottom:6px; display:block;">Montant à créditer :</label>
+                    <div class="stake-scroll-bar">
+                      <div class="stake-filter-btn" onclick="selectDepositPill(this, 2000)">2 000 Ar</div>
+                      <div class="stake-filter-btn active" onclick="selectDepositPill(this, 5000)">5 000 Ar</div>
+                      <div class="stake-filter-btn" onclick="selectDepositPill(this, 10000)">10 000 Ar</div>
+                      <div class="stake-filter-btn" onclick="selectDepositPill(this, 25000)">25 000 Ar</div>
+                    </div>
+                  </div>
+
+                  <div style="background:var(--panel-2); border:1px solid var(--line); padding:10px; border-radius:var(--radius-sm); font-size:11px; color:var(--soft); display:flex; align-items:center; gap:8px;">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    <span>Frais de transfert : <strong>0 Ar</strong> · Vous recevrez exactement <strong>5 000 Ar</strong>.</span>
+                  </div>
+
+                  <button class="btn-fast-start" style="width:100%; height:46px; font-size:13px;" onclick="openUSSDPrompt()">
+                    Hanamafy ny fametrahana (Valider le dépôt)
+                  </button>
+                </div>
+
+                <!-- Colonne Droite : Historique des Transactions (Visible sur PC / Table) -->
+                <div class="ledger-box">
+                  <div class="ledger-title">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>Dernières transactions</span>
+                  </div>
+                  <div class="ledger-item">
+                    <div>
+                      <strong style="color:#fff;">Gain Belote Ambatobe</strong>
+                      <div style="color:var(--muted); font-size:10px; font-family:var(--mono);">Aujourd'hui, 09:42</div>
+                    </div>
+                    <span style="color:var(--green); font-weight:800; font-family:var(--mono);">+3 860 Ar</span>
+                  </div>
+                  <div class="ledger-item">
+                    <div>
+                      <strong style="color:#fff;">Rake commission (3.5%)</strong>
+                      <div style="color:var(--muted); font-size:10px; font-family:var(--mono);">Aujourd'hui, 09:42</div>
+                    </div>
+                    <span style="color:var(--muted); font-weight:700; font-family:var(--mono);">-140 Ar</span>
+                  </div>
+                  <div class="ledger-item">
+                    <div>
+                      <strong style="color:#fff;">Dépôt MVola</strong>
+                      <div style="color:var(--muted); font-size:10px; font-family:var(--mono);">Hier, 18:15</div>
+                    </div>
+                    <span style="color:var(--gold-light); font-weight:800; font-family:var(--mono);">+10 000 Ar</span>
+                  </div>
+                  <div class="ledger-item">
+                    <div>
+                      <strong style="color:#fff;">Retrait Orange Money</strong>
+                      <div style="color:var(--muted); font-size:10px; font-family:var(--mono);">19 Sept, 14:30</div>
+                    </div>
+                    <span style="color:var(--red); font-weight:800; font-family:var(--mono);">-20 000 Ar</span>
+                  </div>
+                </div>
+
+              </div>
+            </section>
+
+            <!-- ==================== ONGLET 5 : PROFIL & STATS ==================== -->
+            <section class="page-section" id="tab-profile">
+              <div class="profile-layout-grid">
+                
+                <!-- Colonne Gauche : Identité & Stats -->
+                <div class="profile-stack">
+                  <div class="profile-banner-card">
+                    <div class="profile-round-avatar">R</div>
+                    <div class="profile-text-group">
+                      <div class="profile-username">Rabe_261</div>
+                      <div class="profile-user-tier">Niveau 14 · VIP Tier 1</div>
+                      <div style="font-size:11px; color:var(--green); font-weight:700; display:flex; align-items:center; gap:4px; margin-top:2px;">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+                        <span>KYC Vérifié</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="profile-stats-row">
+                    <div class="p-stat-card"><div class="p-stat-tag">Parties</div><div class="p-stat-value">142</div></div>
+                    <div class="p-stat-card"><div class="p-stat-tag">Victoires</div><div class="p-stat-value" style="color:var(--green);">64 %</div></div>
+                    <div class="p-stat-card"><div class="p-stat-tag">Max Pot</div><div class="p-stat-value" style="color:var(--gold-light);">120k Ar</div></div>
+                  </div>
+
+                  <!-- Parrainage -->
+                  <div class="profile-box-section">
+                    <div class="profile-box-header">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+                      <span>Code de Parrainage</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                      <input type="text" value="RABE261" readonly style="flex:1; background:var(--panel-2); border:1px solid var(--line); color:var(--gold-light); font-weight:800; text-align:center; border-radius:6px; font-size:13px; height:36px;" />
+                      <button class="btn-enter-tbl" style="background:var(--gold); color:#0a0d12;" onclick="alert('Code copié !')">Copier</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Colonne Droite : Missions Quotidiennes & Jeu Responsable -->
+                <div class="profile-stack">
+                  <!-- Missions Quotidiennes -->
+                  <div class="profile-box-section">
+                    <div class="profile-box-header">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                      <span>Missions du jour</span>
+                    </div>
+                    <div style="background:var(--panel-2); padding:10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                      <div>
+                        <div style="font-size:12px; font-weight:700; color:#fff;">Gagner 2 parties de Belote</div>
+                        <div style="font-size:10px; color:var(--gold-light);">Récompense : +1 000 Ar SIM</div>
+                      </div>
+                      <button class="btn-enter-tbl" style="background:var(--gold); color:#0a0d12;" onclick="alert('Mission validée !')">Réclamer</button>
+                    </div>
+                  </div>
+
+                  <!-- Jeu Responsable -->
+                  <div class="profile-box-section">
+                    <div class="profile-box-header">
+                      <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      <span>Jeu Responsable</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
+                      <span style="color:var(--muted);">Plafond de dépôt quotidien :</span>
+                      <strong style="color:#fff;">50 000 Ar / jour</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
+                      <span style="color:var(--muted);">Temps de session max :</span>
+                      <strong style="color:#fff;">2 heures / session</strong>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </section>
+
+          </main>
+
+        </div>
+      </div>
+
+      <!-- ==================== TABLE DE JEU EN DIRECT (PLEIN ÉCRAN RESPONSIVE) ==================== -->
+      <div class="game-live-overlay" id="game-overlay-screen">
+        <div class="table-top-bar">
+          <button class="btn-exit-table" onclick="closeGameTable()">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            <span>Lobby</span>
+          </button>
+          <div class="table-mid-info">
+            <div class="table-mid-name" id="tbl-active-name">Belote Ambatobe</div>
+            <div class="table-ping-box"><span class="ping-circle"></span> 38 ms · Stable</div>
+          </div>
+          <button class="btn-exit-table" onclick="showPhrase('Tsara lalao !')">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+          </button>
+        </div>
+
+        <!-- Tapis de Feutre -->
+        <div class="game-felt-container">
+          <div class="game-felt-board" id="felt-arena">
+            <!-- Siège Haut -->
+            <div class="seat-marker pos-top">
+              <div class="seat-circle">Mada</div>
+              <span class="seat-caption">Adversaire 1</span>
+            </div>
+
+            <!-- Siège Gauche -->
+            <div class="seat-marker pos-left">
+              <div class="seat-circle">Nary</div>
+              <span class="seat-caption">Partenaire</span>
+            </div>
+
+            <!-- Siège Droite (Tour en cours) -->
+            <div class="seat-marker pos-right">
+              <div class="seat-circle turn-active">
+                Hery
+                <span class="turn-timer">12s</span>
+              </div>
+              <span class="seat-caption">Adversaire 2</span>
+            </div>
+
+            <!-- Pot Central -->
+            <div class="pot-center-pill">
+              <div class="pot-val-tag" id="tbl-active-pot">Pot : 4 000 Ar</div>
+              <div class="trick-cards-wrap">
+                <div class="trick-card-mini card-red"><span>V♥</span><span style="font-size:14px; text-align:center;">♥</span><span style="text-align:right;">V</span></div>
+                <div class="trick-card-mini card-black"><span>10♠</span><span style="font-size:14px; text-align:center;">♠</span><span style="text-align:right;">10</span></div>
+              </div>
+            </div>
+
+            <div id="speech-anchor"></div>
+          </div>
+        </div>
+
+        <!-- Main du joueur & Touches tactiles de pouce -->
+        <div class="player-tray-bottom">
+          <div class="hand-row-touch">
+            <div class="card-touchable card-black" onclick="playCard(this)"><span>A♠</span><span style="font-size:18px; text-align:center;">♠</span><span style="text-align:right;">A</span></div>
+            <div class="card-touchable card-black" onclick="playCard(this)"><span>K♠</span><span style="font-size:18px; text-align:center;">♠</span><span style="text-align:right;">K</span></div>
+            <div class="card-touchable card-red" onclick="playCard(this)"><span>Q♥</span><span style="font-size:18px; text-align:center;">♥</span><span style="text-align:right;">Q</span></div>
+            <div class="card-touchable card-red" onclick="playCard(this)"><span>J♦</span><span style="font-size:18px; text-align:center;">♦</span><span style="text-align:right;">J</span></div>
+            <div class="card-touchable card-black" onclick="playCard(this)"><span>9♣</span><span style="font-size:18px; text-align:center;">♣</span><span style="text-align:right;">9</span></div>
+          </div>
+
+          <div class="action-btn-row">
+            <button class="btn-thumb-tap btn-act-muted" onclick="showPhrase('Passera !')">Passer</button>
+            <button class="btn-thumb-tap btn-act-primary" onclick="showPhrase('Haka !')">Prendre</button>
+            <button class="btn-act-bubble" onclick="togglePhrases()">
+              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tiroir de phrases de courtoisie de table -->
+        <div class="table-phrases-drawer" id="phrases-drawer">
+          <button class="phrase-item-btn" onclick="showPhrase('Tsara lalao !')">Tsara lalao (Bien joué)</button>
+          <button class="phrase-item-btn" onclick="showPhrase('Misaotra !')">Misaotra (Merci)</button>
+          <button class="phrase-item-btn" onclick="showPhrase('May vola !')">May vola !</button>
+          <button class="phrase-item-btn" onclick="showPhrase('Andraso kely...')">Andraso kely...</button>
+        </div>
+      </div>
+
+      <!-- ==================== MODAL USSD ==================== -->
+      <div class="modal-ussd-overlay" id="ussd-modal-screen">
+        <div class="modal-ussd-card">
+          <svg class="icon icon-lg" style="margin:0 auto 10px; display:block;" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>
+          <h4 style="font-size:15px; color:#fff; font-weight:800; margin-bottom:6px;">Hamarino amin'ny findainao</h4>
+          <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:16px;">
+            Hisy hafatra hiseho eo amin'ny findainao. Ampidiro ny <strong>kaody miafinao</strong> hanamafisana ny 5 000 Ar.
+          </p>
+          <button class="btn-fast-start" style="width:100%;" onclick="closeUSSD()">Efa nampidiriko ny kaody</button>
+        </div>
+      </div>
+
+      <!-- ==================== BOTTOM NAVIGATION BAR MOBILE (ICÔNES SANS COULEUR) ==================== -->
+      <nav class="mobile-bottom-nav">
+        <div class="mobile-tab-btn active" id="m-tab-lobby" onclick="goToTab('lobby')">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+          <span data-i18n="nav_play">Lobby</span>
+        </div>
+
+        <div class="mobile-tab-btn" id="m-tab-clubs" onclick="goToTab('clubs')">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/></svg>
+          <span data-i18n="nav_clubs">Clubs</span>
+        </div>
+
+        <div class="mobile-tab-btn" id="m-tab-casino" onclick="goToTab('casino')">
+          <svg class="icon" viewBox="0 0 24 24"><rect width="12" height="12" x="2" y="10" rx="2" ry="2"/><path d="m17.92 14 3.5-3.5a2.41 2.41 0 0 0 0-3.41l-4.51-4.51a2.41 2.41 0 0 0-3.41 0L10 6.08"/><path d="M6 14h.01"/><path d="M10 18h.01"/><path d="M6 18h.01"/><path d="M10 14h.01"/><path d="M15 6h.01"/><path d="M18 9h.01"/></svg>
+          <span data-i18n="nav_casino">Hasard</span>
+        </div>
+
+        <div class="mobile-tab-btn" id="m-tab-wallet" onclick="goToTab('wallet')">
+          <svg class="icon" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2"/><path d="M3 11h3c.8 0 1.6.3 2.1.9l1.1.9c.5.6 1.3.9 2.1.9H21"/></svg>
+          <span data-i18n="nav_wallet">Poketra</span>
+        </div>
+
+        <div class="mobile-tab-btn" id="m-tab-profile" onclick="goToTab('profile')">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/><circle cx="12" cy="12" r="10"/></svg>
+          <span data-i18n="nav_profile">Kaonty</span>
+        </div>
+      </nav>
+
+    </div>
+  </div>
+
+  <!-- ==================== SCRIPT DU PROTOTYPE ==================== -->
+  <script>
+    let currentLanguage = 'mg';
+
+    const langContent = {
+      mg: {
+        nav_play: "Lobby",
+        nav_clubs: "Clubs",
+        nav_casino: "Hasard",
+        nav_wallet: "Poketra",
+        nav_profile: "Kaonty",
+        cat_all: "Rehetra",
+        cat_casino: "Hasard & Roue",
+        fast_heading: "Lalao Haingana",
+        fast_sub: "Belote Giretra · Mise 1 000 Ar",
+        btn_quick_play: "Hilalao avy hatrany",
+        b_waiting: "Miandry",
+        btn_join: "Miditra",
+        btn_train: "Hizatra"
+      },
+      fr: {
+        nav_play: "Lobby",
+        nav_clubs: "Clubs",
+        nav_casino: "Hasard",
+        nav_wallet: "Caisse",
+        nav_profile: "Profil",
+        cat_all: "Toutes les tables",
+        cat_casino: "Hasard & Roue",
+        fast_heading: "Partie Rapide",
+        fast_sub: "Belote Classique · Mise 1 000 Ar",
+        btn_quick_play: "Jouer maintenant",
+        b_waiting: "En attente",
+        btn_join: "Rejoindre",
+        btn_train: "S'entraîner"
+      }
+    };
+
+    // Gestion du Switcher de Périphérique (Testeur de Réactivité)
+    function setDeviceMode(mode) {
+      const container = document.getElementById('viewport-container');
+      const indicator = document.getElementById('viewport-size-indicator');
+      
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById('btn-mode-' + mode);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      container.className = 'viewport-outer-container';
+      document.body.classList.remove('forced-mobile', 'forced-tablet');
+
+      if (mode === 'mobile') {
+        container.classList.add('mode-mobile');
+        document.body.classList.add('forced-mobile');
+        indicator.textContent = "Mobile (390 × 844 px)";
+      } else if (mode === 'mobile-mini') {
+        container.classList.add('mode-mobile-mini');
+        document.body.classList.add('forced-mobile');
+        indicator.textContent = "Mobile Mini (360 × 740 px)";
+      } else if (mode === 'tablet') {
+        container.classList.add('mode-tablet');
+        document.body.classList.add('forced-tablet');
+        indicator.textContent = "Tablette (768 × 1024 px)";
+      } else {
+        indicator.textContent = "Auto / Plein écran (" + window.innerWidth + "px)";
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      const activeBtn = document.querySelector('.preset-btn.active');
+      if (activeBtn && activeBtn.id === 'btn-mode-auto') {
+        document.getElementById('viewport-size-indicator').textContent = "Auto / Plein écran (" + window.innerWidth + "px)";
+      }
+    });
+
+    // Basculement d'onglets (Desktop Sidebar + Mobile Bottom Nav)
+    function goToTab(tabName) {
+      document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
+      document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+      document.querySelectorAll('.mobile-tab-btn').forEach(btn => btn.classList.remove('active'));
+
+      const targetSec = document.getElementById('tab-' + tabName);
+      const sideItem = document.getElementById('side-item-' + tabName);
+      const mobileBtn = document.getElementById('m-tab-' + tabName);
+
+      if (targetSec) targetSec.classList.add('active');
+      if (sideItem) sideItem.classList.add('active');
+      if (mobileBtn) mobileBtn.classList.add('active');
+
+      closeGameTable();
+      const wrapper = document.getElementById('device-wrapper');
+      if (wrapper) wrapper.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Basculement de langue
+    function toggleLanguage() {
+      currentLanguage = (currentLanguage === 'mg') ? 'fr' : 'mg';
+      document.getElementById('lang-code-text').textContent = (currentLanguage === 'mg') ? 'MG' : 'FR';
+
+      const d = langContent[currentLanguage];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k = el.getAttribute('data-i18n');
+        if (d[k]) el.textContent = d[k];
+      });
+    }
+
+    // Filtres du Lobby
+    function filterCat(pill, cat) {
+      document.querySelectorAll('.cat-btn-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+    }
+
+    function filterStake(pill, st) {
+      document.querySelectorAll('.stake-filter-btn').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+    }
+
+    // Table de jeu live
+    function openGame(name, pot, variant) {
+      document.getElementById('tbl-active-name').textContent = name;
+      document.getElementById('tbl-active-pot').textContent = "Pot : " + pot;
+
+      const felt = document.getElementById('felt-arena');
+      if (variant === 'poker') felt.style.background = "radial-gradient(ellipse at center, var(--felt-poker) 0%, #091a0e 100%)";
+      else if (variant === 'rami') felt.style.background = "radial-gradient(ellipse at center, var(--felt-rami) 0%, #1f0712 100%)";
+      else felt.style.background = "radial-gradient(ellipse at center, var(--felt-belote) 0%, #091422 100%)";
+
+      document.getElementById('game-overlay-screen').style.display = 'flex';
+      if (navigator.vibrate) navigator.vibrate([50]);
+    }
+
+    function closeGameTable() {
+      document.getElementById('game-overlay-screen').style.display = 'none';
+      document.getElementById('phrases-drawer').classList.remove('open');
+    }
+
+    function playCard(card) {
+      card.style.transform = "translateY(-24px)";
+      card.style.opacity = "0";
+      setTimeout(() => {
+        card.style.display = "none";
+        showPhrase("Lasa ny karatra !");
+      }, 180);
+      if (navigator.vibrate) navigator.vibrate([60]);
+    }
+
+    function togglePhrases() {
+      document.getElementById('phrases-drawer').classList.toggle('open');
+    }
+
+    function showPhrase(text) {
+      document.getElementById('phrases-drawer').classList.remove('open');
+      const anchor = document.getElementById('speech-anchor');
+      const bubble = document.createElement('div');
+      bubble.className = "speech-bubble-msg";
+      bubble.textContent = text;
+      anchor.appendChild(bubble);
+
+      setTimeout(() => bubble.remove(), 2300);
+      if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+    }
+
+    // Gestion Poketra
+    function pickOperator(op) {
+      document.querySelectorAll('.operator-select-item').forEach(el => el.classList.remove('selected'));
+      const target = document.getElementById('op-sel-' + op);
+      if (target) target.classList.add('selected');
+    }
+
+    function autoDetectOperator(phoneVal) {
+      const clean = phoneVal.replace(/\s+/g, '');
+      if (clean.startsWith('034') || clean.startsWith('038')) pickOperator('mvola');
+      else if (clean.startsWith('032') || clean.startsWith('037')) pickOperator('orange');
+      else if (clean.startsWith('033')) pickOperator('airtel');
+    }
+
+    function selectDepositPill(pill, amt) {
+      document.querySelectorAll('#tab-wallet .stake-filter-btn').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+    }
+
+    function openUSSDPrompt() {
+      document.getElementById('ussd-modal-screen').classList.add('open');
+    }
+
+    function closeUSSD() {
+      document.getElementById('ussd-modal-screen').classList.remove('open');
+      alert(currentLanguage === 'mg' ? 'Tafiditra soa aman-tsara ny 5 000 Ar !' : 'Dépôt de 5 000 Ar validé avec succès !');
+      document.getElementById('top-balance-text').textContent = "47 500 Ar";
+      document.getElementById('main-balance-val').textContent = "47 500 Ar";
+      goToTab('lobby');
+    }
+  </script>
+</body>
+</html>

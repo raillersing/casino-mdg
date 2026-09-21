@@ -52,3 +52,24 @@ class DailyMissionTests(TestCase):
 
         self.assertEqual(response.status_code, 409)
         self.assertEqual(WalletTransaction.objects.filter(user=self.user).count(), 0)
+
+    def test_daily_streak_payload_and_claim(self):
+        missions = self.client.get("/api/v1/games/missions/")
+        self.assertEqual(missions.status_code, 200)
+        self.assertIn("streak", missions.data)
+        self.assertEqual(missions.data["streak"]["current_day"], 1)
+        self.assertFalse(missions.data["streak"]["claimed"])
+
+        claim = self.client.post(
+            "/api/v1/games/missions/", {"key": "daily_streak"}, format="json"
+        )
+        self.assertEqual(claim.status_code, 201)
+        self.assertTrue(claim.data["claimed"])
+        self.assertEqual(claim.data["reward"], 100)
+
+        duplicate = self.client.post(
+            "/api/v1/games/missions/", {"key": "daily_streak"}, format="json"
+        )
+        self.assertEqual(duplicate.status_code, 200)
+        self.assertTrue(duplicate.data["duplicate"])
+

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useGameStore } from "@stores/gameStore";
 import { useTranslation } from "react-i18next";
-import { requestOtp, verifyOtp } from "@/services/auth";
+import { createGuestToken, requestOtp, verifyOtp } from "@/services/auth";
 
 export function AuthPage() {
   const { t } = useTranslation();
@@ -25,6 +25,7 @@ export function AuthPage() {
   const setUser = useGameStore((state) => state.setUser);
   const setAuthenticated = useGameStore((state) => state.setAuthenticated);
   const setSession = useGameStore((state) => state.setSession);
+  const setGuestMode = useGameStore((state) => state.setGuestMode);
 
   const handleRequest = async () => {
     setLoading(true);
@@ -143,6 +144,36 @@ export function AuthPage() {
                       {t("authUi.receiveCode")} <ArrowRight size={17} />
                     </>
                   )}
+                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "16px 0 12px", color: "var(--muted)", fontSize: "0.78rem" }}>
+                  <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.1)" }} />
+                  <span>OU SANS COMPTE</span>
+                  <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.1)" }} />
+                </div>
+                <button
+                  type="button"
+                  className="button button-outline full"
+                  onClick={async () => {
+                    setLoading(true);
+                    setError("");
+                    try {
+                      const auth = await createGuestToken("Joueur Invité");
+                      setSession(auth.access, auth.refresh);
+                      setGuestMode(auth.user.display_name, auth.wallet.balance);
+                      setStep("done");
+                      window.setTimeout(() => navigate(searchParams.get("next") || "/"), 600);
+                    } catch {
+                      setGuestMode("Invité", 10000);
+                      setStep("done");
+                      window.setTimeout(() => navigate(searchParams.get("next") || "/"), 600);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  style={{ fontSize: "0.85rem", padding: "10px 14px" }}
+                >
+                  🎮 Accès Direct Invité (10 000 SIM)
                 </button>
               </>
             ) : (

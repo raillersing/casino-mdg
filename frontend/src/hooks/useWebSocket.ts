@@ -11,6 +11,7 @@ export type ConnectionState = "connecting" | "connected" | "reconnecting" | "clo
 
 type WebSocketOptions = {
   enabled?: boolean;
+  token?: string;
   onOpen?: (socket: WebSocket) => void;
   onClose?: () => void;
   onMessage?: (event: MessageEvent<string>) => void;
@@ -33,6 +34,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   const accessToken = useGameStore((state) => state.accessToken);
   const {
     enabled = true,
+    token: explicitToken,
     onOpen,
     onClose,
     onMessage,
@@ -65,8 +67,9 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
 
     const socketUrl = new URL(url, window.location.href);
     socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    if (accessToken) {
-      socketUrl.searchParams.set("token", accessToken);
+    const authToken = explicitToken || accessToken;
+    if (authToken) {
+      socketUrl.searchParams.set("token", authToken);
     }
     const socket = new WebSocket(socketUrl.toString());
     ws.current = socket;
@@ -145,7 +148,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
         // Handled by consumer callbacks
       }
     };
-  }, [accessToken, setReconnecting, updateState, url]);
+  }, [accessToken, explicitToken, setReconnecting, updateState, url]);
 
   const send = useCallback((data: object) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
@@ -182,7 +185,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   }, [connect, updateState]);
 
   useEffect(() => {
-    if (!enabled || !url || !accessToken) return;
+    if (!enabled || !url || (!explicitToken && !accessToken)) return;
     connect();
     return () => {
       closed.current = true;
@@ -196,7 +199,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       }
       ws.current?.close();
     };
-  }, [accessToken, connect, enabled, url]);
+  }, [accessToken, connect, enabled, explicitToken, url]);
 
   return { ws, send, latency, connectionState: connState };
 }

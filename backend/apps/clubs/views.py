@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from .models import (
     Club,
+    ClubChatMessage,
     ClubEvent,
     ClubEventParticipant,
     ClubInvitation,
@@ -16,22 +17,52 @@ from .models import (
 
 
 def membership_for(club, user):
+    if not user or not user.is_authenticated:
+        return None
     return ClubMembership.objects.filter(club=club, user=user).first()
 
 
 def club_payload(club, user):
+    from apps.games.models import GameTable
     membership = membership_for(club, user)
     return {
         "id": str(club.id),
         "name": club.name,
+        "code": getattr(club, "code", "") or f"MDG-{str(club.id)[:4].upper()}",
         "city": club.city,
         "description": club.description,
         "language": club.language,
         "visibility": club.visibility,
+        "is_certified": getattr(club, "is_certified", False),
+        "certification_status": getattr(club, "certification_status", "none"),
         "member_count": club.memberships.count(),
         "member_limit": club.member_limit,
+        "tables_count": GameTable.objects.filter(club=club).count(),
         "joined": membership is not None,
         "role": membership.role if membership else None,
+    }
+
+
+def check_club_eligibility(club, user):
+    from apps.games.models import GameTable
+    from apps.kyc.models import KYCRequest
+
+    has_kyc = KYCRequest.objects.filter(user=club.owner, status="approved").exists()
+    member_count = club.memberships.count()
+    tables_count = GameTable.objects.filter(club=club).count()
+    members_ok = member_count >= 5
+    tables_ok = tables_count >= 1
+    can_certify = bool((has_kyc and members_ok and tables_ok) or user.is_staff)
+    return {
+        "founder_kyc_approved": has_kyc,
+        "member_count": member_count,
+        "member_target": 5,
+        "members_satisfied": members_ok,
+        "tables_count": tables_count,
+        "tables_target": 1,
+        "tables_satisfied": tables_ok,
+        "can_certify": can_certify,
+        "can_request": bool(can_certify and not club.is_certified),
     }
 
 
@@ -57,10 +88,10 @@ def event_payload(event, user):
         "participant_count": event.participants.count(),
         "points_reward": event.points_reward,
         "status": event.status,
-        "joined": event.participants.filter(user=user).exists(),
+        "joined": event.participants.filter(user=user).exists() if user and user.is_authenticated else False,
         "rewarded": event.participants.filter(
             user=user, rewarded_at__isnull=False
-        ).exists(),
+        ).exists() if user and user.is_authenticated else False,
     }
 
 
@@ -80,11 +111,16 @@ def leaderboard_payload(club):
 
 
 class ClubListCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
     def get(self, request):
-        clubs = Club.objects.filter(visibility="open")
-        clubs |= Club.objects.filter(memberships__user=request.user)
+        if request.user and request.user.is_authenticated:
+            clubs = Club.objects.filter(visibility="open") | Club.objects.filter(memberships__user=request.user)
+        else:
+            clubs = Club.objects.filter(visibility="open")
         return Response(
             {"results": [club_payload(club, request.user) for club in clubs.distinct()]}
         )
@@ -110,6 +146,132 @@ class ClubListCreateView(APIView):
         )
         ClubMembership.objects.create(club=club, user=request.user, role="owner")
         return Response(club_payload(club, request.user), status=201)
+
+
+class ClubCertificationRequestView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_club(self, club_id):
+        try:
+            return Club.objects.get(pk=club_id)
+        except Club.DoesNotExist:
+            return None
+
+    def get(self, request, club_id):
+        club = self.get_club(club_id)
+        if not club:
+            return Response({"detail": "Club introuvable."}, status=404)
+        if club.owner != request.user and not request.user.is_staff:
+            return Response(
+                {"detail": "Seul le fondateur ou l'administration peut consulter les critères."},
+                status=403,
+            )
+        eligibility = check_club_eligibility(club, request.user)
+        return Response(
+            {
+                "club_id": str(club.id),
+                "is_certified": club.is_certified,
+                "certification_status": club.certification_status,
+                "criteria": eligibility,
+                "perks": [
+                    "Badge officiel doré Certifié MDG",
+                    "Capacité de membres augmentée à 250",
+                    "Affichage prioritaire dans le Lobby et le répertoire des clubs",
+                    "Tables et tournois privés certifiés",
+                ],
+            }
+        )
+
+    def post(self, request, club_id):
+        club = self.get_club(club_id)
+        if not club:
+            return Response({"detail": "Club introuvable."}, status=404)
+
+        if club.owner != request.user and not request.user.is_staff:
+            return Response(
+                {"detail": "Seul le fondateur peut demander la certification de ce club."},
+                status=403,
+            )
+
+        if club.is_certified:
+            return Response({"detail": "Ce club est déjà certifié."}, status=400)
+
+        eligibility = check_club_eligibility(club, request.user)
+        if eligibility["can_certify"]:
+            club.is_certified = True
+            club.certification_status = "certified"
+            club.member_limit = 250
+            club.save(update_fields=["is_certified", "certification_status", "member_limit"])
+            message = "Félicitations ! Votre club remplit tous les critères et a été certifié avec succès."
+        else:
+            club.certification_status = "pending"
+            club.save(update_fields=["certification_status"])
+            message = "Votre dossier de certification a été soumis et est en cours d'examen par notre équipe."
+
+        return Response(
+            {
+                "detail": message,
+                "club": club_payload(club, request.user),
+                "is_certified": club.is_certified,
+                "certification_status": club.certification_status,
+                "criteria": eligibility,
+            },
+            status=200,
+        )
+
+
+class ClubChatView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, club_id):
+        try:
+            club = Club.objects.get(pk=club_id)
+        except Club.DoesNotExist:
+            return Response({"detail": "Club introuvable."}, status=404)
+
+        messages = club.chat_messages.select_related("author").order_by("-created_at")[:50]
+        results = [
+            {
+                "id": str(m.id),
+                "author": m.author.display_name,
+                "body": m.body,
+                "created_at": m.created_at.isoformat(),
+            }
+            for m in reversed(list(messages))
+        ]
+        return Response({"results": results})
+
+    def post(self, request, club_id):
+        try:
+            club = Club.objects.get(pk=club_id)
+        except Club.DoesNotExist:
+            return Response({"detail": "Club introuvable."}, status=404)
+
+        membership = membership_for(club, request.user)
+        if not membership and club.visibility != "open":
+            return Response(
+                {"detail": "Vous devez être membre du club pour envoyer un message."},
+                status=403,
+            )
+
+        body = str(request.data.get("body", "")).strip()
+        if not body:
+            return Response({"detail": "Le message ne peut pas être vide."}, status=400)
+
+        msg = ClubChatMessage.objects.create(
+            club=club,
+            author=request.user,
+            body=body[:500],
+        )
+        return Response(
+            {
+                "id": str(msg.id),
+                "author": request.user.display_name,
+                "body": msg.body,
+                "created_at": msg.created_at.isoformat(),
+            },
+            status=201,
+        )
 
 
 class ClubJoinView(APIView):
@@ -391,3 +553,47 @@ class ClubLeaderboardView(APIView):
         if not membership_for(club, request.user):
             return Response({"detail": "Accès club requis."}, status=403)
         return Response({"results": leaderboard_payload(club)})
+
+
+class ClubLeagueLeaderboardView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from django.db.models import Count, Sum
+        from apps.games.models import GameTable
+
+        clubs = Club.objects.annotate(
+            total_points=Sum("memberships__points"),
+            member_count=Count("memberships", distinct=True),
+        ).order_by("-is_certified", "-total_points", "-member_count")[:20]
+
+        league = []
+        for index, club in enumerate(clubs, start=1):
+            tier = (
+                "Or"
+                if index == 1
+                else "Argent"
+                if index == 2
+                else "Bronze"
+                if index == 3
+                else "Élite"
+                if index <= 5
+                else "Challenger"
+            )
+            tables_count = GameTable.objects.filter(club=club).count()
+            league.append(
+                {
+                    "rank": index,
+                    "club_id": str(club.id),
+                    "name": club.name,
+                    "code": club.code or f"MDG-{str(club.id)[:4].upper()}",
+                    "city": club.city,
+                    "is_certified": club.is_certified,
+                    "total_points": club.total_points or 0,
+                    "member_count": club.member_count or 0,
+                    "tables_count": tables_count,
+                    "tier": tier,
+                }
+            )
+        return Response({"league": league})
+

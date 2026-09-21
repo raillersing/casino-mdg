@@ -11,6 +11,7 @@ export type GameTable = {
   is_private: boolean;
   club_id: string | null;
   club_name: string | null;
+  club_is_certified?: boolean;
 };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -45,6 +46,7 @@ export type BotSimulation = {
     profile: string;
     is_bot: true;
   }>;
+  admission_token?: string;
   created_at: string;
 };
 
@@ -163,7 +165,7 @@ export function cancelMatch(accessToken: string, ticketId: string) {
 }
 
 export function joinTable(tableId: string, accessToken: string) {
-  return request<{ table: GameTable; created: boolean }>(
+  return request<{ table: GameTable; created: boolean; admission_token?: string }>(
     `tables/${tableId}/join/`,
     {
       method: "POST",
