@@ -113,6 +113,7 @@ export default function () {
 
   let currentSeq = 0;
   let inFlight = false;
+  let actionSentAt = 0;
   const connectStart = Date.now();
 
   const res = ws.connect(url, {}, function (socket) {
@@ -143,6 +144,10 @@ export default function () {
         }
 
         if (msg.type === 'action' || msg.type === 'state') {
+          if (inFlight && actionSentAt > 0) {
+            wsActionLatency.add(Date.now() - actionSentAt);
+            actionSentAt = 0;
+          }
           inFlight = false;
         }
 
@@ -156,7 +161,7 @@ export default function () {
 
             if (seatedCount >= config.maxPlayers && gs && gs.current_player_id === playerId && !inFlight) {
               inFlight = true;
-              const startAction = Date.now();
+              actionSentAt = Date.now();
               let action = 'check';
               let payload = null;
 
@@ -186,7 +191,6 @@ export default function () {
                 sequence: currentSeq,
               }));
               wsMsgsSent.add(1);
-              wsActionLatency.add(Date.now() - startAction);
             }
           }
         }

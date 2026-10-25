@@ -85,13 +85,14 @@ type Message struct {
 }
 
 type Server struct {
-	config      *config.Config
-	roomManager *room.Manager
-	clients     map[string]*Client
-	snapshots   *state.SnapshotManager
-	mu          sync.RWMutex
-	botRuns     map[string]*botRun
-	nodeID      string
+	config       *config.Config
+	roomManager  *room.Manager
+	clients      map[string]*Client
+	tableClients map[string]map[string]*Client
+	snapshots    *state.SnapshotManager
+	mu           sync.RWMutex
+	botRuns      map[string]*botRun
+	nodeID       string
 }
 
 func (s *Server) ClientCount() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.clients) }
@@ -167,12 +168,13 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 		nodeID = "engine-node-1"
 	}
 	return &Server{
-		config:      cfg,
-		roomManager: rm,
-		clients:     make(map[string]*Client),
-		botRuns:     make(map[string]*botRun),
-		snapshots:   state.NewSnapshotManagerWithNode(cfg.RedisURL, nodeID),
-		nodeID:      nodeID,
+		config:       cfg,
+		roomManager:  rm,
+		clients:      make(map[string]*Client),
+		tableClients: make(map[string]map[string]*Client),
+		botRuns:      make(map[string]*botRun),
+		snapshots:    state.NewSnapshotManagerWithNode(cfg.RedisURL, nodeID),
+		nodeID:       nodeID,
 	}
 }
 
@@ -326,6 +328,10 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 			gen, leaseErr := s.snapshots.AcquireTableLease(context.Background(), msg.TableID, s.nodeID, 30*time.Second)
 			if leaseErr != nil {
 				log.Printf("lease acquire error on restore table=%s node=%s: %v", msg.TableID, s.nodeID, leaseErr)
+				if strings.Contains(leaseErr.Error(), "already leased") {
+					s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: "table is actively hosted on another node", Timestamp: time.Now()})
+					return
+				}
 			}
 			restored, restoreErr := s.roomManager.RestoreSnapshot(snapshot)
 			if restoreErr != nil {
@@ -375,18 +381,23 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 			_ = s.roomManager.StartTable(msg.TableID)
 		}
 		if requestTable, exists := s.roomManager.GetTable(msg.TableID); exists && requestTable.GameType == "poker" {
-			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(18*time.Second))
+			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(18500*time.Millisecond))
 		}
 	}
 
+	playersCopy := table.CopyPlayers()
+	table.RLock()
+	gameState := publicGameState(table.State, client.playerID, playersCopy, table.ActionDeadline)
+	seq := table.Sequence
+	table.RUnlock()
 	state := map[string]interface{}{
 		"table_id":   table.ID,
 		"game_type":  table.GameType,
-		"players":    table.Players,
-		"game_state": publicGameState(table.State, client.playerID, table.Players, table.ActionDeadline),
+		"players":    playersCopy,
+		"game_state": gameState,
 		"spectator":  client.spectator,
 	}
-	s.sendMessage(client, &Message{Type: MsgState, Payload: state, Sequence: table.Sequence, Timestamp: time.Now()})
+	s.sendMessage(client, &Message{Type: MsgState, Payload: state, Sequence: seq, Timestamp: time.Now()})
 	s.persistSnapshot(msg.TableID)
 	s.startBotTurns(msg.TableID)
 }
@@ -508,9 +519,14 @@ func (s *Server) startBotTurns(tableID string) {
 				s.broadcastToTable(tableID, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: "thinking", Payload: map[string]interface{}{"action": turn.Action}, Sequence: turn.Sequence, Timestamp: time.Now()})
 				time.Sleep(delay)
 			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			client := &Client{playerID: turn.PlayerID, tableID: tableID}
 			s.handleAction(client, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: turn.Action, Payload: turn.Payload, Sequence: turn.Sequence})
-			_ = s.roomManager.SetPokerDeadline(tableID, time.Now().Add(18*time.Second))
+			_ = s.roomManager.SetPokerDeadline(tableID, time.Now().Add(18500*time.Millisecond))
 			time.Sleep(25 * time.Millisecond)
 		}
 	}()
@@ -531,7 +547,7 @@ func (s *Server) broadcastBotEmotes(tableID string, winners []string, handRanks 
 		winnerSet[w] = true
 	}
 	if t, ok := s.roomManager.GetTable(tableID); ok {
-		for _, p := range t.Players {
+		for _, p := range t.CopyPlayers() {
 			if !p.IsBot {
 				continue
 			}
@@ -791,6 +807,15 @@ func validGameType(gameType string) bool {
 	return gameType == "poker" || gameType == "belote" || gameType == "rami"
 }
 
+var sharedHTTPClient = &http.Client{
+	Timeout: 3 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 32,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
+
 // notifySessionComplete signals the backend that a bot simulation session
 // has ended, so the Django model can be moved to status=completed.
 func (s *Server) notifySessionComplete(tableID string) {
@@ -802,7 +827,11 @@ func (s *Server) notifySessionComplete(tableID string) {
 			"table_id": tableID,
 			"reason":   "session_ended",
 		})
-		url := s.config.BackendInternalURL + "/internal/bots/session-complete/"
+		baseURL := strings.TrimRight(s.config.BackendInternalURL, "/")
+		url := baseURL + "/api/v1/games/internal/bots/session-complete/"
+		if strings.HasSuffix(baseURL, "/api/v1/games") {
+			url = baseURL + "/internal/bots/session-complete/"
+		}
 		req, err := http.NewRequest("POST", url, bytes.NewReader(payload))
 		if err != nil {
 			log.Printf("notify session complete build request failed: %v", err)
@@ -810,8 +839,7 @@ func (s *Server) notifySessionComplete(tableID string) {
 		}
 		req.Header.Set("X-Game-Engine-Bot-Secret", s.config.BotServiceSecret)
 		req.Header.Set("Content-Type", "application/json")
-		client := &http.Client{Timeout: 3 * time.Second}
-		resp, err := client.Do(req)
+		resp, err := sharedHTTPClient.Do(req)
 		if err != nil {
 			log.Printf("notify session complete failed table=%s: %v", tableID, err)
 			return
@@ -823,19 +851,68 @@ func (s *Server) notifySessionComplete(tableID string) {
 	}()
 }
 
+type S2SSettlementResult struct {
+	PlayerID  string                 `json:"player_id"`
+	Outcome   string                 `json:"outcome"`
+	Amount    int64                  `json:"amount"`
+	Signature string                 `json:"signature"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// notifyS2SSettlement transmits finished round settlements directly from game-engine
+// to Django S2S endpoint, guaranteeing wallet credit even if a player's mobile
+// connection dropped right at the showdown before their client could POST /results/.
+func (s *Server) notifyS2SSettlement(tableID, gameType string, results []S2SSettlementResult) {
+	if s.config.BackendInternalURL == "" || len(results) == 0 {
+		return
+	}
+	go func() {
+		payload, err := json.Marshal(map[string]interface{}{
+			"game_id":   tableID,
+			"game_type": gameType,
+			"results":   results,
+		})
+		if err != nil {
+			log.Printf("notify s2s settlement marshal failed: %v", err)
+			return
+		}
+		baseURL := strings.TrimRight(s.config.BackendInternalURL, "/")
+		url := baseURL + "/api/v1/games/internal/settle-round/"
+		if strings.HasSuffix(baseURL, "/api/v1/games") {
+			url = baseURL + "/internal/settle-round/"
+		}
+		req, err := http.NewRequest("POST", url, bytes.NewReader(payload))
+		if err != nil {
+			log.Printf("notify s2s settlement build request failed: %v", err)
+			return
+		}
+		req.Header.Set("X-Game-Engine-Secret", s.config.ResultSecret)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := sharedHTTPClient.Do(req)
+		if err != nil {
+			log.Printf("notify s2s settlement failed table=%s: %v", tableID, err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 400 {
+			log.Printf("notify s2s settlement rejected table=%s status=%d", tableID, resp.StatusCode)
+		}
+	}()
+}
+
 func (s *Server) handleLeave(client *Client, msg *Message) {
 	leftTableID := client.tableID
 	if leftTableID != "" && !client.spectator {
 		s.roomManager.LeavePlayer(leftTableID, client.playerID)
 	}
-	client.tableID = ""
 	s.removeClient(client)
+	client.tableID = ""
 	s.sendMessage(client, &Message{Type: MsgLeave, Payload: map[string]interface{}{"left": true}, Timestamp: time.Now()})
 	// Notify backend when the last human leaves a bot simulation table.
 	if !client.isBot && leftTableID != "" {
 		if table, exists := s.roomManager.GetTable(leftTableID); exists {
 			hasHuman := false
-			for _, p := range table.Players {
+			for _, p := range table.CopyPlayers() {
 				if !p.IsBot && p.IsActive {
 					hasHuman = true
 					break
@@ -886,19 +963,28 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		payouts, finished := s.roomManager.FinishedPokerPayouts(msg.TableID)
 		if finished {
 			table, _ := s.roomManager.GetTable(msg.TableID)
-			for playerID := range table.Players {
+			var tablePlayers map[string]*room.Player
+			if table != nil {
+				tablePlayers = table.CopyPlayers()
+			}
+			var pokerS2S []S2SSettlementResult
+			for playerID := range tablePlayers {
 				share := payouts[playerID]
 				outcome := "loss"
 				if share > 0 {
 					outcome = "win"
 				}
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": outcome, "amount": share, "signature": signResult(s.config.ResultSecret, msg.TableID, "poker", outcome, int(share), playerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
+				sig := signResult(s.config.ResultSecret, msg.TableID, "poker", outcome, int(share), playerID)
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": outcome, "amount": share, "signature": sig}, Sequence: event.Sequence, Timestamp: time.Now()})
+				pokerS2S = append(pokerS2S, S2SSettlementResult{PlayerID: playerID, Outcome: outcome, Amount: share, Signature: sig})
 			}
+			s.notifyS2SSettlement(msg.TableID, "poker", pokerS2S)
 			if showdownPayouts, revealed, pot, finishReason, ok := s.roomManager.PokerShowdown(msg.TableID); ok {
 				winners := make([]string, 0, len(showdownPayouts))
 				handRanks := make(map[string]string)
 				bestCards := make(map[string][]poker.Card)
 				if table, exists := s.roomManager.GetTable(msg.TableID); exists {
+					table.RLock()
 					if hand, isPoker := table.State.(*poker.Hand); isPoker {
 						for _, player := range hand.Players {
 							if cards, shown := revealed[player.ID]; shown {
@@ -907,6 +993,7 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 							}
 						}
 					}
+					table.RUnlock()
 				}
 				for playerID, share := range showdownPayouts {
 					if share > 0 {
@@ -957,12 +1044,18 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 	if !replayed && msg.Action == "play_card" {
 		winners, losers, points, finished := s.roomManager.FinishedBeloteResults(msg.TableID)
 		if finished {
+			var beloteS2S []S2SSettlementResult
 			for _, playerID := range winners {
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": points, "signature": signResult(s.config.ResultSecret, msg.TableID, "belote", "win", int(points), playerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
+				sig := signResult(s.config.ResultSecret, msg.TableID, "belote", "win", int(points), playerID)
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": points, "signature": sig}, Sequence: event.Sequence, Timestamp: time.Now()})
+				beloteS2S = append(beloteS2S, S2SSettlementResult{PlayerID: playerID, Outcome: "win", Amount: points, Signature: sig})
 			}
 			for _, playerID := range losers {
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "belote", "loss", 0, playerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
+				sig := signResult(s.config.ResultSecret, msg.TableID, "belote", "loss", 0, playerID)
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": sig}, Sequence: event.Sequence, Timestamp: time.Now()})
+				beloteS2S = append(beloteS2S, S2SSettlementResult{PlayerID: playerID, Outcome: "loss", Amount: 0, Signature: sig})
 			}
+			s.notifyS2SSettlement(msg.TableID, "belote", beloteS2S)
 			// Auto-restart next round after a short delay if humans are still present.
 			table, _ := s.roomManager.GetTable(msg.TableID)
 			if table != nil && table.IsActive {
@@ -977,10 +1070,16 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 	if !replayed && (msg.Action == "discard" || msg.Action == "knock") {
 		winnerID, losers, amount, finished := s.roomManager.FinishedRamiResults(msg.TableID)
 		if finished {
-			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": amount, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "win", int(amount), winnerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
+			var ramiS2S []S2SSettlementResult
+			winSig := signResult(s.config.ResultSecret, msg.TableID, "rami", "win", int(amount), winnerID)
+			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": amount, "signature": winSig}, Sequence: event.Sequence, Timestamp: time.Now()})
+			ramiS2S = append(ramiS2S, S2SSettlementResult{PlayerID: winnerID, Outcome: "win", Amount: amount, Signature: winSig})
 			for _, playerID := range losers {
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": signResult(s.config.ResultSecret, msg.TableID, "rami", "loss", 0, playerID)}, Sequence: event.Sequence, Timestamp: time.Now()})
+				lossSig := signResult(s.config.ResultSecret, msg.TableID, "rami", "loss", 0, playerID)
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": lossSig}, Sequence: event.Sequence, Timestamp: time.Now()})
+				ramiS2S = append(ramiS2S, S2SSettlementResult{PlayerID: playerID, Outcome: "loss", Amount: 0, Signature: lossSig})
 			}
+			s.notifyS2SSettlement(msg.TableID, "rami", ramiS2S)
 			// Auto-restart next game after a short delay if humans are still present.
 			table, _ := s.roomManager.GetTable(msg.TableID)
 			if table != nil && table.IsActive {
@@ -994,7 +1093,7 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 	}
 	if !replayed {
 		if tableGameType(s.roomManager, msg.TableID) == "poker" {
-			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(18*time.Second))
+			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(18500*time.Millisecond))
 		}
 		s.broadcastState(msg.TableID)
 		if msg.Action == "new_hand" {
@@ -1018,29 +1117,61 @@ func (s *Server) sendPokerLifecycle(client *Client, tableID string) {
 	if !ok {
 		return
 	}
+	table.RLock()
 	hand, ok := table.State.(*poker.Hand)
 	if !ok {
+		table.RUnlock()
 		return
 	}
-	s.sendMessage(client, pokerPresentationMessage(tableID, "", "hand_started", map[string]interface{}{"phase": hand.Phase, "button": hand.Button, "small_blind": hand.SmallBlind, "big_blind": hand.BigBlind}, table.Sequence))
-	s.sendMessage(client, pokerPresentationMessage(tableID, hand.Players[hand.Button].ID, "dealer_button_moved", map[string]interface{}{"button": hand.Button}, table.Sequence))
-	if hand.Started {
+	phase := hand.Phase
+	button := hand.Button
+	smallBlind := hand.SmallBlind
+	bigBlind := hand.BigBlind
+	started := hand.Started
+	seq := table.Sequence
+	buttonPlayerID := ""
+	if button >= 0 && button < len(hand.Players) {
+		buttonPlayerID = hand.Players[button].ID
+	}
+	smallPlayerID := ""
+	bigPlayerID := ""
+	if started {
 		small, big := hand.BlindSeatsForPresentation()
-		s.sendMessage(client, pokerPresentationMessage(tableID, hand.Players[small].ID, "blind_posted", map[string]interface{}{"blind": "small", "amount": hand.SmallBlind}, table.Sequence))
-		s.sendMessage(client, pokerPresentationMessage(tableID, hand.Players[big].ID, "blind_posted", map[string]interface{}{"blind": "big", "amount": hand.BigBlind}, table.Sequence))
+		if small >= 0 && small < len(hand.Players) {
+			smallPlayerID = hand.Players[small].ID
+		}
+		if big >= 0 && big < len(hand.Players) {
+			bigPlayerID = hand.Players[big].ID
+		}
+	}
+	table.RUnlock()
+	s.sendMessage(client, pokerPresentationMessage(tableID, "", "hand_started", map[string]interface{}{"phase": phase, "button": button, "small_blind": smallBlind, "big_blind": bigBlind}, seq))
+	s.sendMessage(client, pokerPresentationMessage(tableID, buttonPlayerID, "dealer_button_moved", map[string]interface{}{"button": button}, seq))
+	if started {
+		s.sendMessage(client, pokerPresentationMessage(tableID, smallPlayerID, "blind_posted", map[string]interface{}{"blind": "small", "amount": smallBlind}, seq))
+		s.sendMessage(client, pokerPresentationMessage(tableID, bigPlayerID, "blind_posted", map[string]interface{}{"blind": "big", "amount": bigBlind}, seq))
 	}
 }
 
-func (s *Server) broadcastPokerLifecycle(tableID string) {
+func (s *Server) tableClientSlice(tableID string, excludeSpectators bool) []*Client {
 	s.mu.RLock()
-	clients := make([]*Client, 0, len(s.clients))
-	for _, client := range s.clients {
-		if client.tableID == tableID {
-			clients = append(clients, client)
-		}
+	defer s.mu.RUnlock()
+	group := s.tableClients[tableID]
+	if len(group) == 0 {
+		return nil
 	}
-	s.mu.RUnlock()
-	for _, client := range clients {
+	clients := make([]*Client, 0, len(group))
+	for _, client := range group {
+		if excludeSpectators && client.spectator {
+			continue
+		}
+		clients = append(clients, client)
+	}
+	return clients
+}
+
+func (s *Server) broadcastPokerLifecycle(tableID string) {
+	for _, client := range s.tableClientSlice(tableID, false) {
 		s.sendPokerLifecycle(client, tableID)
 	}
 }
@@ -1054,32 +1185,29 @@ func (s *Server) sendPokerDeal(client *Client, tableID string) {
 	if !ok {
 		return
 	}
-	tableState := table.State
-	hand, ok := tableState.(*poker.Hand)
+	table.RLock()
+	hand, ok := table.State.(*poker.Hand)
 	if !ok || len(hand.Players) == 0 {
+		table.RUnlock()
 		return
 	}
+	var cardsCopy []poker.Card
+	phase := hand.Phase
+	seq := table.Sequence
 	for _, player := range hand.Players {
-		if player.ID != client.playerID {
-			continue
+		if player.ID == client.playerID {
+			cardsCopy = append([]poker.Card(nil), player.Cards...)
+			break
 		}
-		for index, card := range player.Cards {
-			s.sendMessage(client, &Message{Type: MsgAction, TableID: tableID, PlayerID: player.ID, Action: "private_card_dealt", Payload: map[string]interface{}{"index": index, "card": card, "phase": hand.Phase}, Sequence: table.Sequence, Timestamp: time.Now()})
-		}
-		return
+	}
+	table.RUnlock()
+	for index, card := range cardsCopy {
+		s.sendMessage(client, &Message{Type: MsgAction, TableID: tableID, PlayerID: client.playerID, Action: "private_card_dealt", Payload: map[string]interface{}{"index": index, "card": card, "phase": phase}, Sequence: seq, Timestamp: time.Now()})
 	}
 }
 
 func (s *Server) broadcastPokerDeal(tableID string) {
-	s.mu.RLock()
-	clients := make([]*Client, 0, len(s.clients))
-	for _, client := range s.clients {
-		if client.tableID == tableID && !client.spectator {
-			clients = append(clients, client)
-		}
-	}
-	s.mu.RUnlock()
-	for _, client := range clients {
+	for _, client := range s.tableClientSlice(tableID, true) {
 		s.sendPokerDeal(client, tableID)
 	}
 }
@@ -1092,6 +1220,7 @@ func actionDetails(manager *room.Manager, tableID, playerID, action string, payl
 		}
 	}
 	if table, ok := manager.GetTable(tableID); ok {
+		table.RLock()
 		switch game := table.State.(type) {
 		case *poker.Hand:
 			details["phase"] = game.Phase
@@ -1104,6 +1233,7 @@ func actionDetails(manager *room.Manager, tableID, playerID, action string, payl
 				}
 			}
 		}
+		table.RUnlock()
 	}
 	return details
 }
@@ -1111,10 +1241,12 @@ func actionDetails(manager *room.Manager, tableID, playerID, action string, payl
 func streetDetails(manager *room.Manager, tableID, previous, current string) map[string]interface{} {
 	details := map[string]interface{}{"from": previous, "phase": current}
 	if table, ok := manager.GetTable(tableID); ok {
+		table.RLock()
 		if hand, ok := table.State.(*poker.Hand); ok {
-			details["community"] = hand.Community
+			details["community"] = append([]poker.Card(nil), hand.Community...)
 			details["pot_after"] = hand.Pot
 		}
+		table.RUnlock()
 	}
 	return details
 }
@@ -1127,29 +1259,30 @@ func (s *Server) broadcastState(tableID string) {
 	if !ok {
 		return
 	}
-	tableSnapshot := map[string]interface{}{
-		"table_id": table.ID, "game_type": table.GameType,
-		"players": table.Players,
-	}
-	sequence := table.Sequence
-	state := table.State
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, client := range s.clients {
-		if client.tableID != tableID {
-			continue
-		}
+	playersCopy := table.CopyPlayers()
+	clients := s.tableClientSlice(tableID, false)
+	for _, client := range clients {
+		table.RLock()
+		sequence := table.Sequence
+		actionDeadline := table.ActionDeadline
+		pokerLevel := table.PokerLevel
+		handsPlayed := table.PokerHandsPlayed
+		smallBlind := table.PokerSmallBlind
+		bigBlind := table.PokerBigBlind
+		gameState := publicGameState(table.State, client.playerID, playersCopy, actionDeadline)
+		table.RUnlock()
+
 		deadline := interface{}(nil)
-		if !table.ActionDeadline.IsZero() {
-			deadline = table.ActionDeadline
+		if !actionDeadline.IsZero() {
+			deadline = actionDeadline
 		}
 		payload := map[string]interface{}{
-			"table_id": tableSnapshot["table_id"], "game_type": tableSnapshot["game_type"],
-			"players": tableSnapshot["players"], "game_state": publicGameState(state, client.playerID, table.Players, table.ActionDeadline),
+			"table_id": table.ID, "game_type": table.GameType,
+			"players": playersCopy, "game_state": gameState,
 			"spectator": client.spectator,
 			"action_deadline": deadline,
-			"poker_level": table.PokerLevel, "hands_played": table.PokerHandsPlayed,
-			"small_blind": table.PokerSmallBlind, "big_blind": table.PokerBigBlind,
+			"poker_level": pokerLevel, "hands_played": handsPlayed,
+			"small_blind": smallBlind, "big_blind": bigBlind,
 		}
 		data, err := json.Marshal(&Message{Type: MsgState, Payload: payload, Sequence: sequence, Timestamp: time.Now()})
 		if err == nil {
@@ -1173,6 +1306,8 @@ func pokerCommunity(manager *room.Manager, tableID string) []poker.Card {
 	if !ok {
 		return nil
 	}
+	table.RLock()
+	defer table.RUnlock()
 	if hand, ok := table.State.(*poker.Hand); ok {
 		return append([]poker.Card(nil), hand.Community...)
 	}
@@ -1218,7 +1353,23 @@ func (s *Server) handleSync(client *Client, msg *Message) {
 func (s *Server) addClient(client *Client) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if previous, exists := s.clients[client.playerID]; exists && previous.tableID != "" && previous.tableID != client.tableID {
+		if group, ok := s.tableClients[previous.tableID]; ok {
+			delete(group, client.playerID)
+			if len(group) == 0 {
+				delete(s.tableClients, previous.tableID)
+			}
+		}
+	}
 	s.clients[client.playerID] = client
+	if client.tableID != "" {
+		group, ok := s.tableClients[client.tableID]
+		if !ok {
+			group = make(map[string]*Client)
+			s.tableClients[client.tableID] = group
+		}
+		group[client.playerID] = client
+	}
 }
 
 func (s *Server) removeClient(client *Client) bool {
@@ -1228,6 +1379,14 @@ func (s *Server) removeClient(client *Client) bool {
 	// socket may close after the new one is registered and must not remove it.
 	if current, ok := s.clients[client.playerID]; ok && current == client {
 		delete(s.clients, client.playerID)
+		if client.tableID != "" {
+			if group, exists := s.tableClients[client.tableID]; exists {
+				delete(group, client.playerID)
+				if len(group) == 0 {
+					delete(s.tableClients, client.tableID)
+				}
+			}
+		}
 		return true
 	}
 	return false
@@ -1246,16 +1405,11 @@ func (s *Server) sendMessage(client *Client, message *Message) {
 }
 
 func (s *Server) broadcastToTable(tableID string, msg *Message) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	data, _ := json.Marshal(msg)
-	for _, client := range s.clients {
-		if client.tableID == tableID {
-			select {
-			case client.send <- data:
-			default:
-			}
+	for _, client := range s.tableClientSlice(tableID, false) {
+		select {
+		case client.send <- data:
+		default:
 		}
 	}
 }

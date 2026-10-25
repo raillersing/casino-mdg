@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import requests
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
@@ -293,6 +294,133 @@ class BotSimulationCompleteView(APIView):
         session.completed_at = timezone.now()
         session.save(update_fields=["status", "completed_at"])
         return Response(bot_simulation_payload(session))
+
+
+class InternalGameSettleView(APIView):
+    """
+    Endpoint Serveur-à-Serveur (S2S) appelé directement par le moteur temps réel Go.
+    Crédite et enregistre les résultats de fin de manche de façon infalsifiable,
+    indépendamment de la connectivité réseau du navigateur du joueur au moment du showdown.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        received_secret = (
+            request.headers.get("X-Game-Engine-Secret")
+            or request.headers.get("X-Game-Engine-Result-Secret")
+            or request.headers.get("X-Game-Engine-Bot-Secret", "")
+        )
+        expected_secret = getattr(settings, "GAME_ENGINE_RESULT_SECRET", "")
+        bot_secret = getattr(settings, "GAME_ENGINE_BOT_SECRET", "")
+
+        is_valid = False
+        if received_secret and (
+            (expected_secret and hmac.compare_digest(received_secret, expected_secret))
+            or (bot_secret and hmac.compare_digest(received_secret, bot_secret))
+        ):
+            is_valid = True
+
+        if not is_valid:
+            return Response({"detail": "Non autorisé."}, status=403)
+
+        game_id = request.data.get("game_id")
+        game_type = request.data.get("game_type")
+        if not game_id or not game_type:
+            return Response({"detail": "game_id et game_type requis."}, status=400)
+
+        raw_results = request.data.get("results")
+        if raw_results is None:
+            raw_results = [request.data]
+        elif not isinstance(raw_results, list):
+            return Response({"detail": "results doit être une liste."}, status=400)
+
+        User = get_user_model()
+        settled_details = []
+
+        for item in raw_results:
+            player_id = item.get("player_id")
+            outcome = item.get("outcome", "loss")
+            try:
+                amount = int(item.get("amount", 0))
+            except (ValueError, TypeError):
+                amount = 0
+            metadata = item.get("metadata") or {}
+
+            if not player_id:
+                continue
+
+            try:
+                user = User.objects.filter(pk=player_id).first()
+            except (ValueError, TypeError):
+                user = None
+
+            if not user:
+                settled_details.append({
+                    "player_id": player_id,
+                    "status": "ignored_non_user",
+                    "outcome": outcome,
+                })
+                continue
+
+            existing = GameResult.objects.filter(game_id=game_id, user=user).first()
+            if existing:
+                settled_details.append({
+                    "player_id": player_id,
+                    "status": "already_settled",
+                    "id": existing.pk,
+                    "outcome": existing.outcome,
+                })
+                continue
+
+            try:
+                with transaction.atomic():
+                    transaction_entry = None
+                    if outcome == "win" and amount > 0:
+                        transaction_entry, _ = settle_game_win(
+                            user, game_id, game_type, amount, metadata
+                        )
+                    result = GameResult.objects.create(
+                        game_id=game_id,
+                        user=user,
+                        game_type=game_type,
+                        outcome=outcome,
+                        amount=amount,
+                        transaction=transaction_entry,
+                        metadata=metadata,
+                    )
+                    record_audit(
+                        user,
+                        "game.result.s2s_settled",
+                        result,
+                        {
+                            "outcome": outcome,
+                            "amount": amount,
+                            "source": "game-engine-s2s",
+                        },
+                    )
+                    settled_details.append({
+                        "player_id": player_id,
+                        "status": "settled",
+                        "id": result.pk,
+                        "outcome": outcome,
+                        "amount": amount,
+                        "transaction_id": str(transaction_entry.pk) if transaction_entry else None,
+                    })
+            except IntegrityError:
+                existing = GameResult.objects.filter(game_id=game_id, user=user).first()
+                settled_details.append({
+                    "player_id": player_id,
+                    "status": "already_settled",
+                    "id": existing.pk if existing else None,
+                })
+
+        settled_count = len([d for d in settled_details if d.get("status") == "settled"])
+        return Response({
+            "status": "ok",
+            "game_id": str(game_id),
+            "settled_count": settled_count,
+            "details": settled_details,
+        }, status=200)
 
 
 class TableListCreateView(APIView):

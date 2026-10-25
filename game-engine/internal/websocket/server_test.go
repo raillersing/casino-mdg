@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -644,6 +645,51 @@ func TestAuthenticateSupportsFloatAndIntegerExpTimestamps(t *testing.T) {
 	}
 	if claims2.Sub != "user-int-1" {
 		t.Fatalf("expected sub user-int-1, got %s", claims2.Sub)
+	}
+}
+
+func TestNotifyS2SSettlementTransmitsPayloadWithSecret(t *testing.T) {
+	receivedHeader := ""
+	var receivedBody map[string]interface{}
+	s2sServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/games/internal/settle-round/" {
+			receivedHeader = r.Header.Get("X-Game-Engine-Secret")
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer s2sServer.Close()
+
+	cfg := &config.Config{
+		JWTSecret:          "test-secret",
+		ResultSecret:       "s2s-test-secret",
+		BackendInternalURL: s2sServer.URL,
+		GracePeriod:        time.Second,
+		Deterministic:      true,
+	}
+	manager := room.NewManager(cfg)
+	server := NewServer(cfg, manager)
+
+	results := []S2SSettlementResult{
+		{PlayerID: "123", Outcome: "win", Amount: 500, Signature: "sig123"},
+		{PlayerID: "456", Outcome: "loss", Amount: 0, Signature: "sig456"},
+	}
+
+	server.notifyS2SSettlement("table-s2s-1", "poker", results)
+
+	time.Sleep(100 * time.Millisecond)
+
+	if receivedHeader != "s2s-test-secret" {
+		t.Fatalf("expected X-Game-Engine-Secret s2s-test-secret, got %q", receivedHeader)
+	}
+	if receivedBody["game_id"] != "table-s2s-1" {
+		t.Fatalf("expected game_id table-s2s-1, got %v", receivedBody["game_id"])
+	}
+	if receivedBody["game_type"] != "poker" {
+		t.Fatalf("expected game_type poker, got %v", receivedBody["game_type"])
 	}
 }
 

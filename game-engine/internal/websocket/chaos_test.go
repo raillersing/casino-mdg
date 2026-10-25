@@ -32,6 +32,15 @@ func TestChaosFailoverAndDistributedFencingBetweenNodes(t *testing.T) {
 	}
 	manager1 := room.NewManager(cfg1)
 	server1 := NewServer(cfg1, manager1)
+
+	// Multi-node failover requires an active Redis instance. Skip if Redis is unreachable in this test environment.
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), time.Second)
+	defer pingCancel()
+	if err := server1.snapshots.Ping(pingCtx); err != nil {
+		t.Skipf("Redis unreachable at %s, skipping multi-node failover chaos test: %v", redisURL, err)
+		return
+	}
+
 	httpServer1 := httptest.NewServer(serverHandler(server1))
 
 	// Configuration for Node 2
@@ -111,6 +120,20 @@ func TestChaosFailoverAndDistributedFencingBetweenNodes(t *testing.T) {
 	lease, ok, _ := server1.snapshots.GetTableLease(context.Background(), tableID)
 	if ok && lease.NodeID != "" && lease.NodeID != "node-engine-1" {
 		t.Fatalf("expected lease owner node-engine-1, got %s", lease.NodeID)
+	}
+
+	// Deterministically wait for the async snapshot goroutine to persist to Redis before simulating Node 1 crash
+	persisted := false
+	for i := 0; i < 40; i++ {
+		var snap room.TableSnapshot
+		if err := server1.snapshots.GetSnapshotInto(tableID, &snap); err == nil && snap.Sequence >= savedSeq {
+			persisted = true
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if !persisted {
+		t.Fatalf("snapshot with sequence >= %d was not persisted to Redis before crash", savedSeq)
 	}
 
 	// 2. CHAOS INJECTION: Abrupt crash of Node 1

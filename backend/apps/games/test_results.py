@@ -214,6 +214,26 @@ class GameResultTests(TestCase):
         # Both results exist for the same game_id
         self.assertEqual(GameResult.objects.filter(game_id=game_id).count(), 2)
 
+        # Second winner (e.g. Belote teammate or split pot) can also settle on the same game_id
+        second_winner = User.objects.create_user(
+            email="teammate@mdg.local",
+            phone="+261340000029",
+            display_name="TeammateWinner",
+        )
+        credit_simulation_bonus(second_winner)
+        client.force_authenticate(second_winner)
+        teammate_headers = engine_headers(
+            game_id, "belote", "win", 162, player_id=str(second_winner.pk)
+        )
+        teammate_resp = client.post(
+            "/api/v1/games/results/",
+            {"game_id": game_id, "game_type": "belote", "outcome": "win", "amount": 162},
+            format="json",
+            **teammate_headers,
+        )
+        self.assertEqual(teammate_resp.status_code, 201)
+        self.assertEqual(GameResult.objects.filter(game_id=game_id).count(), 3)
+
     def test_game_session_round_and_participants_persistence(self):
         owner = User.objects.create_user(
             email="sessionowner@mdg.local", phone="+261340000021", display_name="SessionOwner"
@@ -322,3 +342,63 @@ class GameResultTests(TestCase):
         ranking = client.get("/api/v1/games/leaderboard/")
         self.assertEqual(ranking.status_code, 200)
         self.assertEqual(ranking.data["results"][0]["display_name"], "First")
+
+    def test_internal_s2s_settlement_credits_winners_and_ignores_bots(self):
+        user1 = User.objects.create_user(
+            email="s2s_winner@mdg.local", phone="+261340000030", display_name="S2SWinner"
+        )
+        user2 = User.objects.create_user(
+            email="s2s_loser@mdg.local", phone="+261340000031", display_name="S2SLoser"
+        )
+        credit_simulation_bonus(user1)
+        credit_simulation_bonus(user2)
+
+        client = APIClient()
+        game_id = str(uuid.uuid4())
+        payload = {
+            "game_id": game_id,
+            "game_type": "poker",
+            "results": [
+                {"player_id": str(user1.pk), "outcome": "win", "amount": 250},
+                {"player_id": str(user2.pk), "outcome": "loss", "amount": 0},
+                {"player_id": "bot-ai-seat-3", "outcome": "loss", "amount": 0},
+            ],
+        }
+
+        # 1. Missing secret should be rejected
+        unauth_resp = client.post("/api/v1/games/internal/settle-round/", payload, format="json")
+        self.assertEqual(unauth_resp.status_code, 403)
+
+        # 2. Valid secret processes settlement
+        headers = {"HTTP_X_GAME_ENGINE_SECRET": settings.GAME_ENGINE_RESULT_SECRET}
+        resp = client.post("/api/v1/games/internal/settle-round/", payload, format="json", **headers)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["status"], "ok")
+        self.assertEqual(resp.data["settled_count"], 2)
+
+        # Winner was credited
+        win_res = GameResult.objects.get(game_id=game_id, user=user1)
+        self.assertEqual(win_res.outcome, "win")
+        self.assertEqual(win_res.amount, 250)
+        self.assertIsNotNone(win_res.transaction)
+
+        # Loser result is recorded
+        loss_res = GameResult.objects.get(game_id=game_id, user=user2)
+        self.assertEqual(loss_res.outcome, "loss")
+        self.assertIsNone(loss_res.transaction)
+
+        # 3. Idempotency: replay S2S settlement does not double credit
+        replay_resp = client.post("/api/v1/games/internal/settle-round/", payload, format="json", **headers)
+        self.assertEqual(replay_resp.status_code, 200)
+        self.assertEqual(replay_resp.data["settled_count"], 0)
+
+        # 4. Client-side retry via /api/v1/games/results/ succeeds idempotently without double credit
+        client.force_authenticate(user1)
+        client_retry = client.post(
+            "/api/v1/games/results/",
+            {"game_id": game_id, "game_type": "poker", "outcome": "win", "amount": 250},
+            format="json",
+            **engine_headers(game_id, "poker", "win", 250, player_id=str(user1.pk)),
+        )
+        self.assertEqual(client_retry.status_code, 200)
+        self.assertEqual(client_retry.data["created"], False)

@@ -60,6 +60,28 @@ type Table struct {
 	mu               sync.RWMutex
 }
 
+func (t *Table) RLock() {
+	t.mu.RLock()
+}
+
+func (t *Table) RUnlock() {
+	t.mu.RUnlock()
+}
+
+// CopyPlayers returns a thread-safe shallow copy of the players map for JSON serialization.
+func (t *Table) CopyPlayers() map[string]*Player {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	copied := make(map[string]*Player, len(t.Players))
+	for id, p := range t.Players {
+		if p != nil {
+			clone := *p
+			copied[id] = &clone
+		}
+	}
+	return copied
+}
+
 type Event struct {
 	ID        string      `json:"event_id"`
 	TableID   string      `json:"table_id"`
@@ -71,19 +93,21 @@ type Event struct {
 }
 
 type TableSnapshot struct {
-	ID               string             `json:"id"`
-	GameType         string             `json:"game_type"`
-	Sequence         uint64             `json:"sequence"`
-	Players          map[string]*Player `json:"players"`
-	Events           []Event            `json:"events"`
-	UpdatedAt        time.Time          `json:"updated_at"`
-	State            json.RawMessage    `json:"state,omitempty"`
-	ActionDeadline   time.Time          `json:"action_deadline"`
-	PokerLevel       int                `json:"poker_level"`
-	PokerHandsPlayed int                `json:"poker_hands_played"`
-	PokerSmallBlind  int64              `json:"poker_small_blind"`
-	PokerBigBlind    int64              `json:"poker_big_blind"`
-	Generation       uint64             `json:"generation,omitempty"`
+	ID                string             `json:"id"`
+	GameType          string             `json:"game_type"`
+	Sequence          uint64             `json:"sequence"`
+	Players           map[string]*Player `json:"players"`
+	Events            []Event            `json:"events"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+	State             json.RawMessage    `json:"state,omitempty"`
+	ActionDeadline    time.Time          `json:"action_deadline"`
+	PokerLevel        int                `json:"poker_level"`
+	PokerHandsPlayed  int                `json:"poker_hands_played"`
+	PokerSmallBlind   int64              `json:"poker_small_blind"`
+	PokerBigBlind     int64              `json:"poker_big_blind"`
+	BeloteTeamScores  [2]int             `json:"belote_team_scores,omitempty"`
+	BeloteTargetScore int                `json:"belote_target_score,omitempty"`
+	Generation        uint64             `json:"generation,omitempty"`
 }
 
 type Player struct {
@@ -1567,6 +1591,7 @@ func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 		ActionDeadline: table.ActionDeadline,
 		PokerLevel: table.PokerLevel, PokerHandsPlayed: table.PokerHandsPlayed,
 		PokerSmallBlind: table.PokerSmallBlind, PokerBigBlind: table.PokerBigBlind,
+		BeloteTeamScores: table.BeloteTeamScores, BeloteTargetScore: table.BeloteTargetScore,
 		Generation: table.Generation,
 	}, nil
 }
@@ -1594,6 +1619,7 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 		ActionDeadline: snapshot.ActionDeadline,
 		PokerLevel: snapshot.PokerLevel, PokerHandsPlayed: snapshot.PokerHandsPlayed,
 		PokerSmallBlind: snapshot.PokerSmallBlind, PokerBigBlind: snapshot.PokerBigBlind,
+		BeloteTeamScores: snapshot.BeloteTeamScores, BeloteTargetScore: snapshot.BeloteTargetScore,
 		BotTilt: make(map[string]int), BotRecentStrength: make(map[string]int),
 		Generation: snapshot.Generation,
 	}
@@ -1970,10 +1996,15 @@ func applyRamiAction(table *Table, playerID, action string, payload interface{})
 	}
 }
 
+const maxTableEvents = 256
+
 func appendEvent(table *Table, playerID, action string, payload interface{}) Event {
 	table.Sequence++
 	event := Event{ID: uuid.New().String(), TableID: table.ID, PlayerID: playerID, Action: action, Payload: payload, Sequence: table.Sequence, Timestamp: time.Now()}
 	table.Events = append(table.Events, event)
+	if len(table.Events) > maxTableEvents {
+		table.Events = append([]Event(nil), table.Events[len(table.Events)-maxTableEvents:]...)
+	}
 	table.UpdatedAt = event.Timestamp
 	return event
 }

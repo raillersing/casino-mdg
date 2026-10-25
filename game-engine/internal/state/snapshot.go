@@ -62,6 +62,14 @@ func NewSnapshotManagerWithNode(redisURL, nodeID string) *SnapshotManager {
 	}
 }
 
+// Ping verifies connectivity to the underlying Redis instance.
+func (sm *SnapshotManager) Ping(ctx context.Context) error {
+	if sm.redisClient == nil {
+		return fmt.Errorf("redis client not configured")
+	}
+	return sm.redisClient.Ping(ctx).Err()
+}
+
 // AcquireTableLease acquires an atomic distributed lease on a table using a fencing generation token.
 // If acquired, returns the generation number.
 // If already owned by another node and lease is unexpired, returns error.
