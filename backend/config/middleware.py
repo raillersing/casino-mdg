@@ -1,3 +1,4 @@
+import re
 import time
 import uuid
 from collections import Counter
@@ -6,6 +7,13 @@ from threading import Lock
 REQUEST_COUNTS = Counter()
 REQUEST_DURATION_SECONDS = Counter()
 _METRICS_LOCK = Lock()
+_UUID_SEGMENT_RE = re.compile(
+    r"/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?=/|$)"
+)
+
+
+def _normalize_metric_path(path: str) -> str:
+    return _UUID_SEGMENT_RE.sub("/:uuid", path or "/")
 
 
 class RequestIDMiddleware:
@@ -17,7 +25,8 @@ class RequestIDMiddleware:
         request.request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         response = self.get_response(request)
         duration = time.monotonic() - started
-        labels = (request.method, request.path, str(response.status_code))
+        norm_path = _normalize_metric_path(request.path)
+        labels = (request.method, norm_path, str(response.status_code))
         with _METRICS_LOCK:
             REQUEST_COUNTS[labels] += 1
             REQUEST_DURATION_SECONDS[labels] += duration
