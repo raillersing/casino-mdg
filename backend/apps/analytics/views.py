@@ -61,6 +61,7 @@ def retention_snapshot(events, now):
 
 EVENT_NAMES = {
     "activation_viewed",
+    "play_hub_viewed",
     "test_games_opened",
     "demo_started",
     "bot_mode_selected",
@@ -72,6 +73,7 @@ EVENT_NAMES = {
     "bot_simulation_started",
     "bot_simulation_completed",
     "demo_connected",
+    "table_joined",
     "invite_sent",
     "invite_joined",
     "reconnection_succeeded",

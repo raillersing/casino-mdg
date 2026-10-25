@@ -12,6 +12,7 @@ import {
   WalletCards,
   Sparkles,
   Flame,
+  ShieldCheck,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getCurrentUser, refreshAccessToken } from "@services/auth";
@@ -42,6 +43,15 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: "/casino", label: t("nav.testGames") || "Jeux de hasard", icon: Dices },
     { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
     { to: "/profile", label: t("nav.profile"), icon: CircleUserRound },
+    ...(user?.isStaff
+      ? [
+          {
+            to: "/backoffice",
+            label: "Back-office Live Ops",
+            icon: ShieldCheck,
+          },
+        ]
+      : []),
   ];
 
   // Mobile bottom bar: 5 direct, essential thumb destinations (Zero redundancy)

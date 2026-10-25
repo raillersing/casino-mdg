@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { useGameStore } from "@stores/gameStore";
 import {
   getAuditEvents,
   getFeatureFlags,
+  getLiveDashboard,
   getPaymentReconciliation,
   getProductEventSummary,
   getPilotFeedbackSummary,
@@ -15,10 +16,12 @@ import {
   getModerationMessages,
   getPilotActions,
   getResponsibleGamingExclusions,
+  setFeatureFlag,
   setModerationMessage,
   updatePilotActionStatus,
   updatePilotIncidentStatus,
   updatePilotParticipantStatus,
+  type LiveDashboardData,
   type PilotParticipant,
   type PilotSession,
   type ModerationMessage,
@@ -34,9 +37,20 @@ import {
   type KYCRequestData,
 } from "@services/kyc";
 import { CheckCircle2, Download, FileText, HeartHandshake } from "lucide-react";
+import { LiveCommandCenter } from "@components/backoffice/LiveCommandCenter";
 
 export function BackofficePage() {
   const token = useGameStore((state) => state.accessToken);
+  const user = useGameStore((state) => state.user);
+  const [liveDashboard, setLiveDashboard] = useState<LiveDashboardData | null>(
+    null,
+  );
+  const [windowDays, setWindowDays] = useState<number>(7);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<
+    "all" | "games" | "app" | "flow" | "ops"
+  >("all");
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [reconciliation, setReconciliation] = useState<{
@@ -98,59 +112,106 @@ export function BackofficePage() {
       }
     >;
   } | null>(null);
+  const loadAllBackofficeData = useCallback(
+    (days: number) => {
+      if (!token) {
+        setError("Connexion staff requise.");
+        return;
+      }
+      if (user && !user.isStaff) {
+        setError("Accès refusé : espace réservé uniquement au staff Back-office.");
+        return;
+      }
+      setRefreshing(true);
+      Promise.all([
+        getAuditEvents(token),
+        getFeatureFlags(token),
+        getPaymentReconciliation(token),
+        getProductEventSummary(token),
+        getPilotFeedbackSummary(token),
+        getPilotGateSummary(token),
+        getPilotIncidents(token),
+        getPilotParticipants(token),
+        getPilotSessions(token),
+        getModerationMessages(token),
+        getPilotActions(token),
+        getBackofficeKYCRequests(token),
+        getResponsibleGamingExclusions(token),
+        getLiveDashboard(token, days).catch(() => null),
+      ])
+        .then(
+          ([
+            audit,
+            featureFlags,
+            report,
+            summary,
+            feedback,
+            gate,
+            tickets,
+            pilot,
+            sessionReport,
+            moderation,
+            actions,
+            kycData,
+            rgData,
+            liveData,
+          ]) => {
+            setEvents(audit.results);
+            setFlags(featureFlags.results);
+            setReconciliation(report);
+            setProductSummary(summary);
+            setFeedbackSummary(feedback);
+            setPilotGate(gate);
+            setIncidents(tickets.results);
+            setParticipants(pilot.results);
+            setSessions(sessionReport.results);
+            setModerationMessages(moderation.results);
+            setPilotActions(actions.results);
+            setKycRequests(kycData.results);
+            setRgExclusions(rgData.results);
+            if (liveData) {
+              setLiveDashboard(liveData);
+            }
+          },
+        )
+        .catch((reason: Error) => setError(reason.message))
+        .finally(() => setRefreshing(false));
+    },
+    [token, user],
+  );
+
   useEffect(() => {
-    if (!token) {
-      setError("Connexion staff requise.");
-      return;
+    loadAllBackofficeData(windowDays);
+  }, [loadAllBackofficeData, windowDays]);
+
+  useEffect(() => {
+    if (!autoRefresh || !token) return;
+    const interval = window.setInterval(() => {
+      loadAllBackofficeData(windowDays);
+    }, 10000);
+    return () => window.clearInterval(interval);
+  }, [autoRefresh, loadAllBackofficeData, token, windowDays]);
+
+  const handleToggleFlag = async (flag: FeatureFlag) => {
+    if (!token) return;
+    try {
+      const updated = await setFeatureFlag(
+        token,
+        flag.key,
+        !flag.enabled,
+        flag.reason || "Action Backoffice Live Ops",
+      );
+      setFlags((current) =>
+        current.map((item) =>
+          item.key === flag.key ? { ...item, enabled: updated.enabled } : item,
+        ),
+      );
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : "Impossible de modifier le flag.",
+      );
     }
-    Promise.all([
-      getAuditEvents(token),
-      getFeatureFlags(token),
-      getPaymentReconciliation(token),
-      getProductEventSummary(token),
-      getPilotFeedbackSummary(token),
-      getPilotGateSummary(token),
-      getPilotIncidents(token),
-      getPilotParticipants(token),
-      getPilotSessions(token),
-      getModerationMessages(token),
-      getPilotActions(token),
-      getBackofficeKYCRequests(token),
-      getResponsibleGamingExclusions(token),
-    ])
-      .then(
-        ([
-          audit,
-          featureFlags,
-          report,
-          summary,
-          feedback,
-          gate,
-          tickets,
-          pilot,
-          sessionReport,
-          moderation,
-          actions,
-          kycData,
-          rgData,
-        ]) => {
-          setEvents(audit.results);
-          setFlags(featureFlags.results);
-          setReconciliation(report);
-          setProductSummary(summary);
-          setFeedbackSummary(feedback);
-          setPilotGate(gate);
-          setIncidents(tickets.results);
-          setParticipants(pilot.results);
-          setSessions(sessionReport.results);
-          setModerationMessages(moderation.results);
-          setPilotActions(actions.results);
-          setKycRequests(kycData.results);
-          setRgExclusions(rgData.results);
-        },
-      )
-      .catch((reason: Error) => setError(reason.message));
-  }, [token]);
+  };
 
   const handleReviewKYC = async (
     requestId: number,
@@ -345,6 +406,18 @@ export function BackofficePage() {
           <span>Rétention D7 · acteurs éligibles</span>
         </div>
       </div>
+      <LiveCommandCenter
+        data={liveDashboard}
+        loading={refreshing}
+        windowDays={windowDays}
+        onChangeWindowDays={setWindowDays}
+        autoRefresh={autoRefresh}
+        onToggleAutoRefresh={() => setAutoRefresh((prev) => !prev)}
+        onManualRefresh={() => loadAllBackofficeData(windowDays)}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+      />
+      {(activeTab === "all" || activeTab === "ops") && (
       <div className="wallet-layout">
         <section className="activity-card">
           <div className="chat-head">Cohorte pilote · suivi d’activation</div>
@@ -927,7 +1000,16 @@ export function BackofficePage() {
                   <strong>{flag.key}</strong>
                   <span>{flag.reason || "Sans raison"}</span>
                 </div>
-                <b>{flag.enabled ? "ON" : "OFF"}</b>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <b>{flag.enabled ? "ON" : "OFF"}</b>
+                  <button
+                    type="button"
+                    className="button button-sm button-ghost"
+                    onClick={() => void handleToggleFlag(flag)}
+                  >
+                    Basculer
+                  </button>
+                </div>
               </div>
             ))
           ) : (
@@ -955,6 +1037,7 @@ export function BackofficePage() {
           )}
         </section>
       </div>
+      )}
     </div>
   );
 }

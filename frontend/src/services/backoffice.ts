@@ -27,6 +27,291 @@ export function getAuditEvents(token: string) {
 export function getFeatureFlags(token: string) {
   return get<{ results: FeatureFlag[] }>("feature-flags/", token);
 }
+export function setFeatureFlag(
+  token: string,
+  key: string,
+  enabled: boolean,
+  reason = "Mise à jour Live Ops",
+) {
+  return fetch("/api/v1/backoffice/feature-flags/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ key, enabled, reason }),
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || "Action refusée.");
+    return payload as FeatureFlag;
+  });
+}
+
+export type LiveDashboardTableGame = {
+  game_type: string;
+  label: string;
+  tables_open: number;
+  tables_running: number;
+  active_human_seats: number;
+  active_bot_seats: number;
+  results_count: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  volume_settled_sim: number;
+  errors_count: number;
+  sessions_started: number;
+  sessions_completed: number;
+  completion_rate_pct: number | null;
+};
+
+export type LiveDashboardInstantGame = {
+  slug: string;
+  name: string;
+  game_type: string;
+  status: string;
+  cost: number;
+  max_prize: number;
+  plays_count: number;
+  total_handle_sim: number;
+  total_payout_sim: number;
+  ggr_sim: number;
+  observed_rtp_pct: number;
+  theoretical_rtp_pct: number;
+  win_rate_pct: number;
+};
+
+export type LiveDashboardDrawGame = {
+  slug: string;
+  name: string;
+  draw_type: string;
+  status: string;
+  entry_cost: number;
+  entries_count: number;
+  total_pool_sim: number;
+  closes_at: string;
+};
+
+export type LiveDashboardTableRadar = {
+  id: string;
+  table_code: string;
+  name: string;
+  game_type: string;
+  mode: string;
+  stakes: string;
+  status: string;
+  max_players: number;
+  human_players: number;
+  bot_players: number;
+  player_count: number;
+  is_private: boolean;
+  updated_at: string;
+};
+
+export type LiveDashboardRegionLatency = {
+  region_code: string;
+  region_name: string;
+  transport: string;
+  rtt_ms: number;
+  jitter_ms: number;
+  turn_budget_remaining_sec: number;
+  effective_window_pct: number;
+  recommended_lag_comp_ms: number;
+  status: "optimal" | "good" | "fair" | "warning";
+};
+
+export type LiveDashboardCapacityTier = {
+  tier_id: string;
+  label: string;
+  target_ccu: number;
+  status: "ready" | "warning" | "critical" | "blocked";
+  estimated_ws_lookups_per_sec: number;
+  estimated_http_req_per_sec: number;
+  estimated_db_writes_per_sec: number;
+  headroom_pct: number;
+  bottleneck_analysis: string;
+};
+
+export type LiveDashboardFunnelStage = {
+  key: string;
+  label: string;
+  count: number;
+  conversion_from_top_pct: number;
+  step_conversion_pct: number;
+  drop_off_pct: number;
+};
+
+export type LiveDashboardHourlyBucket = {
+  hour_label: string;
+  iso_hour: string;
+  events_count: number;
+  active_sessions: number;
+  games_played: number;
+  errors_count: number;
+};
+
+export type LiveDashboardActivityEvent = {
+  id: string;
+  event_name: string;
+  actor: string;
+  game_type: string;
+  mode: string;
+  session_id: string;
+  latency_ms: number | null;
+  created_at: string;
+};
+
+export type LiveDashboardData = {
+  generated_at: string;
+  window_days: number;
+  games_stats: {
+    overview: {
+      tables_total: number;
+      tables_open: number;
+      tables_running: number;
+      tables_finished: number;
+      active_human_seats: number;
+      active_bot_seats: number;
+      bot_sessions_running: number;
+      sessions_active: number;
+      rounds_total: number;
+      rounds_settled: number;
+      results_recorded: number;
+      instant_plays_count: number;
+      draw_entries_count: number;
+      tournaments_active: number;
+      total_handle_sim: number;
+      total_payout_sim: number;
+      gross_gaming_revenue_sim: number;
+      observed_rtp_pct: number;
+    };
+    by_table_game: LiveDashboardTableGame[];
+    by_mode: Array<{
+      mode: string;
+      label: string;
+      tables_count: number;
+      events_count: number;
+    }>;
+    instant_games: LiveDashboardInstantGame[];
+    draw_games: LiveDashboardDrawGame[];
+    active_tables_radar: LiveDashboardTableRadar[];
+  };
+  application_stats: {
+    services_health: {
+      game_engine: {
+        status: "online" | "degraded" | "standby" | "offline";
+        probe_latency_ms: number | null;
+        websocket_clients_ccu: number;
+        tables_active: number;
+        players_active: number;
+        events_total: number;
+      };
+      database: {
+        status: string;
+        latency_ms: number | null;
+        conn_max_age: number;
+        pooling_mode: string;
+      };
+      cache_redis: {
+        status: string;
+        latency_ms: number | null;
+      };
+    };
+    http_telemetry: {
+      total_requests: number;
+      avg_latency_ms: number;
+      error_rate_pct: number;
+      status_breakdown: {
+        "2xx": number;
+        "3xx": number;
+        "4xx": number;
+        "429_rate_limited": number;
+        "5xx_errors": number;
+      };
+      top_endpoints: Array<{
+        method: string;
+        path: string;
+        calls: number;
+        avg_ms: number;
+      }>;
+    };
+    network_latency: {
+      samples: number;
+      avg_ms: number | null;
+      p50_ms: number | null;
+      p95_ms: number | null;
+      p99_ms: number | null;
+      min_ms: number | null;
+      max_ms: number | null;
+      estimated_jitter_ms: number | null;
+      quality_distribution: {
+        excellent_lt_80ms: { count: number; pct: number };
+        good_80_150ms: { count: number; pct: number };
+        fair_150_350ms: { count: number; pct: number };
+        poor_gt_350ms: { count: number; pct: number };
+      };
+      global_regions_matrix: LiveDashboardRegionLatency[];
+    };
+    concurrency_and_capacity: {
+      websocket_clients_ccu: number;
+      estimated_concurrent_users: number;
+      production_readiness_score: number;
+      readiness_pillars: {
+        rng_and_game_rules: number;
+        security_and_kyc: number;
+        realtime_ws_engine: number;
+        database_and_ledger_scale: number;
+        global_edge_infrastructure: number;
+      };
+      capacity_tiers: LiveDashboardCapacityTier[];
+    };
+  };
+  player_flow: {
+    realtime_presence: {
+      online_30s: number;
+      online_5m: number;
+      searching_matchmaking: number;
+      queue_by_game: Record<string, number>;
+      seated_human_players: number;
+      playing_vs_ai: number;
+      active_24h_dau: number;
+      active_window_ua: number;
+      active_window_sessions: number;
+      total_registered_users: number;
+    };
+    conversion_funnel: LiveDashboardFunnelStage[];
+    matchmaking_health: {
+      started: number;
+      human_matched: number;
+      bot_fallback: number;
+      timeout: number;
+      cancelled: number;
+      human_match_rate_pct: number;
+      bot_fallback_rate_pct: number;
+    };
+    network_resilience: {
+      reconnections_succeeded: number;
+      sessions_paused: number;
+      game_errors: number;
+      recovery_rate_pct: number;
+    };
+    hourly_traffic_24h: LiveDashboardHourlyBucket[];
+    user_segments: {
+      kyc_breakdown: {
+        discovered: number;
+        light_player: number;
+        verified: number;
+        vip: number;
+      };
+      wallet_velocity: Record<string, { count: number; volume: number }>;
+    };
+    live_activity_stream: LiveDashboardActivityEvent[];
+  };
+};
+
+export function getLiveDashboard(token: string, days = 7) {
+  return get<LiveDashboardData>(`live-dashboard/?days=${days}`, token);
+}
 export function getPaymentReconciliation(token: string) {
   return get<{
     intents_pending: number;

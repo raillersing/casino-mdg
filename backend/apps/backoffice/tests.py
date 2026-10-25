@@ -1,9 +1,17 @@
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
+from apps.analytics.models import ProductEvent
 from apps.backoffice.models import AuditEvent, FeatureFlag
-from apps.games.models import GameTable, TableSeat
+from apps.games.models import (
+    GameResult,
+    GameTable,
+    MatchmakingTicket,
+    PlayerPresence,
+    TableSeat,
+)
 from apps.payments.models import PaymentIntent, WebhookInboxEvent
 from apps.social.models import ChatMessage
 
@@ -127,3 +135,131 @@ class AuditTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["intents_pending"], 1)
         self.assertEqual(len(response.data["unmatched_webhooks"]), 1)
+
+    def test_live_dashboard_is_staff_only_and_aggregates_telemetry(self):
+        player = User.objects.create_user(
+            email="liveplayer@mdg.local",
+            phone="+261340000031",
+            display_name="Live Player",
+        )
+        staff = User.objects.create_user(
+            email="livestaff@mdg.local",
+            phone="+261340000032",
+            display_name="Live Staff",
+            is_staff=True,
+        )
+        client = APIClient()
+
+        # 1. Anonymous user -> 401
+        self.assertEqual(
+            client.get("/api/v1/backoffice/live-dashboard/").status_code, 401
+        )
+
+        # 2. Regular player -> 403 Forbidden
+        client.force_authenticate(player)
+        self.assertEqual(
+            client.get("/api/v1/backoffice/live-dashboard/").status_code, 403
+        )
+
+        # 3. Seed game tables, presence, matchmaking, results & latency telemetry
+        table = GameTable.objects.create(
+            table_code="POKER-LIVE-01",
+            name="Table Royale",
+            game_type="poker",
+            status="running",
+            stakes="100 / 200",
+            max_players=9,
+            created_by=player,
+        )
+        TableSeat.objects.create(table=table, user=player, seat_index=0)
+        PlayerPresence.objects.create(
+            user=player,
+            game_type="poker",
+            status="online",
+            last_seen_at=timezone.now(),
+        )
+        MatchmakingTicket.objects.create(
+            user=player,
+            game_type="belote",
+            status="queued",
+        )
+        GameResult.objects.create(
+            game_id=table.id,
+            user=player,
+            game_type="poker",
+            outcome="win",
+            amount=1500,
+        )
+        for ev_name, meta in (
+            ("activation_viewed", {}),
+            ("play_hub_viewed", {}),
+            ("matchmaking_started", {}),
+            ("human_match_found", {}),
+            ("table_joined", {}),
+            ("test_game_played", {}),
+            ("first_game_completed", {}),
+            ("reconnection_succeeded", {}),
+            ("heartbeat_latency", {"latency_ms": 62}),
+            ("heartbeat_latency", {"latency_ms": 145}),
+            ("heartbeat_latency", {"latency_ms": 280}),
+        ):
+            ProductEvent.objects.create(
+                event_name=ev_name,
+                user=player,
+                session_id="live-sess-1",
+                game_type="poker",
+                mode="HUMAN_MATCH",
+                metadata=meta,
+            )
+
+        # 4. Staff user -> 200 OK with full 3-pillar telemetry
+        client.force_authenticate(staff)
+        res = client.get("/api/v1/backoffice/live-dashboard/?days=7")
+        self.assertEqual(res.status_code, 200)
+        data = res.data
+
+        # Pillar 1: Games stats
+        self.assertEqual(data["games_stats"]["overview"]["tables_running"], 1)
+        self.assertEqual(data["games_stats"]["overview"]["active_human_seats"], 1)
+        self.assertEqual(data["games_stats"]["overview"]["results_recorded"], 1)
+        self.assertTrue(len(data["games_stats"]["by_table_game"]) >= 3)
+        self.assertTrue(len(data["games_stats"]["instant_games"]) >= 3)
+        self.assertEqual(
+            data["games_stats"]["active_tables_radar"][0]["table_code"],
+            "POKER-LIVE-01",
+        )
+
+        # Pillar 2: Application, network latency & concurrency stats
+        self.assertEqual(
+            data["application_stats"]["services_health"]["database"]["status"], "ok"
+        )
+        self.assertEqual(
+            data["application_stats"]["network_latency"]["samples"], 3
+        )
+        self.assertIsNotNone(
+            data["application_stats"]["network_latency"]["p95_ms"]
+        )
+        self.assertEqual(
+            len(data["application_stats"]["network_latency"]["global_regions_matrix"]),
+            6,
+        )
+        self.assertEqual(
+            len(
+                data["application_stats"]["concurrency_and_capacity"]["capacity_tiers"]
+            ),
+            4,
+        )
+
+        # Pillar 3: Player flow
+        self.assertEqual(
+            data["player_flow"]["realtime_presence"]["online_30s"], 1
+        )
+        self.assertEqual(
+            data["player_flow"]["realtime_presence"]["searching_matchmaking"], 1
+        )
+        self.assertEqual(
+            data["player_flow"]["network_resilience"]["reconnections_succeeded"], 1
+        )
+        self.assertEqual(len(data["player_flow"]["hourly_traffic_24h"]), 24)
+        self.assertTrue(len(data["player_flow"]["conversion_funnel"]) == 6)
+        self.assertTrue(len(data["player_flow"]["live_activity_stream"]) >= 1)

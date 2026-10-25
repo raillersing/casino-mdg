@@ -1,10 +1,12 @@
 from django.urls import path
 
 from apps.kyc.views import BackofficeKYCListView, BackofficeKYCReviewView
+from .dashboard_views import LiveDashboardView
 from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliationView
 from .views import AuditEventListView
 
 urlpatterns = [
+    path("live-dashboard/", LiveDashboardView.as_view(), name="live-dashboard"),
     path("audit-events/", AuditEventListView.as_view(), name="audit-events"),
     path("feature-flags/", FeatureFlagView.as_view(), name="feature-flags"),
     path("chat-messages/", ChatModerationView.as_view(), name="chat-moderation"),
