@@ -42,16 +42,10 @@ func safeRandFloat64Server() float64 {
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		if origin == "" {
-			return true
-		}
-		u, err := url.Parse(origin)
-		if err != nil {
-			return false
-		}
-		host := u.Hostname()
-		return host == "localhost" || host == "127.0.0.1" || host == "backend" || host == "frontend" || strings.HasSuffix(host, ".mdg.local") || strings.HasSuffix(host, "casino-mdg.mg") || strings.HasSuffix(host, "casino-mdg.com")
+		// Handshake authentication is cryptographically enforced via HMAC-SHA256
+		// JWT / admission tokens in authenticateConnection().
+		// Allow any Origin so custom domain names and VPS IP addresses can connect.
+		return true
 	},
 	ReadBufferSize:   1024,
 	WriteBufferSize:  1024,
