@@ -12,7 +12,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"

@@ -155,7 +155,7 @@ func (g *Game) PlayTile(playerID string, tile Tile, side string) error {
 				g.Board = append(g.Board, PlayedTile{Left: tile.Left, Right: tile.Right})
 				g.RightEnd = tile.Right
 			} else if tile.Right == g.RightEnd {
-				g.Board = append(g.Board, PlayedTile{{Left: tile.Right, Right: tile.Left}})
+				g.Board = append(g.Board, PlayedTile{Left: tile.Right, Right: tile.Left})
 				g.RightEnd = tile.Left
 			} else {
 				return fmt.Errorf("tile cannot connect to right end")
