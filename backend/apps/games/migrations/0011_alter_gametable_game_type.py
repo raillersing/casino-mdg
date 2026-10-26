@@ -81,4 +81,20 @@ class Migration(migrations.Migration):
                 max_length=20,
             ),
         ),
+        migrations.AlterField(
+            model_name="playerpresence",
+            name="game_type",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("poker", "Poker"),
+                    ("belote", "Belote"),
+                    ("rami", "Rami"),
+                    ("ludo", "Ludo"),
+                    ("domino", "Domino"),
+                ],
+                max_length=20,
+                null=True,
+            ),
+        ),
     ]
