@@ -8245,21 +8245,110 @@ h3 {
 }
 
 /* ==========================================================================
-   2. DOMINO ARENA STAGE (Malagasy Rosewood Lounge)
+   DELUXE PLAYING CARD COMPONENT (Luxury Cloth & Board Games)
+   ========================================================================== */
+.playing-card.card-deluxe {
+  position: relative;
+  width: 52px;
+  height: 76px;
+  border-radius: 8px;
+  background: linear-gradient(155deg, #ffffff 0%, #faf8f5 55%, #f2eae0 100%);
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  padding: 4px 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  user-select: none;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
+}
+
+.playing-card.card-deluxe.card-red {
+  color: #dc2626 !important;
+}
+.playing-card.card-deluxe.card-black {
+  color: #111827 !important;
+}
+
+.card-corner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-family: var(--mono, monospace);
+  font-weight: 800;
+  pointer-events: none;
+}
+.card-corner-tl {
+  align-self: flex-start;
+}
+.card-corner-br {
+  align-self: flex-end;
+  transform: rotate(180deg);
+}
+
+.card-corner .card-val {
+  font-size: 11px;
+  letter-spacing: -0.05em;
+}
+.card-corner .card-sym {
+  font-size: 10px;
+  margin-top: 1px;
+}
+
+.card-center-suit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 22px;
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+/* Card Back Pattern */
+.playing-card.card-deluxe.hidden-card {
+  background: radial-gradient(circle at 50% 50%, #1a365d 0%, #0c1a2e 100%) !important;
+  border: 2px solid #d4af37 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 3px !important;
+}
+.card-back-pattern {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 5px;
+  background-image: repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.15) 0, rgba(212, 175, 55, 0.15) 2px, transparent 0, transparent 6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-back-emblem {
+  color: #ffd700;
+  font-size: 14px;
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.5));
+}
+
+/* ==========================================================================
+   2. DOMINO ARENA STAGE (Authentic Malagasy Rosewood Table)
    ========================================================================== */
 .domino-arena-stage {
   position: relative;
   margin: 16px auto;
   max-width: 980px;
-  min-height: 580px;
-  border-radius: 28px;
-  background: radial-gradient(circle at 50% 30%, #20140e 0%, #130a06 60%, #0a0503 100%);
-  border: 2px solid rgba(212, 175, 55, 0.3);
+  min-height: 600px;
+  border-radius: 36px;
+  background: radial-gradient(circle at 50% 40%, #143e2d 0%, #0a261c 65%, #05140e 100%);
+  border: 14px solid #3c2012;
   box-shadow:
-    0 35px 85px rgba(0, 0, 0, 0.8),
-    inset 0 0 100px rgba(0, 0, 0, 0.6),
+    0 35px 85px rgba(0, 0, 0, 0.85),
+    inset 0 0 100px rgba(0, 0, 0, 0.65),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  padding: 22px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -8267,13 +8356,13 @@ h3 {
   box-sizing: border-box;
 }
 
-/* Brass Corner Rivets */
+/* Brass Corner Rivets on Wooden Frame */
 .domino-arena-stage::before {
   content: "";
   position: absolute;
-  inset: 7px;
-  border: 1px solid rgba(212, 175, 55, 0.18);
-  border-radius: 21px;
+  inset: -8px;
+  border: 2px dashed rgba(212, 175, 55, 0.35);
+  border-radius: 38px;
   pointer-events: none;
 }
 
@@ -8283,10 +8372,10 @@ h3 {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 10px 18px;
-  background: rgba(30, 20, 14, 0.6);
+  padding: 8px 16px;
+  background: rgba(20, 12, 8, 0.7);
   backdrop-filter: blur(14px);
-  border: 1px solid rgba(212, 175, 55, 0.25);
+  border: 1px solid rgba(212, 175, 55, 0.3);
   border-radius: 16px;
 }
 
@@ -8302,48 +8391,33 @@ h3 {
   text-transform: uppercase;
 }
 
-.domino-boneyard-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  border-radius: 20px;
-  font-size: 0.82rem;
-  color: #f3f4f6;
-}
-
-.domino-boneyard-badge strong {
-  color: #ffd700;
-}
-
 .domino-opponents-row {
   display: flex;
   justify-content: space-around;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin: 6px 0;
+  margin: 4px 0;
 }
 
 .domino-opponent-card {
-  background: rgba(26, 17, 12, 0.8);
+  background: rgba(22, 14, 9, 0.82);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(212, 175, 55, 0.22);
+  border: 1px solid rgba(212, 175, 55, 0.24);
   border-radius: 16px;
-  padding: 10px 16px;
+  padding: 8px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 160px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  min-width: 170px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .domino-opponent-card.active-turn {
   animation: turnGlowPulseGold 2.2s infinite ease-in-out;
   transform: translateY(-2px);
+  border-color: #ffd700;
 }
 
 .domino-opponent-avatar {
@@ -8362,6 +8436,7 @@ h3 {
 .domino-opponent-info {
   display: flex;
   flex-direction: column;
+  gap: 3px;
 }
 
 .domino-opponent-name {
@@ -8370,25 +8445,85 @@ h3 {
   color: #f9fafb;
 }
 
-.domino-opponent-count {
-  font-size: 0.72rem;
-  color: #d4af37;
-  font-weight: 600;
+/* Opponent Mini-Racks of Standing Tiles */
+.domino-mini-rack {
+  display: flex;
+  gap: 3px;
+  background: linear-gradient(180deg, #381f12 0%, #1a0c06 100%);
+  padding: 3px 5px;
+  border-radius: 5px;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
 }
 
+.domino-face-down-mini {
+  width: 10px;
+  height: 20px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, #1c1006 0%, #0b0502 100%);
+  border: 0.5px solid #6b3e1c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* 3D Boneyard (Talon) Stack */
+.domino-boneyard-pile {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  background: rgba(22, 13, 8, 0.75);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.domino-boneyard-pile.can-draw {
+  border-color: #10b981;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+  animation: turnGlowPulseGold 2s infinite ease-in-out;
+}
+
+.domino-boneyard-pile:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.domino-tiles-stack-art {
+  display: flex;
+  position: relative;
+  width: 38px;
+  height: 28px;
+  margin-bottom: 2px;
+}
+
+.boneyard-tile-layer {
+  position: absolute;
+  width: 26px;
+  height: 14px;
+  border-radius: 3px;
+  background: #27160b;
+  border: 1px solid #6d3f1d;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.boneyard-layer-1 { top: 12px; left: 2px; }
+.boneyard-layer-2 { top: 6px; left: 6px; background: #321c0e; }
+.boneyard-layer-3 { top: 0px; left: 10px; background: #442714; border-color: #ffd700; }
+
+/* Domino Center Runner */
 .domino-center-mat {
   position: relative;
-  margin: 10px 0;
-  background: radial-gradient(ellipse at center, #12402e 0%, #0a291d 75%, #051a12 100%);
+  margin: 6px 0;
+  background: radial-gradient(ellipse at center, #0e3b2a 0%, #072218 75%, #03140d 100%);
   border: 1px dashed rgba(212, 175, 55, 0.45);
   border-radius: 20px;
-  padding: 16px 20px;
+  padding: 14px 18px;
   box-shadow:
     inset 0 0 50px rgba(0, 0, 0, 0.7),
     0 12px 30px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .domino-ends-bar {
@@ -8401,7 +8536,7 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 5px 14px;
   border-radius: 16px;
   font-size: 0.8rem;
   font-weight: 700;
@@ -8409,7 +8544,7 @@ h3 {
   background: rgba(16, 185, 129, 0.2);
   border: 1px solid #10b981;
   color: #6ee7b7;
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.3);
 }
 
 .domino-chain-scrollable {
@@ -8419,9 +8554,9 @@ h3 {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 16px 12px;
-  min-height: 90px;
+  min-height: 96px;
   scroll-behavior: smooth;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.3);
   border-radius: 14px;
 }
 
@@ -8437,9 +8572,31 @@ h3 {
   border-radius: 3px;
 }
 
+/* Domino Snapping on Table Animation */
+@keyframes dominoSnapOnTable {
+  0% {
+    transform: scale(1.4) translateY(-28px);
+    opacity: 0;
+    box-shadow: 0 25px 35px rgba(0, 0, 0, 0.7);
+  }
+  65% {
+    transform: scale(0.96) translateY(2px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  }
+}
+
+.domino-snap-anim {
+  animation: dominoSnapOnTable 0.36s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+
+/* Wooden Chevalet (Hero Rack) */
 .domino-rack-wooden {
   position: relative;
-  margin: 12px auto 0;
+  margin: 8px auto 0;
   width: fit-content;
   max-width: 100%;
   display: flex;
@@ -8457,44 +8614,51 @@ h3 {
   overflow-x: auto;
 }
 
-.domino-rack-playable-tile {
-  cursor: pointer;
+.domino-rack-tile-wrapper {
+  position: relative;
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.domino-rack-playable-tile:hover {
-  transform: translateY(-10px) scale(1.04);
+.domino-rack-playable-tile {
+  cursor: pointer;
+  animation: playableDominoBounce 2.4s infinite ease-in-out;
 }
 
-.domino-rack-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 10px;
+.domino-rack-playable-tile:hover {
+  transform: translateY(-14px) scale(1.06) !important;
 }
 
 /* ==========================================================================
-   3. BELOTE ARENA STAGE (Prestige Club Card Room)
+   3. BELOTE ARENA STAGE (Authentic Square Card Table with Cloth & Fans)
    ========================================================================== */
 .belote-arena-stage {
   position: relative;
   margin: 16px auto;
-  max-width: 940px;
-  min-height: 590px;
-  border-radius: 28px;
-  background: radial-gradient(circle at 50% 40%, #162438 0%, #0d1624 60%, #060b13 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: 960px;
+  min-height: 610px;
+  border-radius: 36px;
+  background: radial-gradient(circle at 50% 45%, #19563c 0%, #103d2a 60%, #071e14 100%);
+  border: 14px solid #23160e;
   box-shadow:
-    0 35px 85px rgba(0, 0, 0, 0.75),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 0 60px rgba(0, 0, 0, 0.5);
-  padding: 22px;
+    0 35px 85px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 80px rgba(0, 0, 0, 0.65);
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: 16px;
   box-sizing: border-box;
+}
+
+/* Stitched Border on Felt */
+.belote-arena-stage::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border: 2px dashed rgba(212, 175, 55, 0.35);
+  border-radius: 38px;
+  pointer-events: none;
 }
 
 .belote-scoreboard-marquee {
@@ -8503,10 +8667,10 @@ h3 {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 10px 20px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 18px;
+  background: rgba(16, 26, 20, 0.7);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.25);
   border-radius: 16px;
 }
 
@@ -8518,45 +8682,47 @@ h3 {
   border-radius: 14px;
   font-size: 0.85rem;
   font-weight: 700;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .belote-team-score-badge.team-us {
-  border-color: rgba(212, 175, 55, 0.4);
+  border-color: rgba(212, 175, 55, 0.5);
   color: #ffd700;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.2);
 }
 
 .belote-square-arena {
   display: grid;
-  grid-template-columns: 200px 1fr 200px;
-  grid-template-rows: 80px 1fr 80px;
+  grid-template-columns: 210px 1fr 210px;
+  grid-template-rows: auto 1fr auto;
   gap: 14px;
   align-items: center;
   justify-items: center;
   margin: auto;
   width: 100%;
-  max-width: 840px;
-  min-height: 440px;
+  max-width: 860px;
+  min-height: 420px;
   position: relative;
 }
 
 .belote-seat-card {
-  background: rgba(20, 29, 44, 0.8);
+  background: rgba(16, 26, 20, 0.85);
   backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  padding: 8px 16px;
+  padding: 8px 14px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .belote-seat-card.active-turn {
   animation: turnGlowPulseGold 2.2s infinite ease-in-out;
   transform: scale(1.04);
+  border-color: #ffd700;
 }
 
 .belote-seat-north { grid-column: 2; grid-row: 1; }
@@ -8564,18 +8730,37 @@ h3 {
 .belote-seat-east { grid-column: 3; grid-row: 2; }
 .belote-seat-south { grid-column: 2; grid-row: 3; }
 
+/* Opponent Mini-Card Fan */
+.belote-opponent-cards-mini {
+  display: flex;
+  margin-top: 3px;
+}
+.belote-mini-card-back {
+  width: 13px;
+  height: 19px;
+  border-radius: 2px;
+  margin-left: -6px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0d1a29 100%);
+  border: 0.5px solid rgba(212, 175, 55, 0.6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.belote-mini-card-back:first-child {
+  margin-left: 0;
+}
+
+/* Center Trick Cloth (Le Tapis Central de Belote) */
 .belote-center-pli-mat {
   grid-column: 2;
   grid-row: 2;
   width: 100%;
-  max-width: 340px;
-  height: 240px;
-  background: radial-gradient(ellipse at center, #154634 0%, #0d2e22 75%, #061912 100%);
-  border: 2px solid rgba(212, 175, 55, 0.35);
+  max-width: 330px;
+  height: 230px;
+  background: radial-gradient(ellipse at center, #134533 0%, #0c2d21 75%, #051610 100%);
+  border: 2px solid rgba(212, 175, 55, 0.45);
   border-radius: 22px;
   box-shadow:
     inset 0 0 35px rgba(0, 0, 0, 0.7),
-    0 12px 32px rgba(0, 0, 0, 0.5);
+    0 12px 32px rgba(0, 0, 0, 0.55);
   position: relative;
   display: flex;
   align-items: center;
@@ -8584,37 +8769,110 @@ h3 {
 
 .belote-trump-gold-seal {
   position: absolute;
-  top: 10px;
-  left: 12px;
+  top: 8px;
+  left: 10px;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(212, 175, 55, 0.5);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(212, 175, 55, 0.6);
   font-size: 0.78rem;
   font-weight: 700;
   color: #ffd700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 
-.belote-hero-hand-fan {
+.pli-slot-label {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pli-slot-empty {
+  width: 44px;
+  height: 62px;
+  border: 1.5px dashed rgba(212, 175, 55, 0.25);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* Spatial Trick Play Keyframes */
+@keyframes cardPlaySnapNorth {
+  0% { transform: translateY(-90px) scale(0.4) rotate(15deg); opacity: 0; }
+  75% { transform: translateY(3px) scale(1.05) rotate(-2deg); }
+  100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes cardPlaySnapWest {
+  0% { transform: translateX(-90px) scale(0.4) rotate(-15deg); opacity: 0; }
+  75% { transform: translateX(3px) scale(1.05) rotate(2deg); }
+  100% { transform: translateX(0) scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes cardPlaySnapEast {
+  0% { transform: translateX(90px) scale(0.4) rotate(15deg); opacity: 0; }
+  75% { transform: translateX(-3px) scale(1.05) rotate(-2deg); }
+  100% { transform: translateX(0) scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes cardPlaySnapSouth {
+  0% { transform: translateY(90px) scale(0.4) rotate(-10deg); opacity: 0; }
+  75% { transform: translateY(-3px) scale(1.05) rotate(1deg); }
+  100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+}
+
+.card-played-north { animation: cardPlaySnapNorth 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
+.card-played-west { animation: cardPlaySnapWest 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
+.card-played-east { animation: cardPlaySnapEast 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
+.card-played-south { animation: cardPlaySnapSouth 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
+
+/* Real Card Fan in Hero Hand */
+.belote-cards-fan {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  gap: 8px;
-  padding: 12px 16px;
-  flex-wrap: wrap;
+  min-height: 100px;
+  padding: 6px 16px 12px;
+  position: relative;
+  perspective: 1000px;
 }
 
-.belote-hero-card {
-  cursor: pointer;
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
+.belote-fan-card-wrapper {
+  margin-left: -20px;
+  position: relative;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0.1s ease;
+  transform-origin: bottom center;
 }
 
-.belote-hero-card:hover {
-  transform: translateY(-14px) scale(1.06);
-  z-index: 10;
+.belote-fan-card-wrapper:first-child {
+  margin-left: 0;
+}
+
+.belote-fan-card-wrapper:hover {
+  transform: translateY(-28px) scale(1.18) rotate(0deg) !important;
+  z-index: 60 !important;
+}
+
+/* Card Dealing Fly-In Animation */
+@keyframes cardDealFlyIn {
+  0% {
+    transform: translate(0, -180px) scale(0.3) rotate(140deg);
+    opacity: 0;
+  }
+  70% {
+    transform: translate(0, -6px) scale(1.05) rotate(var(--rot, 0deg));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) scale(1) rotate(var(--rot, 0deg));
+    opacity: 1;
+  }
+}
+
+.belote-fan-card-wrapper.dealing-anim {
+  animation: cardDealFlyIn 0.5s cubic-bezier(0.2, 0.85, 0.35, 1.15) both;
+  animation-delay: var(--delay, 0s);
 }
 
 /* ==========================================================================
@@ -8678,8 +8936,15 @@ h3 {
   .domino-arena-stage,
   .belote-arena-stage,
   .rami-arena-stage {
-    padding: 14px;
+    padding: 12px;
     border-radius: 18px;
     min-height: auto;
   }
+  .belote-cards-fan {
+    padding: 4px 6px;
+  }
+  .belote-fan-card-wrapper {
+    margin-left: -26px;
+  }
 }
+

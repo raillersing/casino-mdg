@@ -74,6 +74,8 @@ type SoundKind =
   | "your_turn"
   | "street_changed"
   | "card_played"
+  | "domino_snap"
+  | "domino_draw"
   | "take"
   | "pass"
   | "choose_trump"
@@ -110,8 +112,43 @@ function playSound(kind: SoundKind) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(400, now);
-      osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+      osc.frequency.setValueAtTime(450, now);
+      osc.frequency.exponentialRampToValueAtTime(900, now + 0.08);
+      envelope(gain, 0.01, 0.12, 0.12);
+      osc.connect(gain).connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.14);
+      break;
+    }
+    case "domino_snap": {
+      // Solid heavy ivory/resin domino clack on table
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "triangle";
+      osc1.frequency.setValueAtTime(860, now);
+      osc1.frequency.exponentialRampToValueAtTime(320, now + 0.05);
+      envelope(gain1, 0.002, 0.18, 0.06);
+      osc1.connect(gain1).connect(masterGain);
+      osc1.start(now);
+      osc1.stop(now + 0.08);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(260, now);
+      osc2.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+      envelope(gain2, 0.003, 0.15, 0.09);
+      osc2.connect(gain2).connect(masterGain);
+      osc2.start(now);
+      osc2.stop(now + 0.11);
+      break;
+    }
+    case "domino_draw": {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(380, now);
+      osc.frequency.exponentialRampToValueAtTime(620, now + 0.08);
       envelope(gain, 0.01, 0.08, 0.1);
       osc.connect(gain).connect(masterGain);
       osc.start(now);
@@ -213,15 +250,16 @@ function playSound(kind: SoundKind) {
       break;
     }
     case "card_played": {
+      // Snappy card slap on felt
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(600, now);
-      osc.frequency.exponentialRampToValueAtTime(400, now + 0.04);
-      envelope(gain, 0.005, 0.1, 0.08);
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(750, now);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.045);
+      envelope(gain, 0.003, 0.16, 0.07);
       osc.connect(gain).connect(masterGain);
       osc.start(now);
-      osc.stop(now + 0.1);
+      osc.stop(now + 0.09);
       break;
     }
     case "take": {
@@ -2345,129 +2383,175 @@ export function GamePage() {
       )}
 
       {/* 3. Modern Domino Arena Stage (Malagasy Rosewood Lounge, Emerald Runner, Wooden Rack) */}
-      {gameType === "domino" && (
-        <div className="domino-arena-stage">
-          {/* Header / HUD */}
-          <div className="domino-stage-header">
-            <div className="domino-stage-title">
-              <span>🁓</span>
-              <span>Domino Double-Six · Salon Prestige</span>
-            </div>
-            <div
-              className={`domino-end-indicator ${isMyTurn ? "is-my-turn" : ""}`}
-              style={{
-                background: isMyTurn ? "rgba(16, 185, 129, 0.25)" : "rgba(0,0,0,0.45)",
-                borderColor: isMyTurn ? "#10b981" : "rgba(255,255,255,0.15)",
-                color: isMyTurn ? "#6ee7b7" : "#fff",
-              }}
-            >
-              <span>{isMyTurn ? "🟢 Votre tour · Choisissez un domino à poser" : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}</span>
-            </div>
-            <div className="domino-boneyard-badge">
-              <span>🁣 Talon (Pioche) :</span>
-              <strong>{Number(gameState?.boneyard_count ?? 0)}</strong>
-            </div>
-          </div>
+      {gameType === "domino" && (() => {
+        const myTiles = Array.isArray(myPokerPlayer?.hand)
+          ? (myPokerPlayer.hand as Array<{ left: number; right: number }>)
+          : [];
+        const leftEnd = Number(gameState?.left_end ?? -1);
+        const rightEnd = Number(gameState?.right_end ?? -1);
+        const boardEmpty = leftEnd === -1 && rightEnd === -1;
+        const boneyardCount = Number(gameState?.boneyard_count ?? 0);
+        const canPlayLeft = (t: { left: number; right: number }) => boardEmpty || t.left === leftEnd || t.right === leftEnd;
+        const canPlayRight = (t: { left: number; right: number }) => boardEmpty || t.left === rightEnd || t.right === rightEnd;
+        const hasPlayable = myTiles.some((t) => canPlayLeft(t) || canPlayRight(t));
 
-          {/* Opponents Row */}
-          <div className="domino-opponents-row">
-            {seatPlayers.map((player, idx) => {
-              const isTheirTurn = currentPlayerId === String(player.id || "");
-              const count = Number(player.tile_count ?? (Array.isArray(player.hand) ? player.hand.length : 7));
-              return (
-                <div key={String(player.id || idx)} className={`domino-opponent-card ${isTheirTurn ? "active-turn" : ""}`}>
-                  <div className="domino-opponent-avatar" style={{ backgroundColor: avatarColor(String(player.name || `P${idx}`)) }}>
-                    {String(player.name || `P`)[0].toUpperCase()}
-                  </div>
-                  <div className="domino-opponent-info">
-                    <span className="domino-opponent-name">{String(player.name || `Joueur ${idx + 1}`)}</span>
-                    <span className="domino-opponent-count">🁣 {count} dominos</span>
-                  </div>
-                  {isTheirTurn && (
-                    <span style={{ fontSize: "11px", color: "#ffd700", marginLeft: "auto", fontWeight: 700 }}>
-                      Réfléchit…
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Center Velvet Runner with Played Dominoes Chain */}
-          <div className="domino-center-mat">
-            <div className="domino-ends-bar">
-              <span className="domino-end-indicator">
-                ◀ Bout Gauche : <strong>{Number(gameState?.left_end ?? -1) >= 0 ? Number(gameState?.left_end) : "Libre"}</strong>
-              </span>
-              <span className="domino-end-indicator">
-                Bout Droit : <strong>{Number(gameState?.right_end ?? -1) >= 0 ? Number(gameState?.right_end) : "Libre"}</strong> ▶
-              </span>
-            </div>
-
-            <div className="domino-chain-scrollable">
-              {Array.isArray(gameState?.board) && (gameState.board as Array<{ left: number; right: number }>).length > 0 ? (
-                (gameState.board as Array<{ left: number; right: number }>).map((tile, tIdx) => (
-                  <DominoTile
-                    key={`domino-chain-tile-${tIdx}`}
-                    left={tile.left}
-                    right={tile.right}
-                    orientation={tile.left === tile.right ? "vertical" : "horizontal"}
-                    size="medium"
-                  />
-                ))
-              ) : (
-                <div style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: "0.9rem", margin: "auto", textAlign: "center", padding: "16px" }}>
-                  ✨ Table ouverte. Le premier joueur ouvre la ligne avec son domino !
-                </div>
-              )}
-            </div>
-
-            {Boolean(gameState?.blocked) && (
-              <div style={{ background: "rgba(239, 68, 68, 0.25)", border: "1px solid #ef4444", borderRadius: "12px", padding: "8px 16px", textAlign: "center", fontSize: "0.9rem", color: "#fca5a5" }}>
-                🔒 <strong>Partie Fermée (Gasy) !</strong> Gagnant au décompte des points minimaux : {String(gameState?.winner || "Adversaire")}
+        return (
+          <div className="domino-arena-stage">
+            {/* Header / HUD */}
+            <div className="domino-stage-header">
+              <div className="domino-stage-title">
+                <span>🁓</span>
+                <span>Domino Double-Six · Salon Prestige</span>
               </div>
-            )}
-          </div>
-
-          {/* Malagasy Rosewood Rack (Player's Domino Hand) */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-            <div style={{ fontSize: "0.8rem", color: "#d4af37", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              🪵 Votre Chevalet (Dominos en main)
+              <div
+                className={`domino-end-indicator ${isMyTurn ? "is-my-turn" : ""}`}
+                style={{
+                  background: isMyTurn ? "rgba(16, 185, 129, 0.25)" : "rgba(0,0,0,0.45)",
+                  borderColor: isMyTurn ? "#10b981" : "rgba(255,255,255,0.15)",
+                  color: isMyTurn ? "#6ee7b7" : "#fff",
+                }}
+              >
+                <span>{isMyTurn ? "🟢 Votre tour · Choisissez un domino à poser" : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}</span>
+              </div>
+              {/* 3D Boneyard (Talon) Stack */}
+              <div
+                className={`domino-boneyard-pile ${isMyTurn && !hasPlayable && boneyardCount > 0 ? "can-draw" : ""}`}
+                onClick={() => {
+                  if (isMyTurn && !hasPlayable && boneyardCount > 0) {
+                    playSound("domino_draw");
+                    sendGameAction("draw_tile");
+                  }
+                }}
+                title={isMyTurn && !hasPlayable && boneyardCount > 0 ? "Cliquez pour piocher un domino !" : `Talon : ${boneyardCount} dominos`}
+              >
+                <div className="domino-tiles-stack-art">
+                  <div className="boneyard-tile-layer boneyard-layer-1" />
+                  <div className="boneyard-tile-layer boneyard-layer-2" />
+                  <div className="boneyard-tile-layer boneyard-layer-3" />
+                </div>
+                <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#ffd700" }}>
+                  Talon ({boneyardCount})
+                </span>
+                {isMyTurn && !hasPlayable && boneyardCount > 0 && (
+                  <span style={{ fontSize: "0.68rem", color: "#10b981", fontWeight: 700 }}>
+                    📥 Piocher !
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="domino-rack-wooden">
-              {Array.isArray(myPokerPlayer?.hand) && (myPokerPlayer.hand as Array<{ left: number; right: number }>).map((t, idx) => {
-                const leftEnd = Number(gameState?.left_end ?? -1);
-                const rightEnd = Number(gameState?.right_end ?? -1);
-                const boardEmpty = leftEnd === -1 && rightEnd === -1;
-                const canPlayLeft = boardEmpty || t.left === leftEnd || t.right === leftEnd;
-                const canPlayRight = boardEmpty || t.left === rightEnd || t.right === rightEnd;
-                const isPlayable = isMyTurn && (canPlayLeft || canPlayRight);
 
+            {/* Opponents Row with Standing Mini-Racks */}
+            <div className="domino-opponents-row">
+              {seatPlayers.map((player, idx) => {
+                const isTheirTurn = currentPlayerId === String(player.id || "");
+                const count = Number(player.tile_count ?? (Array.isArray(player.hand) ? player.hand.length : 7));
                 return (
-                  <div key={`domino-my-tile-${idx}`} className={isPlayable ? "domino-rack-playable-tile" : ""}>
-                    <DominoTile
-                      left={t.left}
-                      right={t.right}
-                      orientation="vertical"
-                      size="medium"
-                      isPlayable={isPlayable}
-                      onClick={() => {
-                        if (!isPlayable) return;
-                        playSound("card_played");
-                        const side = canPlayLeft ? "left" : "right";
-                        sendGameAction("play_tile", { tile: t, side });
-                      }}
-                    />
+                  <div key={String(player.id || idx)} className={`domino-opponent-card ${isTheirTurn ? "active-turn" : ""}`}>
+                    <div className="domino-opponent-avatar" style={{ backgroundColor: avatarColor(String(player.name || `P${idx}`)) }}>
+                      {String(player.name || `P`)[0].toUpperCase()}
+                    </div>
+                    <div className="domino-opponent-info">
+                      <span className="domino-opponent-name">{String(player.name || `Joueur ${idx + 1}`)}</span>
+                      <div className="domino-mini-rack" title={`${count} dominos cachés`}>
+                        {Array.from({ length: Math.min(count, 7) }).map((_, i) => (
+                          <div key={i} className="domino-face-down-mini" />
+                        ))}
+                        {count > 7 && <span style={{ fontSize: "10px", color: "#ffd700", marginLeft: "2px" }}>+{count - 7}</span>}
+                      </div>
+                    </div>
+                    {isTheirTurn && (
+                      <span style={{ fontSize: "11px", color: "#ffd700", marginLeft: "auto", fontWeight: 700 }}>
+                        Réfléchit…
+                      </span>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </div>
-          {emote && <div className="table-emote">{emote}</div>}
-        </div>
-      )}
 
-      {/* 4. Modern Belote Arena Stage (Prestige Club Card Room, Square Layout, Gold Seal) */}
+            {/* Center Velvet Runner with Played Dominoes Chain */}
+            <div className="domino-center-mat">
+              <div className="domino-ends-bar">
+                <span className="domino-end-indicator">
+                  ◀ Bout Gauche : <strong>{leftEnd >= 0 ? leftEnd : "Libre"}</strong>
+                </span>
+                <span className="domino-end-indicator">
+                  Bout Droit : <strong>{rightEnd >= 0 ? rightEnd : "Libre"}</strong> ▶
+                </span>
+              </div>
+
+              <div className="domino-chain-scrollable">
+                {Array.isArray(gameState?.board) && (gameState.board as Array<{ left: number; right: number }>).length > 0 ? (
+                  (gameState.board as Array<{ left: number; right: number }>).map((tile, tIdx, arr) => {
+                    const isLatest = tIdx === 0 || tIdx === arr.length - 1;
+                    return (
+                      <div
+                        key={`domino-chain-tile-${tIdx}`}
+                        className={isLatest ? "domino-snap-anim" : ""}
+                      >
+                        <DominoTile
+                          left={tile.left}
+                          right={tile.right}
+                          orientation={tile.left === tile.right ? "vertical" : "horizontal"}
+                          size="medium"
+                        />
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: "0.95rem", margin: "auto", textAlign: "center", padding: "20px" }}>
+                    ✨ Table ouverte en Palissandre. Le premier joueur ouvre la ligne avec son domino !
+                  </div>
+                )}
+              </div>
+
+              {Boolean(gameState?.blocked) && (
+                <div style={{ background: "rgba(239, 68, 68, 0.25)", border: "1px solid #ef4444", borderRadius: "12px", padding: "8px 16px", textAlign: "center", fontSize: "0.9rem", color: "#fca5a5" }}>
+                  🔒 <strong>Partie Fermée (Gasy) !</strong> Gagnant au décompte des points minimaux : {String(gameState?.winner || "Adversaire")}
+                </div>
+              )}
+            </div>
+
+            {/* Malagasy Rosewood Rack (Player's Domino Hand) */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+              <div style={{ fontSize: "0.8rem", color: "#d4af37", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                🪵 Votre Chevalet (Dominos en main)
+              </div>
+              <div className="domino-rack-wooden">
+                {myTiles.map((t, idx) => {
+                  const mLeft = canPlayLeft(t);
+                  const mRight = canPlayRight(t);
+                  const isPlayable = isMyTurn && (mLeft || mRight);
+
+                  return (
+                    <div
+                      key={`domino-my-tile-${idx}`}
+                      className={`domino-rack-tile-wrapper ${isPlayable ? "domino-rack-playable-tile" : ""}`}
+                    >
+                      <DominoTile
+                        left={t.left}
+                        right={t.right}
+                        orientation="vertical"
+                        size="medium"
+                        isPlayable={isPlayable}
+                        onClick={() => {
+                          if (!isPlayable) return;
+                          playSound("domino_snap");
+                          const side = mLeft ? "left" : "right";
+                          sendGameAction("play_tile", { tile: t, side });
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {emote && <div className="table-emote">{emote}</div>}
+          </div>
+        );
+      })()}
+
+      {/* 4. Modern Belote Arena Stage (Prestige Club Card Table, Square Layout, Trick Animations, Fanned Hand) */}
       {gameType === "belote" && (
         <div className="belote-arena-stage">
           {/* Scoreboard Marquee */}
@@ -2502,6 +2586,11 @@ export function GamePage() {
               <div className="ludo-pod-identity">
                 <span className="ludo-pod-name">{String(seatPlayers[1]?.name || "Partenaire")}</span>
                 <span style={{ fontSize: "0.7rem", color: "#4db6ac", fontWeight: 600 }}>Partenaire (Équipe 1) · {Number(seatPlayers[1]?.hand_count ?? 8)} cartes</span>
+                <div className="belote-opponent-cards-mini">
+                  {Array.from({ length: Math.min(Number(seatPlayers[1]?.hand_count ?? 8), 8) }).map((_, i) => (
+                    <div key={i} className="belote-mini-card-back" />
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -2511,6 +2600,11 @@ export function GamePage() {
               <div className="ludo-pod-identity">
                 <span className="ludo-pod-name">{String(seatPlayers[0]?.name || "Adversaire Ouest")}</span>
                 <span style={{ fontSize: "0.7rem", color: "#e57373", fontWeight: 600 }}>Adversaire · {Number(seatPlayers[0]?.hand_count ?? 8)} cartes</span>
+                <div className="belote-opponent-cards-mini">
+                  {Array.from({ length: Math.min(Number(seatPlayers[0]?.hand_count ?? 8), 8) }).map((_, i) => (
+                    <div key={i} className="belote-mini-card-back" />
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -2526,25 +2620,49 @@ export function GamePage() {
               )}
 
               <div className="belote-cross-pli">
-                {/* North slot */}
+                {/* North slot (Partenaire) */}
                 <div className="belote-pli-slot belote-pli-north">
-                  <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Partenaire</span>
-                  {beloteTrick[2] ? <PlayingCard {...cardView(beloteTrick[2])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                  <span className="pli-slot-label">Partenaire</span>
+                  {beloteTrick[2] ? (
+                    <div className="card-played-north">
+                      <PlayingCard {...cardView(beloteTrick[2])} />
+                    </div>
+                  ) : (
+                    <div className="pli-slot-empty" />
+                  )}
                 </div>
-                {/* West slot */}
+                {/* West slot (Ouest) */}
                 <div className="belote-pli-slot belote-pli-west">
-                  <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Ouest</span>
-                  {beloteTrick[1] ? <PlayingCard {...cardView(beloteTrick[1])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                  <span className="pli-slot-label">Ouest</span>
+                  {beloteTrick[1] ? (
+                    <div className="card-played-west">
+                      <PlayingCard {...cardView(beloteTrick[1])} />
+                    </div>
+                  ) : (
+                    <div className="pli-slot-empty" />
+                  )}
                 </div>
-                {/* East slot */}
+                {/* East slot (Est) */}
                 <div className="belote-pli-slot belote-pli-east">
-                  <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Est</span>
-                  {beloteTrick[3] ? <PlayingCard {...cardView(beloteTrick[3])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                  <span className="pli-slot-label">Est</span>
+                  {beloteTrick[3] ? (
+                    <div className="card-played-east">
+                      <PlayingCard {...cardView(beloteTrick[3])} />
+                    </div>
+                  ) : (
+                    <div className="pli-slot-empty" />
+                  )}
                 </div>
-                {/* South slot */}
+                {/* South slot (Vous) */}
                 <div className="belote-pli-slot belote-pli-south">
-                  {beloteTrick[0] ? <PlayingCard {...cardView(beloteTrick[0])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
-                  <span style={{ fontSize: "9px", color: "#ffd700", fontWeight: 700, marginTop: "2px" }}>Vous</span>
+                  {beloteTrick[0] ? (
+                    <div className="card-played-south">
+                      <PlayingCard {...cardView(beloteTrick[0])} />
+                    </div>
+                  ) : (
+                    <div className="pli-slot-empty" />
+                  )}
+                  <span className="pli-slot-label" style={{ color: "#ffd700", fontWeight: 800 }}>Vous</span>
                 </div>
               </div>
             </div>
@@ -2555,6 +2673,11 @@ export function GamePage() {
               <div className="ludo-pod-identity">
                 <span className="ludo-pod-name">{String(seatPlayers[2]?.name || "Adversaire Est")}</span>
                 <span style={{ fontSize: "0.7rem", color: "#ba68c8", fontWeight: 600 }}>Adversaire · {Number(seatPlayers[2]?.hand_count ?? 8)} cartes</span>
+                <div className="belote-opponent-cards-mini">
+                  {Array.from({ length: Math.min(Number(seatPlayers[2]?.hand_count ?? 8), 8) }).map((_, i) => (
+                    <div key={i} className="belote-mini-card-back" />
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -2568,21 +2691,37 @@ export function GamePage() {
             </div>
           </div>
 
-          {/* Bottom Hero Hand */}
-          <div className="belote-hero-hand-fan">
-            {myHand.map((card, idx) => (
-              <div
-                key={`belote-hand-${card.suit}-${card.rank}-${idx}`}
-                className="belote-hero-card"
-                onClick={() => {
-                  if (!isMyTurn) return;
-                  playSound("card_played");
-                  sendGameAction("play_card", { card });
-                }}
-              >
-                <PlayingCard {...cardView(card)} />
-              </div>
-            ))}
+          {/* Bottom Hero Hand - Real Card Fan with Staggered Dealing Animation */}
+          <div className="belote-cards-fan">
+            {myHand.map((card, idx) => {
+              const total = myHand.length;
+              const offset = idx - (total - 1) / 2;
+              const rot = offset * 4.5;
+              const transY = Math.abs(offset) * 3;
+              const delay = `${idx * 0.06}s`;
+
+              return (
+                <div
+                  key={`belote-hand-${card.suit}-${card.rank}-${idx}`}
+                  className={`belote-fan-card-wrapper ${dealPulse ? "dealing-anim" : ""}`}
+                  style={
+                    {
+                      "--rot": `${rot}deg`,
+                      "--delay": delay,
+                      transform: `rotate(${rot}deg) translateY(${transY}px)`,
+                      zIndex: idx + 1,
+                    } as React.CSSProperties
+                  }
+                  onClick={() => {
+                    if (!isMyTurn) return;
+                    playSound("card_played");
+                    sendGameAction("play_card", { card });
+                  }}
+                >
+                  <PlayingCard {...cardView(card)} />
+                </div>
+              );
+            })}
           </div>
 
           {gameOver && (
@@ -3549,6 +3688,8 @@ function PlayingCard({
   hidden,
   selected,
   onClick,
+  className = "",
+  style,
 }: {
   value: string;
   suit: string;
@@ -3557,18 +3698,47 @@ function PlayingCard({
   hidden?: boolean;
   selected?: boolean;
   onClick?: () => void;
+  className?: string;
+  style?: React.CSSProperties;
 }) {
   const suitClass =
     suitIndex !== undefined
       ? ["suit-club", "suit-diamond", "suit-heart", "suit-spade"][suitIndex] || ""
       : "";
+  const isRed = red || ["♦", "♥"].includes(suit) || suitIndex === 1 || suitIndex === 2;
+
+  if (hidden) {
+    return (
+      <div
+        className={`playing-card hidden-card card-deluxe ${className}`}
+        onClick={onClick}
+        style={style}
+      >
+        <div className="card-back-pattern">
+          <span className="card-back-emblem">✦</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`playing-card ${suitClass} ${red ? "red" : ""} ${hidden ? "hidden-card" : ""} ${selected ? "selected" : ""}`}
+      style={style}
+      className={`playing-card card-deluxe ${suitClass} ${isRed ? "card-red red" : "card-black"} ${selected ? "selected" : ""} ${className}`}
     >
-      <span>{hidden ? "?" : value}</span>
-      <b>{hidden ? "✦" : suit}</b>
+      <div className="card-corner card-corner-tl">
+        <span className="card-val">{value}</span>
+        <span className="card-sym">{suit}</span>
+      </div>
+      <div className="card-center-suit">
+        <span>{suit}</span>
+      </div>
+      <div className="card-corner card-corner-br">
+        <span className="card-val">{value}</span>
+        <span className="card-sym">{suit}</span>
+      </div>
     </button>
   );
 }
