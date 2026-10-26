@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide de Déploiement Production — Casino MDG sur VPS Contabo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #060911;
+            --bg-surface: #0c121e;
+            --bg-card: #121a2c;
+            --bg-card-hover: #17223b;
+            --border: #1e2c47;
+            --border-highlight: #2a3f68;
+            
+            --primary: #10b981;
+            --primary-glow: rgba(16, 185, 129, 0.25);
+            --primary-dark: #059669;
+            --accent: #f59e0b;
+            --accent-glow: rgba(245, 158, 11, 0.25);
+            --danger: #ef4444;
+            --info: #3b82f6;
+
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+
+            --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Subtle radial ambient glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 20%;
+            width: 60vw;
+            height: 40vh;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, rgba(59, 130, 246, 0.03) 50%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 24px 80px 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header / Hero */
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--primary);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 6px 16px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .badge-pill span.dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1.15;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .lead {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            max-width: 720px;
+            margin: 0 auto 28px auto;
+        }
+
+        .meta-grid {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: 10px;
+        }
+
+        .meta-item {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .meta-item strong {
+            color: var(--text-main);
+        }
+
+        /* Navigation Summary */
+        .summary-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 48px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .summary-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-main);
+        }
+
+        .steps-nav {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .step-link {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 12px 16px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .step-link:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+            background: var(--bg-card-hover);
+        }
+
+        .step-num {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
+        /* Step Section */
+        .step-section {
+            margin-bottom: 50px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 36px;
+            position: relative;
+            transition: border-color 0.2s ease;
+        }
+
+        .step-section:hover {
+            border-color: var(--border-highlight);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 24px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .step-badge {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: #ffffff;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .step-title-wrap h2 {
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        .step-title-wrap p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        /* Content Elements */
+        p {
+            color: #cbd5e1;
+            margin-bottom: 16px;
+            font-size: 1rem;
+        }
+
+        ul, ol {
+            margin-bottom: 20px;
+            padding-left: 24px;
+            color: #cbd5e1;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        /* Code Blocks */
+        .code-container {
+            background: #05080f;
+            border: 1px solid #1a253a;
+            border-radius: 12px;
+            margin: 18px 0;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+        }
+
+        .code-header {
+            background: #0d1524;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #1a253a;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .code-header span.lang {
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .copy-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: var(--text-main);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+            color: #060911;
+            border-color: var(--primary);
+        }
+
+        pre {
+            padding: 16px;
+            overflow-x: auto;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #e2e8f0;
+        }
+
+        code {
+            font-family: var(--font-mono);
+            background: rgba(255,255,255,0.08);
+            padding: 2px 6px;
+            border-radius: 5px;
+            color: #38bdf8;
+            font-size: 0.88em;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        /* Callout Boxes */
+        .callout {
+            border-radius: 12px;
+            padding: 18px 22px;
+            margin: 20px 0;
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            border-left: 4px solid;
+            font-size: 0.95rem;
+        }
+
+        .callout.tip {
+            background: rgba(16, 185, 129, 0.08);
+            border-color: var(--primary);
+            color: #a7f3d0;
+        }
+
+        .callout.important {
+            background: rgba(245, 158, 11, 0.08);
+            border-color: var(--accent);
+            color: #fde68a;
+        }
+
+        .callout.info {
+            background: rgba(59, 130, 246, 0.08);
+            border-color: var(--info);
+            color: #bfdbfe;
+        }
+
+        .callout-icon {
+            font-size: 1.25rem;
+            line-height: 1;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .callout-content strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 1rem;
+        }
+
+        /* Architecture Visual Box */
+        .arch-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        .diagram-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            text-align: center;
+        }
+
+        .diagram-node {
+            background: #090e18;
+            border: 1px solid var(--border);
+            padding: 18px 14px;
+            border-radius: 12px;
+            position: relative;
+        }
+
+        .diagram-node.highlight {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .diagram-node h4 {
+            font-size: 0.95rem;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        .diagram-node p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin: 0;
+        }
+
+        .dns-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+
+        .dns-table th, .dns-table td {
+            padding: 12px 18px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        .dns-table th {
+            background: #0d1627;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .dns-table td {
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-main);
+        }
+
+        .dns-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .badge-cf {
+            background: #f6821f;
+            color: #ffffff;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding-top: 40px;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        footer strong {
+            color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.1rem; }
+            .step-section { padding: 22px; }
+            .step-header { flex-direction: column; gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- HEADER / HERO -->
+    <header>
+        <div class="badge-pill">
+            <span class="dot"></span>
+            Tutoriel Officiel de Production
+        </div>
+        <h1>Déployer Casino MDG sur VPS Contabo</h1>
+        <p class="lead">Guide pas à pas pour mettre en ligne votre plateforme iGaming haute concurrence sur un serveur Ubuntu avec votre nom de domaine personnalisé et SSL gratuit.</p>
+        
+        <div class="meta-grid">
+            <div class="meta-item">⏱️ Durée : <strong>15 minutes</strong></div>
+            <div class="meta-item">🖥️ OS Cible : <strong>Ubuntu 22.04 / 24.04 LTS</strong></div>
+            <div class="meta-item">💶 Coût Hébergement : <strong>~11,50 € / mois (Contabo)</strong></div>
+            <div class="meta-item">🔒 SSL & Anti-DDoS : <strong>Cloudflare Gratuit</strong></div>
+        </div>
+    </header>
+
+    <!-- SOMMAIRE RAPIDE -->
+    <div class="summary-card">
+        <div class="summary-title">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+            Étapes du Déploiement
+        </div>
+        <div class="steps-nav">
+            <a href="#step-1" class="step-link"><span class="step-num">1</span> Commande du VPS Contabo</a>
+            <a href="#step-2" class="step-link"><span class="step-num">2</span> Domaine & DNS Cloudflare</a>
+            <a href="#step-3" class="step-link"><span class="step-num">3</span> Connexion SSH & Préparation</a>
+            <a href="#step-4" class="step-link"><span class="step-num">4</span> Déploiement en 1 Clic</a>
+            <a href="#step-5" class="step-link"><span class="step-num">5</span> Création du Super-Admin</a>
+            <a href="#step-6" class="step-link"><span class="step-num">6</span> Exploitation & Commandes</a>
+        </div>
+    </div>
+
+    <!-- ARCHITECTURE SCHEME -->
+    <div class="arch-diagram">
+        <h3 style="font-size: 1.1rem; margin-bottom: 16px; color: var(--text-main); text-align: center;">Flux Réseau & Architecture Déployée</h3>
+        <div class="diagram-grid">
+            <div class="diagram-node">
+                <h4>1. Joueur Mondial</h4>
+                <p>Navigateur Web & Mobile</p>
+            </div>
+            <div class="diagram-node highlight">
+                <h4>2. Cloudflare Edge</h4>
+                <p>SSL Flexible + WSS + CDN + Anti-DDoS</p>
+            </div>
+            <div class="diagram-node highlight">
+                <h4>3. VPS Contabo (Nginx)</h4>
+                <p>Port 80 HTTP / WS Unifié</p>
+            </div>
+            <div class="diagram-node">
+                <h4>4. Stack Docker</h4>
+                <p>Go Engine + Gunicorn + PgBouncer + Redis</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ÉTAPE 1 -->
+    <section class="step-section" id="step-1">
+        <div class="step-header">
+            <div class="step-badge">1</div>
+            <div class="step-title-wrap">
+                <h2>Commander et préparer votre VPS chez Contabo</h2>
+                <p>Sélection de la configuration matérielle adaptée aux jeux en ligne temps réel.</p>
+            </div>
+        </div>
+
+        <p>Rendez-vous sur <a href="https://contabo.com/en/vps/" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">Contabo.com</a> et sélectionnez la catégorie <strong>Cloud VPS</strong>.</p>
+
+        <div class="callout tip">
+            <div class="callout-icon">💡</div>
+            <div class="callout-content">
+                <strong>Recommandation d'expert iGaming :</strong>
+                Choisissez le forfait <strong>Cloud VPS 2</strong> (6 vCPU, 16 Go de RAM, 200 Go de stockage NVMe pour ~11,50 € / mois). Ce dimensionnement permet d'encaisser confortablement jusqu'à <strong>15 000 joueurs simultanés (CCU)</strong> grâce au pooling PgBouncer et à l'indexation $O(1)$ du moteur Go.
+            </div>
+        </div>
+
+        <ul>
+            <li><strong>Système d'exploitation :</strong> Sélectionnez <code>Ubuntu 24.04 LTS</code> ou <code>Ubuntu 22.04 LTS</code>.</li>
+            <li><strong>Région :</strong> Choisissez le datacenter le plus proche de vos utilisateurs cibles (ex: Union Européenne - Allemagne ou Singapour pour l'Asie/Océan Indien).</li>
+            <li><strong>Mot de passe root :</strong> Définissez un mot de passe solide et conservez-le précieusement.</li>
+        </ul>
+        <p>Une fois le paiement validé, vous recevrez en quelques minutes un e-mail de Contabo avec <strong>l'adresse IP publique de votre VPS</strong> (exemple : <code>161.97.142.88</code>).</p>
+    </section>
+
+    <!-- ÉTAPE 2 -->
+    <section class="step-section" id="step-2">
+        <div class="step-header">
+            <div class="step-badge">2</div>
+            <div class="step-title-wrap">
+                <h2>Configurer votre Nom de Domaine avec Cloudflare (SSL Gratuit)</h2>
+                <p>Activation du HTTPS, des WebSockets sécurisés (WSS) et du proxy anti-DDoS sans manipulation complexe de certificats.</p>
+            </div>
+        </div>
+
+        <p>Pour que les navigateurs mobiles autorisent le jeu en ligne, les paiements et le PWA, le protocole <strong>HTTPS</strong> et les WebSockets <strong>WSS</strong> sont obligatoires. La méthode la plus performante et sécurisée consiste à utiliser <strong>Cloudflare</strong> en frontal.</p>
+
+        <ol>
+            <li>Achetez votre nom de domaine chez le registrar de votre choix (ex: Namecheap, Hostinger, GoDaddy, OVH...).</li>
+            <li>Créez un compte gratuit sur <a href="https://dash.cloudflare.com/" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">Cloudflare.com</a> et ajoutez votre domaine.</li>
+            <li>Chez votre registrar, modifiez les serveurs DNS (Nameservers) pour pointer vers ceux fournis par Cloudflare.</li>
+            <li>Dans l'interface Cloudflare, ouvrez l'onglet <strong>DNS &gt; Records</strong> et ajoutez les enregistrements suivants :</li>
+        </ol>
+
+        <table class="dns-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Nom (Name)</th>
+                    <th>Contenu (IPv4 Address)</th>
+                    <th>Proxy Status</th>
+                    <th>TTL</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>A</code></td>
+                    <td><code>@</code> (racine)</td>
+                    <td><code>VOTRE_IP_CONTABO</code> (ex: 161.97.142.88)</td>
+                    <td><span class="badge-cf">🟠 Proxied</span></td>
+                    <td>Auto</td>
+                </tr>
+                <tr>
+                    <td><code>A</code></td>
+                    <td><code>www</code></td>
+                    <td><code>VOTRE_IP_CONTABO</code> (ex: 161.97.142.88)</td>
+                    <td><span class="badge-cf">🟠 Proxied</span></td>
+                    <td>Auto</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="callout important">
+            <div class="callout-icon">⚡</div>
+            <div class="callout-content">
+                <strong>Réglages Cloudflare Critiques :</strong>
+                <ul style="margin: 8px 0 0 0; padding-left: 18px;">
+                    <li><strong>SSL/TLS &gt; Overview :</strong> Sélectionnez le mode <strong>« Flexible »</strong> (ou « Full » si vous activez un certificat origin).</li>
+                    <li><strong>SSL/TLS &gt; Edge Certificates :</strong> Activez <strong>« Always Use HTTPS »</strong>.</li>
+                    <li><strong>Network :</strong> Vérifiez que l'option <strong>« WebSockets »</strong> est bien cochée sur <strong>ON</strong>.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ÉTAPE 3 -->
+    <section class="step-section" id="step-3">
+        <div class="step-header">
+            <div class="step-badge">3</div>
+            <div class="step-title-wrap">
+                <h2>Connexion SSH & Récupération du Code</h2>
+                <p>Connexion à votre serveur Ubuntu et clonage du projet.</p>
+            </div>
+        </div>
+
+        <p>Ouvrez votre terminal (PowerShell sur Windows, Terminal sur macOS ou Linux) et connectez-vous à votre VPS :</p>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copier</button>
+            </div>
+            <pre><code>ssh root@&lt;IP_DE_VOTRE_VPS_CONTABO&gt;</code></pre>
+        </div>
+
+        <p>Mettez à jour les paquets système et installez Git :</p>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copier</button>
+            </div>
+            <pre><code>apt-get update &amp;&amp; apt-get upgrade -y
+apt-get install -y git curl</code></pre>
+        </div>
+
+        <p>Clonez le code de votre casino dans le répertoire de production :</p>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copier</button>
+            </div>
+            <pre><code>git clone https://github.com/&lt;votre-utilisateur-ou-organisation&gt;/casino-mdg.git /var/www/casino-mdg
+cd /var/www/casino-mdg</code></pre>
+        </div>
+    </section>
+
+    <!-- ÉTAPE 4 -->
+    <section class="step-section" id="step-4">
+        <div class="step-header">
+            <div class="step-badge">4</div>
+            <div class="step-title-wrap">
+                <h2>Lancer le Déploiement Automatisé en 1 Seule Commande</h2>
+                <p>Configuration du Swap 4 Go, limites noyau sysctl, Docker, génération des clés de sécurité et compilation des conteneurs.</p>
+            </div>
+        </div>
+
+        <p>Nous avons créé pour vous le script d'automatisation complet <code>scripts/deploy/deploy-contabo.sh</code>. Il réalise toutes les tâches d'infrastructure en une seule exécution :</p>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copier</button>
+            </div>
+            <pre><code>bash scripts/deploy/deploy-contabo.sh</code></pre>
+        </div>
+
+        <div class="callout tip">
+            <div class="callout-icon">🛡️</div>
+            <div class="callout-content">
+                <strong>Ce que le script configure automatiquement pour vous :</strong>
+                <ol style="margin-top: 6px; padding-left: 18px;">
+                    <li><strong>Swapfile de 4 Go :</strong> Protège la machine contre les plantages mémoire (OOM) lors des pics de connexions.</li>
+                    <li><strong>Optimisations Noyau Linux :</strong> Active <code>vm.overcommit_memory = 1</code> pour Redis et augmente les descripteurs de fichiers à <code>65536</code>.</li>
+                    <li><strong>Pare-feu UFW :</strong> Ouvre exclusivement les ports 22 (SSH), 80 (HTTP/WS) et 443 (HTTPS).</li>
+                    <li><strong>Génération de Clés Cryptographiques :</strong> Génère des clés aléatoires sécurisées de 64 caractères dans <code>.env.production</code>.</li>
+                    <li><strong>Lancement Docker :</strong> Construit et démarre PostgreSQL, PgBouncer, Redis, RabbitMQ, MinIO, Celery, le moteur Go et Nginx.</li>
+                </ol>
+            </div>
+        </div>
+
+        <p>Après 2 à 3 minutes de compilation, le script affiche le récapitulatif avec votre adresse IP publique prête à l'emploi.</p>
+    </section>
+
+    <!-- ÉTAPE 5 -->
+    <section class="step-section" id="step-5">
+        <div class="step-header">
+            <div class="step-badge">5</div>
+            <div class="step-title-wrap">
+                <h2>Renseigner votre Nom de Domaine dans la Configuration</h2>
+                <p>Déclaration de votre domaine pour autoriser les requêtes CORS et l'en-tête Host de Django.</p>
+            </div>
+        </div>
+
+        <p>Ouvrez le fichier de configuration de production généré :</p>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copier</button>
+            </div>
+            <pre><code>nano .env.production</code></pre>
+        </div>
+
+        <p>Modifiez les lignes <code>ALLOWED_HOSTS</code> et <code>CORS_ALLOWED_ORIGINS</code> avec votre nom de domaine réel :</p>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="lang">env</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copier</button>
+            </div>
+            <pre><code>ALLOWED_HOSTS=votre-casino.com,www.votre-casino.com,127.0.0.1,backend
+CORS_ALLOWED_ORIGINS=https://votre-casino.com,https://www.votre-casino.com</code></pre>
+        </div>
+
+        <p>Sauvegardez avec <code>Ctrl + O</code> puis validez par <code>Entrée</code>, et quittez avec <code>Ctrl + X</code>.</p>
+        <p>Rechargez les conteneurs avec la nouvelle configuration en quelques secondes :</p>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copier</button>
+            </div>
+            <pre><code>docker compose -f docker-compose.prod.yml --env-file .env.production up -d</code></pre>
+        </div>
+    </section>
+
+    <!-- ÉTAPE 6 -->
+    <section class="step-section" id="step-6">
+        <div class="step-header">
+            <div class="step-badge">6</div>
+            <div class="step-title-wrap">
+                <h2>Créer le Compte Super-Administrateur (Backoffice Live Ops)</h2>
+                <p>Accès au centre de contrôle des tables en direct, des statistiques RTP et du NOC.</p>
+            </div>
+        </div>
+
+        <p>Exécutez la commande interactive suivante dans le conteneur backend :</p>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copier</button>
+            </div>
+            <pre><code>docker compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser</code></pre>
+        </div>
+
+        <p>Renseignez votre e-mail, téléphone et mot de passe administrateur. Vous pouvez dès lors vous connecter sur vos interfaces d'administration :</p>
+
+        <div class="diagram-grid" style="margin-top: 20px;">
+            <div class="diagram-node">
+                <h4>Interface Joueur (Lobby)</h4>
+                <p><code>https://votre-casino.com</code></p>
+            </div>
+            <div class="diagram-node highlight">
+                <h4>Back-office Live Ops</h4>
+                <p><code>https://votre-casino.com/backoffice</code></p>
+            </div>
+            <div class="diagram-node">
+                <h4>Administration Django</h4>
+                <p><code>https://votre-casino.com/admin</code></p>
+            </div>
+            <div class="diagram-node">
+                <h4>Sondes Prometheus</h4>
+                <p><code>https://votre-casino.com/metrics</code></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ÉTAPE 7 -->
+    <section class="step-section" id="step-7">
+        <div class="step-header">
+            <div class="step-badge">7</div>
+            <div class="step-title-wrap">
+                <h2>Commandes Utiles pour la Gestion au Quotidien</h2>
+                <p>Supervision des logs, sauvegardes et mises à jour du code sans interruption de service.</p>
+            </div>
+        </div>
+
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 8px;">1. Voir l'état des conteneurs en cours d'exécution</h3>
+        <div class="code-container">
+            <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copier</button></div>
+            <pre><code>docker compose -f docker-compose.prod.yml ps</code></pre>
+        </div>
+
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 8px;">2. Suivre les logs en direct (Temps Réel & Backoffice)</h3>
+        <div class="code-container">
+            <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copier</button></div>
+            <pre><code># Voir les actions de jeux WebSocket et les décisions des bots :
+docker compose -f docker-compose.prod.yml logs -f game-engine
+
+# Voir les requêtes API et les règlements Serveur-à-Serveur (S2S) :
+docker compose -f docker-compose.prod.yml logs -f backend
+
+# Vérifier le taux d'utilisation du pool de connexions SQL :
+docker compose -f docker-compose.prod.yml logs -f pgbouncer</code></pre>
+        </div>
+
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 8px;">3. Sauvegarder la base de données PostgreSQL</h3>
+        <div class="code-container">
+            <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copier</button></div>
+            <pre><code>docker compose -f docker-compose.prod.yml exec postgres pg_dump -U postgres casino_mdg &gt; backup_$(date +%F_%T).sql</code></pre>
+        </div>
+
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 8px;">4. Déployer une mise à jour Git sans coupure</h3>
+        <div class="code-container">
+            <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copier</button></div>
+            <pre><code>git pull origin master
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build</code></pre>
+        </div>
+    </section>
+
+    <!-- FAQ & TROUBLESHOOTING -->
+    <section class="step-section">
+        <h2 style="font-size: 1.6rem; color: var(--text-main); margin-bottom: 16px;">Dépannage & Questions Fréquentes (FAQ)</h2>
+
+        <div style="margin-bottom: 24px;">
+            <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Mon domaine affiche une page d'attente ou « 502 Bad Gateway » lors des premières minutes ?</h4>
+            <p>R : Les conteneurs peuvent prendre entre 45 et 90 secondes pour finaliser les migrations initiales et les vérifications de santé. Vérifiez l'avancement avec <code>docker compose -f docker-compose.prod.yml logs backend</code>. Assurez-vous également que le mode SSL dans Cloudflare est bien configuré sur <strong>Flexible</strong>.</p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Les WebSockets ne se connectent pas (erreur de connexion à la table de jeu) ?</h4>
+            <p>R : Vérifiez que dans votre tableau de bord Cloudflare &gt; onglet <strong>Network</strong>, la case <strong>WebSockets</strong> est bien cochée sur <strong>ON</strong>. Cloudflare gère automatiquement la mise à niveau du protocole vers <code>wss://</code>.</p>
+        </div>
+
+        <div>
+            <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Comment redémarrer l'ensemble des services en cas de besoin ?</h4>
+            <p>R : Exécutez simplement <code>docker compose -f docker-compose.prod.yml restart</code>. Pour un arrêt et redémarrage complet : <code>docker compose -f docker-compose.prod.yml down &amp;&amp; docker compose -f docker-compose.prod.yml up -d</code>.</p>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <p>Plateforme <strong>Casino MDG</strong> — Architecture Haute Concurrence & Temps Réel</p>
+        <p style="margin-top: 6px; font-size: 0.8rem;">Document généré pour déploiement Ubuntu VPS sur Contabo. Tous droits réservés.</p>
+    </footer>
+
+</div>
+
+<script>
+    function copyCode(btn) {
+        const container = btn.closest('.code-container');
+        const codeElement = container.querySelector('pre code');
+        const text = codeElement.innerText;
+
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = btn.innerText;
+            btn.innerText = 'Copié !';
+            btn.style.background = '#10b981';
+            btn.style.color = '#060911';
+            btn.style.borderColor = '#10b981';
+
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }, 2000);
+        }).catch(err => {
+            console.error('Erreur lors de la copie : ', err);
+        });
+    }
+</script>
+
+</body>
+</html>
