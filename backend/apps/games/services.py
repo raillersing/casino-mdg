@@ -34,8 +34,6 @@ def generate_admission_token(
 
 
 def seed_demo_tables():
-    if GameTable.objects.exists():
-        return
     demo_tables = [
         ("emerald-01", "Émeraude", "poker", "100 / 200", 6, "open"),
         ("baobab-01", "Baobab", "belote", "Gratuit", 4, "open"),
@@ -44,20 +42,18 @@ def seed_demo_tables():
         ("domino-gasikara-01", "Domino Double-Six", "domino", "50 / 100", 4, "open"),
         ("ocean-01", "Océan Indien", "poker", "500 / 1K", 9, "open"),
     ]
-    GameTable.objects.bulk_create(
-        [
-            GameTable(
-                table_code=code,
-                name=name,
-                game_type=game_type,
-                stakes=stakes,
-                max_players=max_players,
-                status=status,
-                mode=HUMAN_MATCH,
-            )
-            for code, name, game_type, stakes, max_players, status in demo_tables
-        ]
-    )
+    for code, name, game_type, stakes, max_players, status in demo_tables:
+        GameTable.objects.get_or_create(
+            table_code=code,
+            defaults={
+                "name": name,
+                "game_type": game_type,
+                "stakes": stakes,
+                "max_players": max_players,
+                "status": status,
+                "mode": HUMAN_MATCH,
+            },
+        )
 
 
 @transaction.atomic
