@@ -914,6 +914,11 @@ docker compose -f docker-compose.prod.yml restart game-engine</code></pre>
         </div>
 
         <div style="margin-bottom: 24px;">
+            <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Erreur "dependency failed to start: container casino-mdg-backend-prod is unhealthy" ?</h4>
+            <p>R : Cette erreur survient si la sonde interne de santé ne peut pas joindre Django ou si une redirection SSL HTTP vers HTTPS bloque la vérification locale. Inspectez immédiatement les logs récents via :<br><code>docker compose -f docker-compose.prod.yml logs backend --tail 50</code><br>Le projet intègre désormais une sonde immunisée aux redirections (<code>X-Forwarded-Proto</code>) et <code>SECURE_REDIRECT_EXEMPT</code> pour garantir un passage à l'état <em>Healthy</em> immédiat.</p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
             <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Pourquoi le conteneur backend met-il quelques secondes à devenir "Healthy" ?</h4>
             <p>R : Au premier lancement, Django doit appliquer plus de 40 migrations SQL de base de données et collecter les fichiers statiques. Un délai de grâce de 60 secondes (<code>start_period</code>) est prévu pour laisser les tables se créer.</p>
         </div>

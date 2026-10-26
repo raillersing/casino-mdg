@@ -105,8 +105,15 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 # 7. Construction et Démarrage des Conteneurs
+echo -e "${YELLOW}🚀 Nettoyage préalable des conteneurs précédents...${NC}"
+docker compose -f docker-compose.prod.yml down --remove-orphans || true
+
 echo -e "${YELLOW}🚀 Construction et lancement des conteneurs de production...${NC}"
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+if ! docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build; then
+    echo -e "${RED}❌ Échec du démarrage des conteneurs. Affichage des derniers logs backend :${NC}"
+    docker compose -f docker-compose.prod.yml logs --tail 50 backend
+    exit 1
+fi
 
 # 8. Vérification des sondes de santé
 echo -e "${YELLOW}⏳ Attente de la stabilisation des services (healthchecks)...${NC}"

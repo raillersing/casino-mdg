@@ -142,7 +142,47 @@ docker compose -f docker-compose.prod.yml logs -f game-engine
 ### Réinitialisation complète propre (Remise à zéro si besoin) :
 ```bash
 docker compose -f docker-compose.prod.yml down
-# Attention : ceci supprime les données de jeu pour repartir d'une base vierge
+# Attention : ceci supprime les volumes persistants pour repartir d'une base PostgreSQL vierge
 # docker compose -f docker-compose.prod.yml down -v
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 ```
+
+---
+
+## 7. Guide de Dépannage & Résolution d'Incidents Réels
+
+### Incident 1 : `container casino-mdg-backend-prod is unhealthy`
+* **Cause technique :** En mode production (`DEBUG=False`), Django redirigeait toutes les requêtes HTTP vers HTTPS (`301 Moved Permanently`). La sonde de santé interne Docker (`urllib.request`) tentait d'établir une poignée de main TLS sur le port HTTP 8000 interne de Gunicorn, provoquant une erreur de protocole SSL.
+* **Correction appliquée :** 
+  - Déclaration de `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")` pour que Django reconnaisse la terminaison SSL assurée par Nginx/Cloudflare.
+  - Exemption des sondes de monitoring (`SECURE_REDIRECT_EXEMPT = [r"^healthz/?$", r"^readyz/?$", r"^metrics/?$"]`).
+  - Activation conditionnelle de `SECURE_SSL_REDIRECT` uniquement lorsque le domaine et le certificat SSL sont opérationnels.
+* **Commande de vérification :**
+  ```bash
+  docker compose -f docker-compose.prod.yml logs backend --tail 50
+  ```
+
+### Incident 2 : `remote: Invalid username or token. Password authentication is not supported`
+* **Cause technique :** GitHub n'accepte plus les mots de passe de compte standards pour les opérations Git.
+* **Résolution :** Utilisez un Personal Access Token (PAT) avec le droit `repo` généré depuis GitHub Settings > Developer Settings > Personal access tokens (classic).
+  ```bash
+  git clone https://<ghp_VOTRE_TOKEN>@github.com/raillersing/casino-mdg.git /var/www/casino-mdg
+  ```
+
+### Incident 3 : `bash: scripts/deploy/deploy-contabo.sh: No such file or directory`
+* **Cause :** Les commits locaux n'avaient pas encore été poussés sur GitHub ou le VPS n'a pas tiré les dernières modifications.
+* **Résolution :**
+  ```bash
+  # Sur machine locale :
+  git push origin master
+  # Sur le VPS :
+  cd /var/www/casino-mdg && git pull origin master
+  ```
+
+### Incident 4 : Erreur d'authentification PostgreSQL après régénération de `.env.production`
+* **Cause :** PostgreSQL n'initialise son mot de passe super-utilisateur et sa base de données que la première fois que son volume de données (`postgres_prod_data`) est vide. Si `.env.production` a été recréé avec un mot de passe différent, PostgreSQL conserve l'ancien.
+* **Résolution :** Supprimer le conteneur et le volume pour laisser Postgres se réinitialiser avec les nouveaux mots de passe :
+  ```bash
+  docker compose -f docker-compose.prod.yml down -v
+  docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+  ```

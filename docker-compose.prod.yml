@@ -158,26 +158,12 @@ services:
       - backend_media:/app/media
       - backend_static:/app/staticfiles
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/', timeout=5)"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; req = urllib.request.Request('http://127.0.0.1:8000/healthz/', headers={'X-Forwarded-Proto': 'https'}); res = urllib.request.urlopen(req, timeout=5); exit(0 if res.status == 200 else 1)\""]
       start_period: 60s
       interval: 10s
       timeout: 5s
       retries: 10
-    command: >
-      sh -c "
-        python manage.py migrate --noinput &&
-        python manage.py collectstatic --noinput &&
-        gunicorn config.wsgi:application
-          --bind 0.0.0.0:8000
-          --workers 4
-          --threads 2
-          --worker-class gthread
-          --timeout 60
-          --max-requests 5000
-          --max-requests-jitter 500
-          --access-logfile -
-          --error-logfile -
-      "
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --worker-class gthread --timeout 60 --max-requests 5000 --max-requests-jitter 500 --access-logfile - --error-logfile -"
     networks:
       - casino-mdg-prod
     ulimits:
