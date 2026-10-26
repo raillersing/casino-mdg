@@ -646,7 +646,9 @@ export function GamePage() {
   const setGuestMode = useGameStore((state) => state.setGuestMode);
   const user = useGameStore((state) => state.user);
   const userId =
-    useGameStore((state) => state.user?.id || "") || tokenSubject(accessToken);
+    useGameStore((state) => state.user?.id || "") ||
+    tokenSubject(accessToken) ||
+    tokenSubject(admissionToken);
   const isPoker = gameType === "poker";
   // A public table code must be resolved to the engine UUID before opening
   // the socket. Demo sessions already provide their engine table id.
@@ -1550,7 +1552,7 @@ export function GamePage() {
   });
 
   useEffect(() => {
-    if (!accessToken && !admissionToken) {
+    if (!accessToken) {
       void createGuestToken("Joueur")
         .then((auth) => {
           setSession(auth.access, auth.refresh);
@@ -1560,7 +1562,7 @@ export function GamePage() {
           console.warn("Guest auto-login failed:", err);
         });
     }
-  }, [accessToken, admissionToken, setGuestMode, setSession]);
+  }, [accessToken, setGuestMode, setSession]);
 
   useEffect(() => {
     if (tableId && (admissionToken || accessToken)) setConnectionState("connecting");
@@ -1768,7 +1770,7 @@ export function GamePage() {
       setGameConnectionError(t("spectatorReadOnly"));
       return;
     }
-    if (!tableId || !accessToken) {
+    if (!tableId || (!accessToken && !admissionToken)) {
       setGameConnectionError(t("auth.login"));
       return;
     }
@@ -2478,25 +2480,10 @@ export function GamePage() {
                 isMyTurn={isMyTurn}
                 myColorIndex={Number(myPokerPlayer?.color ?? 0)}
                 onRollDice={() => {
-                  playSound("chip");
-                  send({
-                    type: "action",
-                    table_id: engineTableId,
-                    action: "roll_dice",
-                    sequence,
-                    timestamp: new Date().toISOString(),
-                  });
+                  sendGameAction("roll_dice");
                 }}
                 onMovePawn={(pId) => {
-                  playSound("chip");
-                  send({
-                    type: "action",
-                    table_id: engineTableId,
-                    action: "move_pawn",
-                    payload: { pawn_id: pId },
-                    sequence,
-                    timestamp: new Date().toISOString(),
-                  });
+                  sendGameAction("move_pawn", { pawn_id: pId });
                 }}
               />
             </div>
@@ -2536,14 +2523,7 @@ export function GamePage() {
                     type="button"
                     className="ludo-roll-dice-btn"
                     onClick={() => {
-                      playSound("chip");
-                      send({
-                        type: "action",
-                        table_id: engineTableId,
-                        action: "roll_dice",
-                        sequence,
-                        timestamp: new Date().toISOString(),
-                      });
+                      sendGameAction("roll_dice");
                     }}
                   >
                     🎲 {t("game.rollDice") || "Lancer le Dé"}
@@ -2561,15 +2541,7 @@ export function GamePage() {
                         type="button"
                         className="button button-gold button-small"
                         onClick={() => {
-                          playSound("chip");
-                          send({
-                            type: "action",
-                            table_id: engineTableId,
-                            action: "move_pawn",
-                            payload: { pawn_id: pId },
-                            sequence,
-                            timestamp: new Date().toISOString(),
-                          });
+                          sendGameAction("move_pawn", { pawn_id: pId });
                         }}
                         style={{ padding: "8px 14px", fontWeight: 700 }}
                       >

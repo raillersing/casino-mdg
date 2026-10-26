@@ -46,7 +46,47 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   onRollDice,
   onMovePawn,
 }) => {
-  // Render animated 3D Dice
+  const [rollingAnim, setRollingAnim] = React.useState(false);
+  const [displayRoll, setDisplayRoll] = React.useState<number>(lastRoll > 0 ? lastRoll : 1);
+  const prevRollRef = React.useRef(lastRoll);
+
+  // When lastRoll changes from server and > 0, trigger tumbling dice animation
+  React.useEffect(() => {
+    if (lastRoll > 0 && lastRoll !== prevRollRef.current) {
+      setRollingAnim(true);
+      let count = 0;
+      const interval = window.setInterval(() => {
+        count++;
+        setDisplayRoll(Math.floor(Math.random() * 6) + 1);
+        if (count >= 7) {
+          window.clearInterval(interval);
+          setDisplayRoll(lastRoll);
+          setRollingAnim(false);
+        }
+      }, 65);
+      prevRollRef.current = lastRoll;
+      return () => window.clearInterval(interval);
+    } else if (lastRoll > 0) {
+      setDisplayRoll(lastRoll);
+    }
+  }, [lastRoll]);
+
+  const handleDiceClick = () => {
+    if (isMyTurn && canRoll && !rollingAnim) {
+      setRollingAnim(true);
+      let count = 0;
+      const interval = window.setInterval(() => {
+        count++;
+        setDisplayRoll(Math.floor(Math.random() * 6) + 1);
+        if (count >= 6) {
+          window.clearInterval(interval);
+        }
+      }, 65);
+      onRollDice();
+    }
+  };
+
+  // Render animated 3D Dice with realistic face and pips
   const renderDice = () => {
     const pips: Record<number, number[][]> = {
       1: [[1, 1]],
@@ -57,30 +97,22 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
       6: [[0, 0], [0, 2], [1, 0], [1, 2], [2, 0], [2, 2]],
     };
 
-    const activePips = pips[lastRoll] || pips[1];
+    // Always ensure a valid dice face is displayed (1 to 6), never blank!
+    const val = displayRoll >= 1 && displayRoll <= 6 ? displayRoll : (lastRoll > 0 ? lastRoll : 1);
+    const activePips = pips[val] || pips[1];
+    const canClickDice = isMyTurn && canRoll && !rollingAnim;
 
     return (
       <div
-        className="ludo-dice-box"
-        style={{
-          width: "56px",
-          height: "56px",
-          borderRadius: "12px",
-          background: "linear-gradient(145deg, #ffffff, #e6e6e6)",
-          boxShadow: "0 6px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.9)",
-          border: "2px solid #ccc",
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gridTemplateRows: "repeat(3, 1fr)",
-          padding: "6px",
-          boxSizing: "border-box",
-          position: "relative",
-          userSelect: "none",
-        }}
+        className={`ludo-dice-box ${rollingAnim ? "is-rolling" : ""} ${canClickDice ? "can-roll-pulse" : ""}`}
+        onClick={canClickDice ? handleDiceClick : undefined}
+        title={canClickDice ? "Cliquez sur le dé pour lancer !" : `Dé : ${val}`}
       >
         {[0, 1, 2].map((r) =>
           [0, 1, 2].map((c) => {
-            const hasPip = lastRoll > 0 && activePips.some(([pr, pc]) => pr === r && pc === c);
+            const hasPip = activePips.some(([pr, pc]) => pr === r && pc === c);
+            const isOne = val === 1 && r === 1 && c === 1;
+            const isSix = val === 6;
             return (
               <div
                 key={`${r}-${c}`}
@@ -92,13 +124,7 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               >
                 {hasPip && (
                   <div
-                    style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      background: lastRoll === 6 ? "#e53935" : "#111",
-                      boxShadow: "inset 0 1px 1px rgba(0,0,0,0.6)",
-                    }}
+                    className={`ludo-dice-pip ${isOne ? "is-one-center" : ""} ${isSix ? "is-six-pip" : ""}`}
                   />
                 )}
               </div>

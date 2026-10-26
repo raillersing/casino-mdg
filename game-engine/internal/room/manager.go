@@ -325,19 +325,28 @@ func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int
 		return Event{TableID: tableID, PlayerID: playerID, Action: "reconnected", Sequence: table.Sequence}, nil
 	}
 	if seat <= 0 {
-		// For demo tables the human must own seat 0 so the hand starts with them to act
-		if !isBot && len(table.Players) > 0 {
-			allBots := true
+		if isBot {
+			// Bots must never take seat 0. Seat 0 is reserved for the human player
+			// so the human always leads or acts as player 0.
+			maxSeat := 0
 			for _, p := range table.Players {
-				if !p.IsBot {
-					allBots = false
+				if p.Seat > maxSeat {
+					maxSeat = p.Seat
+				}
+			}
+			seat = maxSeat + 1
+		} else {
+			// Human player: always claim seat 0 (or next free seat if taken by another human)
+			seat = 0
+			seat0Taken := false
+			for _, p := range table.Players {
+				if p.Seat == 0 && !p.IsBot {
+					seat0Taken = true
 					break
 				}
 			}
-			if allBots {
-				seat = 0
-			} else {
-				maxSeat := -1
+			if seat0Taken {
+				maxSeat := 0
 				for _, p := range table.Players {
 					if p.Seat > maxSeat {
 						maxSeat = p.Seat
@@ -345,14 +354,6 @@ func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int
 				}
 				seat = maxSeat + 1
 			}
-		} else {
-			maxSeat := -1
-			for _, p := range table.Players {
-				if p.Seat > maxSeat {
-					maxSeat = p.Seat
-				}
-			}
-			seat = maxSeat + 1
 		}
 	}
 	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, IsBot: isBot, BotProfile: botProfile, JoinedAt: time.Now()}
