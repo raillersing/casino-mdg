@@ -2,6 +2,7 @@ type OtpRequestResponse = {
   request_id: string;
   expires_in: number;
   dev_code?: string;
+  sms_sent?: boolean;
 };
 
 type AuthResponse = {

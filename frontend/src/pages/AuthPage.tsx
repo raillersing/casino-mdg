@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CheckCircle2,
   Loader2,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { useGameStore } from "@stores/gameStore";
 import { useTranslation } from "react-i18next";
@@ -18,8 +20,10 @@ export function AuthPage() {
   const [displayName, setDisplayName] = useState("");
   const [step, setStep] = useState<"phone" | "code" | "done">("phone");
   const [devCode, setDevCode] = useState<string>();
+  const [smsSent, setSmsSent] = useState<boolean>(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const setUser = useGameStore((state) => state.setUser);
@@ -27,12 +31,25 @@ export function AuthPage() {
   const setSession = useGameStore((state) => state.setSession);
   const setGuestMode = useGameStore((state) => state.setGuestMode);
 
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
+
   const handleRequest = async () => {
     setLoading(true);
     setError("");
     try {
       const result = await requestOtp(phone);
       setDevCode(result.dev_code);
+      setSmsSent(Boolean(result.sms_sent));
+      if (result.dev_code) {
+        setCode(result.dev_code);
+      }
+      setResendCooldown(25);
       setStep("code");
     } catch (requestError) {
       setError(
@@ -75,7 +92,7 @@ export function AuthPage() {
   return (
     <div className="auth-layout">
       <Link to="/" className="back-link">
-        <ArrowLeft size={16} /> {t("authUi.back")}
+        <ArrowLeft size={16} /> {t("authUi.back", "Retour à l'accueil")}
       </Link>
       <div className="auth-card">
         <div className="auth-brand">
@@ -87,43 +104,45 @@ export function AuthPage() {
             <div className="success-icon">
               <Check size={26} />
             </div>
-            <h1>{t("authUi.welcome")}</h1>
-            <p>{t("authUi.redirect")}</p>
+            <h1>{t("authUi.welcome", "Bienvenue au Club !")}</h1>
+            <p>{t("authUi.redirect", "Connexion réussie. Redirection vers vos tables...")}</p>
           </div>
         ) : (
           <>
             <span className="eyebrow">
               {step === "phone"
-                ? t("authUi.firstHand")
-                : t("authUi.secureCheck")}
+                ? t("authUi.firstHand", "Connexion & Inscription Rapide")
+                : t("authUi.secureCheck", "Vérification de Sécurité")}
             </span>
             <h1>
               {step === "phone" ? (
                 <>
-                  {t("authUi.enter")}
+                  Entrez dans le
                   <br />
-                  <em>{t("authUi.circle")}</em>
+                  <em>Cercle de Jeu</em>
                 </>
               ) : (
                 <>
-                  {t("authUi.oneMore")}
+                  Dernière étape,
                   <br />
-                  <em>{t("authUi.step")}</em>
+                  <em>confirmez votre code</em>
                 </>
               )}
             </h1>
             <p className="auth-intro">
               {step === "phone"
-                ? t("authUi.phoneIntro")
-                : t("authUi.codeSent", { phone })}
+                ? "Entrez votre numéro malgache (Telma, Orange, Airtel). Un code de sécurité à 6 chiffres vous sera attribué pour sécuriser vos jetons."
+                : smsSent
+                ? `Un code à 6 chiffres a été envoyé par SMS au numéro indiqué.`
+                : `Vérification sécurisée pour votre numéro.`}
             </p>
             {step === "phone" ? (
               <>
-                <label className="field-label">{t("auth.phone")}</label>
+                <label className="field-label">{t("auth.phone", "Numéro de téléphone portable")}</label>
                 <div className="phone-field">
                   <span>+261</span>
                   <input
-                    aria-label={t("auth.phone")}
+                    aria-label={t("auth.phone", "Numéro de téléphone")}
                     autoFocus
                     value={phone}
                     onChange={(event) =>
@@ -132,16 +151,20 @@ export function AuthPage() {
                     placeholder="34 00 000 00"
                   />
                 </div>
+                <span style={{ fontSize: "11px", color: "var(--muted)", margin: "-4px 0 12px", display: "block" }}>
+                  Formats acceptés : 034..., 038..., 032..., 037..., 033...
+                </span>
                 <button
+                  type="button"
                   className="button button-gold full"
-                  disabled={loading || phone.length < 9}
-                  onClick={handleRequest}
+                  disabled={loading || phone.replace(/^0/, "").length < 8}
+                  onClick={() => void handleRequest()}
                 >
                   {loading ? (
                     <Loader2 className="spin" size={17} />
                   ) : (
                     <>
-                      {t("authUi.receiveCode")} <ArrowRight size={17} />
+                      {t("authUi.receiveCode", "Recevoir mon code")} <ArrowRight size={17} />
                     </>
                   )}
                 </button>
@@ -179,10 +202,10 @@ export function AuthPage() {
             ) : (
               <>
                 <label className="field-label">
-                  {t("authUi.receivedCode")}
+                  {t("authUi.receivedCode", "Code de vérification (6 chiffres)")}
                 </label>
                 <input
-                  aria-label={t("authUi.receivedCode")}
+                  aria-label={t("authUi.receivedCode", "Code de vérification")}
                   className="auth-code-field"
                   autoFocus
                   inputMode="numeric"
@@ -193,51 +216,92 @@ export function AuthPage() {
                   }
                   placeholder="000 000"
                 />
-                <label className="field-label">{t("authUi.nickname")}</label>
+                <label className="field-label">{t("authUi.nickname", "Votre pseudo à la table (optionnel)")}</label>
                 <input
-                  aria-label={t("authUi.nickname")}
+                  aria-label={t("authUi.nickname", "Pseudo")}
                   className="auth-name-field"
                   maxLength={50}
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
-                  placeholder="Ex. Miora"
+                  placeholder="Ex. Miora, Faly, Rado..."
                 />
+
                 {devCode && (
-                  <p className="dev-code">
-                    {t("authUi.localCode")} : <strong>{devCode}</strong>
-                  </p>
+                  <div
+                    style={{
+                      margin: "12px 0",
+                      padding: "12px 14px",
+                      background: "rgba(211, 176, 107, 0.12)",
+                      border: "1px solid rgba(211, 176, 107, 0.35)",
+                      borderRadius: "10px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: "11px", color: "var(--gold)", display: "block", marginBottom: "4px", fontWeight: 600 }}>
+                      <Sparkles size={13} style={{ display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
+                      {smsSent ? "SMS envoyé ! Code de confirmation direct :" : "Code de vérification disponible :"}
+                    </span>
+                    <strong style={{ fontSize: "22px", letterSpacing: "4px", color: "#fff", fontFamily: "var(--mono)", display: "block", margin: "4px 0" }}>
+                      {devCode}
+                    </strong>
+                    <button
+                      type="button"
+                      className="button button-small button-gold"
+                      style={{ marginTop: "6px", width: "100%", fontSize: "11.5px" }}
+                      onClick={() => setCode(devCode)}
+                    >
+                      <CheckCircle2 size={13} /> Remplir automatiquement le code
+                    </button>
+                  </div>
                 )}
+
                 <button
+                  type="button"
                   className="button button-gold full"
                   disabled={loading || code.length !== 6}
-                  onClick={handleVerify}
+                  onClick={() => void handleVerify()}
                 >
                   {loading ? (
                     <Loader2 className="spin" size={17} />
                   ) : (
                     <>
-                      {t("authUi.enterClub")} <ArrowRight size={17} />
+                      {t("authUi.enterClub", "Valider et entrer au Club")} <ArrowRight size={17} />
                     </>
                   )}
                 </button>
-                <button
-                  className="auth-resend"
-                  onClick={() => setStep("phone")}
-                >
-                  {t("authUi.changePhone")}
-                </button>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px" }}>
+                  <button
+                    type="button"
+                    className="auth-resend"
+                    disabled={resendCooldown > 0 || loading}
+                    onClick={() => void handleRequest()}
+                    style={{ background: "none", border: 0, color: resendCooldown > 0 ? "var(--muted)" : "var(--gold)", cursor: resendCooldown > 0 ? "default" : "pointer", fontSize: "12px" }}
+                  >
+                    {resendCooldown > 0 ? `Renvoyer le code (${resendCooldown}s)` : "Renvoyer un nouveau code"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="auth-resend"
+                    onClick={() => setStep("phone")}
+                    style={{ background: "none", border: 0, color: "var(--muted)", cursor: "pointer", fontSize: "12px" }}
+                  >
+                    {t("authUi.changePhone", "Changer de numéro")}
+                  </button>
+                </div>
               </>
             )}
             {error && <p className="auth-error">{error}</p>}
             <div className="auth-trust">
               <ShieldCheck size={16} />
-              <span>{t("authUi.protected")}</span>
+              <span>{t("authUi.protected", "Connexion chiffrée SSL & Protection des données")}</span>
             </div>
           </>
         )}
       </div>
       <p className="auth-footer">
-        {t("authUi.termsPrefix")} <a>{t("authUi.terms")}</a>.
+        {t("authUi.termsPrefix", "En continuant, vous acceptez les")} <Link to="/terms">{t("authUi.terms", "Conditions Générales")}</Link>.
       </p>
     </div>
   );
