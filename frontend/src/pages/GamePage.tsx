@@ -2009,435 +2009,431 @@ export function GamePage() {
       {gameState && gameType !== "poker" && (
         <GameStateSummary gameType={gameType || ""} state={gameState} />
       )}
-      <div
-        className={`felt-table ${isPoker ? "felt-poker" : gameType === "rami" ? "felt-rami" : gameType === "ludo" ? "felt-ludo" : gameType === "domino" ? "felt-domino" : "felt-belote"} ${seatPlayers.length >= 6 ? "table-9max" : seatPlayers.length >= 4 ? "table-6max" : ""}`}
-      >
-        <div className="table-brand">
-          MDG <small>GAME CLUB</small>
-        </div>
-        {seatPlayers.map((player, index) => {
-          const total = seatPlayers.length;
-          const pos = getSeatPosition(index, total, isSeated);
-          const style: React.CSSProperties = {
-            position: "absolute",
-            left: pos.left,
-            top: pos.top,
-            transform: "translate(-50%, -50%)",
-          };
-          const opponentInfo = isPoker
-            ? String(player?.stack ?? "8 420")
-            : gameType === "belote"
-              ? `${player?.hand_count ?? 0} cartes · Équipe ${Number(player?.team ?? 0) + 1}`
-              : gameType === "ludo"
-                ? `Ludo · Camp ${["Rouge", "Vert", "Jaune", "Bleu"][Number(player?.color ?? 0)] || "Joueur"}`
-                : gameType === "domino"
-                  ? `${player?.tile_count ?? 0} dominos`
-                  : `${player?.hand_count ?? 0} cartes · Score : ${Number(player?.score ?? 0)}`;
-          return (
-            <PlayerSeat
-              key={String(player.id || index)}
-              pos="dynamic"
-              name={String(
-                player?.name ||
-                  nameForPlayer(String(player?.id || "")) ||
-                  (demoAi ? botNameForSeat(index) : botNameForSeat(index)),
-              )}
-              chips={opponentInfo}
-              bet={isPoker ? Number(player?.bet || 0) : 0}
-              active={currentPlayerId === String(player?.id || "")}
-              folded={isPoker ? Boolean(player?.folded) : false}
-              action={
-                lastAction && lastActionPlayer === String(player?.id || "")
-                  ? lastAction
-                  : ""
-              }
-              badge={badgeForSeat(player, gameState)}
-              thinking={Boolean(thinkingSeats[String(player?.id || "")])}
-              botChat={botChats[String(player?.id || "")]}
-              playerChat={
-                playerChats[String(player?.id || "")]?.text ||
-                playerChats[String(player?.name || "")]?.text ||
-                null
-              }
-              seatStyle={style}
-              hasCards={isPoker && !player?.folded}
-              stats={(() => {
-                const pid = String(player?.id || "");
-                const tp = (tablePlayers as unknown as Array<Record<string, unknown>>)?.find((p: Record<string, unknown>) => String(p.id) === pid) as Record<string, unknown> | undefined;
-                const prof = String((tp as Record<string, unknown>)?.BotProfile || (tp as Record<string, unknown>)?.botProfile || "");
-                const map: Record<string, string> = { fish: "VPIP 42% · PFR 8%", rock: "VPIP 12% · PFR 9%", maniac: "VPIP 38% · PFR 28%", shark: "VPIP 22% · PFR 18%", donkey: "VPIP 35% · PFR 12%", balanced: "VPIP 24% · PFR 14%" };
-                return isPoker && prof ? map[prof] || map.balanced : isPoker ? "VPIP 24% · PFR 14%" : "";
-              })()}
-            />
-          );
-        })}
-        {isPoker && (
-          <>
-            <div
-              className={`pot ${potPulse ? "pot-pulse" : ""} ${potAwarded ? "pot-awarded" : ""}`}
-              key={`pot-${potPulse}-${potAwarded}`}
-            >
-              {t("game.pot")} <strong>{String(gameState?.pot ?? 0)}</strong>
-              {chipBursts > 0 && (
-                <span className="chip-burst" key={chipBursts} aria-hidden="true">
-                  ● ● ●
-                </span>
-              )}
-            </div>
-            <div
-              className={`community-cards ${dealPulse && motionEnabled ? "community-dealing" : ""}`}
-              key={`deal-${dealPulse}`}
-            >
-              {(renderedCommunityCards.length
-                ? renderedCommunityCards
-                : [null, null, null, null, null]
-              )
-                .concat(
-                  Array.from(
-                    { length: Math.max(0, 5 - renderedCommunityCards.length) },
-                    () => null,
-                  ),
-                )
-                .slice(0, 5)
-                .map((card, index) =>
-                  card ? (
-                    <PlayingCard
-                      key={`${card.suit}-${card.rank}-${index}`}
-                      {...cardView(card)}
-                    />
-                  ) : (
-                    <PlayingCard key={`empty-${index}`} value="?" suit="" hidden />
-                  ),
+      {/* 1. Authentic Poker Felt Table (Reserved strictly for Poker) */}
+      {isPoker && (
+        <div
+          className={`felt-table felt-poker ${seatPlayers.length >= 6 ? "table-9max" : seatPlayers.length >= 4 ? "table-6max" : ""}`}
+        >
+          <div className="table-brand">
+            MDG <small>POKER CLUB</small>
+          </div>
+          {seatPlayers.map((player, index) => {
+            const total = seatPlayers.length;
+            const pos = getSeatPosition(index, total, isSeated);
+            const style: React.CSSProperties = {
+              position: "absolute",
+              left: pos.left,
+              top: pos.top,
+              transform: "translate(-50%, -50%)",
+            };
+            const opponentInfo = String(player?.stack ?? "8 420");
+            return (
+              <PlayerSeat
+                key={String(player.id || index)}
+                pos="dynamic"
+                name={String(
+                  player?.name ||
+                    nameForPlayer(String(player?.id || "")) ||
+                    botNameForSeat(index),
                 )}
+                chips={opponentInfo}
+                bet={Number(player?.bet || 0)}
+                active={currentPlayerId === String(player?.id || "")}
+                folded={Boolean(player?.folded)}
+                action={
+                  lastAction && lastActionPlayer === String(player?.id || "")
+                    ? lastAction
+                    : ""
+                }
+                badge={badgeForSeat(player, gameState)}
+                thinking={Boolean(thinkingSeats[String(player?.id || "")])}
+                botChat={botChats[String(player?.id || "")]}
+                playerChat={
+                  playerChats[String(player?.id || "")]?.text ||
+                  playerChats[String(player?.name || "")]?.text ||
+                  null
+                }
+                seatStyle={style}
+                hasCards={!player?.folded}
+                stats={(() => {
+                  const pid = String(player?.id || "");
+                  const tp = (tablePlayers as unknown as Array<Record<string, unknown>>)?.find((p: Record<string, unknown>) => String(p.id) === pid) as Record<string, unknown> | undefined;
+                  const prof = String((tp as Record<string, unknown>)?.BotProfile || (tp as Record<string, unknown>)?.botProfile || "");
+                  const map: Record<string, string> = { fish: "VPIP 42% · PFR 8%", rock: "VPIP 12% · PFR 9%", maniac: "VPIP 38% · PFR 28%", shark: "VPIP 22% · PFR 18%", donkey: "VPIP 35% · PFR 12%", balanced: "VPIP 24% · PFR 14%" };
+                  return prof ? map[prof] || map.balanced : "VPIP 24% · PFR 14%";
+                })()}
+              />
+            );
+          })}
+          <div
+            className={`pot ${potPulse ? "pot-pulse" : ""} ${potAwarded ? "pot-awarded" : ""}`}
+            key={`pot-${potPulse}-${potAwarded}`}
+          >
+            {t("game.pot")} <strong>{String(gameState?.pot ?? 0)}</strong>
+            {chipBursts > 0 && (
+              <span className="chip-burst" key={chipBursts} aria-hidden="true">
+                ● ● ●
+              </span>
+            )}
+          </div>
+          <div
+            className={`community-cards ${dealPulse && motionEnabled ? "community-dealing" : ""}`}
+            key={`deal-${dealPulse}`}
+          >
+            {(renderedCommunityCards.length
+              ? renderedCommunityCards
+              : [null, null, null, null, null]
+            )
+              .concat(
+                Array.from(
+                  { length: Math.max(0, 5 - renderedCommunityCards.length) },
+                  () => null,
+                ),
+              )
+              .slice(0, 5)
+              .map((card, index) =>
+                card ? (
+                  <PlayingCard
+                    key={`${card.suit}-${card.rank}-${index}`}
+                    {...cardView(card)}
+                  />
+                ) : (
+                  <PlayingCard key={`empty-${index}`} value="?" suit="" hidden />
+                ),
+              )}
+          </div>
+          {emote && <div className="table-emote">{emote}</div>}
+          {pots.length > 1 && (
+            <div className="side-pots" aria-label="Pots de la table">
+              {pots.map((pot, index) => (
+                <span key={`pot-${index}`}>
+                  Pot {index + 1} · {pot.amount ?? 0}
+                </span>
+              ))}
             </div>
-          </>
-        )}
-        {gameType === "belote" && (
-          <>
-            {String(gameState?.phase || "") === "bidding" ? (
-              <div className="belote-trick-area">
-                <div className="belote-trick-label">
-                  <span className="belote-trump">
-                    {Number(gameState?.bidding_round ?? 1) === 2 ? t("game.secondTour") + " — " : ""}
-                    Atout proposé : {["♣","♦","♥","♠"][Number(gameState?.proposed_trump ?? -1)] || "?"}
-                  </span>
-                </div>
-                <div className="belote-trick-label" style={{ marginTop: 8 }}>
-                  {Array.isArray(gameState?.passed) && (gameState?.passed as boolean[]).map((passed, index) => (
-                    <span key={`pass-${index}`} style={{ opacity: passed ? 0.4 : 1 }}>
-                      {passed ? "✓ Passé" : "En attente…"} (Joueur {index + 1})
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : String(gameState?.phase || "") === "all_passed" ? (
-              <div className="belote-trick-area">
-                <div className="belote-trick-label">
-                  <span className="belote-trump">{t("game.allPassed")} — {t("game.redeal")}</span>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="belote-trick-area">
-                  {beloteTrump !== "" && (
-                    <div className="belote-trump-medallion">
-                      <span>Atout :</span>
-                      <span style={{ fontSize: "1.1rem", color: [1, 2].includes(Number(beloteTrump)) ? "#ef4444" : "#111" }}>
-                        {["♣", "♦", "♥", "♠"][Number(beloteTrump)] || "?"}
+          )}
+          <div className="you-seat">
+            <div className="you-avatar">M</div>
+            <div>
+              <strong>{t("game.you")}</strong>
+              <span>{String(myPokerPlayer?.stack ?? 10000)} jetons</span>
+            </div>
+            {showRebuy && (
+              <button
+                className="rebuy-btn"
+                onClick={() => {
+                  sendGameAction("rebuy", { amount: 5000 });
+                  setShowRebuy(false);
+                }}
+              >
+                + Recharger
+              </button>
+            )}
+            {myBet > 0 && (
+              <span className="you-bet-chip">{myBet}</span>
+            )}
+          </div>
+          <div className="hole-cards">
+            {(renderedHoleCards.length
+              ? renderedHoleCards
+              : [
+                  { rank: 0, suit: 0 },
+                  { rank: 0, suit: 0 },
+                ]
+            ).map((card, index) =>
+              card.rank ? (
+                <PlayingCard
+                  key={`${card.suit}-${card.rank}`}
+                  {...cardView(card)}
+                />
+              ) : (
+                <PlayingCard key={`hole-${index}`} value="?" suit="" hidden />
+              ),
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 2. Modern Ludo Arena Stage (Zero Poker Oval, Tailor-made for 4-Player Ludo) */}
+      {gameType === "ludo" && (
+        <div className="ludo-arena-stage">
+          <div className="ludo-stage-header">
+            <div className="ludo-stage-title">
+              <span>🎲</span>
+              <span>Ludo Malagasy · Arena 4 Joueurs</span>
+            </div>
+            <div className={`ludo-turn-indicator-pill ${isMyTurn ? "is-my-turn" : ""}`}>
+              <span
+                className="ludo-pulse-dot"
+                style={{
+                  backgroundColor: isMyTurn
+                    ? "#10b981"
+                    : ["#e53935", "#43a047", "#fbc02d", "#1e88e5"][Number(gameState?.current ?? 0)] || "#ffd700",
+                }}
+              />
+              <span>
+                {isMyTurn
+                  ? "🟢 C'est à vous de jouer !"
+                  : `Au tour de ${nameForPlayer(String(statePlayers[Number(gameState?.current ?? 0)]?.id || ""))} (${["Rouge", "Vert", "Jaune", "Bleu"][Number(gameState?.current ?? 0)] || "Joueur"})`}
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}>
+                Dernier dé : <strong style={{ color: "#ffd700", fontSize: "1.05rem" }}>{Number(gameState?.last_roll ?? 0) > 0 ? Number(gameState?.last_roll) : "—"}</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="ludo-arena-layout">
+            {/* 4 Corner Player Pods */}
+            {[
+              { camp: 0, name: "Rouge", class: "pod-red", hex: "#e53935" },
+              { camp: 1, name: "Vert", class: "pod-green", hex: "#43a047" },
+              { camp: 3, name: "Bleu", class: "pod-blue", hex: "#1e88e5" },
+              { camp: 2, name: "Jaune", class: "pod-yellow", hex: "#fbc02d" },
+            ].map((c) => {
+              const player = statePlayers.find((p) => Number(p.color ?? 0) === c.camp) || statePlayers[c.camp];
+              const isTheirTurn = Number(gameState?.current ?? 0) === c.camp;
+              const isMe = String(player?.id || "") === userId;
+              const pawns = Array.isArray(player?.pawns)
+                ? (player.pawns as Array<{ id: number; state: string; position: number }>)
+                : [];
+              const yardCount = pawns.filter((p) => p.state === "base").length;
+              const homeCount = pawns.filter((p) => p.state === "home").length;
+              const trackCount = pawns.length - yardCount - homeCount;
+
+              return (
+                <div
+                  key={`ludo-pod-${c.camp}`}
+                  className={`ludo-player-pod ${c.class} ${isTheirTurn ? "active-turn" : ""}`}
+                >
+                  <div className="ludo-pod-header">
+                    <div className="ludo-pod-avatar" style={{ backgroundColor: c.hex }}>
+                      {isMe ? "M" : String(player?.name || c.name)[0].toUpperCase()}
+                    </div>
+                    <div className="ludo-pod-identity">
+                      <span className="ludo-pod-name">
+                        {isMe ? `${t("game.you")} (${c.name})` : String(player?.name || `Camp ${c.name}`)}
+                      </span>
+                      <span className="ludo-pod-tag" style={{ color: c.hex }}>
+                        {isMe ? "Vous" : demoAi ? "Bot IA" : "Joueur"} · Camp {c.name}
                       </span>
                     </div>
-                  )}
-
-                  <div className="belote-trick-label">
-                    <span>Pli {beloteTrick.length}/4</span>
-                    {Array.isArray(gameState?.belote_announced) && (gameState?.belote_announced as boolean[]).some(Boolean) && (
-                      <span className="belote-trump" style={{ marginLeft: 8, color: "#ffd700", fontWeight: "bold" }}>🔔 Belote !</span>
-                    )}
-                    {Array.isArray(gameState?.rebelote_declared) && (gameState?.rebelote_declared as boolean[]).some(Boolean) && (
-                      <span className="belote-trump" style={{ marginLeft: 8, color: "#ffd700", fontWeight: "bold" }}>🔔🔔 Rebelote !</span>
-                    )}
                   </div>
-
-                  <div className="belote-cross-pli">
-                    {/* North (Partner) */}
-                    <div className="belote-pli-slot belote-pli-north">
-                      <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Partenaire</span>
-                      {beloteTrick[2] ? <PlayingCard {...cardView(beloteTrick[2])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                  <div className="ludo-pod-pawns">
+                    <div className="ludo-pod-pawn-chip" title="En Yard">
+                      <span style={{ opacity: 0.7 }}>Yard</span>
+                      <span style={{ color: c.hex }}>{yardCount}</span>
                     </div>
-                    {/* West (Left opponent) */}
-                    <div className="belote-pli-slot belote-pli-west">
-                      <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Ouest</span>
-                      {beloteTrick[1] ? <PlayingCard {...cardView(beloteTrick[1])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                    <div className="ludo-pod-pawn-chip" title="En Piste">
+                      <span style={{ opacity: 0.7 }}>Piste</span>
+                      <span style={{ color: "#60a5fa" }}>{trackCount}</span>
                     </div>
-                    {/* East (Right opponent) */}
-                    <div className="belote-pli-slot belote-pli-east">
-                      <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Est</span>
-                      {beloteTrick[3] ? <PlayingCard {...cardView(beloteTrick[3])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                    <div className="ludo-pod-pawn-chip" title="Arrivé">
+                      <span style={{ opacity: 0.7 }}>But</span>
+                      <span style={{ color: "#ffd700" }}>{homeCount} 🏆</span>
                     </div>
-                    {/* South (Hero) */}
-                    <div className="belote-pli-slot belote-pli-south">
-                      {beloteTrick[0] ? <PlayingCard {...cardView(beloteTrick[0])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
-                      <span style={{ fontSize: "9px", color: "#ffd700", fontWeight: 700, marginTop: "2px" }}>Vous</span>
+                    <div className="ludo-pod-pawn-chip" title="Score">
+                      <span style={{ opacity: 0.7 }}>Pts</span>
+                      <span>{Number(player?.score ?? 0)}</span>
                     </div>
                   </div>
                 </div>
-                <div className="belote-score">
-                  <span>Équipe 1 : {beloteTeamPoints[0]} (total {beloteCumulative[0]})</span>
-                  <span>Équipe 2 : {beloteTeamPoints[1]} (total {beloteCumulative[1]})</span>
-                </div>
-                {gameOver && (
-                  <div className="belote-game-over">
-                    <div>🏆 {t("game.gameOver")} — {beloteCumulative[0] > beloteCumulative[1] ? t("game.team") + " 1" : t("game.team") + " 2"} {t("game.wins")}</div>
-                    <button
-                      className="button button-gold button-small"
-                      onClick={() => {
-                        setGameOver(false);
-                        sendGameAction("new_hand");
-                      }}
-                      style={{ marginTop: 8 }}
-                    >
-                      {t("demoReplay")}
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
-        {gameType === "rami" && (
-          <>
-            <div className="rami-discard-area">
-              <div className="rami-discard-label">Défausse</div>
-              <div className="rami-discard">
-                {ramiDiscard.length > 0 ? (
-                  <PlayingCard {...cardView(ramiDiscard[ramiDiscard.length - 1])} />
-                ) : (
-                  <PlayingCard value="?" suit="" hidden />
-                )}
-              </div>
-            </div>
-            {ramiFinished && (
-              <div className="rami-finished">
-                {Number(gameState?.knocked_by ?? -1) >= 0 ? (
-                  <>
-                    {t("game.knock")} — {gameState?.gin ? t("game.gin") : ""}
-                  </>
-                ) : (
-                  "Partie terminée"
-                )}
-              </div>
-            )}
-            <div className="rami-melds-area">
-              {Array.isArray(gameState?.players) && (gameState?.players as Array<Record<string, unknown>>).map((p, idx) => {
-                const melds = p.melds as Array<Array<{ suit: number; rank: number }>> | undefined;
-                if (!melds || melds.length === 0) return null;
-                return (
-                  <div key={`melds-${idx}`} className="rami-player-melds">
-                    <div className="rami-meld-label">{String(p.name || p.id || `Joueur ${idx + 1}`)} — Melds</div>
-                    {melds.map((meld, mIdx) => (
-                      <div key={`meld-${mIdx}`} className="rami-meld">
-                        {meld.map((card, cIdx) => (
-                          <PlayingCard key={`meld-card-${cIdx}`} {...cardView(card)} />
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-        {gameType === "ludo" && (
-          <LudoBoard
-            players={(Array.isArray(gameState?.players) ? (gameState?.players as Array<Record<string, unknown>>) : []).map((p) => ({
-              id: String(p.id || ""),
-              name: String(p.name || ""),
-              color: Number(p.color ?? 0),
-              pawns: Array.isArray(p.pawns) ? (p.pawns as Array<{ id: number; state: "base" | "track" | "home_path" | "home"; position: number }>) : [],
-              score: Number(p.score ?? 0),
-            }))}
-            currentTurnIndex={Number(gameState?.current ?? 0)}
-            lastRoll={Number(gameState?.last_roll ?? 0)}
-            canRoll={Boolean(gameState?.can_roll ?? true)}
-            canMove={Boolean(gameState?.can_move ?? false)}
-            validMoves={Array.isArray(gameState?.valid_moves) ? (gameState.valid_moves as number[]) : []}
-            isMyTurn={isMyTurn}
-            myColorIndex={Number(myPokerPlayer?.color ?? 0)}
-            onRollDice={() => {
-              playSound("chip");
-              send({
-                type: "action",
-                table_id: engineTableId,
-                action: "roll_dice",
-                sequence,
-                timestamp: new Date().toISOString(),
-              });
-            }}
-            onMovePawn={(pId) => {
-              playSound("chip");
-              send({
-                type: "action",
-                table_id: engineTableId,
-                action: "move_pawn",
-                payload: { pawn_id: pId },
-                sequence,
-                timestamp: new Date().toISOString(),
-              });
-            }}
-          />
-        )}
+              );
+            })}
 
-        {gameType === "domino" && (
-          <div className="domino-table-felt">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ font: "13px var(--serif)", color: "#d4af37", letterSpacing: "0.1em", fontWeight: "bold" }}>
-                🁓 LIGNE DE DOMINOS DOUBLE-SIX
+            {/* Central Interactive Vector Board */}
+            <div className="ludo-board-wrapper">
+              <LudoBoard
+                players={statePlayers.map((p) => ({
+                  id: String(p.id || ""),
+                  name: String(p.name || ""),
+                  color: Number(p.color ?? 0),
+                  pawns: Array.isArray(p.pawns) ? (p.pawns as Array<{ id: number; state: "base" | "track" | "home_path" | "home"; position: number }>) : [],
+                  score: Number(p.score ?? 0),
+                }))}
+                currentTurnIndex={Number(gameState?.current ?? 0)}
+                lastRoll={Number(gameState?.last_roll ?? 0)}
+                canRoll={Boolean(gameState?.can_roll ?? true)}
+                canMove={Boolean(gameState?.can_move ?? false)}
+                validMoves={Array.isArray(gameState?.valid_moves) ? (gameState.valid_moves as number[]) : []}
+                isMyTurn={isMyTurn}
+                myColorIndex={Number(myPokerPlayer?.color ?? 0)}
+                onRollDice={() => {
+                  playSound("chip");
+                  send({
+                    type: "action",
+                    table_id: engineTableId,
+                    action: "roll_dice",
+                    sequence,
+                    timestamp: new Date().toISOString(),
+                  });
+                }}
+                onMovePawn={(pId) => {
+                  playSound("chip");
+                  send({
+                    type: "action",
+                    table_id: engineTableId,
+                    action: "move_pawn",
+                    payload: { pawn_id: pId },
+                    sequence,
+                    timestamp: new Date().toISOString(),
+                  });
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Quick Interactive Actions */}
+          <div className="ludo-arena-quick-actions">
+            {isMyTurn && Boolean(gameState?.can_roll ?? true) && (
+              <button
+                type="button"
+                className="ludo-roll-dice-btn"
+                onClick={() => {
+                  playSound("chip");
+                  send({
+                    type: "action",
+                    table_id: engineTableId,
+                    action: "roll_dice",
+                    sequence,
+                    timestamp: new Date().toISOString(),
+                  });
+                }}
+              >
+                🎲 {t("game.rollDice") || "Lancer le Dé"}
+              </button>
+            )}
+
+            {isMyTurn && Boolean(gameState?.can_move) && Array.isArray(gameState?.valid_moves) && (gameState.valid_moves as number[]).length > 0 && (
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.85rem", color: "#ffd700", fontWeight: 700 }}>
+                  Dé: {Number(gameState?.last_roll ?? 0)} — Déplacez un pion :
+                </span>
+                {(gameState.valid_moves as number[]).map((pId) => (
+                  <button
+                    key={`quick-pawn-${pId}`}
+                    type="button"
+                    className="button button-gold button-small"
+                    onClick={() => {
+                      playSound("chip");
+                      send({
+                        type: "action",
+                        table_id: engineTableId,
+                        action: "move_pawn",
+                        payload: { pawn_id: pId },
+                        sequence,
+                        timestamp: new Date().toISOString(),
+                      });
+                    }}
+                    style={{ padding: "8px 14px", fontWeight: 700 }}
+                  >
+                    ♟️ Avancer Pion #{pId + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!isMyTurn && (
+              <span style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.6)" }}>
+                ⏳ Tour de l'adversaire ({nameForPlayer(String(statePlayers[Number(gameState?.current ?? 0)]?.id || ""))})…
               </span>
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <span className="domino-end-indicator">
-                  ◀ {String(gameState?.left_end ?? "—")}
-                </span>
-                <span className="domino-end-indicator">
-                  {String(gameState?.right_end ?? "—")} ▶
-                </span>
-                <span style={{ fontSize: "0.75rem", color: "var(--soft)" }}>
-                  Pioche restante : <strong>{Number(gameState?.boneyard_count ?? 0)}</strong>
-                </span>
-              </div>
+            )}
+          </div>
+          {emote && <div className="table-emote">{emote}</div>}
+        </div>
+      )}
+
+      {/* 3. Modern Domino Arena Stage (Malagasy Rosewood Lounge, Emerald Runner, Wooden Rack) */}
+      {gameType === "domino" && (
+        <div className="domino-arena-stage">
+          {/* Header / HUD */}
+          <div className="domino-stage-header">
+            <div className="domino-stage-title">
+              <span>🁓</span>
+              <span>Domino Double-Six · Salon Prestige</span>
+            </div>
+            <div
+              className={`domino-end-indicator ${isMyTurn ? "is-my-turn" : ""}`}
+              style={{
+                background: isMyTurn ? "rgba(16, 185, 129, 0.25)" : "rgba(0,0,0,0.45)",
+                borderColor: isMyTurn ? "#10b981" : "rgba(255,255,255,0.15)",
+                color: isMyTurn ? "#6ee7b7" : "#fff",
+              }}
+            >
+              <span>{isMyTurn ? "🟢 Votre tour · Choisissez un domino à poser" : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}</span>
+            </div>
+            <div className="domino-boneyard-badge">
+              <span>🁣 Talon (Pioche) :</span>
+              <strong>{Number(gameState?.boneyard_count ?? 0)}</strong>
+            </div>
+          </div>
+
+          {/* Opponents Row */}
+          <div className="domino-opponents-row">
+            {seatPlayers.map((player, idx) => {
+              const isTheirTurn = currentPlayerId === String(player.id || "");
+              const count = Number(player.tile_count ?? (Array.isArray(player.hand) ? player.hand.length : 7));
+              return (
+                <div key={String(player.id || idx)} className={`domino-opponent-card ${isTheirTurn ? "active-turn" : ""}`}>
+                  <div className="domino-opponent-avatar" style={{ backgroundColor: avatarColor(String(player.name || `P${idx}`)) }}>
+                    {String(player.name || `P`)[0].toUpperCase()}
+                  </div>
+                  <div className="domino-opponent-info">
+                    <span className="domino-opponent-name">{String(player.name || `Joueur ${idx + 1}`)}</span>
+                    <span className="domino-opponent-count">🁣 {count} dominos</span>
+                  </div>
+                  {isTheirTurn && (
+                    <span style={{ fontSize: "11px", color: "#ffd700", marginLeft: "auto", fontWeight: 700 }}>
+                      Réfléchit…
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Center Velvet Runner with Played Dominoes Chain */}
+          <div className="domino-center-mat">
+            <div className="domino-ends-bar">
+              <span className="domino-end-indicator">
+                ◀ Bout Gauche : <strong>{Number(gameState?.left_end ?? -1) >= 0 ? Number(gameState?.left_end) : "Libre"}</strong>
+              </span>
+              <span className="domino-end-indicator">
+                Bout Droit : <strong>{Number(gameState?.right_end ?? -1) >= 0 ? Number(gameState?.right_end) : "Libre"}</strong> ▶
+              </span>
             </div>
 
-            {/* Domino Chain Track */}
-            <div className="domino-chain-track">
-              {Array.isArray(gameState?.board) && (gameState?.board as Array<{ left: number; right: number }>).length > 0 ? (
-                (gameState?.board as Array<{ left: number; right: number }>).map((tile, tIdx) => (
+            <div className="domino-chain-scrollable">
+              {Array.isArray(gameState?.board) && (gameState.board as Array<{ left: number; right: number }>).length > 0 ? (
+                (gameState.board as Array<{ left: number; right: number }>).map((tile, tIdx) => (
                   <DominoTile
-                    key={`board-tile-${tIdx}`}
+                    key={`domino-chain-tile-${tIdx}`}
                     left={tile.left}
                     right={tile.right}
                     orientation={tile.left === tile.right ? "vertical" : "horizontal"}
-                    size="small"
+                    size="medium"
                   />
                 ))
               ) : (
-                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.85rem", margin: "auto" }}>
-                  Table prête. Le premier joueur ouvre la partie avec son plus fort domino !
+                <div style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: "0.9rem", margin: "auto", textAlign: "center", padding: "16px" }}>
+                  ✨ Table ouverte. Le premier joueur ouvre la ligne avec son domino !
                 </div>
               )}
             </div>
 
             {Boolean(gameState?.blocked) && (
-              <div style={{ background: "rgba(239, 68, 68, 0.2)", border: "1px solid #ef4444", borderRadius: "8px", padding: "6px 12px", textAlign: "center", fontSize: "0.85rem", color: "#fca5a5" }}>
+              <div style={{ background: "rgba(239, 68, 68, 0.25)", border: "1px solid #ef4444", borderRadius: "12px", padding: "8px 16px", textAlign: "center", fontSize: "0.9rem", color: "#fca5a5" }}>
                 🔒 <strong>Partie Fermée (Gasy) !</strong> Gagnant au décompte des points minimaux : {String(gameState?.winner || "Adversaire")}
               </div>
             )}
           </div>
-        )}
-        {emote && <div className="table-emote">{emote}</div>}
-        {isPoker && pots.length > 1 && (
-          <div className="side-pots" aria-label="Pots de la table">
-            {pots.map((pot, index) => (
-              <span key={`pot-${index}`}>
-                Pot {index + 1} · {pot.amount ?? 0}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="you-seat">
-          <div className="you-avatar">M</div>
-          <div>
-            <strong>{t("game.you")}</strong>
-            {isPoker && (
-              <span>{String(myPokerPlayer?.stack ?? 10000)} jetons</span>
-            )}
-            {gameType === "belote" && (
-              <span>{myHand.length} cartes · Équipe {Number(myPokerPlayer?.team ?? 0) + 1}</span>
-            )}
-            {gameType === "rami" && (
-              <span>{myHand.length} cartes · Score : {Number(myPokerPlayer?.score ?? 0)}</span>
-            )}
-            {gameType === "ludo" && (
-              <span>Ludo · Pions en jeu</span>
-            )}
-            {gameType === "domino" && (
-              <span>Dominos en main</span>
-            )}
-          </div>
-          {isPoker && showRebuy && (
-            <button
-              className="rebuy-btn"
-              onClick={() => {
-                sendGameAction("rebuy", { amount: 5000 });
-                setShowRebuy(false);
-              }}
-            >
-              + Recharger
-            </button>
-          )}
-          {isPoker && myBet > 0 && (
-            <span className="you-bet-chip">{myBet}</span>
-          )}
-        </div>
-        <div className={`hole-cards ${gameType !== "poker" ? "hole-cards-many" : ""}`}>
-          {isPoker && (
-            <>
-              {(renderedHoleCards.length
-                ? renderedHoleCards
-                : [
-                    { rank: 0, suit: 0 },
-                    { rank: 0, suit: 0 },
-                  ]
-              ).map((card, index) =>
-                card.rank ? (
-                  <PlayingCard
-                    key={`${card.suit}-${card.rank}`}
-                    {...cardView(card)}
-                  />
-                ) : (
-                  <PlayingCard key={`hole-${index}`} value="?" suit="" hidden />
-                ),
-              )}
-            </>
-          )}
-          {(gameType === "belote" || gameType === "rami") && (
-            <>
-              {myHand.length > 0 ? (
-                myHand.map((card, index) => {
-                  const cardKey = `${card.suit}-${card.rank}`;
-                  const isSelected = selectedRamiCards.has(cardKey);
-                  if (gameType === "rami" && isMyTurn) {
-                    return (
-                      <div
-                        key={`hand-${card.suit}-${card.rank}-${index}`}
-                        className={`rami-card-selectable ${isSelected ? "rami-card-selected" : ""}`}
-                        onClick={() => {
-                          setSelectedRamiCards((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(cardKey)) next.delete(cardKey);
-                            else next.add(cardKey);
-                            return next;
-                          });
-                        }}
-                      >
-                        <PlayingCard {...cardView(card)} />
-                      </div>
-                    );
-                  }
-                  return (
-                    <PlayingCard
-                      key={`hand-${card.suit}-${card.rank}-${index}`}
-                      {...cardView(card)}
-                    />
-                  );
-                })
-              ) : (
-                <>
-                  <PlayingCard key="hole-0" value="?" suit="" hidden />
-                  <PlayingCard key="hole-1" value="?" suit="" hidden />
-                </>
-              )}
-            </>
-          )}
-          {gameType === "domino" && (
+
+          {/* Malagasy Rosewood Rack (Player's Domino Hand) */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+            <div style={{ fontSize: "0.8rem", color: "#d4af37", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              🪵 Votre Chevalet (Dominos en main)
+            </div>
             <div className="domino-rack-wooden">
               {Array.isArray(myPokerPlayer?.hand) && (myPokerPlayer.hand as Array<{ left: number; right: number }>).map((t, idx) => {
                 const leftEnd = Number(gameState?.left_end ?? -1);
@@ -2448,51 +2444,250 @@ export function GamePage() {
                 const isPlayable = isMyTurn && (canPlayLeft || canPlayRight);
 
                 return (
-                  <DominoTile
-                    key={`my-rack-domino-${idx}`}
-                    left={t.left}
-                    right={t.right}
-                    orientation="vertical"
-                    size="medium"
-                    isPlayable={isPlayable}
-                    onClick={() => {
-                      if (!isPlayable) return;
-                      playSound("card_played");
-                      const side = canPlayLeft ? "left" : "right";
-                      sendGameAction("play_tile", { tile: t, side });
-                    }}
-                  />
-                );
-              })}
-            </div>
-          )}
-          {gameType === "ludo" && (
-            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-              {Array.isArray(myPokerPlayer?.pawns) && (myPokerPlayer.pawns as Array<{ id: number; state: string; position: number }>).map((pawn) => {
-                const colorHex = ["#e57373", "#81c784", "#ffd54f", "#64b5f6"][Number(myPokerPlayer?.color ?? 0)];
-                const statusLabel = pawn.state === "base" ? "Yard" : pawn.state === "home" ? "Arrivé 🏆" : pawn.state === "home_path" ? `Coulloir ${pawn.position}` : `Case ${pawn.position}`;
-                return (
-                  <div
-                    key={`my-pawn-${pawn.id}`}
-                    style={{
-                      background: "rgba(0,0,0,0.5)",
-                      border: `2px solid ${colorHex}`,
-                      borderRadius: "8px",
-                      padding: "4px 8px",
-                      fontSize: "0.8rem",
-                      color: "#fff",
-                      textAlign: "center"
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, color: colorHex }}>♟️ #{pawn.id + 1}</div>
-                    <div style={{ fontSize: "0.7rem", opacity: 0.85 }}>{statusLabel}</div>
+                  <div key={`domino-my-tile-${idx}`} className={isPlayable ? "domino-rack-playable-tile" : ""}>
+                    <DominoTile
+                      left={t.left}
+                      right={t.right}
+                      orientation="vertical"
+                      size="medium"
+                      isPlayable={isPlayable}
+                      onClick={() => {
+                        if (!isPlayable) return;
+                        playSound("card_played");
+                        const side = canPlayLeft ? "left" : "right";
+                        sendGameAction("play_tile", { tile: t, side });
+                      }}
+                    />
                   </div>
                 );
               })}
             </div>
-          )}
+          </div>
+          {emote && <div className="table-emote">{emote}</div>}
         </div>
-      </div>
+      )}
+
+      {/* 4. Modern Belote Arena Stage (Prestige Club Card Room, Square Layout, Gold Seal) */}
+      {gameType === "belote" && (
+        <div className="belote-arena-stage">
+          {/* Scoreboard Marquee */}
+          <div className="belote-scoreboard-marquee">
+            <div className="belote-stage-title" style={{ color: "#ffd700", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>♠</span>
+              <span>Belote Contrée Malagasy</span>
+            </div>
+            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+              <span className="belote-team-score-badge team-us">
+                Équipe 1 (Nous) : <strong>{beloteTeamPoints[0]} pts</strong> (Total {beloteCumulative[0]})
+              </span>
+              <span className="belote-team-score-badge">
+                Équipe 2 (Eux) : <strong>{beloteTeamPoints[1]} pts</strong> (Total {beloteCumulative[1]})
+              </span>
+            </div>
+            {beloteTrump !== "" && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", fontWeight: 700 }}>
+                <span style={{ color: "rgba(255,255,255,0.7)" }}>Atout :</span>
+                <span style={{ fontSize: "1.2rem", color: [1, 2].includes(Number(beloteTrump)) ? "#ef4444" : "#f3f4f6" }}>
+                  {["♣", "♦", "♥", "♠"][Number(beloteTrump)] || "?"}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Square Arena with 4 Players (North=Partner, West=Opp1, East=Opp2, South=Hero) */}
+          <div className="belote-square-arena">
+            {/* North: Partner */}
+            <div className={`belote-seat-card belote-seat-north ${currentPlayerId === String(seatPlayers[1]?.id || "") ? "active-turn" : ""}`}>
+              <div className="ludo-pod-avatar" style={{ backgroundColor: "#4db6ac" }}>P</div>
+              <div className="ludo-pod-identity">
+                <span className="ludo-pod-name">{String(seatPlayers[1]?.name || "Partenaire")}</span>
+                <span style={{ fontSize: "0.7rem", color: "#4db6ac", fontWeight: 600 }}>Partenaire (Équipe 1) · {Number(seatPlayers[1]?.hand_count ?? 8)} cartes</span>
+              </div>
+            </div>
+
+            {/* West: Left Opponent */}
+            <div className={`belote-seat-card belote-seat-west ${currentPlayerId === String(seatPlayers[0]?.id || "") ? "active-turn" : ""}`}>
+              <div className="ludo-pod-avatar" style={{ backgroundColor: "#e57373" }}>O</div>
+              <div className="ludo-pod-identity">
+                <span className="ludo-pod-name">{String(seatPlayers[0]?.name || "Adversaire Ouest")}</span>
+                <span style={{ fontSize: "0.7rem", color: "#e57373", fontWeight: 600 }}>Adversaire · {Number(seatPlayers[0]?.hand_count ?? 8)} cartes</span>
+              </div>
+            </div>
+
+            {/* Center Pli Mat */}
+            <div className="belote-center-pli-mat">
+              {beloteTrump !== "" && (
+                <div className="belote-trump-gold-seal">
+                  <span>Atout :</span>
+                  <span style={{ fontSize: "1rem", color: [1, 2].includes(Number(beloteTrump)) ? "#ef4444" : "#ffd700" }}>
+                    {["♣", "♦", "♥", "♠"][Number(beloteTrump)] || "?"}
+                  </span>
+                </div>
+              )}
+
+              <div className="belote-cross-pli">
+                {/* North slot */}
+                <div className="belote-pli-slot belote-pli-north">
+                  <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Partenaire</span>
+                  {beloteTrick[2] ? <PlayingCard {...cardView(beloteTrick[2])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                </div>
+                {/* West slot */}
+                <div className="belote-pli-slot belote-pli-west">
+                  <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Ouest</span>
+                  {beloteTrick[1] ? <PlayingCard {...cardView(beloteTrick[1])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                </div>
+                {/* East slot */}
+                <div className="belote-pli-slot belote-pli-east">
+                  <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Est</span>
+                  {beloteTrick[3] ? <PlayingCard {...cardView(beloteTrick[3])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                </div>
+                {/* South slot */}
+                <div className="belote-pli-slot belote-pli-south">
+                  {beloteTrick[0] ? <PlayingCard {...cardView(beloteTrick[0])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                  <span style={{ fontSize: "9px", color: "#ffd700", fontWeight: 700, marginTop: "2px" }}>Vous</span>
+                </div>
+              </div>
+            </div>
+
+            {/* East: Right Opponent */}
+            <div className={`belote-seat-card belote-seat-east ${currentPlayerId === String(seatPlayers[2]?.id || "") ? "active-turn" : ""}`}>
+              <div className="ludo-pod-avatar" style={{ backgroundColor: "#ba68c8" }}>E</div>
+              <div className="ludo-pod-identity">
+                <span className="ludo-pod-name">{String(seatPlayers[2]?.name || "Adversaire Est")}</span>
+                <span style={{ fontSize: "0.7rem", color: "#ba68c8", fontWeight: 600 }}>Adversaire · {Number(seatPlayers[2]?.hand_count ?? 8)} cartes</span>
+              </div>
+            </div>
+
+            {/* South: You */}
+            <div className={`belote-seat-card belote-seat-south ${isMyTurn ? "active-turn" : ""}`}>
+              <div className="ludo-pod-avatar" style={{ backgroundColor: "#ffd700", color: "#111" }}>M</div>
+              <div className="ludo-pod-identity">
+                <span className="ludo-pod-name">{t("game.you")}</span>
+                <span style={{ fontSize: "0.7rem", color: "#ffd700", fontWeight: 600 }}>Équipe 1 · {myHand.length} cartes en main</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Hero Hand */}
+          <div className="belote-hero-hand-fan">
+            {myHand.map((card, idx) => (
+              <div
+                key={`belote-hand-${card.suit}-${card.rank}-${idx}`}
+                className="belote-hero-card"
+                onClick={() => {
+                  if (!isMyTurn) return;
+                  playSound("card_played");
+                  sendGameAction("play_card", { card });
+                }}
+              >
+                <PlayingCard {...cardView(card)} />
+              </div>
+            ))}
+          </div>
+
+          {gameOver && (
+            <div className="belote-game-over">
+              <div>🏆 {t("game.gameOver")} — {beloteCumulative[0] > beloteCumulative[1] ? t("game.team") + " 1" : t("game.team") + " 2"} {t("game.wins")}</div>
+              <button
+                className="button button-gold button-small"
+                onClick={() => {
+                  setGameOver(false);
+                  sendGameAction("new_hand");
+                }}
+                style={{ marginTop: 8 }}
+              >
+                {t("demoReplay")}
+              </button>
+            </div>
+          )}
+          {emote && <div className="table-emote">{emote}</div>}
+        </div>
+      )}
+
+      {/* 5. Modern Rami Arena Stage */}
+      {gameType === "rami" && (
+        <div className="rami-arena-stage">
+          <div className="ludo-stage-header">
+            <div className="ludo-stage-title">
+              <span>🂡</span>
+              <span>Gin Rami Malagasy</span>
+            </div>
+            <div className="ludo-turn-indicator-pill">
+              <span>{isMyTurn ? "🟢 Votre tour · Tirez ou défaussez" : `⏳ Tour de ${nameForPlayer(currentPlayerId)}`}</span>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "24px", margin: "20px 0" }}>
+            <div className="rami-discard-area">
+              <div className="rami-discard-label">Défausse</div>
+              <div className="rami-discard">
+                {ramiDiscard.length > 0 ? (
+                  <PlayingCard {...cardView(ramiDiscard[ramiDiscard.length - 1])} />
+                ) : (
+                  <PlayingCard value="?" suit="" hidden />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {ramiFinished && (
+            <div className="rami-finished">
+              {Number(gameState?.knocked_by ?? -1) >= 0 ? (
+                <>
+                  {t("game.knock")} — {gameState?.gin ? t("game.gin") : ""}
+                </>
+              ) : (
+                "Partie terminée"
+              )}
+            </div>
+          )}
+
+          {/* Melds Area */}
+          <div className="rami-melds-area">
+            {Array.isArray(gameState?.players) && (gameState?.players as Array<Record<string, unknown>>).map((p, idx) => {
+              const melds = p.melds as Array<Array<{ suit: number; rank: number }>> | undefined;
+              if (!melds || melds.length === 0) return null;
+              return (
+                <div key={`melds-${idx}`} className="rami-player-melds">
+                  <div className="rami-meld-label">{String(p.name || p.id || `Joueur ${idx + 1}`)} — Melds</div>
+                  {melds.map((meld, mIdx) => (
+                    <div key={`meld-${mIdx}`} className="rami-meld">
+                      {meld.map((card, cIdx) => (
+                        <PlayingCard key={`meld-card-${cIdx}`} {...cardView(card)} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Hero Hand */}
+          <div className="hole-cards hole-cards-many">
+            {myHand.map((card, index) => {
+              const cardKey = `${card.suit}-${card.rank}`;
+              const isSelected = selectedRamiCards.has(cardKey);
+              return (
+                <div
+                  key={`rami-hand-${cardKey}-${index}`}
+                  className={`rami-card-selectable ${isSelected ? "rami-card-selected" : ""}`}
+                  onClick={() => {
+                    setSelectedRamiCards((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(cardKey)) next.delete(cardKey);
+                      else next.add(cardKey);
+                      return next;
+                    });
+                  }}
+                >
+                  <PlayingCard {...cardView(card)} />
+                </div>
+              );
+            })}
+          </div>
+          {emote && <div className="table-emote">{emote}</div>}
+        </div>
+      )}
       {/* Discreet Hand Analysis & Odds Ribbon (placed outside felt table, never hides players) */}
       {(isPoker || gameType === "belote" || gameType === "rami") && (
         <div className="hand-stats-ribbon-container">

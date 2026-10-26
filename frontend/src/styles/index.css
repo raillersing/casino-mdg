@@ -720,7 +720,7 @@ h3 {
 .page-title-row p {
   margin: 0;
 }
-/* Fast-Seat Lalao Haingana (Inspiration Madaloka) */
+/* Fast-Seat Lalao Haingana */
 .fast-seat-banner {
   background: linear-gradient(135deg, rgba(211, 176, 107, 0.12) 0%, rgba(17, 22, 30, 0.95) 100%);
   border: 1px solid rgba(211, 176, 107, 0.35);
@@ -7961,4 +7961,725 @@ h3 {
 
 .game-room.data-saver-mode .seat-active-timer-ring {
   animation: none !important;
+}
+
+
+/* ==========================================================================
+   AWWWARDS-INSPIRED GAME ARENAS (LUDO, DOMINO, BELOTE, RAMI)
+   Zero Poker Felt Background - Tailor-made luxury interactive game stages
+   ========================================================================== */
+
+/* Keyframe Animations */
+@keyframes stageAmbientFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes turnGlowPulseGold {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(212, 175, 55, 0.4), inset 0 0 10px rgba(212, 175, 55, 0.2);
+    border-color: rgba(255, 215, 0, 0.85);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(212, 175, 55, 0.75), inset 0 0 16px rgba(212, 175, 55, 0.35);
+    border-color: #ffd700;
+  }
+}
+
+@keyframes ludoRedPulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(229, 57, 53, 0.45), inset 0 0 8px rgba(229, 57, 53, 0.2); border-color: #e53935; }
+  50% { box-shadow: 0 0 30px rgba(229, 57, 53, 0.8), inset 0 0 16px rgba(229, 57, 53, 0.4); border-color: #ff5252; }
+}
+
+@keyframes ludoGreenPulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(67, 160, 71, 0.45), inset 0 0 8px rgba(67, 160, 71, 0.2); border-color: #43a047; }
+  50% { box-shadow: 0 0 30px rgba(67, 160, 71, 0.8), inset 0 0 16px rgba(67, 160, 71, 0.4); border-color: #66bb6a; }
+}
+
+@keyframes ludoYellowPulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(251, 192, 45, 0.45), inset 0 0 8px rgba(251, 192, 45, 0.2); border-color: #fbc02d; }
+  50% { box-shadow: 0 0 30px rgba(251, 192, 45, 0.8), inset 0 0 16px rgba(251, 192, 45, 0.4); border-color: #ffeb3b; }
+}
+
+@keyframes ludoBluePulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(30, 136, 229, 0.45), inset 0 0 8px rgba(30, 136, 229, 0.2); border-color: #1e88e5; }
+  50% { box-shadow: 0 0 30px rgba(30, 136, 229, 0.8), inset 0 0 16px rgba(30, 136, 229, 0.4); border-color: #42a5f5; }
+}
+
+@keyframes playableDominoBounce {
+  0%, 100% { transform: translateY(-6px); }
+  50% { transform: translateY(-12px); }
+}
+
+/* ==========================================================================
+   1. LUDO ARENA STAGE
+   ========================================================================== */
+.ludo-arena-stage {
+  position: relative;
+  margin: 16px auto;
+  max-width: 980px;
+  min-height: 600px;
+  border-radius: 28px;
+  background: radial-gradient(circle at 50% 35%, #161e2b 0%, #0d121b 60%, #06090e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 60px rgba(0, 0, 0, 0.5);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-sizing: border-box;
+}
+
+.ludo-stage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.ludo-stage-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--serif, serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ffd700;
+  text-transform: uppercase;
+}
+
+.ludo-turn-indicator-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 30px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f3f4f6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ludo-turn-indicator-pill.is-my-turn {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
+  color: #6ee7b7;
+  animation: turnGlowPulseGold 2.2s infinite ease-in-out;
+}
+
+.ludo-pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.ludo-arena-layout {
+  display: grid;
+  grid-template-columns: 210px 1fr 210px;
+  grid-template-rows: auto auto;
+  gap: 20px;
+  align-items: center;
+  justify-items: center;
+  position: relative;
+  min-height: 460px;
+}
+
+.ludo-board-wrapper {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.ludo-player-pod {
+  width: 100%;
+  max-width: 205px;
+  background: rgba(18, 25, 36, 0.75);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.ludo-player-pod.pod-red.active-turn {
+  animation: ludoRedPulse 2s infinite ease-in-out;
+  transform: scale(1.03);
+}
+.ludo-player-pod.pod-green.active-turn {
+  animation: ludoGreenPulse 2s infinite ease-in-out;
+  transform: scale(1.03);
+}
+.ludo-player-pod.pod-yellow.active-turn {
+  animation: ludoYellowPulse 2s infinite ease-in-out;
+  transform: scale(1.03);
+}
+.ludo-player-pod.pod-blue.active-turn {
+  animation: ludoBluePulse 2s infinite ease-in-out;
+  transform: scale(1.03);
+}
+
+.ludo-pod-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ludo-pod-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.ludo-pod-identity {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ludo-pod-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f9fafb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ludo-pod-tag {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+.ludo-pod-pawns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ludo-pod-pawn-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 4px 2px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.ludo-arena-quick-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ludo-roll-dice-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffd700 0%, #f59e0b 50%, #d97706 100%);
+  color: #1a0f02;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ludo-roll-dice-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.65);
+}
+
+.ludo-roll-dice-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   2. DOMINO ARENA STAGE (Malagasy Rosewood Lounge)
+   ========================================================================== */
+.domino-arena-stage {
+  position: relative;
+  margin: 16px auto;
+  max-width: 980px;
+  min-height: 580px;
+  border-radius: 28px;
+  background: radial-gradient(circle at 50% 30%, #20140e 0%, #130a06 60%, #0a0503 100%);
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  box-shadow:
+    0 35px 85px rgba(0, 0, 0, 0.8),
+    inset 0 0 100px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+/* Brass Corner Rivets */
+.domino-arena-stage::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-radius: 21px;
+  pointer-events: none;
+}
+
+.domino-stage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 18px;
+  background: rgba(30, 20, 14, 0.6);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 16px;
+}
+
+.domino-stage-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--serif, serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #ffd700;
+  text-transform: uppercase;
+}
+
+.domino-boneyard-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 20px;
+  font-size: 0.82rem;
+  color: #f3f4f6;
+}
+
+.domino-boneyard-badge strong {
+  color: #ffd700;
+}
+
+.domino-opponents-row {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+
+.domino-opponent-card {
+  background: rgba(26, 17, 12, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 16px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 160px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.domino-opponent-card.active-turn {
+  animation: turnGlowPulseGold 2.2s infinite ease-in-out;
+  transform: translateY(-2px);
+}
+
+.domino-opponent-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.domino-opponent-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.domino-opponent-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f9fafb;
+}
+
+.domino-opponent-count {
+  font-size: 0.72rem;
+  color: #d4af37;
+  font-weight: 600;
+}
+
+.domino-center-mat {
+  position: relative;
+  margin: 10px 0;
+  background: radial-gradient(ellipse at center, #12402e 0%, #0a291d 75%, #051a12 100%);
+  border: 1px dashed rgba(212, 175, 55, 0.45);
+  border-radius: 20px;
+  padding: 16px 20px;
+  box-shadow:
+    inset 0 0 50px rgba(0, 0, 0, 0.7),
+    0 12px 30px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.domino-ends-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.domino-end-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid #10b981;
+  color: #6ee7b7;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+.domino-chain-scrollable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 16px 12px;
+  min-height: 90px;
+  scroll-behavior: smooth;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 14px;
+}
+
+.domino-chain-scrollable::-webkit-scrollbar {
+  height: 6px;
+}
+.domino-chain-scrollable::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+}
+.domino-chain-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.35);
+  border-radius: 3px;
+}
+
+.domino-rack-wooden {
+  position: relative;
+  margin: 12px auto 0;
+  width: fit-content;
+  max-width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 26px 20px;
+  background: linear-gradient(180deg, #442718 0%, #2b170e 65%, #180b06 100%);
+  border: 2px solid rgba(212, 175, 55, 0.35);
+  border-top: 4px solid #7c4627;
+  border-radius: 16px 16px 8px 8px;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.7),
+    inset 0 2px 4px rgba(255, 255, 255, 0.15);
+  overflow-x: auto;
+}
+
+.domino-rack-playable-tile {
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.domino-rack-playable-tile:hover {
+  transform: translateY(-10px) scale(1.04);
+}
+
+.domino-rack-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* ==========================================================================
+   3. BELOTE ARENA STAGE (Prestige Club Card Room)
+   ========================================================================== */
+.belote-arena-stage {
+  position: relative;
+  margin: 16px auto;
+  max-width: 940px;
+  min-height: 590px;
+  border-radius: 28px;
+  background: radial-gradient(circle at 50% 40%, #162438 0%, #0d1624 60%, #060b13 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 35px 85px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 60px rgba(0, 0, 0, 0.5);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.belote-scoreboard-marquee {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.belote-team-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.belote-team-score-badge.team-us {
+  border-color: rgba(212, 175, 55, 0.4);
+  color: #ffd700;
+}
+
+.belote-square-arena {
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  grid-template-rows: 80px 1fr 80px;
+  gap: 14px;
+  align-items: center;
+  justify-items: center;
+  margin: auto;
+  width: 100%;
+  max-width: 840px;
+  min-height: 440px;
+  position: relative;
+}
+
+.belote-seat-card {
+  background: rgba(20, 29, 44, 0.8);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.belote-seat-card.active-turn {
+  animation: turnGlowPulseGold 2.2s infinite ease-in-out;
+  transform: scale(1.04);
+}
+
+.belote-seat-north { grid-column: 2; grid-row: 1; }
+.belote-seat-west { grid-column: 1; grid-row: 2; }
+.belote-seat-east { grid-column: 3; grid-row: 2; }
+.belote-seat-south { grid-column: 2; grid-row: 3; }
+
+.belote-center-pli-mat {
+  grid-column: 2;
+  grid-row: 2;
+  width: 100%;
+  max-width: 340px;
+  height: 240px;
+  background: radial-gradient(ellipse at center, #154634 0%, #0d2e22 75%, #061912 100%);
+  border: 2px solid rgba(212, 175, 55, 0.35);
+  border-radius: 22px;
+  box-shadow:
+    inset 0 0 35px rgba(0, 0, 0, 0.7),
+    0 12px 32px rgba(0, 0, 0, 0.5);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.belote-trump-gold-seal {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ffd700;
+}
+
+.belote-hero-hand-fan {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.belote-hero-card {
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
+}
+
+.belote-hero-card:hover {
+  transform: translateY(-14px) scale(1.06);
+  z-index: 10;
+}
+
+/* ==========================================================================
+   4. RAMI ARENA STAGE (Modern Gin Rummy Room)
+   ========================================================================== */
+.rami-arena-stage {
+  position: relative;
+  margin: 16px auto;
+  max-width: 960px;
+  min-height: 560px;
+  border-radius: 28px;
+  background: radial-gradient(circle at 50% 35%, #182230 0%, #0d1520 60%, #070c14 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   MOBILE & TABLET RESPONSIVE RULES FOR ARENAS
+   ========================================================================== */
+@media (max-width: 860px) {
+  .ludo-arena-layout {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 12px;
+  }
+  .ludo-board-wrapper {
+    grid-column: 1 / span 2;
+    grid-row: 2;
+  }
+  .ludo-player-pod {
+    max-width: 100%;
+  }
+
+  .belote-square-arena {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto auto;
+    gap: 10px;
+  }
+  .belote-seat-north { grid-column: 1 / span 2; grid-row: 1; justify-self: center; }
+  .belote-center-pli-mat { grid-column: 1 / span 2; grid-row: 2; justify-self: center; }
+  .belote-seat-west { grid-column: 1; grid-row: 3; justify-self: stretch; }
+  .belote-seat-east { grid-column: 2; grid-row: 3; justify-self: stretch; }
+  .belote-seat-south { grid-column: 1 / span 2; grid-row: 4; justify-self: center; }
+
+  .domino-opponents-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 600px) {
+  .ludo-arena-stage,
+  .domino-arena-stage,
+  .belote-arena-stage,
+  .rami-arena-stage {
+    padding: 14px;
+    border-radius: 18px;
+    min-height: auto;
+  }
 }

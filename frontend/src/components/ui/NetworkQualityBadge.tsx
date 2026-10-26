@@ -113,7 +113,7 @@ export function NetworkQualityBadge({
         </button>
       </div>
 
-      {/* Modal / Volet Diagnostic Réseau Haute-Fidélité (style Madaloka) */}
+      {/* Modal / Volet Diagnostic Réseau Haute-Fidélité */}
       {showModal && (
         <div className="modal-backdrop" role="presentation" onClick={() => setShowModal(false)}>
           <div

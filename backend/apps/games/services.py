@@ -38,7 +38,7 @@ def seed_demo_tables():
         ("emerald-01", "Émeraude", "poker", "100 / 200", 6, "open"),
         ("baobab-01", "Baobab", "belote", "Gratuit", 4, "open"),
         ("vanilla-01", "Vanille", "rami", "50 / 100", 4, "open"),
-        ("ludo-mada-01", "Ludo Madaloka", "ludo", "Gratuit", 4, "open"),
+        ("ludo-mada-01", "Ludo Malagasy", "ludo", "Gratuit", 4, "open"),
         ("domino-gasikara-01", "Domino Double-Six", "domino", "50 / 100", 4, "open"),
         ("ocean-01", "Océan Indien", "poker", "500 / 1K", 9, "open"),
     ]
