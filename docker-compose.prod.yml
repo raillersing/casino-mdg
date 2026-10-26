@@ -154,6 +154,7 @@ services:
       GAME_ENGINE_INTERNAL_URL: http://game-engine:8080
       GAME_ENGINE_BOT_SECRET: ${GAME_ENGINE_BOT_SECRET}
       GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET}
+      OTP_FALLBACK_DISPLAY: ${OTP_FALLBACK_DISPLAY:-true}
     volumes:
       - backend_media:/app/media
       - backend_static:/app/staticfiles
