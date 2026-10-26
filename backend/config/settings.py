@@ -14,7 +14,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ─── Security ─────────────────────────────────────────────────
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-key-change-in-prod")
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+raw_allowed_hosts = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h.strip()]
+ALLOWED_HOSTS = list(set(raw_allowed_hosts + ["localhost", "127.0.0.1", "backend", "testserver"]))
 
 # ─── Apps ─────────────────────────────────────────────────────
 DJANGO_APPS = [

@@ -130,7 +130,7 @@ services:
     container_name: casino-mdg-backend-prod
     restart: always
     depends_on:
-      pgbouncer:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -141,7 +141,7 @@ services:
       DEBUG: "False"
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       JWT_SECRET: ${JWT_SECRET}
-      DB_HOST: pgbouncer
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-casino_mdg}
       DB_USER: ${DB_USER:-postgres}
@@ -159,9 +159,10 @@ services:
       - backend_static:/app/staticfiles
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/', timeout=5)"]
-      interval: 15s
+      start_period: 60s
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
     command: >
       sh -c "
         python manage.py migrate --noinput &&
@@ -204,7 +205,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       JWT_SECRET: ${JWT_SECRET}
-      DB_HOST: pgbouncer
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-casino_mdg}
       DB_USER: ${DB_USER:-postgres}
@@ -238,7 +239,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       JWT_SECRET: ${JWT_SECRET}
-      DB_HOST: pgbouncer
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-casino_mdg}
       DB_USER: ${DB_USER:-postgres}
