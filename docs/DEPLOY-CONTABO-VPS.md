@@ -195,5 +195,31 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d --bui
 * **Cause :** Le moteur de jeu Go filtrait strictement l'en-tête `Origin` de la poignée de main WebSocket (seuls `localhost`, `casino-mdg.mg` et `casino-mdg.com` étaient autorisés). Tout domaine personnalisé ou IP publique provoquait un refus HTTP `403 Forbidden` du WebSocket. De plus, les tables démo publiques étaient masquées si `DEBUG=False`.
 * **Résolution :** 
   - Autorisation universelle des origines WebSocket dans le moteur Go (`CheckOrigin: return true`), la sécurité étant garantie par la validation cryptographique du token JWT (HMAC-SHA256).
-  - Génération automatique des tables publiques starter (Poker, Belote, Rami) dès le premier chargement en production.
+  - Génération automatique des tables publiques starter (Poker, Belote, Rami, Ludo, Domino) dès le premier chargement en production.
   - Reconstruire le moteur de jeu : `docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build game-engine backend`
+
+### Incident 7 : Avertissements `The "VARIABLE" variable is not set. Defaulting to a blank string`
+* **Cause :** L'exécution de commandes `docker compose` sans l'argument `--env-file .env.production` pousse Docker à chercher un fichier `.env` par défaut (inexistant en production), ce qui injecte des variables vides.
+* **Résolution :** Toujours spécifier le fichier d'environnement de production :
+  ```bash
+  docker compose -f docker-compose.prod.yml --env-file .env.production ps
+  docker compose -f docker-compose.prod.yml --env-file .env.production exec backend python manage.py migrate
+  ```
+
+### Incident 8 : `Your models in app(s): 'games' have changes that are not yet reflected in a migration`
+* **Cause :** L'ajout de nouveaux champs sur les modèles (ex: `game_type` pour Ludo et Domino) nécessite l'application des migrations Django.
+* **Résolution :** Exécuter la commande de migration dans le conteneur backend :
+  ```bash
+  docker compose -f docker-compose.prod.yml --env-file .env.production exec backend python manage.py migrate
+  ```
+
+---
+
+## 8. Procédure Express de Re-déploiement en 1 Ligne
+
+Pour mettre à jour votre serveur de production avec les dernières nouveautés (refonte des arènes Ludo, Domino, Belote, etc.) :
+
+```bash
+cd /var/www/casino-mdg && git pull origin master && docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build frontend game-engine backend && docker compose -f docker-compose.prod.yml --env-file .env.production exec backend python manage.py migrate
+```
+
