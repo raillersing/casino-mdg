@@ -120,28 +120,6 @@ services:
       - casino-mdg-prod
 
   # ───────────────────────────────────────────
-  # MinIO (Stockage Objets S3 Médias / Avatars)
-  # ───────────────────────────────────────────
-  minio:
-    image: minio/minio:latest
-    container_name: casino-mdg-minio-prod
-    restart: always
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_USER:-minio_admin}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASS}
-      MINIO_REGION: ${MINIO_REGION:-mg-antananarivo}
-    volumes:
-      - minio_prod_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - casino-mdg-prod
-
-  # ───────────────────────────────────────────
   # Django Backend (Gunicorn multi-workers)
   # ───────────────────────────────────────────
   backend:
@@ -173,9 +151,6 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-casino_admin}:${RABBITMQ_PASS}@rabbitmq:5672//
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_USER:-minio_admin}
-      MINIO_SECRET_KEY: ${MINIO_PASS}
       GAME_ENGINE_INTERNAL_URL: http://game-engine:8080
       GAME_ENGINE_BOT_SECRET: ${GAME_ENGINE_BOT_SECRET}
       GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET}
@@ -345,6 +320,5 @@ volumes:
   postgres_prod_data:
   redis_prod_data:
   rabbitmq_prod_data:
-  minio_prod_data:
   backend_media:
   backend_static:

@@ -92,7 +92,6 @@ if [[ ! -f "$ENV_FILE" ]]; then
     JWT_SEC=$(openssl rand -hex 32)
     DB_PASS=$(openssl rand -hex 16)
     RMQ_PASS=$(openssl rand -hex 16)
-    MINIO_P=$(openssl rand -hex 16)
     BOT_SEC=$(openssl rand -hex 24)
     RES_SEC=$(openssl rand -hex 24)
 
@@ -100,7 +99,6 @@ if [[ ! -f "$ENV_FILE" ]]; then
     sed -i "s|JWT_SECRET=.*|JWT_SECRET=${JWT_SEC}|" "$ENV_FILE"
     sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=${DB_PASS}|" "$ENV_FILE"
     sed -i "s|RABBITMQ_PASS=.*|RABBITMQ_PASS=${RMQ_PASS}|" "$ENV_FILE"
-    sed -i "s|MINIO_PASS=.*|MINIO_PASS=${MINIO_P}|" "$ENV_FILE"
     sed -i "s|GAME_ENGINE_BOT_SECRET=.*|GAME_ENGINE_BOT_SECRET=${BOT_SEC}|" "$ENV_FILE"
     sed -i "s|GAME_ENGINE_RESULT_SECRET=.*|GAME_ENGINE_RESULT_SECRET=${RES_SEC}|" "$ENV_FILE"
     echo -e "${GREEN}✅ Clés générées et stockées dans .env.production${NC}"
