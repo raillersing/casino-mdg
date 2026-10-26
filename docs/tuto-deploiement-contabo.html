@@ -673,15 +673,53 @@
 apt-get install -y git curl</code></pre>
         </div>
 
-        <p>Clonez le code de votre casino dans le répertoire de production :</p>
+        <div class="callout important">
+            <div class="callout-icon">⚠️</div>
+            <div class="callout-content">
+                <strong>Règle Importante GitHub — Authentification par Token obligatoire :</strong>
+                GitHub n'accepte plus les mots de passe de compte standards pour <code>git clone</code> (erreur <em>Password authentication is not supported</em>). Vous devez générer un <strong>Personal Access Token (PAT)</strong> ou une clé SSH.
+                <ul style="margin-top: 6px; padding-left: 18px;">
+                    <li>Sur GitHub : <strong>Settings &gt; Developer Settings &gt; Personal access tokens &gt; Tokens (classic)</strong>.</li>
+                    <li>Cliquez sur <strong>Generate new token</strong>, cochez la case <strong><code>repo</code></strong> et copiez le token <code>ghp_...</code>.</li>
+                </ul>
+            </div>
+        </div>
 
+        <p><strong>Option A (Recommandée) — Cloner avec votre Token GitHub :</strong></p>
         <div class="code-container">
             <div class="code-header">
                 <span class="lang">bash</span>
                 <button class="copy-btn" onclick="copyCode(this)">Copier</button>
             </div>
-            <pre><code>git clone https://github.com/&lt;votre-utilisateur-ou-organisation&gt;/casino-mdg.git /var/www/casino-mdg
+            <pre><code>git clone https://ghp_VOTRE_TOKEN_ICI@github.com/raillersing/casino-mdg.git /var/www/casino-mdg
 cd /var/www/casino-mdg</code></pre>
+        </div>
+
+        <p><strong>Option B — Cloner avec une Clé SSH (Deploy Key) :</strong></p>
+        <div class="code-container">
+            <div class="code-header">
+                <span class="lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copier</button>
+            </div>
+            <pre><code># 1. Générer la clé sur le VPS :
+ssh-keygen -t ed25519 -C "contabo-vps" -N "" -f ~/.ssh/id_ed25519
+cat ~/.ssh/id_ed25519.pub
+# 2. Copier la clé dans GitHub > Repository > Settings > Deploy keys > Add deploy key
+# 3. Cloner via SSH :
+git clone git@github.com:raillersing/casino-mdg.git /var/www/casino-mdg
+cd /var/www/casino-mdg</code></pre>
+        </div>
+
+        <div class="callout tip">
+            <div class="callout-icon">🔄</div>
+            <div class="callout-content">
+                <strong>Si le dossier existe déjà (mise à jour) :</strong>
+                Si vous avez déjà cloné le dépôt précédemment, mettez-le simplement à jour depuis le dossier du projet :
+                <div class="code-container" style="margin-top: 10px;">
+                    <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copier</button></div>
+                    <pre><code>cd /var/www/casino-mdg && git pull origin master</code></pre>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -714,8 +752,11 @@ cd /var/www/casino-mdg</code></pre>
                     <li><strong>Optimisations Noyau Linux :</strong> Active <code>vm.overcommit_memory = 1</code> pour Redis et augmente les descripteurs de fichiers à <code>65536</code>.</li>
                     <li><strong>Pare-feu UFW :</strong> Ouvre exclusivement les ports 22 (SSH), 80 (HTTP/WS) et 443 (HTTPS).</li>
                     <li><strong>Génération de Clés Cryptographiques :</strong> Génère des clés aléatoires sécurisées de 64 caractères dans <code>.env.production</code>.</li>
-                    <li><strong>Lancement Docker :</strong> Construit et démarre PostgreSQL, PgBouncer, Redis, RabbitMQ, MinIO, Celery, le moteur Go et Nginx.</li>
+                    <li><strong>Lancement Docker :</strong> Construit et démarre PostgreSQL, PgBouncer (transaction pooling), Redis, RabbitMQ, Celery, le moteur Go et Nginx (React PWA).</li>
                 </ol>
+                <p style="margin-top: 10px; font-size: 0.88rem; color: #a7f3d0;">
+                    ⏳ <em>Note sur le premier démarrage :</em> Django applique automatiquement plus de 40 migrations SQL de base de données et la collecte des fichiers statiques. Les sondes de santé disposent d'un délai de grâce (60s) pour laisser la base s'initialiser proprement avant de marquer tous les conteneurs verts (HEALTHY).
+                </p>
             </div>
         </div>
 
@@ -842,11 +883,19 @@ docker compose -f docker-compose.prod.yml logs -f pgbouncer</code></pre>
             <pre><code>docker compose -f docker-compose.prod.yml exec postgres pg_dump -U postgres casino_mdg &gt; backup_$(date +%F_%T).sql</code></pre>
         </div>
 
-        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 8px;">4. Déployer une mise à jour Git sans coupure</h3>
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 8px;">4. Déployer une mise à jour Git sans coupure (Re-déploiement)</h3>
         <div class="code-container">
             <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copier</button></div>
-            <pre><code>git pull origin master
+            <pre><code>cd /var/www/casino-mdg
+git pull origin master
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build</code></pre>
+        </div>
+
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 8px;">5. Redémarrer un conteneur individuel</h3>
+        <div class="code-container">
+            <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copier</button></div>
+            <pre><code>docker compose -f docker-compose.prod.yml restart backend
+docker compose -f docker-compose.prod.yml restart game-engine</code></pre>
         </div>
     </section>
 
@@ -855,8 +904,18 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d --bui
         <h2 style="font-size: 1.6rem; color: var(--text-main); margin-bottom: 16px;">Dépannage & Questions Fréquentes (FAQ)</h2>
 
         <div style="margin-bottom: 24px;">
-            <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Mon domaine affiche une page d'attente ou « 502 Bad Gateway » lors des premières minutes ?</h4>
-            <p>R : Les conteneurs peuvent prendre entre 45 et 90 secondes pour finaliser les migrations initiales et les vérifications de santé. Vérifiez l'avancement avec <code>docker compose -f docker-compose.prod.yml logs backend</code>. Assurez-vous également que le mode SSL dans Cloudflare est bien configuré sur <strong>Flexible</strong>.</p>
+            <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : GitHub refuse mon mot de passe lors du git clone ("Password authentication is not supported") ?</h4>
+            <p>R : GitHub requiert un Personal Access Token. Créez un token sur <a href="https://github.com/settings/tokens" target="_blank" style="color: var(--primary);">github.com/settings/tokens</a> avec le scope <code>repo</code> et clonez via :<br><code>git clone https://ghp_VOTRE_TOKEN@github.com/raillersing/casino-mdg.git /var/www/casino-mdg</code>.</p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Le terminal m'indique "scripts/deploy/deploy-contabo.sh: No such file or directory" ?</h4>
+            <p>R : Vos commits locaux n'avaient pas encore été poussés sur GitHub avant le clonage. Exécutez <code>git pull origin master</code> dans <code>/var/www/casino-mdg</code> pour récupérer tous les fichiers récents.</p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Pourquoi le conteneur backend met-il quelques secondes à devenir "Healthy" ?</h4>
+            <p>R : Au premier lancement, Django doit appliquer plus de 40 migrations SQL de base de données et collecter les fichiers statiques. Un délai de grâce de 60 secondes (<code>start_period</code>) est prévu pour laisser les tables se créer.</p>
         </div>
 
         <div style="margin-bottom: 24px;">
