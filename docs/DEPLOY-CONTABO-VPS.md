@@ -186,3 +186,14 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d --bui
   docker compose -f docker-compose.prod.yml down -v
   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
   ```
+
+### Incident 5 : Erreur 521 Cloudflare (« Web Server is Down »)
+* **Cause :** Cloudflare est configuré en mode SSL « Full » ou « Full (strict) » et tente d'interroger le port 443 (HTTPS) du VPS, alors que Docker écoute sur le port 80 (HTTP).
+* **Résolution :** Dans Cloudflare > Votre Domaine > **SSL/TLS**, basculez le mode sur **Flexible**. Cloudflare chiffrera la communication visiteur en HTTPS et interrogera le port 80 du VPS.
+
+### Incident 6 : Les parties contre les bots ou entre joueurs ne se lancent pas (Connexion WebSocket impossible)
+* **Cause :** Le moteur de jeu Go filtrait strictement l'en-tête `Origin` de la poignée de main WebSocket (seuls `localhost`, `casino-mdg.mg` et `casino-mdg.com` étaient autorisés). Tout domaine personnalisé ou IP publique provoquait un refus HTTP `403 Forbidden` du WebSocket. De plus, les tables démo publiques étaient masquées si `DEBUG=False`.
+* **Résolution :** 
+  - Autorisation universelle des origines WebSocket dans le moteur Go (`CheckOrigin: return true`), la sécurité étant garantie par la validation cryptographique du token JWT (HMAC-SHA256).
+  - Génération automatique des tables publiques starter (Poker, Belote, Rami) dès le premier chargement en production.
+  - Reconstruire le moteur de jeu : `docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build game-engine backend`

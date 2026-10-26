@@ -914,6 +914,11 @@ docker compose -f docker-compose.prod.yml restart game-engine</code></pre>
         </div>
 
         <div style="margin-bottom: 24px;">
+            <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Les parties contre les bots ou les vrais joueurs ne démarrent pas (table bloquée sur connexion) ?</h4>
+            <p>R : Le moteur temps réel Go intégrait un filtre strict d'origines (<code>CheckOrigin</code>) qui bloquait les noms de domaine personnalisés et adresses IP avec un code HTTP <code>403 Forbidden</code>. Ce filtre a été universalisé (l'authentification restant garantie par token JWT HMAC-SHA256). Il suffit d'exécuter <code>git pull origin master &amp;&amp; docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build game-engine backend</code>.</p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
             <h4 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 6px;">Q : Erreur "dependency failed to start: container casino-mdg-backend-prod is unhealthy" ?</h4>
             <p>R : Cette erreur survient si la sonde interne de santé ne peut pas joindre Django ou si une redirection SSL HTTP vers HTTPS bloque la vérification locale. Inspectez immédiatement les logs récents via :<br><code>docker compose -f docker-compose.prod.yml logs backend --tail 50</code><br>Le projet intègre désormais une sonde immunisée aux redirections (<code>X-Forwarded-Proto</code>) et <code>SECURE_REDIRECT_EXEMPT</code> pour garantir un passage à l'état <em>Healthy</em> immédiat.</p>
         </div>
