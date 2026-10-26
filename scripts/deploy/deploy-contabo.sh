@@ -118,7 +118,7 @@ fi
 # 8. Vérification des sondes de santé
 echo -e "${YELLOW}⏳ Attente de la stabilisation des services (healthchecks)...${NC}"
 sleep 15
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml --env-file .env.production ps
 
 PUBLIC_IP=$(curl -s -4 ifconfig.me || hostname -I | awk '{print $1}')
 
