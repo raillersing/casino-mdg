@@ -71,6 +71,32 @@ const GAME_META: Record<
       "Le premier à poser toutes ses cartes gagne",
     ],
   },
+  ludo: {
+    name: "Ludo Mada",
+    icon: "🎲",
+    accent: "#81c784",
+    description:
+      "Le jeu de plateau culte à Madagascar ! Lancez le dé, sortez vos 4 pions et soyez le premier à les amener au centre.",
+    playersLabel: "2 – 4 joueurs",
+    rules: [
+      "Faites un 6 pour sortir un pion de votre camp",
+      "Capturez les pions adverses pour les renvoyer chez eux",
+      "Amenez vos 4 pions à la maison pour l'emporter",
+    ],
+  },
+  domino: {
+    name: "Domino Double-Six",
+    icon: "🁓",
+    accent: "#ffb74d",
+    description:
+      "Associez les valeurs de vos dominos aux extrémités du plateau. Bloquez le jeu ou videz votre main pour triompher !",
+    playersLabel: "2 – 4 joueurs",
+    rules: [
+      "Posez un domino correspondant à l'une des deux extrémités",
+      "Piochez au talon si vous ne pouvez pas jouer",
+      "Le premier sans dominos ou avec le moins de points l'emporte",
+    ],
+  },
 };
 
 export function PlayHubPage() {
@@ -126,7 +152,7 @@ export function PlayHubPage() {
       try {
         const session = await startBotSimulation(
           token,
-          gameType as "poker" | "belote" | "rami",
+          gameType as "poker" | "belote" | "rami" | "ludo" | "domino",
           "balanced",
           idempotencyKey,
           botCount,
@@ -321,7 +347,7 @@ export function PlayHubPage() {
             <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Ajustez le nombre de robots simulés autour de la table pour votre partie</span>
           </div>
           <BotCountSelector
-            gameType={gameType as "poker" | "belote" | "rami"}
+            gameType={gameType as "poker" | "belote" | "rami" | "ludo" | "domino"}
             value={botCount}
             onChange={setBotCount}
             disabled={startingMode === "demo"}

@@ -9,7 +9,6 @@ import { AuthPage } from "@pages/AuthPage";
 import { NotFoundPage } from "@pages/NotFoundPage";
 import { SupportPage } from "@pages/SupportPage";
 import { BackofficePage } from "@pages/BackofficePage";
-import { TestGamesPage } from "@pages/TestGamesPage";
 import { ClubsPage } from "@pages/ClubsPage";
 import { PlayHubPage } from "@pages/PlayHubPage";
 
@@ -27,9 +26,9 @@ function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/support" element={<SupportPage />} />
         <Route path="/backoffice" element={<BackofficePage />} />
-        <Route path="/casino" element={<TestGamesPage />} />
-        <Route path="/games/test" element={<Navigate to="/casino" replace />} />
-        <Route path="/games/hasard" element={<Navigate to="/casino" replace />} />
+        <Route path="/casino" element={<Navigate to="/lobby" replace />} />
+        <Route path="/games/test" element={<Navigate to="/lobby" replace />} />
+        <Route path="/games/hasard" element={<Navigate to="/lobby" replace />} />
         <Route path="/clubs" element={<ClubsPage />} />
         {/* Redirect old play hub route to lobby */}
         <Route path="/play" element={<Navigate to="/lobby" replace />} />

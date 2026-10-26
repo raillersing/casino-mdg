@@ -11,9 +11,11 @@ export interface User {
   streakDays: number;
 }
 
+export type GameType = "poker" | "belote" | "rami" | "ludo" | "domino";
+
 export interface Table {
   id: string;
-  gameType: "poker" | "belote" | "rami";
+  gameType: GameType;
   name: string;
   players: Player[];
   minBuyIn: number;

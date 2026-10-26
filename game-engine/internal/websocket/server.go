@@ -19,6 +19,8 @@ import (
 
 	"github.com/casino-mdg/game-engine/internal/config"
 	"github.com/casino-mdg/game-engine/internal/game/belote"
+	"github.com/casino-mdg/game-engine/internal/game/domino"
+	"github.com/casino-mdg/game-engine/internal/game/ludo"
 	"github.com/casino-mdg/game-engine/internal/game/poker"
 	"github.com/casino-mdg/game-engine/internal/game/rami"
 	"github.com/casino-mdg/game-engine/internal/room"
@@ -767,6 +769,81 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 			"current_player_id": currentPlayerID, "finished": game.Finished,
 			"knocked_by": knockedBy, "gin": game.Gin, "action_deadline": deadline,
 		}
+	case *ludo.Game:
+		players := make([]map[string]interface{}, 0, len(game.Players))
+		for _, player := range game.Players {
+			seat := player.Color
+			if p, exists := tablePlayers[player.ID]; exists {
+				seat = p.Seat
+			}
+			players = append(players, map[string]interface{}{
+				"id":    player.ID,
+				"color": player.Color,
+				"seat":  seat,
+				"pawns": player.Pawns,
+				"score": player.Score,
+			})
+		}
+		currentPlayerID := ""
+		if game.Current >= 0 && game.Current < len(game.Players) {
+			currentPlayerID = game.Players[game.Current].ID
+		}
+		deadline := interface{}(nil)
+		if !actionDeadline.IsZero() {
+			deadline = actionDeadline
+		}
+		return map[string]interface{}{
+			"players":           players,
+			"current":           game.Current,
+			"current_player_id": currentPlayerID,
+			"last_roll":         game.LastRoll,
+			"can_roll":          game.CanRoll,
+			"can_move":          game.CanMove,
+			"valid_moves":       game.ValidMoves,
+			"finished":          game.Finished,
+			"winner":            game.Winner,
+			"action_deadline":   deadline,
+		}
+	case *domino.Game:
+		players := make([]map[string]interface{}, 0, len(game.Players))
+		for _, player := range game.Players {
+			hand := interface{}(nil)
+			if player.ID == playerID || game.Finished {
+				hand = player.Hand
+			}
+			seat := 0
+			if p, exists := tablePlayers[player.ID]; exists {
+				seat = p.Seat
+			}
+			players = append(players, map[string]interface{}{
+				"id":         player.ID,
+				"seat":       seat,
+				"hand":       hand,
+				"tile_count": len(player.Hand),
+				"score":      player.Score,
+			})
+		}
+		currentPlayerID := ""
+		if game.Current >= 0 && game.Current < len(game.Players) {
+			currentPlayerID = game.Players[game.Current].ID
+		}
+		deadline := interface{}(nil)
+		if !actionDeadline.IsZero() {
+			deadline = actionDeadline
+		}
+		return map[string]interface{}{
+			"players":           players,
+			"board":             game.Board,
+			"left_end":          game.LeftEnd,
+			"right_end":         game.RightEnd,
+			"boneyard_count":    len(game.Boneyard),
+			"current":           game.Current,
+			"current_player_id": currentPlayerID,
+			"finished":          game.Finished,
+			"winner":            game.Winner,
+			"blocked":           game.Blocked,
+			"action_deadline":   deadline,
+		}
 	default:
 		return nil
 	}
@@ -798,7 +875,7 @@ func roleFromPayload(payload interface{}) string {
 }
 
 func validGameType(gameType string) bool {
-	return gameType == "poker" || gameType == "belote" || gameType == "rami"
+	return gameType == "poker" || gameType == "belote" || gameType == "rami" || gameType == "ludo" || gameType == "domino"
 }
 
 var sharedHTTPClient = &http.Client{
@@ -1083,6 +1160,36 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 					s.handleAction(client, &Message{Type: MsgAction, TableID: tid, PlayerID: "", Action: "new_hand", Sequence: seq})
 				}(msg.TableID, event.Sequence)
 			}
+		}
+	}
+	if !replayed && msg.Action == "move_pawn" {
+		winnerID, losers, amount, finished := s.roomManager.FinishedLudoResults(msg.TableID)
+		if finished {
+			var ludoS2S []S2SSettlementResult
+			winSig := signResult(s.config.ResultSecret, msg.TableID, "ludo", "win", int(amount), winnerID)
+			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": amount, "signature": winSig}, Sequence: event.Sequence, Timestamp: time.Now()})
+			ludoS2S = append(ludoS2S, S2SSettlementResult{PlayerID: winnerID, Outcome: "win", Amount: amount, Signature: winSig})
+			for _, playerID := range losers {
+				lossSig := signResult(s.config.ResultSecret, msg.TableID, "ludo", "loss", 0, playerID)
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": lossSig}, Sequence: event.Sequence, Timestamp: time.Now()})
+				ludoS2S = append(ludoS2S, S2SSettlementResult{PlayerID: playerID, Outcome: "loss", Amount: 0, Signature: lossSig})
+			}
+			s.notifyS2SSettlement(msg.TableID, "ludo", ludoS2S)
+		}
+	}
+	if !replayed && (msg.Action == "play_tile" || msg.Action == "pass") {
+		winnerID, losers, amount, finished := s.roomManager.FinishedDominoResults(msg.TableID)
+		if finished {
+			var dominoS2S []S2SSettlementResult
+			winSig := signResult(s.config.ResultSecret, msg.TableID, "domino", "win", int(amount), winnerID)
+			s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: winnerID, Action: "result", Payload: map[string]interface{}{"outcome": "win", "amount": amount, "signature": winSig}, Sequence: event.Sequence, Timestamp: time.Now()})
+			dominoS2S = append(dominoS2S, S2SSettlementResult{PlayerID: winnerID, Outcome: "win", Amount: amount, Signature: winSig})
+			for _, playerID := range losers {
+				lossSig := signResult(s.config.ResultSecret, msg.TableID, "domino", "loss", 0, playerID)
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": "loss", "amount": 0, "signature": lossSig}, Sequence: event.Sequence, Timestamp: time.Now()})
+				dominoS2S = append(dominoS2S, S2SSettlementResult{PlayerID: playerID, Outcome: "loss", Amount: 0, Signature: lossSig})
+			}
+			s.notifyS2SSettlement(msg.TableID, "domino", dominoS2S)
 		}
 	}
 	if !replayed {

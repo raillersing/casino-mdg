@@ -2,7 +2,7 @@ export type GameTable = {
   id: string;
   table_code: string;
   name: string;
-  game_type: "poker" | "belote" | "rami";
+  game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
   stakes: string;
   max_players: number;
   player_count: number;
@@ -35,7 +35,7 @@ export type BotSimulation = {
   session_id: string;
   table_id: string;
   table_code: string;
-  game_type: "poker" | "belote" | "rami";
+  game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
   mode: "DEMO_AI";
   profile: "tutorial" | "balanced" | "expert";
   status: "queued" | "running" | "completed" | "cancelled";
@@ -84,7 +84,7 @@ export function createTable(
   accessToken: string,
   payload: {
     name: string;
-    game_type: "poker" | "belote" | "rami";
+    game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
     max_players: number;
     is_private: boolean;
     club_id?: string;
@@ -102,7 +102,7 @@ export function createTable(
 
 export type MatchmakingTicket = {
   ticket_id: string;
-  game_type: "poker" | "belote" | "rami";
+  game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
   status: "queued" | "matched" | "cancelled";
   table_id: string | null;
   table_code: string | null;
@@ -143,7 +143,7 @@ export function sendMatchmakingHeartbeat(
 }
 export function queueMatch(
   accessToken: string,
-  gameType: "poker" | "belote" | "rami",
+  gameType: "poker" | "belote" | "rami" | "ludo" | "domino",
 ) {
   return request<{ ticket: MatchmakingTicket; created: boolean }>(
     "matchmaking/queue/",

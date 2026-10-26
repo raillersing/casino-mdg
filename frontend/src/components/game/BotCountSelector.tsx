@@ -1,7 +1,7 @@
 import { Minus, Plus, Bot } from "lucide-react";
 
 interface BotCountSelectorProps {
-  gameType: "poker" | "belote" | "rami";
+  gameType: "poker" | "belote" | "rami" | "ludo" | "domino";
   value: number;
   onChange: (value: number) => void;
   disabled?: boolean;

@@ -12,6 +12,8 @@ import (
 
 	"github.com/casino-mdg/game-engine/internal/config"
 	"github.com/casino-mdg/game-engine/internal/game/belote"
+	"github.com/casino-mdg/game-engine/internal/game/domino"
+	"github.com/casino-mdg/game-engine/internal/game/ludo"
 	"github.com/casino-mdg/game-engine/internal/game/poker"
 	"github.com/casino-mdg/game-engine/internal/game/rami"
 	"github.com/google/uuid"
@@ -445,6 +447,49 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 			return BotTurn{PlayerID: gamePlayer.ID, Action: "draw", Payload: map[string]interface{}{}, Sequence: table.Sequence}, true
 		}
 		return decideRamiBotTurn(gamePlayer, table.Sequence), true
+	case *ludo.Game:
+		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		gamePlayer := game.Players[game.Current]
+		seat, exists := table.Players[gamePlayer.ID]
+		if exists && !seat.IsBot {
+			return BotTurn{}, false
+		}
+		if !exists && !strings.Contains(gamePlayer.ID, "bot-") {
+			return BotTurn{}, false
+		}
+		action, pawnID := game.DecideBotAction(gamePlayer.ID)
+		if action == "" {
+			return BotTurn{}, false
+		}
+		payload := map[string]interface{}{}
+		if pawnID >= 0 {
+			payload["pawn_id"] = pawnID
+		}
+		return BotTurn{PlayerID: gamePlayer.ID, Action: action, Payload: payload, Sequence: table.Sequence}, true
+	case *domino.Game:
+		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		gamePlayer := game.Players[game.Current]
+		seat, exists := table.Players[gamePlayer.ID]
+		if exists && !seat.IsBot {
+			return BotTurn{}, false
+		}
+		if !exists && !strings.Contains(gamePlayer.ID, "bot-") {
+			return BotTurn{}, false
+		}
+		action, tile, side := game.DecideBotAction(gamePlayer.ID)
+		if action == "" {
+			return BotTurn{}, false
+		}
+		payload := map[string]interface{}{}
+		if action == "play_tile" {
+			payload["tile"] = map[string]interface{}{"left": tile.Left, "right": tile.Right}
+			payload["side"] = side
+		}
+		return BotTurn{PlayerID: gamePlayer.ID, Action: action, Payload: payload, Sequence: table.Sequence}, true
 	default:
 		return BotTurn{}, false
 	}
@@ -526,6 +571,43 @@ func (m *Manager) TimedOutAction(tableID string) (BotTurn, bool) {
 		}
 		card := player.Hand[0]
 		return BotTurn{PlayerID: player.ID, Action: "discard", Payload: map[string]interface{}{"card": map[string]interface{}{"suit": card.Suit, "rank": card.Rank}}, Sequence: table.Sequence}, true
+	case *ludo.Game:
+		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		player := game.Players[game.Current]
+		seat, exists := table.Players[player.ID]
+		if !exists || seat.IsBot {
+			return BotTurn{}, false
+		}
+		action, pawnID := game.DecideBotAction(player.ID)
+		if action == "" {
+			return BotTurn{}, false
+		}
+		payload := map[string]interface{}{}
+		if pawnID >= 0 {
+			payload["pawn_id"] = pawnID
+		}
+		return BotTurn{PlayerID: player.ID, Action: action, Payload: payload, Sequence: table.Sequence}, true
+	case *domino.Game:
+		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
+			return BotTurn{}, false
+		}
+		player := game.Players[game.Current]
+		seat, exists := table.Players[player.ID]
+		if !exists || seat.IsBot {
+			return BotTurn{}, false
+		}
+		action, tile, side := game.DecideBotAction(player.ID)
+		if action == "" {
+			return BotTurn{}, false
+		}
+		payload := map[string]interface{}{}
+		if action == "play_tile" {
+			payload["tile"] = map[string]interface{}{"left": tile.Left, "right": tile.Right}
+			payload["side"] = side
+		}
+		return BotTurn{PlayerID: player.ID, Action: action, Payload: payload, Sequence: table.Sequence}, true
 	default:
 		return BotTurn{}, false
 	}
@@ -966,6 +1048,18 @@ func (m *Manager) StartTable(tableID string) error {
 		}
 		return fmt.Errorf("rami requires at least 2 players, got %d", len(table.Players))
 	}
+	if table.GameType == "ludo" {
+		if len(table.Players) >= 2 {
+			return initializeLudoGame(table)
+		}
+		return fmt.Errorf("ludo requires at least 2 players, got %d", len(table.Players))
+	}
+	if table.GameType == "domino" {
+		if len(table.Players) >= 2 {
+			return initializeDominoGame(table)
+		}
+		return fmt.Errorf("domino requires at least 2 players, got %d", len(table.Players))
+	}
 	return nil
 }
 
@@ -1289,6 +1383,14 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 			if err := initializeRamiGame(table); err != nil {
 				return Event{}, false, err
 			}
+		} else if table.GameType == "ludo" {
+			if err := initializeLudoGame(table); err != nil {
+				return Event{}, false, err
+			}
+		} else if table.GameType == "domino" {
+			if err := initializeDominoGame(table); err != nil {
+				return Event{}, false, err
+			}
 		}
 		event := appendEvent(table, playerID, action, payload)
 		if eventID != "" {
@@ -1313,13 +1415,23 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 			return Event{}, false, err
 		}
 	}
+	if table.GameType == "ludo" && table.State != nil {
+		if err := applyLudoAction(table, playerID, action, payload); err != nil {
+			return Event{}, false, err
+		}
+	}
+	if table.GameType == "domino" && table.State != nil {
+		if err := applyDominoAction(table, playerID, action, payload); err != nil {
+			return Event{}, false, err
+		}
+	}
 	event := appendEvent(table, playerID, action, payload)
 	if eventID != "" {
 		event.ID = eventID
 		table.Events[len(table.Events)-1].ID = eventID
 	}
-	// Set action deadline for human players in belote/rami (poker handles this separately)
-	if table.GameType == "belote" || table.GameType == "rami" {
+	// Set action deadline for human players in belote/rami/ludo/domino (poker handles this separately)
+	if table.GameType == "belote" || table.GameType == "rami" || table.GameType == "ludo" || table.GameType == "domino" {
 		table.ActionDeadline = time.Time{}
 		if nextPlayer := nextHumanPlayer(table); nextPlayer != "" {
 			table.ActionDeadline = time.Now().Add(18 * time.Second)
@@ -1339,6 +1451,22 @@ func nextHumanPlayer(table *Table) string {
 			return player.ID
 		}
 	case *rami.Game:
+		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
+			return ""
+		}
+		player := game.Players[game.Current]
+		if seat, exists := table.Players[player.ID]; exists && !seat.IsBot {
+			return player.ID
+		}
+	case *ludo.Game:
+		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
+			return ""
+		}
+		player := game.Players[game.Current]
+		if seat, exists := table.Players[player.ID]; exists && !seat.IsBot {
+			return player.ID
+		}
+	case *domino.Game:
 		if game.Finished || game.Current < 0 || game.Current >= len(game.Players) {
 			return ""
 		}
@@ -1551,6 +1679,48 @@ func (m *Manager) FinishedRamiResults(tableID string) (winnerID string, losers [
 			amount += int64(player.Score)
 		}
 	}
+	return winnerID, losers, amount, true
+}
+
+func (m *Manager) FinishedLudoResults(tableID string) (winnerID string, losers []string, amount int64, finished bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return "", nil, 0, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	game, ok := table.State.(*ludo.Game)
+	if !ok || !game.Finished || game.Winner == "" {
+		return "", nil, 0, false
+	}
+	winnerID = game.Winner
+	for _, player := range game.Players {
+		if player.ID != winnerID {
+			losers = append(losers, player.ID)
+		}
+	}
+	amount = 100
+	return winnerID, losers, amount, true
+}
+
+func (m *Manager) FinishedDominoResults(tableID string) (winnerID string, losers []string, amount int64, finished bool) {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return "", nil, 0, false
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	game, ok := table.State.(*domino.Game)
+	if !ok || !game.Finished || game.Winner == "" {
+		return "", nil, 0, false
+	}
+	winnerID = game.Winner
+	for _, player := range game.Players {
+		if player.ID != winnerID {
+			losers = append(losers, player.ID)
+		}
+	}
+	amount = 100
 	return winnerID, losers, amount, true
 }
 
@@ -1996,6 +2166,102 @@ func applyRamiAction(table *Table, playerID, action string, payload interface{})
 	}
 }
 
+func initializeLudoGame(table *Table) error {
+	seats := make([]*Player, 0, len(table.Players))
+	for _, player := range table.Players {
+		seats = append(seats, player)
+	}
+	sort.Slice(seats, func(i, j int) bool { return seats[i].Seat < seats[j].Seat })
+	ids := make([]string, 0, len(seats))
+	for _, player := range seats {
+		ids = append(ids, player.ID)
+	}
+	game, err := ludo.NewGame(ids)
+	if err != nil {
+		return err
+	}
+	table.State = game
+	return nil
+}
+
+func initializeDominoGame(table *Table) error {
+	seats := make([]*Player, 0, len(table.Players))
+	for _, player := range table.Players {
+		seats = append(seats, player)
+	}
+	sort.Slice(seats, func(i, j int) bool { return seats[i].Seat < seats[j].Seat })
+	ids := make([]string, 0, len(seats))
+	for _, player := range seats {
+		ids = append(ids, player.ID)
+	}
+	game, err := domino.NewGame(ids)
+	if err != nil {
+		return err
+	}
+	table.State = game
+	return nil
+}
+
+func applyLudoAction(table *Table, playerID, action string, payload interface{}) error {
+	game, ok := table.State.(*ludo.Game)
+	if !ok {
+		return fmt.Errorf("invalid ludo state")
+	}
+	index := -1
+	for i, player := range game.Players {
+		if player.ID == playerID {
+			index = i
+			break
+		}
+	}
+	if index < 0 || game.Current != index {
+		return fmt.Errorf("not this player's turn")
+	}
+	switch action {
+	case "roll_dice":
+		_, err := game.RollDice()
+		return err
+	case "move_pawn":
+		values, _ := payload.(map[string]interface{})
+		pawnID := extractInt(values["pawn_id"])
+		return game.MovePawn(pawnID)
+	default:
+		return fmt.Errorf("invalid ludo action")
+	}
+}
+
+func applyDominoAction(table *Table, playerID, action string, payload interface{}) error {
+	game, ok := table.State.(*domino.Game)
+	if !ok {
+		return fmt.Errorf("invalid domino state")
+	}
+	index := -1
+	for i, player := range game.Players {
+		if player.ID == playerID {
+			index = i
+			break
+		}
+	}
+	if index < 0 || game.Current != index {
+		return fmt.Errorf("not this player's turn")
+	}
+	values, _ := payload.(map[string]interface{})
+	switch action {
+	case "play_tile":
+		tileData, _ := values["tile"].(map[string]interface{})
+		side, _ := values["side"].(string)
+		tile := domino.Tile{Left: extractInt(tileData["left"]), Right: extractInt(tileData["right"])}
+		return game.PlayTile(playerID, tile, side)
+	case "draw_tile":
+		_, err := game.DrawTile(playerID)
+		return err
+	case "pass":
+		return game.Pass(playerID)
+	default:
+		return fmt.Errorf("invalid domino action")
+	}
+}
+
 const maxTableEvents = 256
 
 func appendEvent(table *Table, playerID, action string, payload interface{}) Event {
@@ -2020,6 +2286,20 @@ func validActionForGame(gameType, action string) bool {
 	if gameType == "rami" {
 		switch action {
 		case "draw", "discard", "meld", "knock", "new_hand":
+			return true
+		}
+		return false
+	}
+	if gameType == "ludo" {
+		switch action {
+		case "roll_dice", "move_pawn", "new_hand":
+			return true
+		}
+		return false
+	}
+	if gameType == "domino" {
+		switch action {
+		case "play_tile", "draw_tile", "pass", "new_hand":
 			return true
 		}
 		return false

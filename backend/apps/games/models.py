@@ -7,7 +7,13 @@ from .modes import GAME_MODES, HUMAN_MATCH
 
 
 class GameTable(models.Model):
-    GAME_TYPES = [("poker", "Poker"), ("belote", "Belote"), ("rami", "Rami")]
+    GAME_TYPES = [
+        ("poker", "Poker"),
+        ("belote", "Belote"),
+        ("rami", "Rami"),
+        ("ludo", "Ludo"),
+        ("domino", "Domino"),
+    ]
     STATUSES = [("open", "Ouverte"), ("running", "En cours"), ("finished", "Terminée")]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     table_code = models.CharField(max_length=32, unique=True)

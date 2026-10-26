@@ -1133,6 +1133,9 @@ export function GamePage() {
             if (action === "meld") playSound("meld");
             if (action === "knock") playSound("knock");
             if (action === "new_hand") playSound("new_hand");
+            if (action === "roll_dice" || action === "move_pawn") playSound("chip");
+            if (action === "play_tile") playSound("card_played");
+            if (action === "draw_tile") playSound("draw");
             if (action !== "result" && !presentationOnly) {
               setActionLog((current) => [
                 ...current.slice(-7),
@@ -1390,7 +1393,7 @@ export function GamePage() {
           const bots = gameType === "poker" ? 8 : (gameType === "rami" ? 1 : 3);
           void startBotSimulation(
             accessToken,
-            (gameType as "poker" | "belote" | "rami") || "poker",
+            (gameType as "poker" | "belote" | "rami" | "ludo" | "domino") || "poker",
             "balanced",
             `auto-sim-${Date.now()}`,
             bots,
@@ -1413,7 +1416,7 @@ export function GamePage() {
           const bots = gameType === "poker" ? 8 : (gameType === "rami" ? 1 : 3);
           void startBotSimulation(
             accessToken,
-            (gameType as "poker" | "belote" | "rami") || "poker",
+            (gameType as "poker" | "belote" | "rami" | "ludo" | "domino") || "poker",
             "balanced",
             `auto-sim-${Date.now()}`,
             bots,
@@ -2005,7 +2008,7 @@ export function GamePage() {
         <GameStateSummary gameType={gameType || ""} state={gameState} />
       )}
       <div
-        className={`felt-table ${isPoker ? "felt-poker" : gameType === "rami" ? "felt-rami" : "felt-belote"} ${seatPlayers.length >= 6 ? "table-9max" : seatPlayers.length >= 4 ? "table-6max" : ""}`}
+        className={`felt-table ${isPoker ? "felt-poker" : gameType === "rami" ? "felt-rami" : gameType === "ludo" ? "felt-ludo" : gameType === "domino" ? "felt-domino" : "felt-belote"} ${seatPlayers.length >= 6 ? "table-9max" : seatPlayers.length >= 4 ? "table-6max" : ""}`}
       >
         <div className="table-brand">
           MDG <small>GAME CLUB</small>
@@ -2023,7 +2026,11 @@ export function GamePage() {
             ? String(player?.stack ?? "8 420")
             : gameType === "belote"
               ? `${player?.hand_count ?? 0} cartes · Équipe ${Number(player?.team ?? 0) + 1}`
-              : `${player?.hand_count ?? 0} cartes · Score : ${Number(player?.score ?? 0)}`;
+              : gameType === "ludo"
+                ? `Ludo · Camp ${["Rouge", "Vert", "Jaune", "Bleu"][Number(player?.color ?? 0)] || "Joueur"}`
+                : gameType === "domino"
+                  ? `${player?.tile_count ?? 0} dominos`
+                  : `${player?.hand_count ?? 0} cartes · Score : ${Number(player?.score ?? 0)}`;
           return (
             <PlayerSeat
               key={String(player.id || index)}
@@ -2220,6 +2227,107 @@ export function GamePage() {
             </div>
           </>
         )}
+        {gameType === "ludo" && (
+          <div className="ludo-board-container" style={{ margin: "20px auto", maxWidth: "420px", background: "rgba(10, 25, 47, 0.85)", padding: "16px", borderRadius: "16px", border: "2px solid #81c784", textAlign: "center" }}>
+            <h3 style={{ color: "#81c784", marginBottom: "8px", fontSize: "1.1rem" }}>🎲 Plateau de Ludo Madaloka</h3>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
+              {["Rouge", "Vert", "Jaune", "Bleu"].map((colorName, cIdx) => {
+                const colorHex = ["#e57373", "#81c784", "#ffd54f", "#64b5f6"][cIdx];
+                const playerState = Array.isArray(gameState?.players) ? (gameState?.players as Array<Record<string, unknown>>).find((p) => Number(p.color) === cIdx) : null;
+                const pawns = Array.isArray(playerState?.pawns) ? (playerState?.pawns as Array<Record<string, unknown>>) : [];
+                const inBase = pawns.filter((p) => p.state === "base").length;
+                const onTrack = pawns.filter((p) => p.state === "track").length;
+                const atHome = pawns.filter((p) => p.state === "home").length;
+                return (
+                  <div key={colorName} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${colorHex}`, borderRadius: "10px", padding: "8px" }}>
+                    <div style={{ fontWeight: 700, color: colorHex, fontSize: "0.85rem", marginBottom: "4px" }}>Camp {colorName}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--soft)" }}>
+                      Base: <strong>{inBase}</strong> | En jeu: <strong>{onTrack}</strong> | Arrivés: <strong>{atHome}/4 🏆</strong>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: "12px", padding: "12px", margin: "10px 0" }}>
+              <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>Dernier lancer de dé :</span>
+              <div style={{ fontSize: "2.4rem", fontWeight: 900, color: "#ffd54f", margin: "4px 0" }}>
+                {Number(gameState?.last_roll ?? 0) > 0 ? `🎲 ${gameState?.last_roll}` : "—"}
+              </div>
+            </div>
+
+            {Boolean(gameState?.can_move) && isMyTurn && Array.isArray(gameState?.valid_moves) && (
+              <div style={{ marginTop: "10px", background: "rgba(129, 199, 132, 0.15)", border: "1px solid #81c784", borderRadius: "10px", padding: "10px" }}>
+                <span style={{ display: "block", fontSize: "0.85rem", fontWeight: 700, color: "#81c784", marginBottom: "8px" }}>
+                  Déplacez un pion ({gameState?.valid_moves.length} choix disponibles) :
+                </span>
+                <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
+                  {(gameState?.valid_moves as number[]).map((pId) => (
+                    <button
+                      key={`pawn-mv-${pId}`}
+                      type="button"
+                      className="button button-small button-gold"
+                      onClick={() => {
+                        playSound("chip");
+                        send({
+                          type: "action",
+                          table_id: engineTableId,
+                          action: "move_pawn",
+                          payload: { pawn_id: pId },
+                          sequence,
+                          timestamp: new Date().toISOString(),
+                        });
+                      }}
+                    >
+                      Pion #{pId + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {gameType === "domino" && (
+          <div className="domino-board-container" style={{ margin: "20px auto", maxWidth: "560px", background: "rgba(20, 30, 48, 0.85)", padding: "16px", borderRadius: "16px", border: "2px solid #ffb74d", textAlign: "center" }}>
+            <h3 style={{ color: "#ffb74d", marginBottom: "10px", fontSize: "1.1rem" }}>🁓 Ligne de Dominos Double-Six</h3>
+
+            <div style={{ minHeight: "70px", background: "rgba(0,0,0,0.35)", borderRadius: "12px", padding: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", overflowX: "auto" }}>
+              {Array.isArray(gameState?.board) && (gameState?.board as Array<{ left: number; right: number }>).length > 0 ? (
+                (gameState?.board as Array<{ left: number; right: number }>).map((tile, tIdx) => (
+                  <div
+                    key={`domino-board-${tIdx}`}
+                    style={{
+                      background: "#fff",
+                      color: "#111",
+                      borderRadius: "6px",
+                      padding: "4px 8px",
+                      fontWeight: 800,
+                      fontSize: "1rem",
+                      display: "inline-flex",
+                      gap: "4px",
+                      alignItems: "center",
+                      border: "1px solid #ddd",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.5)",
+                    }}
+                  >
+                    <span>{tile.left}</span>
+                    <span style={{ color: "#888" }}>|</span>
+                    <span>{tile.right}</span>
+                  </div>
+                ))
+              ) : (
+                <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Table vide. Le premier joueur ouvre la partie !</span>
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--soft)", marginTop: "10px" }}>
+              <span>Extrémités : <strong>[{String(gameState?.left_end ?? "—")} | {String(gameState?.right_end ?? "—")}]</strong></span>
+              <span>Pioche restante : <strong>{Number(gameState?.boneyard_count ?? 0)} dominos</strong></span>
+            </div>
+          </div>
+        )}
         {emote && <div className="table-emote">{emote}</div>}
         {isPoker && pots.length > 1 && (
           <div className="side-pots" aria-label="Pots de la table">
@@ -2242,6 +2350,12 @@ export function GamePage() {
             )}
             {gameType === "rami" && (
               <span>{myHand.length} cartes · Score : {Number(myPokerPlayer?.score ?? 0)}</span>
+            )}
+            {gameType === "ludo" && (
+              <span>Ludo · Pions en jeu</span>
+            )}
+            {gameType === "domino" && (
+              <span>Dominos en main</span>
             )}
           </div>
           {isPoker && showRebuy && (
@@ -2280,7 +2394,7 @@ export function GamePage() {
               )}
             </>
           )}
-          {gameType !== "poker" && (
+          {(gameType === "belote" || gameType === "rami") && (
             <>
               {myHand.length > 0 ? (
                 myHand.map((card, index) => {
@@ -2318,6 +2432,57 @@ export function GamePage() {
                 </>
               )}
             </>
+          )}
+          {gameType === "domino" && (
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+              {Array.isArray(myPokerPlayer?.hand) && (myPokerPlayer.hand as Array<{ left: number; right: number }>).map((t, idx) => (
+                <div
+                  key={`my-domino-${idx}`}
+                  style={{
+                    background: "#fff",
+                    color: "#111",
+                    borderRadius: "6px",
+                    padding: "6px 10px",
+                    fontWeight: 800,
+                    fontSize: "1.05rem",
+                    display: "inline-flex",
+                    gap: "4px",
+                    alignItems: "center",
+                    border: "2px solid #ffb74d",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  <span>{t.left}</span>
+                  <span style={{ color: "#888" }}>|</span>
+                  <span>{t.right}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {gameType === "ludo" && (
+            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+              {Array.isArray(myPokerPlayer?.pawns) && (myPokerPlayer.pawns as Array<{ id: number; state: string; position: number }>).map((pawn) => {
+                const colorHex = ["#e57373", "#81c784", "#ffd54f", "#64b5f6"][Number(myPokerPlayer?.color ?? 0)];
+                const statusLabel = pawn.state === "base" ? "Yard" : pawn.state === "home" ? "Arrivé 🏆" : pawn.state === "home_path" ? `Coulloir ${pawn.position}` : `Case ${pawn.position}`;
+                return (
+                  <div
+                    key={`my-pawn-${pawn.id}`}
+                    style={{
+                      background: "rgba(0,0,0,0.5)",
+                      border: `2px solid ${colorHex}`,
+                      borderRadius: "8px",
+                      padding: "4px 8px",
+                      fontSize: "0.8rem",
+                      color: "#fff",
+                      textAlign: "center"
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, color: colorHex }}>♟️ #{pawn.id + 1}</div>
+                    <div style={{ fontSize: "0.7rem", opacity: 0.85 }}>{statusLabel}</div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -2998,6 +3163,30 @@ export function GamePage() {
               </div>
             </>
           )}
+          {gameType === "ludo" && (
+            <>
+              <div>
+                <span>Jeu</span>
+                <strong>Ludo Malagasy</strong>
+              </div>
+              <div>
+                <span>Joueurs</span>
+                <strong>2 à 4 joueurs</strong>
+              </div>
+            </>
+          )}
+          {gameType === "domino" && (
+            <>
+              <div>
+                <span>Jeu</span>
+                <strong>Domino Double-Six</strong>
+              </div>
+              <div>
+                <span>Joueurs</span>
+                <strong>2 à 4 joueurs</strong>
+              </div>
+            </>
+          )}
         </div>
         <Link
           to={`/support?mode=incident&game_type=${gameType || ""}&table_id=${engineTableId}`}
@@ -3257,6 +3446,11 @@ function actionLabel(action: string, phase?: string) {
         play_card: "Carte jouée",
         draw: "Pioche",
         discard: "Défausse",
+        roll_dice: "Lancer de dé",
+        move_pawn: "Déplacement pion",
+        play_tile: "Pose domino",
+        draw_tile: "Pioche domino",
+        pass: "Passe",
       } as Record<string, string>
     )[action] || action
   );
@@ -3307,6 +3501,27 @@ function GameStateSummary({
         <span className="belote-trump">{trumpLabel}</span> · {t("game.team")} 1 : {String(points[0])}{" "}
         · {t("game.team")} 2 : {String(points[1])} · {t("game.trick")} :{" "}
         {Array.isArray(state.trick) ? state.trick.length : 0}/4
+      </div>
+    );
+  }
+  if (gameType === "ludo") {
+    const activePlayerIndex = Number(state.current ?? 0);
+    const lastRoll = Number(state.last_roll ?? 0);
+    return (
+      <div className="secure-note game-sync-note">
+        <strong>🎲 Ludo Malagasy</strong> · Tour : Joueur {activePlayerIndex + 1}
+        {lastRoll > 0 ? ` · Dé : ${lastRoll}` : ""} · Joueurs : {players.length}
+      </div>
+    );
+  }
+  if (gameType === "domino") {
+    const left = Number(state.left_end ?? -1);
+    const right = Number(state.right_end ?? -1);
+    const boneyardCount = Number(state.boneyard_count ?? 0);
+    return (
+      <div className="secure-note game-sync-note">
+        <strong>🁓 Domino Double-Six</strong> · Ligne : [{left >= 0 ? left : "—"} | {right >= 0 ? right : "—"}]
+        · Talon restant : {boneyardCount} · Joueurs : {players.length}
       </div>
     );
   }
@@ -3458,6 +3673,170 @@ function GameSpecificControls({
         ) : (
           <span className="muted">{t("game.waiting")}</span>
         )}
+      </div>
+    );
+  }
+
+  if (gameType === "ludo") {
+    const canRoll = Boolean(state?.can_roll ?? true);
+    const canMove = Boolean(state?.can_move ?? false);
+    const validMoves = Array.isArray(state?.valid_moves) ? (state.valid_moves as number[]) : [];
+    const lastRoll = Number(state?.last_roll ?? 0);
+    const myPlayerIndex = (statePlayers || []).findIndex((p) => String(p.id || "") === userId);
+    const myPawns = myPlayerIndex >= 0 && Array.isArray((statePlayers?.[myPlayerIndex] as Record<string, unknown>)?.pawns)
+      ? ((statePlayers?.[myPlayerIndex] as Record<string, unknown>).pawns as Array<{ id: number; state: string; position: number }>)
+      : [];
+
+    return (
+      <div className="action-row ludo-controls" style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
+        {canRoll && (
+          <button
+            className="action-bet"
+            disabled={!enabled}
+            onClick={() => {
+              playSound("chip");
+              onAction("roll_dice");
+            }}
+            style={{ fontWeight: "bold", padding: "10px 20px", fontSize: "1rem" }}
+          >
+            🎲 {t("game.rollDice") || "Lancer le Dé"}
+          </button>
+        )}
+        {canMove && validMoves.length > 0 && (
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+            <span className="muted" style={{ fontWeight: 600 }}>
+              Dé: {lastRoll} — {t("game.choosePawn") || "Déplacer le pion"} :
+            </span>
+            {validMoves.map((pawnId) => {
+              const pawn = myPawns.find((p) => p.id === pawnId);
+              const pState = pawn?.state === "base" ? "Yard" : pawn?.state === "home_path" ? "Coulloir" : `Pos ${pawn?.position ?? 0}`;
+              return (
+                <button
+                  key={pawnId}
+                  className="action-check"
+                  disabled={!enabled}
+                  onClick={() => {
+                    playSound("chip");
+                    onAction("move_pawn", { pawn_id: pawnId });
+                  }}
+                >
+                  ♟️ Pion #{pawnId + 1} ({pState})
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {!canRoll && !canMove && (
+          <span className="muted">{t("game.waitingOpponent") || "Tour de l'adversaire..."}</span>
+        )}
+      </div>
+    );
+  }
+
+  if (gameType === "domino") {
+    const myPlayer = (statePlayers || []).find((p) => String(p.id || "") === userId) as Record<string, unknown> | undefined;
+    const dominoHand = Array.isArray(myPlayer?.hand) ? (myPlayer.hand as Array<{ left: number; right: number }>) : [];
+    const leftEnd = Number(state?.left_end ?? -1);
+    const rightEnd = Number(state?.right_end ?? -1);
+    const boneyardCount = Array.isArray(state?.boneyard) ? (state.boneyard as unknown[]).length : Number(state?.boneyard_count ?? 0);
+    const boardEmpty = leftEnd === -1 && rightEnd === -1;
+
+    const canPlayTile = (t: { left: number; right: number }) => {
+      if (boardEmpty) return true;
+      return t.left === leftEnd || t.right === leftEnd || t.left === rightEnd || t.right === rightEnd;
+    };
+
+    const hasPlayable = dominoHand.some(canPlayTile);
+
+    return (
+      <div className="action-row domino-controls" style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", justifyContent: "center" }}>
+          {dominoHand.length > 0 ? (
+            dominoHand.map((t, idx) => {
+              const playable = canPlayTile(t);
+              const matchesLeft = boardEmpty || t.left === leftEnd || t.right === leftEnd;
+              const matchesRight = boardEmpty || t.left === rightEnd || t.right === rightEnd;
+              const matchesBoth = !boardEmpty && matchesLeft && matchesRight && leftEnd !== rightEnd;
+
+              return (
+                <div key={idx} style={{ display: "flex", gap: "2px" }}>
+                  {matchesBoth ? (
+                    <>
+                      <button
+                        className="action-check"
+                        disabled={!enabled}
+                        onClick={() => {
+                          playSound("card_played");
+                          onAction("play_tile", { tile: t, side: "left" });
+                        }}
+                        style={{ padding: "8px 10px", fontSize: "0.85rem" }}
+                      >
+                        ◀ [{t.left}|{t.right}]
+                      </button>
+                      <button
+                        className="action-check"
+                        disabled={!enabled}
+                        onClick={() => {
+                          playSound("card_played");
+                          onAction("play_tile", { tile: t, side: "right" });
+                        }}
+                        style={{ padding: "8px 10px", fontSize: "0.85rem" }}
+                      >
+                        [{t.left}|{t.right}] ▶
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="action-check"
+                      disabled={!enabled || !playable}
+                      onClick={() => {
+                        playSound("card_played");
+                        const side = matchesLeft ? "left" : "right";
+                        onAction("play_tile", { tile: t, side });
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        fontWeight: "bold",
+                        opacity: playable ? 1 : 0.45,
+                        border: playable ? "1px solid #10b981" : "1px solid #4b5563",
+                      }}
+                    >
+                      [{t.left} | {t.right}]
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <span className="muted">{t("game.noTiles") || "Aucun domino en main"}</span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+          {boneyardCount > 0 && !hasPlayable && (
+            <button
+              className="action-bet"
+              disabled={!enabled}
+              onClick={() => {
+                playSound("draw");
+                onAction("draw_tile");
+              }}
+            >
+              📥 {t("game.drawTile") || "Piocher dans le Talon"} ({boneyardCount})
+            </button>
+          )}
+          {boneyardCount === 0 && !hasPlayable && (
+            <button
+              className="action-fold"
+              disabled={!enabled}
+              onClick={() => {
+                playSound("pass");
+                onAction("pass");
+              }}
+            >
+              ⛔ {t("game.passDomino") || "Passer (Bouder)"}
+            </button>
+          )}
+        </div>
       </div>
     );
   }

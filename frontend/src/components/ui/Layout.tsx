@@ -5,7 +5,6 @@ import {
   CircleUserRound,
   Compass,
   UsersRound,
-  Dices,
   Home,
   LogIn,
   Smartphone,
@@ -40,7 +39,6 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: "/", label: t("nav.home"), icon: Home },
     { to: "/lobby", label: t("nav.play"), icon: Compass },
     { to: "/clubs", label: t("nav.clubs"), icon: UsersRound },
-    { to: "/casino", label: t("nav.testGames") || "Jeux de hasard", icon: Dices },
     { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
     { to: "/profile", label: t("nav.profile"), icon: CircleUserRound },
     ...(user?.isStaff
@@ -54,11 +52,11 @@ export function Layout({ children }: { children: ReactNode }) {
       : []),
   ];
 
-  // Mobile bottom bar: 5 direct, essential thumb destinations (Zero redundancy)
+  // Mobile bottom bar destinations
   const mobileNavItems = [
+    { to: "/", label: t("nav.home") || "Accueil", icon: Home },
     { to: "/lobby", label: t("nav.lobby") || "Lobby", icon: Compass },
     { to: "/clubs", label: t("nav.clubs") || "Clubs", icon: UsersRound },
-    { to: "/casino", label: t("nav.testGames") || "Hasard", icon: Dices },
     { to: "/wallet", label: t("nav.wallet") || "Portefeuille", icon: WalletCards },
     { to: "/profile", label: t("nav.profile") || "Profil", icon: CircleUserRound },
   ];

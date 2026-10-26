@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowUpRight,
   Bot,
-  Dices,
   Lock,
   Plus,
   Search,
@@ -51,9 +50,9 @@ export function LobbyPage() {
   const [joining, setJoining] = useState<string | null>(null);
   const accessToken = useGameStore((state) => state.accessToken);
   const navigate = useNavigate();
-  const matchmakingGame = (["poker", "belote", "rami"].includes(filter)
+  const matchmakingGame = (["poker", "belote", "rami", "ludo", "domino"].includes(filter)
     ? filter
-    : "poker") as "poker" | "belote" | "rami";
+    : "poker") as "poker" | "belote" | "rami" | "ludo" | "domino";
   const [matchStatus, setMatchStatus] = useState<{
     human_online: number;
     estimated_wait_seconds: number;
@@ -70,9 +69,9 @@ export function LobbyPage() {
   const [lobbyBotCounts, setLobbyBotCounts] = useState<Record<string, number>>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("mdg-bot-counts") || "{}");
-      return { poker: saved.poker ?? 3, belote: saved.belote ?? 3, rami: saved.rami ?? 1, ...saved };
+      return { poker: saved.poker ?? 3, belote: saved.belote ?? 3, rami: saved.rami ?? 1, ludo: saved.ludo ?? 3, domino: saved.domino ?? 3, ...saved };
     } catch {
-      return { poker: 3, belote: 3, rami: 1 };
+      return { poker: 3, belote: 3, rami: 1, ludo: 3, domino: 3 };
     }
   });
   const setLobbyBotCount = (gameId: string, value: number) => {
@@ -84,7 +83,7 @@ export function LobbyPage() {
   };
   const [tableForm, setTableForm] = useState({
     name: "",
-    game_type: "poker" as "poker" | "belote" | "rami",
+    game_type: "poker" as "poker" | "belote" | "rami" | "ludo" | "domino",
     max_players: 4,
     is_private: true,
   });
@@ -119,7 +118,7 @@ export function LobbyPage() {
   };
 
   useEffect(() => {
-    if (urlGameType && ["poker", "belote", "rami"].includes(urlGameType)) {
+    if (urlGameType && ["poker", "belote", "rami", "ludo", "domino"].includes(urlGameType)) {
       setFilter(urlGameType);
       setTableForm((current) => ({ ...current, game_type: urlGameType as typeof current.game_type }));
     }
@@ -282,7 +281,7 @@ export function LobbyPage() {
   const guestName = useGameStore((state) => state.guestName);
   const setGuestMode = useGameStore((state) => state.setGuestMode);
   const setSession = useGameStore((state) => state.setSession);
-  const launchSimulation = async (gameType: "poker" | "belote" | "rami") => {
+  const launchSimulation = async (gameType: "poker" | "belote" | "rami" | "ludo" | "domino") => {
     let token = accessToken;
     if (!token) {
       // Allow any anonymous user to play vs bots as guest — same as HomePage/PlayHub
@@ -388,6 +387,8 @@ export function LobbyPage() {
       poker: tables.filter((t) => t.game_type === "poker").length,
       belote: tables.filter((t) => t.game_type === "belote").length,
       rami: tables.filter((t) => t.game_type === "rami").length,
+      ludo: tables.filter((t) => t.game_type === "ludo").length,
+      domino: tables.filter((t) => t.game_type === "domino").length,
       tournaments: tournaments.length,
     };
   }, [tables, tournaments]);
@@ -407,9 +408,6 @@ export function LobbyPage() {
           </div>
 
           <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-            <Link to="/casino" className="button button-small button-outline" style={{ fontSize: "12px" }}>
-              <Dices size={15} /> Arcade / Hasard
-            </Link>
             <button
               type="button"
               className="button button-small button-gold"
@@ -439,7 +437,7 @@ export function LobbyPage() {
 
             {/* Sélecteur de jeu direct */}
             <div className="fast-game-pills">
-              {(["poker", "belote", "rami"] as const).map((g) => (
+              {(["poker", "belote", "rami", "ludo", "domino"] as const).map((g) => (
                 <button
                   key={g}
                   type="button"
@@ -449,8 +447,8 @@ export function LobbyPage() {
                     setTableForm((prev) => ({ ...prev, game_type: g }));
                   }}
                 >
-                  <span>{g === "poker" ? "♠" : g === "belote" ? "♥" : "♦"}</span>
-                  <span>{t(`games.${g}`)}</span>
+                  <span>{g === "poker" ? "♠" : g === "belote" ? "♥" : g === "rami" ? "♦" : g === "ludo" ? "🎲" : "🁓"}</span>
+                  <span>{g === "ludo" ? "Ludo" : g === "domino" ? "Domino" : t(`games.${g}`)}</span>
                 </button>
               ))}
             </div>
@@ -536,6 +534,8 @@ export function LobbyPage() {
           { key: "poker", label: "Poker Texas Hold'em", icon: "♠", count: counts.poker },
           { key: "belote", label: "Belote Malagasy", icon: "♥", count: counts.belote },
           { key: "rami", label: "Rami MDG", icon: "♦", count: counts.rami },
+          { key: "ludo", label: "Ludo Mada", icon: "🎲", count: counts.ludo },
+          { key: "domino", label: "Domino Double-Six", icon: "🁓", count: counts.domino },
           { key: "tournaments", label: "Tournois & Sit & Go", icon: "🏆", count: counts.tournaments },
         ].map((tab) => (
           <button
@@ -875,7 +875,7 @@ export function LobbyPage() {
         <div className="lobby-cards-grid">
           {shown.map((table) => {
             const live = table.status === "running";
-            const sym = table.game_type === "poker" ? "♠" : table.game_type === "belote" ? "♥" : "♦";
+            const sym = table.game_type === "poker" ? "♠" : table.game_type === "belote" ? "♥" : table.game_type === "rami" ? "♦" : table.game_type === "ludo" ? "🎲" : "🁓";
             const isFull = table.player_count >= table.max_players;
 
             return (
@@ -1060,6 +1060,8 @@ export function LobbyPage() {
               <option value="poker">{t("games.poker")}</option>
               <option value="belote">{t("games.belote")}</option>
               <option value="rami">{t("games.rami")}</option>
+              <option value="ludo">Ludo Malagasy</option>
+              <option value="domino">Domino Double-Six</option>
             </select>
             <label className="field-label" htmlFor="table-players">
               {t("createTable.players")}

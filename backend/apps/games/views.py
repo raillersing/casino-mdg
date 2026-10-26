@@ -160,6 +160,9 @@ class BotSimulationView(APIView):
         elif game_type == "belote":
             max_bots = 3
             default_bots = 3
+        elif game_type in ("ludo", "domino"):
+            max_bots = 3
+            default_bots = 3
         else:  # rami
             max_bots = 3
             default_bots = 1

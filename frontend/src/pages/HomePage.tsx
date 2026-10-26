@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Bot,
   ChevronRight,
-  Dices,
   Gamepad2,
   Play,
   ShieldCheck,
@@ -22,28 +21,44 @@ import { BotCountSelector } from "@components/game/BotCountSelector";
 
 const games = [
   {
-    id: "poker",
-    name: "home.games.poker.name",
-    meta: "home.games.poker.meta",
-    icon: "♠",
-    accent: "#d3b06b",
-    players: "2 – 9",
-  },
-  {
     id: "belote",
-    name: "home.games.belote.name",
-    meta: "home.games.belote.meta",
+    name: "Belote Malagasy",
+    meta: "Le jeu de cartes traditionnel par équipes de 2, atout et belote-rebelote.",
     icon: "♥",
     accent: "#e57373",
     players: "4",
   },
   {
     id: "rami",
-    name: "home.games.rami.name",
-    meta: "home.games.rami.meta",
+    name: "Rami Malagasy",
+    meta: "Combinaisons de tierces, brelans et défausse stratégique à 13 cartes.",
     icon: "♦",
     accent: "#64b5f6",
     players: "2 – 4",
+  },
+  {
+    id: "ludo",
+    name: "Ludo Mada",
+    meta: "Le grand jeu de plateau malagasy ! Lancez le dé et amenez vos 4 pions à la maison.",
+    icon: "🎲",
+    accent: "#81c784",
+    players: "2 – 4",
+  },
+  {
+    id: "domino",
+    name: "Domino Double-Six",
+    meta: "Posez vos dominos sur la table, bloquez vos adversaires et criez Domino !",
+    icon: "🁓",
+    accent: "#ffb74d",
+    players: "2 – 4",
+  },
+  {
+    id: "poker",
+    name: "Poker Texas Hold'em",
+    meta: "No-Limit Hold'em compétitif avec blinds, relances et showdowns épiques.",
+    icon: "♠",
+    accent: "#d3b06b",
+    players: "2 – 9",
   },
 ];
 
@@ -63,9 +78,9 @@ export function HomePage() {
   const [botCounts, setBotCounts] = useState<Record<string, number>>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("mdg-bot-counts") || "{}");
-      return { poker: saved.poker ?? 3, belote: saved.belote ?? 3, rami: saved.rami ?? 1, ...saved };
+      return { poker: saved.poker ?? 3, belote: saved.belote ?? 3, rami: saved.rami ?? 1, ludo: saved.ludo ?? 3, domino: saved.domino ?? 3, ...saved };
     } catch {
-      return { poker: 3, belote: 3, rami: 1 };
+      return { poker: 3, belote: 3, rami: 1, ludo: 3, domino: 3 };
     }
   });
   const setBotCount = (gameId: string, value: number) => {
@@ -120,7 +135,7 @@ export function HomePage() {
     try {
       const session = await startBotSimulation(
         token,
-        gameId as "poker" | "belote" | "rami",
+        gameId as "poker" | "belote" | "rami" | "ludo" | "domino",
         "balanced",
         idempotencyKey,
         botCount,
@@ -225,7 +240,7 @@ export function HomePage() {
                 </div>
               </div>
               <BotCountSelector
-                gameType={game.id as "poker" | "belote" | "rami"}
+                gameType={game.id as "poker" | "belote" | "rami" | "ludo" | "domino"}
                 value={botCounts[game.id] ?? (game.id === "rami" ? 1 : 3)}
                 onChange={(v) => setBotCount(game.id, v)}
                 disabled={startingDemo === game.id}
@@ -248,119 +263,6 @@ export function HomePage() {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* Casino & Jeux de Hasard Instantanés */}
-      <section className="section-block">
-        <div className="section-heading">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", width: "100%", flexWrap: "wrap", gap: "10px" }}>
-            <div>
-              <span className="eyebrow gold">
-                <Sparkles size={13} /> CASINO & JEUX INSTANTANÉS
-              </span>
-              <h2>Jeux de Hasard & Tirages</h2>
-              <p className="section-lede">
-                Tirages instantanés, Coffres Mystères et Roue de la fortune avec équité vérifiable (Provably Fair).
-              </p>
-            </div>
-            <Link to="/casino" className="button button-small button-gold">
-              <Dices size={15} /> Voir tous les jeux de hasard →
-            </Link>
-          </div>
-        </div>
-        <div className="game-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-          {/* Trésor Royal Slots */}
-          <div className="game-card" style={{ borderTop: "3px solid #ffd700" }}>
-            <div className="game-card-top">
-              <span className="game-icon" style={{ color: "#ffd700" }}>
-                🎰
-              </span>
-              <span className="live-pill" style={{ background: "rgba(255, 215, 0, 0.15)", color: "#ffd700" }}>
-                <i style={{ background: "#ffd700" }} /> Machine à sous
-              </span>
-            </div>
-            <div className="game-card-bottom">
-              <div>
-                <h3>Trésor Royal Slots</h3>
-                <p>3 rouleaux mécaniques, jackpots 777 et multiplicateurs jusqu'à x50 !</p>
-              </div>
-            </div>
-            <div className="game-card-actions">
-              <Link to="/casino?tab=instant" className="button button-gold button-small full">
-                <Sparkles size={14} /> Jouer aux Slots (100 SIM)
-              </Link>
-            </div>
-          </div>
-
-          {/* Coffre Mada */}
-          <div className="game-card" style={{ borderTop: "3px solid #ffb74d" }}>
-            <div className="game-card-top">
-              <span className="game-icon" style={{ color: "#ffb74d" }}>
-                🎁
-              </span>
-              <span className="live-pill">
-                <i /> Instantané
-              </span>
-            </div>
-            <div className="game-card-bottom">
-              <div>
-                <h3>Coffre Mada</h3>
-                <p>Ouvrez les coffres mystères et tentez de décrocher le jackpot en jetons SIM !</p>
-              </div>
-            </div>
-            <div className="game-card-actions">
-              <Link to="/casino?tab=instant" className="button button-gold button-small full">
-                <Sparkles size={14} /> Ouvrir un coffre (100 SIM)
-              </Link>
-            </div>
-          </div>
-
-          {/* Roue MDG */}
-          <div className="game-card" style={{ borderTop: "3px solid #ba68c8" }}>
-            <div className="game-card-top">
-              <span className="game-icon" style={{ color: "#ba68c8" }}>
-                🎡
-              </span>
-              <span className="live-pill" style={{ background: "rgba(186, 104, 200, 0.15)", color: "#ba68c8" }}>
-                <i style={{ background: "#ba68c8" }} /> Bonus quotidien
-              </span>
-            </div>
-            <div className="game-card-bottom">
-              <div>
-                <h3>Roue de la Fortune</h3>
-                <p>Faites tourner la roue de la chance pour remporter des récompenses et multiplicateurs.</p>
-              </div>
-            </div>
-            <div className="game-card-actions">
-              <Link to="/casino?tab=instant" className="button button-gold button-small full">
-                <Sparkles size={14} /> Tourner la roue (Gratuit)
-              </Link>
-            </div>
-          </div>
-
-          {/* Jackpot MDG */}
-          <div className="game-card" style={{ borderTop: "3px solid #4db6ac" }}>
-            <div className="game-card-top">
-              <span className="game-icon" style={{ color: "#4db6ac" }}>
-                🎟️
-              </span>
-              <span className="live-pill" style={{ background: "rgba(77, 182, 172, 0.15)", color: "#4db6ac" }}>
-                <i style={{ background: "#4db6ac" }} /> Loterie
-              </span>
-            </div>
-            <div className="game-card-bottom">
-              <div>
-                <h3>Jackpot MDG</h3>
-                <p>Sélectionnez vos numéros porte-bonheur pour le grand tirage hebdomadaire.</p>
-              </div>
-            </div>
-            <div className="game-card-actions">
-              <Link to="/casino?tab=draws" className="button button-gold button-small full">
-                <Trophy size={14} /> Participer au tirage
-              </Link>
-            </div>
-          </div>
         </div>
       </section>
 

@@ -44,6 +44,8 @@ GAME_LABELS = {
     "poker": "Poker Texas Hold'em (9-Max)",
     "belote": "Belote Malgache (4J)",
     "rami": "Rami 13 Cartes",
+    "ludo": "Ludo Malagasy (2-4J)",
+    "domino": "Domino Double-Six (2-4J)",
 }
 
 MODE_LABELS = {
