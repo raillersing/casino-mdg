@@ -569,6 +569,7 @@ export function GamePage() {
     null,
   );
   const [gameOver, setGameOver] = useState(false);
+  const [resultModalDismissed, setResultModalDismissed] = useState(false);
   const [selectedRamiCards, setSelectedRamiCards] = useState<Set<string>>(new Set());
   const [pokerLevel, setPokerLevel] = useState(0);
   const [handsPlayed, setHandsPlayed] = useState(0);
@@ -751,6 +752,191 @@ export function GamePage() {
       player?.name || (playerId === userId ? t("game.you") : playerId),
     );
   };
+
+  const finishedInfo = useMemo(() => {
+    if (!gameState) return null;
+
+    // 1. DOMINO
+    if (gameType === "domino" && Boolean(gameState.finished)) {
+      const winnerId = String(gameState.winner || "");
+      const isWinnerMe = winnerId === userId;
+      const isBlocked = Boolean(gameState.blocked);
+      const winnerName = nameForPlayer(winnerId);
+
+      const scores = statePlayers.map((p, idx) => {
+        const pId = String(p.id || "");
+        const isWinner = pId === winnerId;
+        const tiles = Array.isArray(p.hand)
+          ? (p.hand as Array<{ left: number; right: number }>)
+          : [];
+        const pips = tiles.reduce((sum, t) => sum + (t.left + t.right), 0);
+        return {
+          id: pId,
+          name: nameForPlayer(pId),
+          isWinner,
+          isMe: pId === userId,
+          rank: isWinner ? 1 : idx + 2,
+          scoreLabel: isBlocked
+            ? `${pips} pts en main`
+            : isWinner
+            ? "0 pt (Domino !)"
+            : `${pips} pts en main`,
+          subtext: `${tiles.length} domino${tiles.length > 1 ? "s" : ""} restant${tiles.length > 1 ? "s" : ""}`,
+        };
+      });
+
+      return {
+        isFinished: true,
+        gameType: "domino",
+        title: isWinnerMe ? "🏆 Victoire Domino !" : "Partie de Domino Terminée",
+        subtitle: isBlocked
+          ? `Partie fermée (Gasy) ! ${winnerName} l'emporte avec le plus faible total de points.`
+          : isWinnerMe
+          ? "Félicitations ! Vous avez posé tous vos dominos en premier !"
+          : `${winnerName} a posé tous ses dominos et remporte la partie !`,
+        winnerName,
+        isWinnerMe,
+        scores,
+        actionLabel: "Nouvelle partie de Domino",
+      };
+    }
+
+    // 2. LUDO
+    if (gameType === "ludo" && Boolean(gameState.finished)) {
+      const winnerId = String(gameState.winner || "");
+      const isWinnerMe = winnerId === userId;
+      const winnerName = nameForPlayer(winnerId);
+
+      const scores = statePlayers
+        .map((p) => {
+          const pId = String(p.id || "");
+          const isWinner = pId === winnerId;
+          const score = Number(p.score ?? 0);
+          return {
+            id: pId,
+            name: nameForPlayer(pId),
+            isWinner,
+            isMe: pId === userId,
+            scoreVal: score,
+            scoreLabel: `${score} / 4 pions rentrés`,
+            subtext: isWinner ? "🏆 Vainqueur à la Maison" : `${4 - score} pion(s) restant(s)`,
+          };
+        })
+        .sort((a, b) => b.scoreVal - a.scoreVal)
+        .map((p, idx) => ({ ...p, rank: idx + 1 }));
+
+      return {
+        isFinished: true,
+        gameType: "ludo",
+        title: isWinnerMe ? "🏆 Victoire Ludo Mada !" : "Partie de Ludo Terminée",
+        subtitle: isWinnerMe
+          ? "Magnifique ! Vous avez ramené vos 4 pions à la maison en premier !"
+          : `${winnerName} a rentré tous ses 4 pions et remporte la partie !`,
+        winnerName,
+        isWinnerMe,
+        scores,
+        actionLabel: "Rejouer une partie de Ludo",
+      };
+    }
+
+    // 3. BELOTE
+    if (gameType === "belote") {
+      const phase = String(gameState.phase || "");
+      const isRoundFinished = phase === "finished" || phase === "settled" || phase === "settled_reported";
+      const isMatchGameOver = gameOver || beloteCumulative[0] >= 501 || beloteCumulative[1] >= 501;
+
+      if (isRoundFinished || isMatchGameOver) {
+        const winningRoundTeam = beloteTeamPoints[0] > beloteTeamPoints[1] ? 0 : 1;
+        const winningMatchTeam = beloteCumulative[0] > beloteCumulative[1] ? 0 : 1;
+        const isMyTeamWinner = myPokerPlayer?.team === (isMatchGameOver ? winningMatchTeam : winningRoundTeam);
+
+        const scores = [
+          {
+            id: "team_1",
+            name: "Équipe 1 (Nord & Sud)",
+            isWinner: (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 0,
+            isMe: myPokerPlayer?.team === 0,
+            rank: (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 0 ? 1 : 2,
+            scoreLabel: `Manche : ${beloteTeamPoints[0]} pts`,
+            subtext: `Total Cumulé : ${beloteCumulative[0]} / 501 points`,
+          },
+          {
+            id: "team_2",
+            name: "Équipe 2 (Est & Ouest)",
+            isWinner: (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 1,
+            isMe: myPokerPlayer?.team === 1,
+            rank: (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 1 ? 1 : 2,
+            scoreLabel: `Manche : ${beloteTeamPoints[1]} pts`,
+            subtext: `Total Cumulé : ${beloteCumulative[1]} / 501 points`,
+          },
+        ];
+
+        return {
+          isFinished: true,
+          gameType: "belote",
+          title: isMatchGameOver
+            ? (isMyTeamWinner ? "🏆 Victoire du Match de Belote !" : "Fin du Match de Belote")
+            : "Manche de Belote Terminée",
+          subtitle: isMatchGameOver
+            ? `L'Équipe ${winningMatchTeam + 1} remporte la partie finale avec ${beloteCumulative[winningMatchTeam]} points !`
+            : `Manche remportée par l'Équipe ${winningRoundTeam + 1} (${beloteTeamPoints[winningRoundTeam]} pts contre ${beloteTeamPoints[1 - winningRoundTeam]} pts).`,
+          winnerName: `Équipe ${isMatchGameOver ? winningMatchTeam + 1 : winningRoundTeam + 1}`,
+          isWinnerMe: isMyTeamWinner,
+          scores,
+          actionLabel: isMatchGameOver ? "Nouveau Match de Belote" : "Distribuer la manche suivante",
+        };
+      }
+    }
+
+    // 4. RAMI
+    if (gameType === "rami" && Boolean(gameState.finished)) {
+      const knockedByIndex = Number(gameState.knocked_by ?? -1);
+      const isGin = Boolean(gameState.gin);
+      const knockerPlayer = statePlayers[knockedByIndex];
+      const winnerId = knockerPlayer ? String(knockerPlayer.id || "") : "";
+      const isWinnerMe = winnerId === userId;
+      const winnerName = nameForPlayer(winnerId);
+
+      const scores = statePlayers.map((p, idx) => {
+        const pId = String(p.id || "");
+        const isWinner = idx === knockedByIndex;
+        const deadwood = Number(p.score ?? 0);
+        return {
+          id: pId,
+          name: nameForPlayer(pId),
+          isWinner,
+          isMe: pId === userId,
+          rank: isWinner ? 1 : idx + 2,
+          scoreLabel: isWinner ? (isGin ? "0 pt (Grand Gin)" : "0 pt (Knock)") : `+${deadwood} pts de pénalité`,
+          subtext: isWinner ? "Combinaisons validées" : "Cartes restantes non combinées",
+        };
+      });
+
+      return {
+        isFinished: true,
+        gameType: "rami",
+        title: isWinnerMe ? "🏆 Victoire Rami Malagasy !" : "Partie de Rami Terminée",
+        subtitle: isGin
+          ? `${winnerName} réalise un Grand Gin sans aucune carte résiduelle !`
+          : `${winnerName} a fermé son jeu (Knock) et remporte la manche !`,
+        winnerName,
+        isWinnerMe,
+        scores,
+        actionLabel: "Nouvelle donne de Rami",
+      };
+    }
+
+    return null;
+  }, [gameState, gameType, userId, gameOver, beloteTeamPoints, beloteCumulative, myPokerPlayer, statePlayers]);
+
+  useEffect(() => {
+    if (finishedInfo?.isFinished) {
+      playSound("game_over");
+      if (finishedInfo.isWinnerMe) {
+        haptics.winCelebration();
+      }
+    }
+  }, [finishedInfo?.isFinished]);
   const socketUrl =
     import.meta.env.VITE_WS_URL ||
     `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
@@ -855,25 +1041,15 @@ export function GamePage() {
             }
             prevBeloteTrickLenRef.current = nextTrick.length;
             setGameState(state.game_state);
-            // Auto-redeal when belote round is finished or everyone passed
-            if (
-              (phase === "all_passed" || phase === "finished") &&
-              gameType === "belote"
-            ) {
-              window.setTimeout(() => {
-                setGameOver(false);
-                sendGameActionRef.current?.("new_hand");
-              }, 800);
-            }
-            // Auto-redeal when rami game is finished
-            if (
-              gameType === "rami" &&
-              state.game_state.finished === true
-            ) {
+            // Auto-redeal when belote everyone passed during bidding
+            if (phase === "all_passed" && gameType === "belote") {
               window.setTimeout(() => {
                 setGameOver(false);
                 sendGameActionRef.current?.("new_hand");
               }, 1200);
+            }
+            if (phase === "bidding" || phase === "preflop" || phase === "playing") {
+              setResultModalDismissed(false);
             }
             if (phase === "showdown") {
               setShowdownRanks(
@@ -2200,17 +2376,21 @@ export function GamePage() {
               <span>🎲</span>
               <span>Ludo Malagasy · Arena 4 Joueurs</span>
             </div>
-            <div className={`ludo-turn-indicator-pill ${isMyTurn ? "is-my-turn" : ""}`}>
+            <div className={`ludo-turn-indicator-pill ${finishedInfo ? "game-finished-pill" : isMyTurn ? "is-my-turn" : ""}`}>
               <span
                 className="ludo-pulse-dot"
                 style={{
-                  backgroundColor: isMyTurn
+                  backgroundColor: finishedInfo
+                    ? "#ffd700"
+                    : isMyTurn
                     ? "#10b981"
                     : ["#e53935", "#43a047", "#fbc02d", "#1e88e5"][Number(gameState?.current ?? 0)] || "#ffd700",
                 }}
               />
               <span>
-                {isMyTurn
+                {finishedInfo
+                  ? `🏁 ${finishedInfo.title} · Vainqueur : ${finishedInfo.winnerName}`
+                  : isMyTurn
                   ? "🟢 C'est à vous de jouer !"
                   : `Au tour de ${nameForPlayer(String(statePlayers[Number(gameState?.current ?? 0)]?.id || ""))} (${["Rouge", "Vert", "Jaune", "Bleu"][Number(gameState?.current ?? 0)] || "Joueur"})`}
               </span>
@@ -2324,60 +2504,113 @@ export function GamePage() {
 
           {/* Quick Interactive Actions */}
           <div className="ludo-arena-quick-actions">
-            {isMyTurn && Boolean(gameState?.can_roll ?? true) && (
-              <button
-                type="button"
-                className="ludo-roll-dice-btn"
-                onClick={() => {
-                  playSound("chip");
-                  send({
-                    type: "action",
-                    table_id: engineTableId,
-                    action: "roll_dice",
-                    sequence,
-                    timestamp: new Date().toISOString(),
-                  });
-                }}
-              >
-                🎲 {t("game.rollDice") || "Lancer le Dé"}
-              </button>
-            )}
-
-            {isMyTurn && Boolean(gameState?.can_move) && Array.isArray(gameState?.valid_moves) && (gameState.valid_moves as number[]).length > 0 && (
-              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: "0.85rem", color: "#ffd700", fontWeight: 700 }}>
-                  Dé: {Number(gameState?.last_roll ?? 0)} — Déplacez un pion :
+            {finishedInfo ? (
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+                <span style={{ fontSize: "0.95rem", color: "#ffd700", fontWeight: 700 }}>
+                  🏁 Partie terminée — Vainqueur : {finishedInfo.winnerName}
                 </span>
-                {(gameState.valid_moves as number[]).map((pId) => (
+                <button
+                  type="button"
+                  className="button button-gold button-small"
+                  onClick={() => {
+                    sendGameAction("new_hand");
+                    setResultModalDismissed(false);
+                  }}
+                  style={{ padding: "8px 16px", fontWeight: 700 }}
+                >
+                  🎲 Rejouer une partie
+                </button>
+                <button
+                  type="button"
+                  className="button button-ghost button-small"
+                  onClick={() => setResultModalDismissed(false)}
+                  style={{ padding: "8px 14px" }}
+                >
+                  🏆 Tableau des scores
+                </button>
+              </div>
+            ) : (
+              <>
+                {isMyTurn && Boolean(gameState?.can_roll ?? true) && (
                   <button
-                    key={`quick-pawn-${pId}`}
                     type="button"
-                    className="button button-gold button-small"
+                    className="ludo-roll-dice-btn"
                     onClick={() => {
                       playSound("chip");
                       send({
                         type: "action",
                         table_id: engineTableId,
-                        action: "move_pawn",
-                        payload: { pawn_id: pId },
+                        action: "roll_dice",
                         sequence,
                         timestamp: new Date().toISOString(),
                       });
                     }}
-                    style={{ padding: "8px 14px", fontWeight: 700 }}
                   >
-                    ♟️ Avancer Pion #{pId + 1}
+                    🎲 {t("game.rollDice") || "Lancer le Dé"}
                   </button>
-                ))}
-              </div>
-            )}
+                )}
 
-            {!isMyTurn && (
-              <span style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.6)" }}>
-                ⏳ Tour de l'adversaire ({nameForPlayer(String(statePlayers[Number(gameState?.current ?? 0)]?.id || ""))})…
-              </span>
+                {isMyTurn && Boolean(gameState?.can_move) && Array.isArray(gameState?.valid_moves) && (gameState.valid_moves as number[]).length > 0 && (
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.85rem", color: "#ffd700", fontWeight: 700 }}>
+                      Dé: {Number(gameState?.last_roll ?? 0)} — Déplacez un pion :
+                    </span>
+                    {(gameState.valid_moves as number[]).map((pId) => (
+                      <button
+                        key={`quick-pawn-${pId}`}
+                        type="button"
+                        className="button button-gold button-small"
+                        onClick={() => {
+                          playSound("chip");
+                          send({
+                            type: "action",
+                            table_id: engineTableId,
+                            action: "move_pawn",
+                            payload: { pawn_id: pId },
+                            sequence,
+                            timestamp: new Date().toISOString(),
+                          });
+                        }}
+                        style={{ padding: "8px 14px", fontWeight: 700 }}
+                      >
+                        ♟️ Avancer Pion #{pId + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!isMyTurn && (
+                  <span style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.6)" }}>
+                    ⏳ Tour de l'adversaire ({nameForPlayer(String(statePlayers[Number(gameState?.current ?? 0)]?.id || ""))})…
+                  </span>
+                )}
+              </>
             )}
           </div>
+
+          {finishedInfo && (
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "center", margin: "14px 0", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="button button-gold"
+                onClick={() => {
+                  sendGameAction("new_hand");
+                  setResultModalDismissed(false);
+                }}
+                style={{ padding: "10px 20px", fontWeight: 700 }}
+              >
+                🂡 Nouvelle donne de Rami
+              </button>
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => setResultModalDismissed(false)}
+                style={{ padding: "10px 16px" }}
+              >
+                🏆 Tableau des scores
+              </button>
+            </div>
+          )}
           {emote && <div className="table-emote">{emote}</div>}
         </div>
       )}
@@ -2404,14 +2637,22 @@ export function GamePage() {
                 <span>Domino Double-Six · Salon Prestige</span>
               </div>
               <div
-                className={`domino-end-indicator ${isMyTurn ? "is-my-turn" : ""}`}
+                className={`domino-end-indicator ${finishedInfo ? "game-finished-pill" : isMyTurn ? "is-my-turn" : ""}`}
                 style={{
-                  background: isMyTurn ? "rgba(16, 185, 129, 0.25)" : "rgba(0,0,0,0.45)",
-                  borderColor: isMyTurn ? "#10b981" : "rgba(255,255,255,0.15)",
-                  color: isMyTurn ? "#6ee7b7" : "#fff",
+                  background: finishedInfo
+                    ? "linear-gradient(135deg, rgba(211, 176, 107, 0.25) 0%, rgba(16, 185, 129, 0.2) 100%)"
+                    : isMyTurn ? "rgba(16, 185, 129, 0.25)" : "rgba(0,0,0,0.45)",
+                  borderColor: finishedInfo ? "#d3b06b" : isMyTurn ? "#10b981" : "rgba(255,255,255,0.15)",
+                  color: finishedInfo ? "#ffd700" : isMyTurn ? "#6ee7b7" : "#fff",
                 }}
               >
-                <span>{isMyTurn ? "🟢 Votre tour · Choisissez un domino à poser" : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}</span>
+                <span>
+                  {finishedInfo
+                    ? `🏁 ${finishedInfo.title} · Vainqueur : ${finishedInfo.winnerName}`
+                    : isMyTurn
+                    ? "🟢 Votre tour · Choisissez un domino à poser"
+                    : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}
+                </span>
               </div>
               {/* 3D Boneyard (Talon) Stack */}
               <div
@@ -2546,6 +2787,30 @@ export function GamePage() {
                 })}
               </div>
             </div>
+
+            {finishedInfo && (
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "center", margin: "14px 0", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="button button-gold"
+                  onClick={() => {
+                    sendGameAction("new_hand");
+                    setResultModalDismissed(false);
+                  }}
+                  style={{ padding: "10px 20px", fontWeight: 700 }}
+                >
+                  🁓 Rejouer une partie de Domino
+                </button>
+                <button
+                  type="button"
+                  className="button button-ghost"
+                  onClick={() => setResultModalDismissed(false)}
+                  style={{ padding: "10px 16px" }}
+                >
+                  🏆 Voir le décompte des points
+                </button>
+              </div>
+            )}
             {emote && <div className="table-emote">{emote}</div>}
           </div>
         );
@@ -2559,6 +2824,15 @@ export function GamePage() {
             <div className="belote-stage-title" style={{ color: "#ffd700", display: "flex", alignItems: "center", gap: "8px" }}>
               <span>♠</span>
               <span>Belote Contrée Malagasy</span>
+            </div>
+            <div className={`ludo-turn-indicator-pill ${finishedInfo ? "game-finished-pill" : isMyTurn ? "is-my-turn" : ""}`} style={{ margin: "0 auto" }}>
+              <span>
+                {finishedInfo
+                  ? `🏁 ${finishedInfo.title} · ${finishedInfo.winnerName}`
+                  : isMyTurn
+                  ? "🟢 C'est à vous de jouer !"
+                  : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}
+              </span>
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
               <span className="belote-team-score-badge team-us">
@@ -2724,18 +2998,27 @@ export function GamePage() {
             })}
           </div>
 
-          {gameOver && (
-            <div className="belote-game-over">
-              <div>🏆 {t("game.gameOver")} — {beloteCumulative[0] > beloteCumulative[1] ? t("game.team") + " 1" : t("game.team") + " 2"} {t("game.wins")}</div>
+          {finishedInfo && (
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "center", margin: "14px 0", flexWrap: "wrap" }}>
               <button
-                className="button button-gold button-small"
+                type="button"
+                className="button button-gold"
                 onClick={() => {
                   setGameOver(false);
                   sendGameAction("new_hand");
+                  setResultModalDismissed(false);
                 }}
-                style={{ marginTop: 8 }}
+                style={{ padding: "10px 20px", fontWeight: 700 }}
               >
-                {t("demoReplay")}
+                🃏 {finishedInfo.actionLabel}
+              </button>
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => setResultModalDismissed(false)}
+                style={{ padding: "10px 16px" }}
+              >
+                🏆 Tableau des scores
               </button>
             </div>
           )}
@@ -2751,8 +3034,14 @@ export function GamePage() {
               <span>🂡</span>
               <span>Gin Rami Malagasy</span>
             </div>
-            <div className="ludo-turn-indicator-pill">
-              <span>{isMyTurn ? "🟢 Votre tour · Tirez ou défaussez" : `⏳ Tour de ${nameForPlayer(currentPlayerId)}`}</span>
+            <div className={`ludo-turn-indicator-pill ${finishedInfo ? "game-finished-pill" : ""}`}>
+              <span>
+                {finishedInfo
+                  ? `🏁 ${finishedInfo.title} · Vainqueur : ${finishedInfo.winnerName}`
+                  : isMyTurn
+                  ? "🟢 Votre tour · Tirez ou défaussez"
+                  : `⏳ Tour de ${nameForPlayer(currentPlayerId)}`}
+              </span>
             </div>
           </div>
 
@@ -2824,6 +3113,30 @@ export function GamePage() {
               );
             })}
           </div>
+
+          {finishedInfo && (
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "center", margin: "14px 0", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="button button-gold"
+                onClick={() => {
+                  sendGameAction("new_hand");
+                  setResultModalDismissed(false);
+                }}
+                style={{ padding: "10px 20px", fontWeight: 700 }}
+              >
+                🂡 Nouvelle donne de Rami
+              </button>
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => setResultModalDismissed(false)}
+                style={{ padding: "10px 16px" }}
+              >
+                🏆 Tableau des scores
+              </button>
+            </div>
+          )}
           {emote && <div className="table-emote">{emote}</div>}
         </div>
       )}
@@ -3590,6 +3903,66 @@ export function GamePage() {
         onClose={() => setShowHandReplayer(false)}
         hands={handHistory}
       />
+
+      {finishedInfo && !resultModalDismissed && (
+        <div
+          className="game-result-modal-backdrop"
+          onClick={() => setResultModalDismissed(true)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="game-result-card" onClick={(e) => e.stopPropagation()}>
+            <div className="game-result-trophy">
+              {finishedInfo.isWinnerMe ? "🏆" : "🎖️"}
+            </div>
+            <h2>{finishedInfo.title}</h2>
+            <p className="result-subtitle">{finishedInfo.subtitle}</p>
+
+            <div className="game-result-scores-list">
+              {finishedInfo.scores.map((sc) => (
+                <div
+                  key={sc.id}
+                  className={`game-result-score-item ${sc.isWinner ? "is-winner" : ""} ${sc.isMe ? "is-me" : ""}`}
+                >
+                  <div className="game-result-player-identity">
+                    <span className="game-result-rank-badge">
+                      {sc.rank === 1 ? "🥇" : sc.rank === 2 ? "🥈" : sc.rank === 3 ? "🥉" : `#${sc.rank}`}
+                    </span>
+                    <div className="game-result-player-name">
+                      {sc.name} {sc.isMe && <span style={{ color: "#ffd700", fontSize: "11px" }}>({t("game.you")})</span>}
+                      {sc.subtext && <small>{sc.subtext}</small>}
+                    </div>
+                  </div>
+                  <div className="game-result-score-val">
+                    {sc.scoreLabel}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="game-result-actions">
+              <button
+                type="button"
+                className="button button-gold"
+                onClick={() => {
+                  setGameOver(false);
+                  sendGameAction("new_hand");
+                  setResultModalDismissed(false);
+                }}
+              >
+                🔄 {finishedInfo.actionLabel || "Rejouer"}
+              </button>
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={() => navigate("/lobby")}
+              >
+                🚪 {t("game.backLobby") || "Salon"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
