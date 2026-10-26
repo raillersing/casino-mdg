@@ -41,6 +41,8 @@ import { TableExitModal } from "@components/game/TableExitModal";
 import { getSeatPosition } from "@utils/tableLayout";
 import { TableSettingsModal } from "@components/game/TableSettingsModal";
 import { HandReplayerModal, type ReplayableHand } from "@components/game/HandReplayerModal";
+import { DominoTile } from "@components/game/DominoTile";
+import { LudoBoard } from "@components/game/LudoBoard";
 import { haptics } from "@utils/haptics";
 import { webNotifications } from "@utils/notifications";
 
@@ -2137,28 +2139,46 @@ export function GamePage() {
             ) : (
               <>
                 <div className="belote-trick-area">
+                  {beloteTrump !== "" && (
+                    <div className="belote-trump-medallion">
+                      <span>Atout :</span>
+                      <span style={{ fontSize: "1.1rem", color: [1, 2].includes(Number(beloteTrump)) ? "#ef4444" : "#111" }}>
+                        {["♣", "♦", "♥", "♠"][Number(beloteTrump)] || "?"}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="belote-trick-label">
-                    {beloteTrump !== "" && (
-                      <span className="belote-trump">Atout : {["♣","♦","♥","♠"][Number(beloteTrump)] || "?"}</span>
-                    )}
                     <span>Pli {beloteTrick.length}/4</span>
                     {Array.isArray(gameState?.belote_announced) && (gameState?.belote_announced as boolean[]).some(Boolean) && (
-                      <span className="belote-trump" style={{ marginLeft: 8 }}>🔔 Belote !</span>
+                      <span className="belote-trump" style={{ marginLeft: 8, color: "#ffd700", fontWeight: "bold" }}>🔔 Belote !</span>
                     )}
                     {Array.isArray(gameState?.rebelote_declared) && (gameState?.rebelote_declared as boolean[]).some(Boolean) && (
-                      <span className="belote-trump" style={{ marginLeft: 8 }}>🔔🔔 Rebelote !</span>
+                      <span className="belote-trump" style={{ marginLeft: 8, color: "#ffd700", fontWeight: "bold" }}>🔔🔔 Rebelote !</span>
                     )}
                   </div>
-                  <div className="belote-trick">
-                    {beloteTrick.map((card, index) => (
-                      <PlayingCard
-                        key={`trick-${index}`}
-                        {...cardView(card)}
-                      />
-                    ))}
-                    {Array.from({ length: Math.max(0, 4 - beloteTrick.length) }).map((_, index) => (
-                      <PlayingCard key={`trick-empty-${index}`} value="?" suit="" hidden />
-                    ))}
+
+                  <div className="belote-cross-pli">
+                    {/* North (Partner) */}
+                    <div className="belote-pli-slot belote-pli-north">
+                      <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Partenaire</span>
+                      {beloteTrick[2] ? <PlayingCard {...cardView(beloteTrick[2])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                    </div>
+                    {/* West (Left opponent) */}
+                    <div className="belote-pli-slot belote-pli-west">
+                      <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Ouest</span>
+                      {beloteTrick[1] ? <PlayingCard {...cardView(beloteTrick[1])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                    </div>
+                    {/* East (Right opponent) */}
+                    <div className="belote-pli-slot belote-pli-east">
+                      <span style={{ fontSize: "9px", color: "rgba(255,255,255,0.6)", marginBottom: "2px" }}>Est</span>
+                      {beloteTrick[3] ? <PlayingCard {...cardView(beloteTrick[3])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                    </div>
+                    {/* South (Hero) */}
+                    <div className="belote-pli-slot belote-pli-south">
+                      {beloteTrick[0] ? <PlayingCard {...cardView(beloteTrick[0])} /> : <div style={{ width: 40, height: 58, border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 6 }} />}
+                      <span style={{ fontSize: "9px", color: "#ffd700", fontWeight: 700, marginTop: "2px" }}>Vous</span>
+                    </div>
                   </div>
                 </div>
                 <div className="belote-score">
@@ -2228,104 +2248,88 @@ export function GamePage() {
           </>
         )}
         {gameType === "ludo" && (
-          <div className="ludo-board-container" style={{ margin: "20px auto", maxWidth: "420px", background: "rgba(10, 25, 47, 0.85)", padding: "16px", borderRadius: "16px", border: "2px solid #81c784", textAlign: "center" }}>
-            <h3 style={{ color: "#81c784", marginBottom: "8px", fontSize: "1.1rem" }}>🎲 Plateau de Ludo Madaloka</h3>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
-              {["Rouge", "Vert", "Jaune", "Bleu"].map((colorName, cIdx) => {
-                const colorHex = ["#e57373", "#81c784", "#ffd54f", "#64b5f6"][cIdx];
-                const playerState = Array.isArray(gameState?.players) ? (gameState?.players as Array<Record<string, unknown>>).find((p) => Number(p.color) === cIdx) : null;
-                const pawns = Array.isArray(playerState?.pawns) ? (playerState?.pawns as Array<Record<string, unknown>>) : [];
-                const inBase = pawns.filter((p) => p.state === "base").length;
-                const onTrack = pawns.filter((p) => p.state === "track").length;
-                const atHome = pawns.filter((p) => p.state === "home").length;
-                return (
-                  <div key={colorName} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${colorHex}`, borderRadius: "10px", padding: "8px" }}>
-                    <div style={{ fontWeight: 700, color: colorHex, fontSize: "0.85rem", marginBottom: "4px" }}>Camp {colorName}</div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--soft)" }}>
-                      Base: <strong>{inBase}</strong> | En jeu: <strong>{onTrack}</strong> | Arrivés: <strong>{atHome}/4 🏆</strong>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: "12px", padding: "12px", margin: "10px 0" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>Dernier lancer de dé :</span>
-              <div style={{ fontSize: "2.4rem", fontWeight: 900, color: "#ffd54f", margin: "4px 0" }}>
-                {Number(gameState?.last_roll ?? 0) > 0 ? `🎲 ${gameState?.last_roll}` : "—"}
-              </div>
-            </div>
-
-            {Boolean(gameState?.can_move) && isMyTurn && Array.isArray(gameState?.valid_moves) && (
-              <div style={{ marginTop: "10px", background: "rgba(129, 199, 132, 0.15)", border: "1px solid #81c784", borderRadius: "10px", padding: "10px" }}>
-                <span style={{ display: "block", fontSize: "0.85rem", fontWeight: 700, color: "#81c784", marginBottom: "8px" }}>
-                  Déplacez un pion ({gameState?.valid_moves.length} choix disponibles) :
-                </span>
-                <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
-                  {(gameState?.valid_moves as number[]).map((pId) => (
-                    <button
-                      key={`pawn-mv-${pId}`}
-                      type="button"
-                      className="button button-small button-gold"
-                      onClick={() => {
-                        playSound("chip");
-                        send({
-                          type: "action",
-                          table_id: engineTableId,
-                          action: "move_pawn",
-                          payload: { pawn_id: pId },
-                          sequence,
-                          timestamp: new Date().toISOString(),
-                        });
-                      }}
-                    >
-                      Pion #{pId + 1}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <LudoBoard
+            players={(Array.isArray(gameState?.players) ? (gameState?.players as Array<Record<string, unknown>>) : []).map((p) => ({
+              id: String(p.id || ""),
+              name: String(p.name || ""),
+              color: Number(p.color ?? 0),
+              pawns: Array.isArray(p.pawns) ? (p.pawns as Array<{ id: number; state: "base" | "track" | "home_path" | "home"; position: number }>) : [],
+              score: Number(p.score ?? 0),
+            }))}
+            currentTurnIndex={Number(gameState?.current ?? 0)}
+            lastRoll={Number(gameState?.last_roll ?? 0)}
+            canRoll={Boolean(gameState?.can_roll ?? true)}
+            canMove={Boolean(gameState?.can_move ?? false)}
+            validMoves={Array.isArray(gameState?.valid_moves) ? (gameState.valid_moves as number[]) : []}
+            isMyTurn={isMyTurn}
+            myColorIndex={Number(myPokerPlayer?.color ?? 0)}
+            onRollDice={() => {
+              playSound("chip");
+              send({
+                type: "action",
+                table_id: engineTableId,
+                action: "roll_dice",
+                sequence,
+                timestamp: new Date().toISOString(),
+              });
+            }}
+            onMovePawn={(pId) => {
+              playSound("chip");
+              send({
+                type: "action",
+                table_id: engineTableId,
+                action: "move_pawn",
+                payload: { pawn_id: pId },
+                sequence,
+                timestamp: new Date().toISOString(),
+              });
+            }}
+          />
         )}
 
         {gameType === "domino" && (
-          <div className="domino-board-container" style={{ margin: "20px auto", maxWidth: "560px", background: "rgba(20, 30, 48, 0.85)", padding: "16px", borderRadius: "16px", border: "2px solid #ffb74d", textAlign: "center" }}>
-            <h3 style={{ color: "#ffb74d", marginBottom: "10px", fontSize: "1.1rem" }}>🁓 Ligne de Dominos Double-Six</h3>
+          <div className="domino-table-felt">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ font: "13px var(--serif)", color: "#d4af37", letterSpacing: "0.1em", fontWeight: "bold" }}>
+                🁓 LIGNE DE DOMINOS DOUBLE-SIX
+              </span>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <span className="domino-end-indicator">
+                  ◀ {String(gameState?.left_end ?? "—")}
+                </span>
+                <span className="domino-end-indicator">
+                  {String(gameState?.right_end ?? "—")} ▶
+                </span>
+                <span style={{ fontSize: "0.75rem", color: "var(--soft)" }}>
+                  Pioche restante : <strong>{Number(gameState?.boneyard_count ?? 0)}</strong>
+                </span>
+              </div>
+            </div>
 
-            <div style={{ minHeight: "70px", background: "rgba(0,0,0,0.35)", borderRadius: "12px", padding: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", overflowX: "auto" }}>
+            {/* Domino Chain Track */}
+            <div className="domino-chain-track">
               {Array.isArray(gameState?.board) && (gameState?.board as Array<{ left: number; right: number }>).length > 0 ? (
                 (gameState?.board as Array<{ left: number; right: number }>).map((tile, tIdx) => (
-                  <div
-                    key={`domino-board-${tIdx}`}
-                    style={{
-                      background: "#fff",
-                      color: "#111",
-                      borderRadius: "6px",
-                      padding: "4px 8px",
-                      fontWeight: 800,
-                      fontSize: "1rem",
-                      display: "inline-flex",
-                      gap: "4px",
-                      alignItems: "center",
-                      border: "1px solid #ddd",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.5)",
-                    }}
-                  >
-                    <span>{tile.left}</span>
-                    <span style={{ color: "#888" }}>|</span>
-                    <span>{tile.right}</span>
-                  </div>
+                  <DominoTile
+                    key={`board-tile-${tIdx}`}
+                    left={tile.left}
+                    right={tile.right}
+                    orientation={tile.left === tile.right ? "vertical" : "horizontal"}
+                    size="small"
+                  />
                 ))
               ) : (
-                <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Table vide. Le premier joueur ouvre la partie !</span>
+                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.85rem", margin: "auto" }}>
+                  Table prête. Le premier joueur ouvre la partie avec son plus fort domino !
+                </div>
               )}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--soft)", marginTop: "10px" }}>
-              <span>Extrémités : <strong>[{String(gameState?.left_end ?? "—")} | {String(gameState?.right_end ?? "—")}]</strong></span>
-              <span>Pioche restante : <strong>{Number(gameState?.boneyard_count ?? 0)} dominos</strong></span>
-            </div>
+            {Boolean(gameState?.blocked) && (
+              <div style={{ background: "rgba(239, 68, 68, 0.2)", border: "1px solid #ef4444", borderRadius: "8px", padding: "6px 12px", textAlign: "center", fontSize: "0.85rem", color: "#fca5a5" }}>
+                🔒 <strong>Partie Fermée (Gasy) !</strong> Gagnant au décompte des points minimaux : {String(gameState?.winner || "Adversaire")}
+              </div>
+            )}
           </div>
         )}
         {emote && <div className="table-emote">{emote}</div>}
@@ -2434,29 +2438,32 @@ export function GamePage() {
             </>
           )}
           {gameType === "domino" && (
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
-              {Array.isArray(myPokerPlayer?.hand) && (myPokerPlayer.hand as Array<{ left: number; right: number }>).map((t, idx) => (
-                <div
-                  key={`my-domino-${idx}`}
-                  style={{
-                    background: "#fff",
-                    color: "#111",
-                    borderRadius: "6px",
-                    padding: "6px 10px",
-                    fontWeight: 800,
-                    fontSize: "1.05rem",
-                    display: "inline-flex",
-                    gap: "4px",
-                    alignItems: "center",
-                    border: "2px solid #ffb74d",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
-                  }}
-                >
-                  <span>{t.left}</span>
-                  <span style={{ color: "#888" }}>|</span>
-                  <span>{t.right}</span>
-                </div>
-              ))}
+            <div className="domino-rack-wooden">
+              {Array.isArray(myPokerPlayer?.hand) && (myPokerPlayer.hand as Array<{ left: number; right: number }>).map((t, idx) => {
+                const leftEnd = Number(gameState?.left_end ?? -1);
+                const rightEnd = Number(gameState?.right_end ?? -1);
+                const boardEmpty = leftEnd === -1 && rightEnd === -1;
+                const canPlayLeft = boardEmpty || t.left === leftEnd || t.right === leftEnd;
+                const canPlayRight = boardEmpty || t.left === rightEnd || t.right === rightEnd;
+                const isPlayable = isMyTurn && (canPlayLeft || canPlayRight);
+
+                return (
+                  <DominoTile
+                    key={`my-rack-domino-${idx}`}
+                    left={t.left}
+                    right={t.right}
+                    orientation="vertical"
+                    size="medium"
+                    isPlayable={isPlayable}
+                    onClick={() => {
+                      if (!isPlayable) return;
+                      playSound("card_played");
+                      const side = canPlayLeft ? "left" : "right";
+                      sendGameAction("play_tile", { tile: t, side });
+                    }}
+                  />
+                );
+              })}
             </div>
           )}
           {gameType === "ludo" && (

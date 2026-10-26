@@ -5473,42 +5473,128 @@ h3 {
   color: rgba(255, 255, 255, 0.22);
 }
 
-/* ---- BELOTE (French Traditional - Warm Wood) ---- */
+/* ---- BELOTE (French Traditional - Emerald Felt & Walnut Rim) ---- */
 .felt-belote {
   background:
-    radial-gradient(ellipse at 30% 20%, rgba(180, 120, 60, 0.15), transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(140, 80, 40, 0.12), transparent 50%),
-    radial-gradient(ellipse at center, #3d2817 0%, #2a1a0f 52%, #1a1008 100%);
-  border-color: #5c3a1e;
-  border-radius: 42%/35%;
+    radial-gradient(ellipse at 50% 50%, #175432 0%, #0e3b23 55%, #072214 100%);
+  border: 14px solid #3d2314;
+  border-radius: 44%/36%;
   box-shadow:
-    inset 0 0 0 1px rgba(211, 176, 107, 0.15),
-    0 22px 50px rgba(0, 0, 0, 0.5);
+    inset 0 0 0 2px #d4af37,
+    inset 0 0 45px rgba(0, 0, 0, 0.7),
+    0 24px 60px rgba(0, 0, 0, 0.65);
 }
 .felt-belote .table-brand {
-  color: rgba(211, 176, 107, 0.35);
-  font: 20px var(--serif);
-  letter-spacing: 0.08em;
+  color: rgba(212, 175, 55, 0.4);
+  font: 22px var(--serif);
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 .felt-belote .table-brand small {
-  font: 8px var(--sans);
-  letter-spacing: 0.25em;
-  color: rgba(211, 176, 107, 0.25);
+  font: 9px var(--sans);
+  letter-spacing: 0.3em;
+  color: rgba(212, 175, 55, 0.3);
 }
 .felt-belote .player-seat {
-  border-color: rgba(211, 176, 107, 0.22);
-  background: rgba(40, 25, 12, 0.55);
+  border-color: rgba(212, 175, 55, 0.3);
+  background: rgba(12, 36, 22, 0.8);
+  backdrop-filter: blur(4px);
 }
 .felt-belote .player-seat.active-seat {
-  border-color: var(--gold);
+  border-color: #ffd700;
   box-shadow:
-    0 0 0 2px rgba(211, 176, 107, 0.25),
-    0 0 25px rgba(211, 176, 107, 0.2);
+    0 0 0 2px rgba(255, 215, 0, 0.4),
+    0 0 25px rgba(255, 215, 0, 0.3);
 }
 .felt-belote .seat-avatar,
 .felt-belote .you-avatar {
-  background: #8b5a2b;
-  color: #f4e4c8;
+  background: #1b5431;
+  border: 1.5px solid #d4af37;
+  color: #fff;
+}
+
+/* ---- LUDO (Malagasy Board Game Atmosphere) ---- */
+.felt-ludo {
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(255, 215, 0, 0.08), transparent 60%),
+    radial-gradient(ellipse at 50% 50%, #2b180a 0%, #1a0e05 60%, #0a0502 100%);
+  border: 14px solid #4a2b12;
+  border-radius: 36%/30%;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 215, 0, 0.25),
+    inset 0 0 50px rgba(0, 0, 0, 0.8),
+    0 25px 65px rgba(0, 0, 0, 0.7);
+}
+.felt-ludo .table-brand {
+  color: rgba(255, 215, 0, 0.45);
+  font: 22px var(--sans);
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+.felt-ludo .table-brand small {
+  font: 9px var(--mono);
+  letter-spacing: 0.35em;
+  color: rgba(255, 215, 0, 0.3);
+}
+.felt-ludo .player-seat {
+  border-color: rgba(255, 215, 0, 0.25);
+  background: rgba(32, 18, 9, 0.85);
+  backdrop-filter: blur(4px);
+}
+.felt-ludo .player-seat.active-seat {
+  border-color: #00e676;
+  box-shadow:
+    0 0 0 2px rgba(0, 230, 118, 0.4),
+    0 0 25px rgba(0, 230, 118, 0.35);
+}
+.felt-ludo .seat-avatar,
+.felt-ludo .you-avatar {
+  background: #3d210b;
+  border: 1.5px solid #fbc02d;
+  color: #fff;
+}
+
+/* ---- DOMINO (Malagasy Rosewood Table & Inlaid Green Velvet Runner) ---- */
+.felt-domino {
+  background:
+    radial-gradient(ellipse at 50% 50%, #0d4227 0%, #082d1a 45%, transparent 65%),
+    radial-gradient(ellipse at 20% 20%, rgba(139, 69, 19, 0.18), transparent 50%),
+    radial-gradient(ellipse at center, #2e180d 0%, #1f1008 55%, #120904 100%);
+  border: 16px solid #442310;
+  border-radius: 40%/34%;
+  box-shadow:
+    inset 0 0 0 2px #d4af37,
+    inset 0 0 45px rgba(0, 0, 0, 0.75),
+    0 26px 70px rgba(0, 0, 0, 0.75);
+}
+.felt-domino .table-brand {
+  color: rgba(244, 228, 200, 0.4);
+  font: 22px var(--serif);
+  letter-spacing: 0.14em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+.felt-domino .table-brand small {
+  font: 9px var(--mono);
+  letter-spacing: 0.3em;
+  color: rgba(212, 175, 55, 0.35);
+}
+.felt-domino .player-seat {
+  border-color: rgba(212, 175, 55, 0.25);
+  background: rgba(28, 14, 7, 0.85);
+  backdrop-filter: blur(4px);
+}
+.felt-domino .player-seat.active-seat {
+  border-color: #ffd700;
+  box-shadow:
+    0 0 0 2px rgba(255, 215, 0, 0.4),
+    0 0 25px rgba(255, 215, 0, 0.3);
+}
+.felt-domino .seat-avatar,
+.felt-domino .you-avatar {
+  background: #4a2810;
+  border: 1.5px solid #d4af37;
+  color: #f5edd6;
 }
 
 /* ---- RAMI (Modern Indian - Rich Indigo) ---- */
@@ -5735,6 +5821,109 @@ h3 {
   width: 40px;
   height: 58px;
   font-size: 15px;
+}
+
+/* ---- Domino-specific UI styling ---- */
+.domino-table-felt {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  margin: 10px auto;
+  background: radial-gradient(ellipse at center, #0e3b23 0%, #062415 65%, #03140b 100%);
+  border: 4px solid #5a381e;
+  border-radius: 18px;
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.7), 0 10px 30px rgba(0, 0, 0, 0.5);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.domino-chain-track {
+  min-height: 84px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  border: 1px dashed rgba(212, 175, 55, 0.25);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.domino-rack-wooden {
+  background: linear-gradient(180deg, #5c351b 0%, #3e2210 50%, #291508 100%);
+  border-radius: 12px 12px 4px 4px;
+  border: 2px solid #734524;
+  border-bottom: 5px solid #201006;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  padding: 12px 16px 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.domino-end-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid #10b981;
+  color: #6ee7b7;
+}
+
+/* ---- Belote Enhanced Cross Pli Layout ---- */
+.belote-cross-pli {
+  position: relative;
+  width: 220px;
+  height: 200px;
+  margin: 0 auto;
+}
+.belote-pli-slot {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.belote-pli-north {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.belote-pli-south {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.belote-pli-west {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+.belote-pli-east {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+.belote-trump-medallion {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: radial-gradient(circle at 35% 35%, #ffd700, #b8860b);
+  border: 2px solid #fff;
+  border-radius: 20px;
+  padding: 4px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  color: #2b180a;
+  font-weight: 800;
+  font-size: 0.85rem;
 }
 
 @media (max-width: 640px) {
