@@ -1,0 +1,350 @@
+# ═══════════════════════════════════════════════════════════════
+# Casino MDG — Configuration de Production Haute Concurrence (VPS)
+# Optimisé pour Ubuntu VPS (Contabo, Hetzner, DigitalOcean, OVH)
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  # ───────────────────────────────────────────
+  # PostgreSQL (base de données relationnelle)
+  # ───────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: casino-mdg-postgres-prod
+    restart: always
+    shm_size: 256m
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-casino_mdg}
+    command: >
+      postgres
+        -c shared_buffers=512MB
+        -c effective_cache_size=1536MB
+        -c work_mem=16MB
+        -c maintenance_work_mem=128MB
+        -c min_wal_size=1GB
+        -c max_wal_size=4GB
+        -c checkpoint_completion_target=0.9
+        -c max_connections=200
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./infrastructure/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casino-mdg-prod
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  # ───────────────────────────────────────────
+  # PgBouncer (Pooling transactionnel haute concurrence 10k-50k CCU)
+  # ───────────────────────────────────────────
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: casino-mdg-pgbouncer-prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-casino_mdg}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 10000
+      DEFAULT_POOL_SIZE: 50
+      MIN_POOL_SIZE: 10
+      RESERVE_POOL_SIZE: 5
+      SERVER_IDLE_TIMEOUT: 60
+      AUTH_TYPE: plain
+      ADMIN_USERS: ${DB_USER:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casino-mdg-prod
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  # ───────────────────────────────────────────
+  # Redis (Cache, Sessions & Baux Temps Réel)
+  # ───────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: casino-mdg-redis-prod
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casino-mdg-prod
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  # ───────────────────────────────────────────
+  # RabbitMQ (Message broker Celery)
+  # ───────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: casino-mdg-rabbitmq-prod
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-casino_admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_prod_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casino-mdg-prod
+
+  # ───────────────────────────────────────────
+  # MinIO (Stockage Objets S3 Médias / Avatars)
+  # ───────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: casino-mdg-minio-prod
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASS}
+      MINIO_REGION: ${MINIO_REGION:-mg-antananarivo}
+    volumes:
+      - minio_prod_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - casino-mdg-prod
+
+  # ───────────────────────────────────────────
+  # Django Backend (Gunicorn multi-workers)
+  # ───────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: casino-mdg-backend-prod
+    restart: always
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ENV: production
+      DEBUG: "False"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: pgbouncer
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-casino_mdg}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_CONN_MAX_AGE: ${DB_CONN_MAX_AGE:-60}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-casino_admin}:${RABBITMQ_PASS}@rabbitmq:5672//
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_USER:-minio_admin}
+      MINIO_SECRET_KEY: ${MINIO_PASS}
+      GAME_ENGINE_INTERNAL_URL: http://game-engine:8080
+      GAME_ENGINE_BOT_SECRET: ${GAME_ENGINE_BOT_SECRET}
+      GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET}
+    volumes:
+      - backend_media:/app/media
+      - backend_static:/app/staticfiles
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    command: >
+      sh -c "
+        python manage.py migrate --noinput &&
+        python manage.py collectstatic --noinput &&
+        gunicorn config.wsgi:application
+          --bind 0.0.0.0:8000
+          --workers 4
+          --threads 2
+          --worker-class gthread
+          --timeout 60
+          --max-requests 5000
+          --max-requests-jitter 500
+          --access-logfile -
+          --error-logfile -
+      "
+    networks:
+      - casino-mdg-prod
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  # ───────────────────────────────────────────
+  # Celery Worker (Tâches asynchrones)
+  # ───────────────────────────────────────────
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: casino-mdg-celery-worker-prod
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: pgbouncer
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-casino_mdg}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-casino_admin}:${RABBITMQ_PASS}@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - backend_media:/app/media
+    command: celery -A config worker --loglevel=info --concurrency=4
+    networks:
+      - casino-mdg-prod
+
+  # ───────────────────────────────────────────
+  # Celery Beat (Planificateur cron)
+  # ───────────────────────────────────────────
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: casino-mdg-celery-beat-prod
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: pgbouncer
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-casino_mdg}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-casino_admin}:${RABBITMQ_PASS}@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    command: celery -A config beat --loglevel=info
+    networks:
+      - casino-mdg-prod
+
+  # ───────────────────────────────────────────
+  # Game Engine (Go — Moteur Temps Réel)
+  # ───────────────────────────────────────────
+  game-engine:
+    build:
+      context: ./game-engine
+      dockerfile: Dockerfile
+    container_name: casino-mdg-game-engine-prod
+    restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    environment:
+      GAME_ENGINE_ADDR: :8080
+      BACKEND_INTERNAL_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      GAME_ENGINE_BOT_SECRET: ${GAME_ENGINE_BOT_SECRET}
+      GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET}
+      NODE_ID: contabo-node-1
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casino-mdg-prod
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  # ───────────────────────────────────────────
+  # Frontend React & Reverse Proxy Nginx
+  # ───────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: casino-mdg-frontend-prod
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+      game-engine:
+        condition: service_healthy
+    ports:
+      - "${PORT:-80}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casino-mdg-prod
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+networks:
+  casino-mdg-prod:
+    driver: bridge
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  rabbitmq_prod_data:
+  minio_prod_data:
+  backend_media:
+  backend_static:
