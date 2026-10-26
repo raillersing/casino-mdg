@@ -3,9 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Bot,
-  ChevronRight,
+  Compass,
   Gamepad2,
-  Play,
+  LogIn,
   ShieldCheck,
   Sparkles,
   Trophy,
@@ -19,46 +19,67 @@ import { createGuestToken } from "@services/auth";
 import { startBotSimulation } from "@services/games";
 import { BotCountSelector } from "@components/game/BotCountSelector";
 
-const games = [
+interface GameDef {
+  id: "belote" | "domino" | "ludo" | "rami" | "poker";
+  name: string;
+  badge: string;
+  meta: string;
+  icon: string;
+  accent: string;
+  players: string;
+  tags: string[];
+}
+
+const games: GameDef[] = [
   {
     id: "belote",
     name: "Belote Malagasy",
-    meta: "Le jeu de cartes traditionnel par équipes de 2, atout et belote-rebelote.",
+    badge: "Cartes & Atout",
+    meta: "Le jeu d'équipe traditionnel de référence à Madagascar. Annonces, coupes, atout et belote-rebelote à 4 joueurs.",
     icon: "♥",
-    accent: "#e57373",
-    players: "4",
-  },
-  {
-    id: "rami",
-    name: "Rami Malagasy",
-    meta: "Combinaisons de tierces, brelans et défausse stratégique à 13 cartes.",
-    icon: "♦",
-    accent: "#64b5f6",
-    players: "2 – 4",
-  },
-  {
-    id: "ludo",
-    name: "Ludo Mada",
-    meta: "Le grand jeu de plateau malagasy ! Lancez le dé et amenez vos 4 pions à la maison.",
-    icon: "🎲",
-    accent: "#81c784",
-    players: "2 – 4",
+    accent: "#ef4444",
+    players: "4 joueurs (2 vs 2)",
+    tags: ["Partenaire", "162 Points", "Atout"],
   },
   {
     id: "domino",
     name: "Domino Double-Six",
-    meta: "Posez vos dominos sur la table, bloquez vos adversaires et criez Domino !",
+    badge: "Stratégie Tactile",
+    meta: "Posez vos tuiles en ivoire sur le plateau de Palissandre, piochez au talon et bloquez le jeu de vos adversaires.",
     icon: "🁓",
-    accent: "#ffb74d",
-    players: "2 – 4",
+    accent: "#f59e0b",
+    players: "2 à 4 joueurs",
+    tags: ["Double-Six", "Talon 3D", "Pose directe"],
+  },
+  {
+    id: "ludo",
+    name: "Ludo Mada",
+    badge: "Grand Jeu de Plateau",
+    meta: "Le jeu convivial incontournable. Lancez le dé 3D, sortez vos 4 pions et ramenez-les le premier à la maison.",
+    icon: "🎲",
+    accent: "#10b981",
+    players: "2 à 4 joueurs",
+    tags: ["Dés 3D", "Pions 4 couleurs", "Capture"],
+  },
+  {
+    id: "rami",
+    name: "Rami Malagasy",
+    badge: "Combinaisons & Défausse",
+    meta: "Constituez vos tierces et brelans à 13 cartes. Défaussez avec discernement et posez pour l'emporter.",
+    icon: "♦",
+    accent: "#3b82f6",
+    players: "2 à 4 joueurs",
+    tags: ["13 Cartes", "Tierces & Brelans", "Défausse"],
   },
   {
     id: "poker",
     name: "Poker Texas Hold'em",
-    meta: "No-Limit Hold'em compétitif avec blinds, relances et showdowns épiques.",
+    badge: "Compétition & Tournois",
+    meta: "No-Limit Hold'em stratégique. 2 cartes fermées, 5 cartes communes, relances, bluffs et showdowns épiques.",
     icon: "♠",
     accent: "#d3b06b",
-    players: "2 – 9",
+    players: "2 à 9 joueurs",
+    tags: ["No-Limit", "Blinds & Relances", "Tournois MTT"],
   },
 ];
 
@@ -75,6 +96,8 @@ export function HomePage() {
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [guestInput, setGuestInput] = useState("");
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
+  const [heroGameId, setHeroGameId] = useState<"belote" | "domino" | "ludo" | "rami" | "poker">("belote");
+
   const [botCounts, setBotCounts] = useState<Record<string, number>>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("mdg-bot-counts") || "{}");
@@ -83,6 +106,7 @@ export function HomePage() {
       return { poker: 3, belote: 3, rami: 1, ludo: 3, domino: 3 };
     }
   });
+
   const setBotCount = (gameId: string, value: number) => {
     setBotCounts((prev) => {
       const next = { ...prev, [gameId]: value };
@@ -99,7 +123,6 @@ export function HomePage() {
     const name = guestInput.trim() || "Invité";
     setGuestMode(name, 10000);
     setShowGuestModal(false);
-    // Retry the demo launch
     if (pendingGameId) {
       await launchDemo(pendingGameId);
       setPendingGameId(null);
@@ -122,7 +145,7 @@ export function HomePage() {
         setGuestMode(auth.user.display_name, auth.wallet.balance);
         token = auth.access;
       } catch {
-        // fallback: try with local guest mode anyway
+        // fallback to guest session
       }
     }
     if (!token) {
@@ -157,252 +180,293 @@ export function HomePage() {
     }
   };
 
+  const selectedHeroGame = games.find((g) => g.id === heroGameId) ?? games[0];
+
   return (
-    <div className="page-stack home-page">
-      {/* Hero */}
-      <section className="hero-panel hero-slim">
-        <div className="hero-copy">
-          <span className="eyebrow gold">
-            <Sparkles size={13} /> MDG GAME CLUB
+    <div className="home-claude">
+      {/* 1. Hero Claude Aesthetic: Calm, High-Typography Contrast & Direct Utility */}
+      <section className="home-hero-claude">
+        <div className="home-hero-left">
+          <span className="home-eyebrow">
+            <Sparkles size={13} /> MDG Game Club · Salon d'Excellence
           </span>
-          <h1>
-            {t("home.title")}
+          <h1 className="home-hero-title">
+            L'art du jeu malagasy,
             <br />
-            <em>{t("home.titleAccent")}</em>
+            <em>avec élégance et équité.</em>
           </h1>
-          <p>{t("home.intro")}</p>
-          <div className="hero-actions">
-            <Link to="/play/poker" className="button button-gold">
-              <Play size={17} /> {t("home.playNow")} <ArrowRight size={17} />
+          <p className="home-hero-lead">
+            Belote, Domino Double-Six, Ludo Mada, Rami et Poker Texas Hold'em réunis sur une plateforme rapide et authentique. Rejoignez des tables en direct, invitez vos proches dans des salons privés ou entraînez votre jeu contre nos intelligences artificielles.
+          </p>
+
+          <div className="home-hero-actions">
+            <Link to="/lobby" className="button button-gold" style={{ minHeight: "44px", padding: "12px 22px", fontSize: "13.5px" }}>
+              <Compass size={17} /> Explorer les tables en direct <ArrowRight size={17} />
             </Link>
             {!accessToken && (
-              <Link to="/auth" className="quiet-link">
-                {t("home.createAccount")} <ChevronRight size={15} />
+              <Link to="/auth" className="button button-outline" style={{ minHeight: "44px", padding: "12px 20px", fontSize: "13.5px" }}>
+                <LogIn size={15} /> Connexion / Inscription
               </Link>
             )}
+            {isGuest && !accessToken && (
+              <div className="hero-guest-pill" style={{ margin: 0 }}>
+                <Bot size={13} />
+                <span>{guestName || "Invité"} · Mode Découverte</span>
+              </div>
+            )}
           </div>
-          {isGuest && !accessToken && (
-            <div className="hero-guest-pill">
-              <Bot size={13} />
-              <span>{t("home.guestActive")}</span>
-            </div>
-          )}
+
+          <div className="home-hero-badges">
+            <span>
+              <i style={{ width: 7, height: 7, borderRadius: "50%", background: "#10b981", display: "inline-block", boxShadow: "0 0 6px #10b981" }} />
+              Tables actives 24h/24
+            </span>
+            <span>
+              <ShieldCheck size={14} style={{ color: "var(--gold)" }} /> 100% Stratégie & Fair-play
+            </span>
+            <span>
+              <Users size={14} style={{ color: "var(--gold)" }} /> Salons privés avec lien WhatsApp
+            </span>
+          </div>
         </div>
-        <div className="hero-orbit hero-orbit-slim">
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="hero-card card-back">♠</div>
-          <div className="hero-card card-front">
-            <span>A</span>
-            <strong>♥</strong>
+
+        {/* 2. Hero Interactive Quick Deck (Express Table Launcher) */}
+        <div className="home-quick-deck">
+          <div className="home-quick-deck-header">
+            <div className="home-quick-deck-title">
+              <Zap size={15} style={{ color: "var(--gold)" }} />
+              <span>Partie Express</span>
+            </div>
+            <span style={{ fontSize: "11px", color: "var(--muted)" }}>Prenez place en 1-clic</span>
           </div>
-          <div className="hero-chip">
-            MDG
-            <br />
-            <small>10K</small>
+
+          {/* Quick game pills */}
+          <div className="home-quick-pills">
+            {games.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                className={`home-quick-pill ${heroGameId === g.id ? "active" : ""}`}
+                onClick={() => setHeroGameId(g.id)}
+              >
+                <span style={{ color: g.accent }}>{g.icon}</span>
+                <span>{g.name.split(" ")[0]}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Selected Game Preview */}
+          <div className="home-quick-preview">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <strong style={{ fontSize: "13px", color: "#fff" }}>{selectedHeroGame.name}</strong>
+              <span style={{ fontSize: "11px", color: selectedHeroGame.accent, fontWeight: 600 }}>
+                {selectedHeroGame.players}
+              </span>
+            </div>
+            <p>{selectedHeroGame.meta}</p>
+            <div className="home-quick-tags">
+              {selectedHeroGame.tags.map((tag) => (
+                <span key={tag} className="home-tag-chip">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Embedded Bot Stepper */}
+          <BotCountSelector
+            gameType={heroGameId}
+            value={botCounts[heroGameId] ?? (heroGameId === "rami" ? 1 : 3)}
+            onChange={(v) => setBotCount(heroGameId, v)}
+            disabled={startingDemo === heroGameId}
+          />
+
+          {/* Dual Action Buttons */}
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "8px" }}>
+            <Link
+              to={`/lobby?filter=${heroGameId}`}
+              className="button button-gold button-small"
+              style={{ justifyContent: "center", fontSize: "12.5px" }}
+            >
+              <Compass size={14} /> Tables en ligne
+            </Link>
+            <button
+              type="button"
+              className="button button-secondary button-small"
+              onClick={() => void launchDemo(heroGameId, botCounts[heroGameId])}
+              disabled={startingDemo === heroGameId}
+              style={{ justifyContent: "center", fontSize: "12.5px" }}
+            >
+              <Bot size={14} /> {startingDemo === heroGameId ? "Lancement..." : "Entraînement IA"}
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Game selection */}
-      <section className="section-block">
-        <div className="section-heading">
+      {/* 3. Games Matrix Section */}
+      <section>
+        <div className="home-section-head">
           <div>
-            <span className="eyebrow">{t("home.featured")}</span>
-            <h2>{t("home.chooseTable")}</h2>
-            <p className="section-lede">{t("home.chooseBlurb")}</p>
+            <span className="home-eyebrow">Nos Salons Officiels</span>
+            <h2>Cinq grands classiques, zéro hasard trompeur</h2>
+            <p>
+              Des règles authentiques fidèles aux traditions malagasy et internationales, une ergonomie claire et une jouabilité instantanée.
+            </p>
           </div>
         </div>
+
         {demoError && (
-          <div className="error-banner" style={{ marginBottom: "0.75rem" }}>
+          <div className="error-banner" style={{ marginBottom: "1rem" }}>
             {demoError}
           </div>
         )}
-        <div className="game-grid">
+
+        <div className="home-games-matrix">
           {games.map((game) => (
             <div
-              className={`game-card game-card-large`}
               key={game.id}
+              className="home-game-card-claude"
               style={{ borderTop: `3px solid ${game.accent}` }}
             >
-              <div className="game-card-top">
-                <span className="game-icon" style={{ color: game.accent }}>
-                  {game.icon}
-                </span>
-                <span className="live-pill">
-                  <i /> {game.players} joueurs
-                </span>
-              </div>
-              <div className="game-card-bottom">
-                <div>
-                  <h3>{t(game.name)}</h3>
-                  <p>{t(game.meta)}</p>
+              <div>
+                <div className="home-game-top">
+                  <div className="home-game-identity">
+                    <div
+                      className="home-game-icon-box"
+                      style={{
+                        background: `${game.accent}1a`,
+                        color: game.accent,
+                        border: `1px solid ${game.accent}33`,
+                      }}
+                    >
+                      {game.icon}
+                    </div>
+                    <div className="home-game-title">
+                      <h3>{game.name}</h3>
+                      <span>{game.badge}</span>
+                    </div>
+                  </div>
+                  <span className="home-game-players-badge">{game.players}</span>
+                </div>
+
+                <p className="home-game-desc">{game.meta}</p>
+
+                <div className="home-quick-tags" style={{ marginBottom: "12px" }}>
+                  {game.tags.map((tag) => (
+                    <span key={tag} className="home-tag-chip">
+                      {tag}
+                    </span>
+                  ))}
                 </div>
               </div>
-              <BotCountSelector
-                gameType={game.id as "poker" | "belote" | "rami" | "ludo" | "domino"}
-                value={botCounts[game.id] ?? (game.id === "rami" ? 1 : 3)}
-                onChange={(v) => setBotCount(game.id, v)}
-                disabled={startingDemo === game.id}
-              />
-              <div className="game-card-actions">
-                <button
-                  className="button button-small"
+
+              <div>
+                <BotCountSelector
+                  gameType={game.id}
+                  value={botCounts[game.id] ?? (game.id === "rami" ? 1 : 3)}
+                  onChange={(v) => setBotCount(game.id, v)}
                   disabled={startingDemo === game.id}
-                  onClick={() => launchDemo(game.id, botCounts[game.id])}
-                >
-                  <Bot size={13} />{" "}
-                  {startingDemo === game.id ? t("startingSimulation") : t("hub.practice")}
-                </button>
-                <Link
-                  to={`/lobby?filter=${game.id}`}
-                  className="button button-gold button-small"
-                >
-                  <Zap size={13} /> {t("home.playNow")}
-                </Link>
+                />
+
+                <div className="home-game-actions-bar">
+                  <button
+                    type="button"
+                    className="button button-secondary button-small"
+                    disabled={startingDemo === game.id}
+                    onClick={() => launchDemo(game.id, botCounts[game.id])}
+                    style={{ justifyContent: "center" }}
+                  >
+                    <Bot size={13} /> {startingDemo === game.id ? "Lancement..." : "Solo vs IA"}
+                  </button>
+                  <Link
+                    to={`/lobby?filter=${game.id}`}
+                    className="button button-gold button-small"
+                    style={{ justifyContent: "center" }}
+                  >
+                    <Zap size={13} /> Rejoindre
+                  </Link>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="section-block steps-block">
-        <div className="section-heading">
-          <span className="eyebrow">{t("home.howItWorks")}</span>
-          <h2>{t("home.threeSteps")}</h2>
+      {/* 4. Three Steps Guide */}
+      <section>
+        <div className="home-section-head">
+          <div>
+            <span className="home-eyebrow">Prise en main immédiate</span>
+            <h2>Comment jouer sur MDG Game Club ?</h2>
+            <p>Trois étapes fluides pour commencer à jouer sans friction.</p>
+          </div>
         </div>
-        <div className="steps-grid">
+
+        <div className="home-steps-grid">
           {[
             {
+              step: "01",
+              title: "Choisissez votre jeu & vos enjeux",
+              body: "Sélectionnez votre jeu favori (Belote, Domino, Ludo, Rami ou Poker). Choisissez une table libre selon vos préférences ou optez pour une partie 100% gratuite.",
               icon: Gamepad2,
-              title: t("home.step1Title"),
-              body: t("home.step1Body"),
             },
             {
+              step: "02",
+              title: "Prenez place ou invitez vos amis",
+              body: "Rejoignez une table ouverte en matchmaking direct, ou créez un salon privé en un clic avec lien d'invitation partageable directement sur WhatsApp.",
               icon: Users,
-              title: t("home.step2Title"),
-              body: t("home.step2Body"),
             },
             {
+              step: "03",
+              title: "Jouez en temps réel et progressez",
+              body: "Profitez d'animations tactiles fluides, de tapis réalistes et d'une ambiance sonore feutrée. Montez en niveau et suivez votre historique de jeu.",
               icon: Trophy,
-              title: t("home.step3Title"),
-              body: t("home.step3Body"),
             },
-          ].map((step, i) => (
-            <div className="step-card" key={i}>
-              <div className="step-number">0{i + 1}</div>
-              <step.icon size={22} />
-              <strong>{step.title}</strong>
-              <p>{step.body}</p>
+          ].map((item) => (
+            <div key={item.step} className="home-step-card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="home-step-badge">{item.step}</div>
+                <item.icon size={20} style={{ color: "var(--gold)" }} />
+              </div>
+              <strong>{item.title}</strong>
+              <p>{item.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Trust / social proof */}
-      <section className="section-block discover-block">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">{t("home.discover.eyebrow")}</span>
-            <h2>{t("home.discover.title")}</h2>
-            <p className="section-lede">{t("home.discover.body")}</p>
-          </div>
-        </div>
-        <div className="game-grid discover-grid">
-          <Link to="/lobby" className="game-card discover-card">
-            <div className="game-card-top">
-              <span className="game-icon">♠</span>
-            </div>
-            <div className="game-card-bottom">
-              <div>
-                <h3>{t("home.discover.playTitle")}</h3>
-                <p>{t("home.discover.playBody")}</p>
-              </div>
-              <ArrowRight size={17} />
-            </div>
-          </Link>
-          <Link to="/clubs" className="game-card discover-card">
-            <div className="game-card-top">
-              <span className="game-icon">
-                <Users size={24} />
-              </span>
-            </div>
-            <div className="game-card-bottom">
-              <div>
-                <h3>{t("home.discover.clubTitle")}</h3>
-                <p>{t("home.discover.clubBody")}</p>
-              </div>
-              <ArrowRight size={17} />
-            </div>
-          </Link>
-        </div>
-      </section>
-
-      {/* Lower grid */}
-      <section className="lower-grid">
-        <div className="resume-card">
-          <div className="section-heading compact">
-            <div>
-              <span className="eyebrow">{t("home.activity")}</span>
-              <h2>{t("home.resume")}</h2>
-            </div>
-          </div>
-          <div className="resume-row">
-            <div className="mini-table mini-poker">
-              <span>♠</span>
-            </div>
-            <div className="resume-info">
-              <strong>{t("home.resumeTable")}</strong>
-              <span>{t("home.resumeMeta")}</span>
-              <div className="progress">
-                <i style={{ width: "68%" }} />
-              </div>
-              <small>{t("home.resumePlayers")}</small>
-            </div>
-            <Link to="/lobby" className="button button-small">
-              {t("games.join")}
-            </Link>
-          </div>
-        </div>
-        <div className="spotlight-card">
-          <div>
-            <span className="eyebrow gold">
-              <Sparkles size={13} /> {t("home.tonight")}
-            </span>
-            <h2>
-              {t("home.tournament")}
-              <br />
-              <em>{t("home.tournamentAccent")}</em>
-            </h2>
-            <p>{t("home.tournamentMeta")}</p>
-          </div>
-          <div className="trophy">♛</div>
-          <Link to="/lobby" className="round-action" aria-label="Ouvrir le lobby">
-            <ArrowRight size={18} />
-          </Link>
-        </div>
-      </section>
-
-      {/* Trust footer */}
-      <section className="section-block trust-block">
-        <div className="trust-items">
-          <div>
+      {/* 5. Trust & Craftsmanship Pillars */}
+      <section className="home-trust-grid">
+        <div className="home-trust-card">
+          <div className="home-trust-icon">
             <ShieldCheck size={20} />
-            <span>{t("home.trustSecure")}</span>
           </div>
-          <div>
-            <Bot size={20} />
-            <span>{t("home.trustBots")}</span>
+          <div className="home-trust-copy">
+            <strong>Fair-Play Vérifiable</strong>
+            <p>Distributions aléatoires cryptographiques, aucun avantage masqué et zéro jeux de hasard trompeurs.</p>
           </div>
-          <div>
+        </div>
+        <div className="home-trust-card">
+          <div className="home-trust-icon">
             <Users size={20} />
-            <span>{t("home.trustCommunity")}</span>
+          </div>
+          <div className="home-trust-copy">
+            <strong>Salons Privés & Convivialité</strong>
+            <p>Créez votre club, lancez des tables avec mot de passe et jouez en toute intimité entre amis ou en famille.</p>
+          </div>
+        </div>
+        <div className="home-trust-card">
+          <div className="home-trust-icon">
+            <Zap size={20} />
+          </div>
+          <div className="home-trust-copy">
+            <strong>Zéro Téléchargement</strong>
+            <p>Application Web ultra-légère conçue pour tourner à 60 images par seconde, même avec une connexion mobile 3G/4G.</p>
           </div>
         </div>
       </section>
 
-      {/* Guest name modal */}
+      {/* 6. Guest Modal */}
       {showGuestModal && (
         <div className="guest-name-modal" role="dialog" aria-modal="true" onClick={() => setShowGuestModal(false)}>
           <div className="guest-name-card" onClick={(e) => e.stopPropagation()}>
@@ -416,15 +480,15 @@ export function HomePage() {
               value={guestInput}
               onChange={(e) => setGuestInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleGuestSubmit();
+                if (e.key === "Enter") void handleGuestSubmit();
               }}
               maxLength={20}
             />
             <div className="guest-name-actions">
-              <button className="button button-outline" onClick={() => setShowGuestModal(false)}>
+              <button type="button" className="button button-outline" onClick={() => setShowGuestModal(false)}>
                 {t("hub.cancel")}
               </button>
-              <button className="button button-gold" onClick={() => void handleGuestSubmit()}>
+              <button type="button" className="button button-gold" onClick={() => void handleGuestSubmit()}>
                 {t("hub.playNow")}
               </button>
             </div>
