@@ -107,6 +107,8 @@ export function LobbyPage() {
     is_private: true,
   });
 
+  const [mobileTab, setMobileTab] = useState<"tables" | "quick" | "tournaments">("tables");
+
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [registeringTourney, setRegisteringTourney] = useState<string | null>(null);
   const [tourneyMsg, setTourneyMsg] = useState<string | null>(null);
@@ -464,8 +466,49 @@ export function LobbyPage() {
         </div>
       </div>
 
+      {/* Mobile Segmented View Switcher */}
+      <div className="mobile-lobby-tabs show-on-mobile">
+        <button
+          type="button"
+          className={`mobile-lobby-tab ${mobileTab === "tables" ? "active" : ""}`}
+          onClick={() => {
+            haptics.tabChange();
+            setMobileTab("tables");
+            if (filter === "tournaments") setFilter("all");
+          }}
+        >
+          <Compass size={15} />
+          <span>Tables ({counts.all})</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-lobby-tab ${mobileTab === "quick" ? "active" : ""}`}
+          onClick={() => {
+            haptics.tabChange();
+            setMobileTab("quick");
+          }}
+        >
+          <Zap size={15} />
+          <span>Partie Rapide</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-lobby-tab ${mobileTab === "tournaments" ? "active" : ""}`}
+          onClick={() => {
+            haptics.tabChange();
+            setMobileTab("tournaments");
+            setFilter("tournaments");
+          }}
+        >
+          <Trophy size={15} />
+          <span>Tournois ({counts.tournaments})</span>
+        </button>
+      </div>
+
       {/* 2. Control Deck: Instant Human Play & Solo Bot Practice */}
-      <div className="lobby-control-deck">
+      <div className={`lobby-control-deck ${mobileTab !== "quick" ? "hide-on-mobile" : ""}`}>
         {/* Volet 1: Partie Rapide Multijoueur */}
         <div className="lobby-deck-panel panel-primary">
           <div className="lobby-deck-head">
@@ -1148,6 +1191,22 @@ export function LobbyPage() {
         <Lock size={15} />
         <span>Les tables privées ne sont accessibles qu'avec leur lien d'invitation ou code unique.</span>
       </div>
+
+      {/* Mobile Floating Action Button to Create Table */}
+      <button
+        type="button"
+        className="mobile-fab-create show-on-mobile"
+        onClick={() => {
+          haptics.buttonTap();
+          if (!accessToken) navigate("/auth?next=/lobby");
+          else setShowCreateTable(true);
+        }}
+        title="Créer une table"
+        aria-label="Créer une table privée"
+      >
+        <Plus size={22} />
+        <span>Créer</span>
+      </button>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { trackEvent } from "@services/analytics";
 import { createGuestToken } from "@services/auth";
 import { startBotSimulation } from "@services/games";
 import { BotCountSelector } from "@components/game/BotCountSelector";
+import { haptics } from "@utils/haptics";
 
 interface GameDef {
   id: "belote" | "domino" | "ludo" | "rami" | "poker";
@@ -97,6 +98,7 @@ export function HomePage() {
   const [guestInput, setGuestInput] = useState("");
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
   const [heroGameId, setHeroGameId] = useState<"belote" | "domino" | "ludo" | "rami" | "poker">("belote");
+  const [category, setCategory] = useState<"all" | "cards" | "board">("all");
 
   const [botCounts, setBotCounts] = useState<Record<string, number>>(() => {
     try {
@@ -321,8 +323,37 @@ export function HomePage() {
           </div>
         )}
 
+        {/* Category Navigation Pills */}
+        <div className="home-category-filters">
+          {[
+            { id: "all", label: "Tous les Jeux", icon: "★", count: games.length },
+            { id: "cards", label: "Jeux de Cartes", icon: "♥", count: 3 },
+            { id: "board", label: "Plateau & Domino", icon: "🎲", count: 2 },
+          ].map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              className={`home-cat-chip ${category === cat.id ? "active" : ""}`}
+              onClick={() => {
+                haptics.buttonTap();
+                setCategory(cat.id as "all" | "cards" | "board");
+              }}
+            >
+              <span className="home-cat-icon">{cat.icon}</span>
+              <span>{cat.label}</span>
+              <span className="home-cat-count">{cat.count}</span>
+            </button>
+          ))}
+        </div>
+
         <div className="home-games-matrix">
-          {games.map((game) => (
+          {games
+            .filter((g) => {
+              if (category === "cards") return ["belote", "rami", "poker"].includes(g.id);
+              if (category === "board") return ["domino", "ludo"].includes(g.id);
+              return true;
+            })
+            .map((game) => (
             <div
               key={game.id}
               className="home-game-card-claude"

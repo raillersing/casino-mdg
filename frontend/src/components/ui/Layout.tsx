@@ -12,14 +12,17 @@ import {
   Sparkles,
   Flame,
   ShieldCheck,
+  Gamepad2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getCurrentUser, refreshAccessToken } from "@services/auth";
 import { useGameStore } from "@stores/gameStore";
 import { useDeviceMode } from "@hooks/useDeviceMode";
+import { haptics } from "@utils/haptics";
 
 import { NetworkQualityBadge } from "@components/ui/NetworkQualityBadge";
 import { DailyMissionsModal } from "@components/game/DailyMissionsModal";
+import { GameDiscoveryDrawer } from "@components/game/GameDiscoveryDrawer";
 
 export function Layout({ children }: { children: ReactNode }) {
   const user = useGameStore((state) => state.user);
@@ -33,6 +36,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { setMode } = useDeviceMode();
   const [showMissionsModal, setShowMissionsModal] = useState(false);
+  const [showGamesDrawer, setShowGamesDrawer] = useState(false);
 
   // Desktop sidebar navigation items
   const sidebarNavItems = [
@@ -50,15 +54,6 @@ export function Layout({ children }: { children: ReactNode }) {
           },
         ]
       : []),
-  ];
-
-  // Mobile bottom bar destinations
-  const mobileNavItems = [
-    { to: "/", label: t("nav.home") || "Accueil", icon: Home },
-    { to: "/lobby", label: t("nav.lobby") || "Lobby", icon: Compass },
-    { to: "/clubs", label: t("nav.clubs") || "Clubs", icon: UsersRound },
-    { to: "/wallet", label: t("nav.wallet") || "Portefeuille", icon: WalletCards },
-    { to: "/profile", label: t("nav.profile") || "Profil", icon: CircleUserRound },
   ];
 
   const language = i18n.language.startsWith("mg") ? "MG" : "FR";
@@ -247,22 +242,67 @@ export function Layout({ children }: { children: ReactNode }) {
           onClose={() => setShowMissionsModal(false)}
         />
 
-        {/* Bottom Navigation Bar (mobile) — 5 onglets directs et ergonomiques */}
+        <GameDiscoveryDrawer
+          isOpen={showGamesDrawer}
+          onClose={() => setShowGamesDrawer(false)}
+        />
+
+        {/* Bottom Navigation Bar (mobile) — 5 onglets tactiles haute-visibilité */}
         <nav
           className={`bottom-nav ${isGamePage ? "hidden" : ""}`}
           aria-label={`${t("a11y.primaryNavigation")} — mobile barre`}
         >
-          {mobileNavItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-              <Icon size={20} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) => (isActive ? "active" : "")}
+            onClick={() => haptics.tabChange()}
+          >
+            <Home size={20} />
+            <span>{t("nav.home") || "Accueil"}</span>
+          </NavLink>
+
+          <button
+            type="button"
+            className={`bottom-nav-action-btn ${showGamesDrawer ? "active" : ""}`}
+            onClick={() => {
+              haptics.buttonTap();
+              setShowGamesDrawer(true);
+            }}
+            title="Ouvrir la salle des jeux"
+          >
+            <div className="bottom-nav-center-glow">
+              <Gamepad2 size={22} />
+            </div>
+            <span>Jeux</span>
+          </button>
+
+          <NavLink
+            to="/lobby"
+            className={({ isActive }) => (isActive ? "active" : "")}
+            onClick={() => haptics.tabChange()}
+          >
+            <Compass size={20} />
+            <span>{t("nav.lobby") || "Lobby"}</span>
+          </NavLink>
+
+          <NavLink
+            to="/clubs"
+            className={({ isActive }) => (isActive ? "active" : "")}
+            onClick={() => haptics.tabChange()}
+          >
+            <UsersRound size={20} />
+            <span>{t("nav.clubs") || "Clubs"}</span>
+          </NavLink>
+
+          <NavLink
+            to={user ? "/profile" : "/auth"}
+            className={({ isActive }) => (isActive ? "active" : "")}
+            onClick={() => haptics.tabChange()}
+          >
+            <CircleUserRound size={20} />
+            <span>{user ? t("nav.profile") || "Profil" : t("nav.login") || "Connexion"}</span>
+          </NavLink>
         </nav>
       </div>
     </div>

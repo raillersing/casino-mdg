@@ -9,7 +9,7 @@ import (
 // Track length for standard Ludo board is 52 common squares
 const (
 	TrackLength    = 52
-	HomePathLength = 6
+	HomePathLength = 5 // 5 home path squares (0..4), 5th step reaches central Home
 )
 
 // Starting track square index for each of the 4 colors
@@ -132,6 +132,16 @@ func (g *Game) canMovePawn(pawn *Pawn, roll int) bool {
 	if pawn.State == PawnHomePath {
 		return pawn.Position+roll <= HomePathLength
 	}
+	if pawn.State == PawnTrack {
+		startPos := StartPositions[g.Players[g.Current].Color]
+		curDist := (pawn.Position - startPos + TrackLength) % TrackLength
+		newDist := curDist + roll
+		if newDist >= 51 {
+			homeSteps := newDist - 51
+			return homeSteps <= HomePathLength
+		}
+		return true
+	}
 	return true
 }
 
@@ -195,7 +205,7 @@ func (g *Game) MovePawn(pawnID int) error {
 		if newPos == HomePathLength {
 			pawn.State = PawnHome
 			currPlayer.Score++
-		} else {
+		} else if newPos < HomePathLength {
 			pawn.Position = newPos
 		}
 	}

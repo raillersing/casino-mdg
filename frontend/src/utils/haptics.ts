@@ -107,4 +107,11 @@ export const haptics = {
   buttonTap(): void {
     this.trigger(12);
   },
+
+  /**
+   * Crisp feedback on changing tabs or navigation destination
+   */
+  tabChange(): void {
+    this.trigger(16);
+  },
 };
