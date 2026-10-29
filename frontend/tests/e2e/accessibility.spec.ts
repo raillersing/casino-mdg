@@ -51,19 +51,17 @@ test("lobby is accessible with tables loaded", async ({ page }) => {
   await expectAccessible(page);
 });
 
-test("mobile navigation opens and closes accessibly", async ({ page }) => {
+test("mobile navigation reaches the games catalog accessibly", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-
-  const menu = page.locator(".mobile-menu");
-  await expect(menu).toHaveAccessibleName("Ouvrir le menu");
-  await menu.click();
-  await expect(menu).toHaveAttribute("aria-expanded", "true");
+  const navigation = page.locator(".bottom-nav");
+  await expect(navigation).toBeVisible();
+  await navigation.getByRole("link", { name: "Jeux", exact: true }).click();
+  await expect(page).toHaveURL(/\/games$/);
   await expect(
-    page.getByRole("navigation", { name: "Navigation principale" }),
-  ).toBeVisible();
-
-  await page.keyboard.press("Escape");
-  await expect(menu).toHaveAccessibleName("Ouvrir le menu");
-  await expect(menu).toHaveAttribute("aria-expanded", "false");
+    navigation.getByRole("link", { name: "Jeux", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  await expectAccessible(page);
 });

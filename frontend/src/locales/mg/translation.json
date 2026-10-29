@@ -570,5 +570,27 @@
     "closeMenu": "Hidio ny sakafo",
     "primaryNavigation": "Fitetezana lehibe",
     "close": "Hakatona"
+  },
+  "discovery": {
+    "homeTitle": "Ny lalao tianao, mora hita.",
+    "catalogTitle": "Inona no lalao tianao hilalaovana?",
+    "intro": "Misafidiana lalao, dia milalaova amin’ny Internet na manaova fanazaran-tena amin’ny solosaina.",
+    "allGames": "Ny lalao rehetra",
+    "choose": "Misafidiana lalao",
+    "count": "Lalao 5",
+    "search": "Hitady lalao",
+    "categories": "Sokajin-dalao",
+    "all": "Rehetra",
+    "cards": "Karatra",
+    "board": "Lalao an-databatra",
+    "chooseGame": "Hisafidy ity lalao ity",
+    "none": "Tsy misy lalao hita.",
+    "reset": "Hijery ny lalao rehetra",
+    "onlineTitle": "Te hilalao miaraka amin’ny hafa?",
+    "onlineDesc": "Jereo ny latabatra misy na mamoròna latabatra ho an’ny namanao.",
+    "online": "Hijery ny latabatra",
+    "help": "Vao manomboka? Misafidiana lalao dia fidio ny fanazaran-tena mba hahafantarana azy.",
+    "lobbyTitle": "Misafidiana latabatra",
+    "open": "Misokatra"
   }
 }

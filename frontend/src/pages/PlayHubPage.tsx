@@ -112,7 +112,14 @@ export function PlayHubPage() {
   const [showGuestName, setShowGuestName] = useState(false);
   const [guestInput, setGuestInput] = useState("");
   const [startingMode, setStartingMode] = useState<string | null>(null);
-  const [botCount, setBotCount] = useState(3);
+  const [botCount, setBotCount] = useState(gameType === "rami" ? 1 : 3);
+  const [launchError, setLaunchError] = useState("");
+
+  useEffect(() => {
+    setBotCount(gameType === "rami" ? 1 : 3);
+    setLaunchError("");
+    setStartingMode(null);
+  }, [gameType]);
 
   useEffect(() => {
     void trackEvent("play_hub_viewed", { game_type: gameType });
@@ -124,26 +131,30 @@ export function PlayHubPage() {
     return false;
   };
 
-  const handleGuestSubmit = () => {
+  const handleGuestSubmit = async () => {
     const name = guestInput.trim() || "Invité";
     setGuestMode(name, 10000);
     setShowGuestName(false);
+    await launchDemo(name);
   };
 
-  const launchDemo = async () => {
-    if (!ensureGuest()) return;
+  const launchDemo = async (newGuestName?: string) => {
+    if (!newGuestName && !ensureGuest()) return;
+    setLaunchError("");
     setStartingMode("demo");
 
     let token = accessToken;
     // If guest without token, create a temporary guest session on the backend
-    if (!token && isGuest) {
+    if (!token && (isGuest || newGuestName)) {
       try {
-        const auth = await createGuestToken(guestName || "Invité");
+        const auth = await createGuestToken(
+          newGuestName || guestName || "Invité",
+        );
         setSession(auth.access, auth.refresh);
         setGuestMode(auth.user.display_name, auth.wallet.balance);
         token = auth.access;
       } catch {
-        // fallback: keep local guest mode and try anyway
+        // A failed guest session is reported below without opening a game.
       }
     }
 
@@ -167,11 +178,13 @@ export function PlayHubPage() {
         );
         return;
       } catch {
-        // fallback to generic demo URL
+        // Report the failed session below and allow another attempt.
       }
     }
-    const tableCode = `demo-${gameType}-${Math.random().toString(36).slice(2, 8)}`;
-    navigate(`/game/${gameType}/${tableCode}?mode=demo_ai&guest=true`);
+    setLaunchError(
+      "Impossible de démarrer l’entraînement. Réessayez dans un instant.",
+    );
+    setStartingMode(null);
   };
 
   const launchQuick = () => {
@@ -189,7 +202,7 @@ export function PlayHubPage() {
       return;
     }
     setStartingMode("tournament");
-    navigate(`/lobby?filter=${gameType}&mode=tournament`);
+    navigate(`/lobby?filter=tournaments`);
   };
 
   const launchPrivate = () => {
@@ -217,7 +230,7 @@ export function PlayHubPage() {
       desc: t("hub.practiceDesc"),
       icon: Bot,
       color: "#3b82f6",
-      action: launchDemo,
+      action: () => void launchDemo(),
       lock: false,
     },
     {
@@ -244,8 +257,8 @@ export function PlayHubPage() {
     <div className="page-stack play-hub-page">
       {/* Back link */}
       <div className="hub-back">
-        <Link to="/" className="text-link">
-          <ArrowLeft size={16} /> {t("hub.backHome")}
+        <Link to="/games" className="text-link">
+          <ArrowLeft size={16} /> Tous les jeux
         </Link>
       </div>
 
@@ -260,11 +273,14 @@ export function PlayHubPage() {
           </span>
           <h1>{meta.name}</h1>
           <p>{meta.description}</p>
-          <div className="hub-rules">
+          <details className="hub-rules">
+            <summary>Comment jouer ?</summary>
             {meta.rules.map((rule, i) => (
-              <span key={i}><Sparkles size={11} /> {rule}</span>
+              <span key={i}>
+                <Sparkles size={11} /> {rule}
+              </span>
             ))}
-          </div>
+          </details>
         </div>
       </section>
 
@@ -272,7 +288,9 @@ export function PlayHubPage() {
       {showGuestName && (
         <div className="guest-name-modal" role="dialog" aria-modal="true">
           <div className="guest-name-card">
-            <span className="eyebrow"><Dices size={13} /> {t("hub.guestMode")}</span>
+            <span className="eyebrow">
+              <Dices size={13} /> {t("hub.guestMode")}
+            </span>
             <h2>{t("hub.enterName")}</h2>
             <p>{t("hub.guestBlurb")}</p>
             <input
@@ -286,10 +304,16 @@ export function PlayHubPage() {
               }}
             />
             <div className="guest-name-actions">
-              <button className="button button-outline" onClick={() => setShowGuestName(false)}>
+              <button
+                className="button button-outline"
+                onClick={() => setShowGuestName(false)}
+              >
                 {t("hub.cancel")}
               </button>
-              <button className="button button-gold" onClick={handleGuestSubmit}>
+              <button
+                className="button button-gold"
+                onClick={handleGuestSubmit}
+              >
                 {t("hub.playNow")} <ArrowRight size={16} />
               </button>
             </div>
@@ -301,6 +325,11 @@ export function PlayHubPage() {
         </div>
       )}
 
+      {launchError && (
+        <p role="alert" className="empty-note">
+          {launchError}
+        </p>
+      )}
       {/* Mode Grid */}
       <section className="hub-modes">
         <div className="section-heading">
@@ -310,44 +339,72 @@ export function PlayHubPage() {
           </div>
         </div>
         <div className="hub-mode-grid">
-          {modes.map((mode) => {
-            const Icon = mode.icon;
-            const isLoading = startingMode === mode.id;
-            return (
-              <button
-                key={mode.id}
-                className={`hub-mode-card ${mode.lock ? "locked" : ""}`}
-                onClick={mode.action}
-                disabled={isLoading}
-              >
-                <div
-                  className="hub-mode-icon"
-                  style={{ background: `${mode.color}18`, color: mode.color }}
+          {modes
+            .filter((mode) => mode.id === "quick" || mode.id === "demo")
+            .map((mode) => {
+              const Icon = mode.icon;
+              const isLoading = startingMode === mode.id;
+              return (
+                <button
+                  key={mode.id}
+                  className={`hub-mode-card ${mode.lock ? "locked" : ""}`}
+                  onClick={mode.action}
+                  disabled={isLoading}
                 >
-                  {isLoading ? <Loader2 className="spin" size={22} /> : <Icon size={22} />}
-                </div>
-                <div className="hub-mode-body">
-                  <strong>{mode.label}</strong>
-                  <span>{mode.desc}</span>
-                </div>
-                <div className="hub-mode-arrow">
-                  {mode.lock ? (
-                    <Lock size={16} />
-                  ) : (
-                    <ArrowRight size={18} />
-                  )}
-                </div>
-              </button>
-            );
-          })}
+                  <div
+                    className="hub-mode-icon"
+                    style={{ background: `${mode.color}18`, color: mode.color }}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="spin" size={22} />
+                    ) : (
+                      <Icon size={22} />
+                    )}
+                  </div>
+                  <div className="hub-mode-body">
+                    <strong>{mode.label}</strong>
+                    <span>{mode.desc}</span>
+                  </div>
+                  <div className="hub-mode-arrow">
+                    {mode.lock ? <Lock size={16} /> : <ArrowRight size={18} />}
+                  </div>
+                </button>
+              );
+            })}
         </div>
-        <div style={{ marginTop: "16px", padding: "14px 18px", background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+        <div
+          style={{
+            marginTop: "16px",
+            padding: "14px 18px",
+            background: "rgba(255, 255, 255, 0.03)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}
+        >
           <div>
-            <strong style={{ display: "block", fontSize: "0.95rem", color: "var(--soft)" }}>Adversaires IA (Entraînement)</strong>
-            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Ajustez le nombre de robots simulés autour de la table pour votre partie</span>
+            <strong
+              style={{
+                display: "block",
+                fontSize: "0.95rem",
+                color: "var(--soft)",
+              }}
+            >
+              Adversaires IA (Entraînement)
+            </strong>
+            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+              Ajustez le nombre de robots simulés autour de la table pour votre
+              partie
+            </span>
           </div>
           <BotCountSelector
-            gameType={gameType as "poker" | "belote" | "rami" | "ludo" | "domino"}
+            gameType={
+              gameType as "poker" | "belote" | "rami" | "ludo" | "domino"
+            }
             value={botCount}
             onChange={setBotCount}
             disabled={startingMode === "demo"}
@@ -355,10 +412,26 @@ export function PlayHubPage() {
         </div>
       </section>
 
+      <details className="hub-more-options">
+        <summary>Jouer avec des proches ou participer à un tournoi</summary>
+        <div className="hub-extra-actions">
+          <button className="button button-secondary" onClick={launchPrivate}>
+            <Lock size={16} /> Créer une table privée
+          </button>
+          <button
+            className="button button-secondary"
+            onClick={launchTournament}
+          >
+            <Trophy size={16} /> Voir les tournois
+          </button>
+        </div>
+      </details>
       {/* Cross-promo */}
       <section className="hub-cross">
         <div className="section-heading">
-          <span className="eyebrow"><Crown size={13} /> {t("hub.discover")}</span>
+          <span className="eyebrow">
+            <Crown size={13} /> {t("hub.discover")}
+          </span>
           <h2>{t("hub.otherGames")}</h2>
         </div>
         <div className="hub-cross-grid">
@@ -371,7 +444,9 @@ export function PlayHubPage() {
                 className="hub-cross-card"
                 style={{ borderColor: info.accent }}
               >
-                <span style={{ color: info.accent, fontSize: 24 }}>{info.icon}</span>
+                <span style={{ color: info.accent, fontSize: 24 }}>
+                  {info.icon}
+                </span>
                 <div>
                   <strong>{info.name}</strong>
                   <span>{info.playersLabel}</span>

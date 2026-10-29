@@ -22,7 +22,6 @@ import { haptics } from "@utils/haptics";
 
 import { NetworkQualityBadge } from "@components/ui/NetworkQualityBadge";
 import { DailyMissionsModal } from "@components/game/DailyMissionsModal";
-import { GameDiscoveryDrawer } from "@components/game/GameDiscoveryDrawer";
 
 export function Layout({ children }: { children: ReactNode }) {
   const user = useGameStore((state) => state.user);
@@ -36,12 +35,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { setMode } = useDeviceMode();
   const [showMissionsModal, setShowMissionsModal] = useState(false);
-  const [showGamesDrawer, setShowGamesDrawer] = useState(false);
 
   // Desktop sidebar navigation items
   const sidebarNavItems = [
     { to: "/", label: t("nav.home"), icon: Home },
-    { to: "/lobby", label: t("nav.play"), icon: Compass },
+    { to: "/games", label: "Jeux", icon: Gamepad2 },
+    { to: "/lobby", label: "Tables", icon: Compass },
     { to: "/clubs", label: t("nav.clubs"), icon: UsersRound },
     { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
     { to: "/profile", label: t("nav.profile"), icon: CircleUserRound },
@@ -97,7 +96,10 @@ export function Layout({ children }: { children: ReactNode }) {
           </span>
         </Link>
         <div className="sidebar-label">{t("nav.navigation")}</div>
-        <nav className="sidebar-nav" aria-label={`${t("a11y.primaryNavigation")} — bureau`}>
+        <nav
+          className="sidebar-nav"
+          aria-label={`${t("a11y.primaryNavigation")} — bureau`}
+        >
           {sidebarNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -111,18 +113,6 @@ export function Layout({ children }: { children: ReactNode }) {
               {label}
             </NavLink>
           ))}
-          <button
-            type="button"
-            className="nav-link"
-            onClick={() => {
-              haptics.buttonTap();
-              setShowGamesDrawer(true);
-            }}
-            style={{ width: "100%", textAlign: "left", cursor: "pointer", border: 0, background: "none" }}
-          >
-            <Gamepad2 size={18} style={{ color: "var(--gold)" }} />
-            <span>Salle des Jeux</span>
-          </button>
         </nav>
         <div className="sidebar-spacer" />
         <div className="sidebar-promo">
@@ -186,7 +176,11 @@ export function Layout({ children }: { children: ReactNode }) {
           </Link>
           <div className="topbar-balance">
             {user ? (
-              <Link to="/wallet" className="balance-pill" aria-label={t("nav.wallet")}>
+              <Link
+                to="/wallet"
+                className="balance-pill"
+                aria-label={t("nav.wallet")}
+              >
                 <WalletCards size={14} />
                 <span>{user.balance.toLocaleString()} Ar</span>
               </Link>
@@ -254,11 +248,6 @@ export function Layout({ children }: { children: ReactNode }) {
           onClose={() => setShowMissionsModal(false)}
         />
 
-        <GameDiscoveryDrawer
-          isOpen={showGamesDrawer}
-          onClose={() => setShowGamesDrawer(false)}
-        />
-
         {/* Bottom Navigation Bar (mobile) — 5 onglets tactiles haute-visibilité */}
         <nav
           className={`bottom-nav ${isGamePage ? "hidden" : ""}`}
@@ -274,20 +263,15 @@ export function Layout({ children }: { children: ReactNode }) {
             <span>{t("nav.home") || "Accueil"}</span>
           </NavLink>
 
-          <button
-            type="button"
-            className={`bottom-nav-action-btn ${showGamesDrawer ? "active" : ""}`}
-            onClick={() => {
-              haptics.buttonTap();
-              setShowGamesDrawer(true);
-            }}
-            title="Ouvrir la salle des jeux"
+          <NavLink
+            to="/games"
+            className={({ isActive }) =>
+              isActive || location.pathname.startsWith("/play/") ? "active" : ""
+            }
           >
-            <div className="bottom-nav-center-glow">
-              <Gamepad2 size={22} />
-            </div>
+            <Gamepad2 size={22} />
             <span>Jeux</span>
-          </button>
+          </NavLink>
 
           <NavLink
             to="/lobby"
@@ -295,7 +279,7 @@ export function Layout({ children }: { children: ReactNode }) {
             onClick={() => haptics.tabChange()}
           >
             <Compass size={20} />
-            <span>{t("nav.lobby") || "Lobby"}</span>
+            <span>Tables</span>
           </NavLink>
 
           <NavLink
@@ -313,7 +297,11 @@ export function Layout({ children }: { children: ReactNode }) {
             onClick={() => haptics.tabChange()}
           >
             <CircleUserRound size={20} />
-            <span>{user ? t("nav.profile") || "Profil" : t("nav.login") || "Connexion"}</span>
+            <span>
+              {user
+                ? t("nav.profile") || "Profil"
+                : t("nav.login") || "Connexion"}
+            </span>
           </NavLink>
         </nav>
       </div>
