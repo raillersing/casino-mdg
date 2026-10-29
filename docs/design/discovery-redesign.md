@@ -49,3 +49,5 @@ La refonte conserve les services et les moteurs existants. Les tests de navigati
 - La suite complète initiale a révélé 9 échecs : les attentes liées à la refonte ont été mises à jour ; les scénarios multijoueurs restent à distinguer des échecs historiques.
 - Le lint global échoue sur six avertissements dans DailyMissionsModal, useDeviceMode et GamePage, fichiers hors refonte ; les fichiers de la refonte passent le lint ciblé.
 - La dernière CI master observée avant publication (40828662585) est en échec sur plusieurs jobs. Cela ne constitue pas une validation de cette branche.
+
+- Vérifications multijoueurs supplémentaires : démarrage de la simulation IA et parcours spectateur réussis après mise à jour des entrées du lobby. Deux échecs subsistent hors refonte : fenêtre de résultat interceptant le clic sur l'historique et ancien sélecteur de sortie de table. Aucun test n'a été ignoré ou désactivé.
