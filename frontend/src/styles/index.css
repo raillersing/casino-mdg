@@ -9836,7 +9836,8 @@ h3 {
   color: #120e06;
 }
 
-/* Responsive Overrides (max-width: 900px) */
+/* Responsive Overrides (max-width: 900px and .device-mobile) */
+.device-mobile .mobile-lobby-tabs,
 @media (max-width: 900px) {
   .mobile-lobby-tabs {
     display: flex !important;
@@ -9847,7 +9848,10 @@ h3 {
     border-radius: 12px;
     margin-bottom: 14px;
   }
+}
 
+.device-mobile .mobile-lobby-tab,
+@media (max-width: 900px) {
   .mobile-lobby-tab {
     flex: 1;
     display: flex;
@@ -9871,7 +9875,10 @@ h3 {
     border: 1px solid rgba(211, 176, 107, 0.35);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
+}
 
+.device-mobile .mobile-fab-create,
+@media (max-width: 900px) {
   .mobile-fab-create {
     display: flex !important;
     position: fixed;
@@ -9895,6 +9902,9 @@ h3 {
   .mobile-fab-create:active {
     transform: scale(0.95);
   }
+}
+
+@media (max-width: 900px) {
 
   /* Compact Mobile Topbar */
   .topbar {

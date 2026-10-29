@@ -111,6 +111,18 @@ export function Layout({ children }: { children: ReactNode }) {
               {label}
             </NavLink>
           ))}
+          <button
+            type="button"
+            className="nav-link"
+            onClick={() => {
+              haptics.buttonTap();
+              setShowGamesDrawer(true);
+            }}
+            style={{ width: "100%", textAlign: "left", cursor: "pointer", border: 0, background: "none" }}
+          >
+            <Gamepad2 size={18} style={{ color: "var(--gold)" }} />
+            <span>Salle des Jeux</span>
+          </button>
         </nav>
         <div className="sidebar-spacer" />
         <div className="sidebar-promo">
