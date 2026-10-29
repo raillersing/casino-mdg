@@ -1,5 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ArrowUpRight,
   Bot,
@@ -42,7 +47,10 @@ import { createGuestToken } from "@services/auth";
 import { BotCountSelector } from "@components/game/BotCountSelector";
 import { haptics } from "@utils/haptics";
 
-const GAME_SUITS: Record<string, { icon: string; color: string; label: string }> = {
+const GAME_SUITS: Record<
+  string,
+  { icon: string; color: string; label: string }
+> = {
   poker: { icon: "♠", color: "#d3b06b", label: "Poker Texas Hold'em" },
   belote: { icon: "♥", color: "#ef4444", label: "Belote Malagasy" },
   rami: { icon: "♦", color: "#3b82f6", label: "Rami Malagasy" },
@@ -53,7 +61,7 @@ const GAME_SUITS: Record<string, { icon: string; color: string; label: string }>
 export function LobbyPage() {
   const { t } = useTranslation();
   const { gameType: urlGameType } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryFilter = searchParams.get("filter");
 
   const [filter, setFilter] = useState(urlGameType || queryFilter || "all");
@@ -66,9 +74,11 @@ export function LobbyPage() {
   const accessToken = useGameStore((state) => state.accessToken);
   const navigate = useNavigate();
 
-  const matchmakingGame = (["poker", "belote", "rami", "ludo", "domino"].includes(filter)
-    ? filter
-    : "belote") as "poker" | "belote" | "rami" | "ludo" | "domino";
+  const matchmakingGame = (
+    ["poker", "belote", "rami", "ludo", "domino"].includes(filter)
+      ? filter
+      : "belote"
+  ) as "poker" | "belote" | "rami" | "ludo" | "domino";
 
   const [matchStatus, setMatchStatus] = useState<{
     human_online: number;
@@ -81,16 +91,29 @@ export function LobbyPage() {
   const [timedOut, setTimedOut] = useState(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
   const [creatingTable, setCreatingTable] = useState(false);
-  const [startingSimulation, setStartingSimulation] = useState<string | null>(null);
+  const [startingSimulation, setStartingSimulation] = useState<string | null>(
+    null,
+  );
 
-  const [lobbyBotCounts, setLobbyBotCounts] = useState<Record<string, number>>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("mdg-bot-counts") || "{}");
-      return { poker: saved.poker ?? 3, belote: saved.belote ?? 3, rami: saved.rami ?? 1, ludo: saved.ludo ?? 3, domino: saved.domino ?? 3, ...saved };
-    } catch {
-      return { poker: 3, belote: 3, rami: 1, ludo: 3, domino: 3 };
-    }
-  });
+  const [lobbyBotCounts, setLobbyBotCounts] = useState<Record<string, number>>(
+    () => {
+      try {
+        const saved = JSON.parse(
+          localStorage.getItem("mdg-bot-counts") || "{}",
+        );
+        return {
+          poker: saved.poker ?? 3,
+          belote: saved.belote ?? 3,
+          rami: saved.rami ?? 1,
+          ludo: saved.ludo ?? 3,
+          domino: saved.domino ?? 3,
+          ...saved,
+        };
+      } catch {
+        return { poker: 3, belote: 3, rami: 1, ludo: 3, domino: 3 };
+      }
+    },
+  );
 
   const setLobbyBotCount = (gameId: string, value: number) => {
     setLobbyBotCounts((prev) => {
@@ -107,14 +130,43 @@ export function LobbyPage() {
     is_private: true,
   });
 
-  const [mobileTab, setMobileTab] = useState<"tables" | "quick" | "tournaments">("tables");
+  const [mobileTab, setMobileTab] = useState<
+    "tables" | "quick" | "tournaments"
+  >("tables");
+
+  useEffect(() => {
+    const selected = urlGameType || queryFilter || "all";
+    setFilter(
+      [
+        "all",
+        "belote",
+        "domino",
+        "ludo",
+        "rami",
+        "poker",
+        "tournaments",
+      ].includes(selected)
+        ? selected
+        : "all",
+    );
+    if (searchParams.get("action") === "matchmaking") setMobileTab("quick");
+    if (searchParams.get("action") === "create" && accessToken)
+      setShowCreateTable(true);
+  }, [urlGameType, queryFilter, searchParams, accessToken]);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [registeringTourney, setRegisteringTourney] = useState<string | null>(null);
+  const [registeringTourney, setRegisteringTourney] = useState<string | null>(
+    null,
+  );
   const [tourneyMsg, setTourneyMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (queryFilter && ["poker", "belote", "rami", "ludo", "domino", "tournaments"].includes(queryFilter)) {
+    if (
+      queryFilter &&
+      ["poker", "belote", "rami", "ludo", "domino", "tournaments"].includes(
+        queryFilter,
+      )
+    ) {
       setFilter(queryFilter);
     }
   }, [queryFilter]);
@@ -139,20 +191,28 @@ export function LobbyPage() {
         prev.map((item) => (item.id === tId ? res.tournament : item)),
       );
     } catch (err: unknown) {
-      setTourneyMsg(err instanceof Error ? err.message : "Erreur lors de l'inscription.");
+      setTourneyMsg(
+        err instanceof Error ? err.message : "Erreur lors de l'inscription.",
+      );
     } finally {
       setRegisteringTourney(null);
     }
   };
 
   useEffect(() => {
-    if (urlGameType && ["poker", "belote", "rami", "ludo", "domino"].includes(urlGameType)) {
+    if (
+      urlGameType &&
+      ["poker", "belote", "rami", "ludo", "domino"].includes(urlGameType)
+    ) {
       setFilter(urlGameType);
-      setTableForm((current) => ({ ...current, game_type: urlGameType as typeof current.game_type }));
+      setTableForm((current) => ({
+        ...current,
+        game_type: urlGameType as typeof current.game_type,
+      }));
     }
   }, [urlGameType]);
 
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     setLoading(true);
     setError("");
     if (filter === "tournaments") {
@@ -166,11 +226,11 @@ export function LobbyPage() {
       .then((payload) => setTables(payload.results))
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
-  };
+  }, [filter, accessToken]);
 
   useEffect(() => {
     refreshData();
-  }, [filter, accessToken]);
+  }, [refreshData]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -207,7 +267,9 @@ export function LobbyPage() {
               game_type: status.ticket.game_type,
               metadata: { table_code: status.ticket.table_code },
             });
-            navigate(`/game/${status.ticket.game_type}/${status.ticket.table_code}`);
+            navigate(
+              `/game/${status.ticket.game_type}/${status.ticket.table_code}`,
+            );
           }
         })
         .catch(() => undefined);
@@ -230,7 +292,9 @@ export function LobbyPage() {
       if (elapsed >= ticket.timeout_seconds) {
         setTimedOut((current) => {
           if (!current)
-            void trackEvent("matchmaking_timeout", { game_type: matchmakingGame });
+            void trackEvent("matchmaking_timeout", {
+              game_type: matchmakingGame,
+            });
           return true;
         });
       }
@@ -260,7 +324,9 @@ export function LobbyPage() {
           game_type: result.ticket.game_type,
           metadata: { table_code: result.ticket.table_code },
         });
-        navigate(`/game/${result.ticket.game_type}/${result.ticket.table_code}`);
+        navigate(
+          `/game/${result.ticket.game_type}/${result.ticket.table_code}`,
+        );
       }
     } catch (reason) {
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
@@ -284,7 +350,9 @@ export function LobbyPage() {
   const setGuestMode = useGameStore((state) => state.setGuestMode);
   const setSession = useGameStore((state) => state.setSession);
 
-  const launchSimulation = async (gameType: "poker" | "belote" | "rami" | "ludo" | "domino") => {
+  const launchSimulation = async (
+    gameType: "poker" | "belote" | "rami" | "ludo" | "domino",
+  ) => {
     let token = accessToken;
     if (!token) {
       try {
@@ -354,7 +422,9 @@ export function LobbyPage() {
       });
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "Impossible de rejoindre la table.",
+        reason instanceof Error
+          ? reason.message
+          : "Impossible de rejoindre la table.",
       );
     } finally {
       setJoining(null);
@@ -371,7 +441,8 @@ export function LobbyPage() {
     try {
       const table = await createTable(accessToken, {
         ...tableForm,
-        name: tableForm.name.trim() || t("createTable.defaultName", "Table de Jeu"),
+        name:
+          tableForm.name.trim() || t("createTable.defaultName", "Table de Jeu"),
       });
       setShowCreateTable(false);
       navigate(`/game/${table.game_type}/${table.table_code}`);
@@ -412,7 +483,9 @@ export function LobbyPage() {
 
   const shownTournaments = useMemo(() => {
     return tournaments.filter((tItem) => {
-      const matchesQuery = tItem.name.toLowerCase().includes(query.toLowerCase());
+      const matchesQuery = tItem.name
+        .toLowerCase()
+        .includes(query.toLowerCase());
       if (!matchesQuery) return false;
       if (stakeFilter === "all") return true;
       if (stakeFilter === "0") return tItem.buy_in === 0;
@@ -425,22 +498,29 @@ export function LobbyPage() {
       {/* 1. Header with Live Status & Action Buttons */}
       <div className="lobby-claude-head">
         <div className="lobby-claude-head-copy">
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "4px",
+            }}
+          >
             <span className="home-eyebrow">
-              <Compass size={13} /> Salon Officiel des Tables
+              <Compass size={13} /> Multijoueur
             </span>
             <span className="lobby-live-badge">
               <i />
               <span>
                 {matchStatus.human_online > 0
                   ? `${matchStatus.human_online} Joueurs connectés`
-                  : "Tables ouvertes en direct"}
+                  : "Tables de jeu"}
               </span>
             </span>
           </div>
-          <h1>Salons & Tables en direct</h1>
+          <h1>{t("discovery.lobbyTitle")}</h1>
           <p>
-            Rejoignez une partie multijoueur active, lancez une session d'entraînement solo contre l'IA, ou créez votre salon privé avec code d'accès.
+            Choisissez un jeu et une table disponible pour rejoindre une partie.
           </p>
         </div>
 
@@ -467,7 +547,7 @@ export function LobbyPage() {
       </div>
 
       {/* Mobile Segmented View Switcher */}
-      <div className="mobile-lobby-tabs show-on-mobile">
+      <div className="mobile-lobby-tabs lobby-view-tabs">
         <button
           type="button"
           className={`mobile-lobby-tab ${mobileTab === "tables" ? "active" : ""}`}
@@ -508,44 +588,55 @@ export function LobbyPage() {
       </div>
 
       {/* 2. Control Deck: Instant Human Play & Solo Bot Practice */}
-      <div className={`lobby-control-deck ${mobileTab !== "quick" ? "hide-on-mobile" : ""}`}>
+      <div className="lobby-control-deck" hidden={mobileTab !== "quick"}>
         {/* Volet 1: Partie Rapide Multijoueur */}
         <div className="lobby-deck-panel panel-primary">
           <div className="lobby-deck-head">
             <div className="lobby-deck-title">
               <Zap size={16} />
-              <span>Matchmaking Multijoueur Instantané</span>
+              <span>Trouver des adversaires</span>
             </div>
-            <span style={{ fontSize: "11px", color: "var(--gold)", fontWeight: 600 }}>1-Clic</span>
+            <span
+              style={{
+                fontSize: "11px",
+                color: "var(--gold)",
+                fontWeight: 600,
+              }}
+            >
+              En ligne
+            </span>
           </div>
 
           <p style={{ margin: 0, fontSize: "12.5px", color: "var(--muted)" }}>
-            Trouvez instantanément des joueurs réels sur votre jeu favori sans chercher de table.
+            Lancez une recherche de joueurs pour le jeu sélectionné.
           </p>
 
           <div className="lobby-deck-pills">
-            {(["belote", "domino", "ludo", "rami", "poker"] as const).map((g) => {
-              const meta = GAME_SUITS[g];
-              return (
-                <button
-                  key={g}
-                  type="button"
-                  className={`lobby-deck-pill ${matchmakingGame === g ? "active" : ""}`}
-                  onClick={() => {
-                    setFilter(g);
-                    setTableForm((prev) => ({ ...prev, game_type: g }));
-                  }}
-                >
-                  <span style={{ color: meta.color }}>{meta.icon}</span>
-                  <span>{meta.label.split(" ")[0]}</span>
-                </button>
-              );
-            })}
+            {(["belote", "domino", "ludo", "rami", "poker"] as const).map(
+              (g) => {
+                const meta = GAME_SUITS[g];
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    className={`lobby-deck-pill ${matchmakingGame === g ? "active" : ""}`}
+                    onClick={() => {
+                      setFilter(g);
+                      setTableForm((prev) => ({ ...prev, game_type: g }));
+                    }}
+                  >
+                    <span style={{ color: meta.color }}>{meta.icon}</span>
+                    <span>{meta.label.split(" ")[0]}</span>
+                  </button>
+                );
+              },
+            )}
           </div>
 
           <div className="lobby-deck-status">
             <span>
-              Attente estimée : <strong>~{matchStatus.estimated_wait_seconds || 15}s</strong>
+              Attente estimée :{" "}
+              <strong>~{matchStatus.estimated_wait_seconds || 15}s</strong>
             </span>
             <span>
               En ligne : <strong>{matchStatus.human_online} joueur(s)</strong>
@@ -558,7 +649,8 @@ export function LobbyPage() {
               type="button"
               onClick={() => void cancelSearch()}
             >
-              <Loader2 size={16} className="spin" /> Annuler la recherche ({waitingSeconds}s)
+              <Loader2 size={16} className="spin" /> Annuler la recherche (
+              {waitingSeconds}s)
             </button>
           ) : (
             <button
@@ -566,18 +658,29 @@ export function LobbyPage() {
               type="button"
               onClick={() => void findHuman()}
             >
-              <Zap size={16} /> Rejoindre une table ({GAME_SUITS[matchmakingGame]?.label.split(" ")[0]})
+              <Zap size={16} /> Rejoindre une table (
+              {GAME_SUITS[matchmakingGame]?.label.split(" ")[0]})
             </button>
           )}
 
           {timedOut && matchStatus.ticket?.status === "queued" && (
-            <div style={{ fontSize: "12px", color: "var(--gold)", textAlign: "center" }}>
-              Recherche prolongée. Vous pouvez patienter ou vous entraîner avec l'IA ci-contre.
+            <div
+              style={{
+                fontSize: "12px",
+                color: "var(--gold)",
+                textAlign: "center",
+              }}
+            >
+              Recherche prolongée. Vous pouvez patienter ou vous entraîner avec
+              l'IA ci-contre.
             </div>
           )}
 
           {matchError && (
-            <div className="error-banner" style={{ margin: 0, fontSize: "12px", padding: "8px 12px" }}>
+            <div
+              className="error-banner"
+              style={{ margin: 0, fontSize: "12px", padding: "8px 12px" }}
+            >
               {matchError}
             </div>
           )}
@@ -590,16 +693,24 @@ export function LobbyPage() {
               <Bot size={16} />
               <span>Entraînement Solo & Découverte (IA)</span>
             </div>
-            <span style={{ fontSize: "11px", color: "#10b981", fontWeight: 600 }}>100% Gratuit</span>
+            <span
+              style={{ fontSize: "11px", color: "#10b981", fontWeight: 600 }}
+            >
+              100% Gratuit
+            </span>
           </div>
 
           <p style={{ margin: 0, fontSize: "12.5px", color: "var(--muted)" }}>
-            Pratiquez librement vos combinaisons et tactiques contre des bots déclarés et équitables.
+            Pratiquez librement vos combinaisons et tactiques contre des bots
+            déclarés et équitables.
           </p>
 
           <BotCountSelector
             gameType={matchmakingGame}
-            value={lobbyBotCounts[matchmakingGame] ?? (matchmakingGame === "rami" ? 1 : 3)}
+            value={
+              lobbyBotCounts[matchmakingGame] ??
+              (matchmakingGame === "rami" ? 1 : 3)
+            }
             onChange={(v) => setLobbyBotCount(matchmakingGame, v)}
             disabled={startingSimulation === matchmakingGame}
           />
@@ -621,19 +732,53 @@ export function LobbyPage() {
       {/* 3. Category Navigation Ribbon */}
       <div className="lobby-category-ribbon">
         {[
-          { key: "all", label: "Toutes les tables", icon: "★", count: counts.all },
-          { key: "belote", label: "Belote Malagasy", icon: "♥", count: counts.belote },
-          { key: "domino", label: "Domino Double-Six", icon: "🁓", count: counts.domino },
+          {
+            key: "all",
+            label: "Toutes les tables",
+            icon: "★",
+            count: counts.all,
+          },
+          {
+            key: "belote",
+            label: "Belote Malagasy",
+            icon: "♥",
+            count: counts.belote,
+          },
+          {
+            key: "domino",
+            label: "Domino Double-Six",
+            icon: "🁓",
+            count: counts.domino,
+          },
           { key: "ludo", label: "Ludo Mada", icon: "🎲", count: counts.ludo },
-          { key: "rami", label: "Rami Malagasy", icon: "♦", count: counts.rami },
-          { key: "poker", label: "Poker Texas Hold'em", icon: "♠", count: counts.poker },
-          { key: "tournaments", label: "Tournois & Sit & Go", icon: "🏆", count: counts.tournaments },
+          {
+            key: "rami",
+            label: "Rami Malagasy",
+            icon: "♦",
+            count: counts.rami,
+          },
+          {
+            key: "poker",
+            label: "Poker Texas Hold'em",
+            icon: "♠",
+            count: counts.poker,
+          },
+          {
+            key: "tournaments",
+            label: "Tournois & Sit & Go",
+            icon: "🏆",
+            count: counts.tournaments,
+          },
         ].map((tab) => (
           <button
             key={tab.key}
             type="button"
             className={`lobby-cat-tab ${filter === tab.key ? "active" : ""}`}
-            onClick={() => setFilter(tab.key)}
+            aria-pressed={filter === tab.key}
+            onClick={() => {
+              setFilter(tab.key);
+              setSearchParams({ filter: tab.key });
+            }}
           >
             <span style={{ color: "var(--gold)" }}>{tab.icon}</span>
             <span>{tab.label}</span>
@@ -647,15 +792,23 @@ export function LobbyPage() {
         <div className="lobby-search-input-wrap">
           <Search size={16} />
           <input
-            placeholder="Rechercher une table ou un club..."
+            aria-label="Rechercher une table"
+            placeholder="Rechercher une table…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
           {query && (
             <button
               type="button"
+              aria-label="Effacer la recherche"
               onClick={() => setQuery("")}
-              style={{ border: 0, background: "none", color: "var(--muted)", cursor: "pointer", fontSize: "16px" }}
+              style={{
+                border: 0,
+                background: "none",
+                color: "var(--muted)",
+                cursor: "pointer",
+                fontSize: "16px",
+              }}
             >
               ×
             </button>
@@ -685,6 +838,7 @@ export function LobbyPage() {
         </div>
       </div>
 
+      <h2>{t("discovery.online")}</h2>
       {/* 5. Main Content: Tournaments or Regular Table Cards Grid */}
       {filter === "tournaments" ? (
         <div className="tournaments-lobby-section">
@@ -702,14 +856,22 @@ export function LobbyPage() {
                 justifyContent: "space-between",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
                 <Trophy size={18} />
                 <span style={{ fontWeight: 500 }}>{tourneyMsg}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setTourneyMsg(null)}
-                style={{ background: "none", border: 0, color: "var(--gold)", cursor: "pointer", fontSize: "18px" }}
+                style={{
+                  background: "none",
+                  border: 0,
+                  color: "var(--gold)",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                }}
               >
                 ×
               </button>
@@ -719,31 +881,67 @@ export function LobbyPage() {
           {loading ? (
             <div className="lobby-cards-grid">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="casino-table-card" style={{ minHeight: "220px", opacity: 0.6 }}>
-                  <div className="skeleton-line short" style={{ height: "24px", marginBottom: "14px" }} />
-                  <div className="skeleton-line" style={{ height: "40px", marginBottom: "14px" }} />
+                <div
+                  key={i}
+                  className="casino-table-card"
+                  style={{ minHeight: "220px", opacity: 0.6 }}
+                >
+                  <div
+                    className="skeleton-line short"
+                    style={{ height: "24px", marginBottom: "14px" }}
+                  />
+                  <div
+                    className="skeleton-line"
+                    style={{ height: "40px", marginBottom: "14px" }}
+                  />
                   <div className="skeleton-line" style={{ height: "40px" }} />
                 </div>
               ))}
             </div>
           ) : shownTournaments.length === 0 ? (
-            <div className="empty-note" style={{ padding: "40px 20px", textAlign: "center", borderRadius: "14px" }}>
-              <Trophy size={40} style={{ color: "var(--gold)", marginBottom: "12px" }} />
-              <p style={{ fontSize: "16px", color: "var(--text)", margin: "0 0 8px", fontWeight: 600 }}>
+            <div
+              className="empty-note"
+              style={{
+                padding: "40px 20px",
+                textAlign: "center",
+                borderRadius: "14px",
+              }}
+            >
+              <Trophy
+                size={40}
+                style={{ color: "var(--gold)", marginBottom: "12px" }}
+              />
+              <p
+                style={{
+                  fontSize: "16px",
+                  color: "var(--text)",
+                  margin: "0 0 8px",
+                  fontWeight: 600,
+                }}
+              >
                 Aucun tournoi disponible pour ce filtre.
               </p>
               <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-                Les tournois Sit & Go démarrent dès que la table est complète. Revenez vite !
+                Les tournois Sit & Go démarrent dès que la table est complète.
+                Revenez vite !
               </span>
             </div>
           ) : (
             <div className="lobby-cards-grid">
               {shownTournaments.map((tItem) => {
-                const fillPercent = Math.min(100, Math.round((tItem.registered_count / tItem.max_players) * 100));
+                const fillPercent = Math.min(
+                  100,
+                  Math.round(
+                    (tItem.registered_count / tItem.max_players) * 100,
+                  ),
+                );
                 const isFull = tItem.registered_count >= tItem.max_players;
 
                 return (
-                  <div key={tItem.id} className="casino-table-card tournament-card">
+                  <div
+                    key={tItem.id}
+                    className="casino-table-card tournament-card"
+                  >
                     <div className="table-card-header">
                       <div className="table-card-title-group">
                         <div
@@ -759,14 +957,23 @@ export function LobbyPage() {
                         <div>
                           <h3>{tItem.name}</h3>
                           <span>
-                            {tItem.format === "sit_and_go" ? "⚡ Sit & Go Turbo" : "🏆 Tournoi MTT"} · {tItem.game_type.toUpperCase()}
+                            {tItem.format === "sit_and_go"
+                              ? "⚡ Sit & Go Turbo"
+                              : "🏆 Tournoi MTT"}{" "}
+                            · {tItem.game_type.toUpperCase()}
                           </span>
                         </div>
                       </div>
 
-                      <span className={`table-card-live-pill ${tItem.status === "running" ? "running" : "waiting"}`}>
+                      <span
+                        className={`table-card-live-pill ${tItem.status === "running" ? "running" : "waiting"}`}
+                      >
                         <i />
-                        <span>{tItem.status === "running" ? "En cours" : "Inscriptions"}</span>
+                        <span>
+                          {tItem.status === "running"
+                            ? "En cours"
+                            : "Inscriptions"}
+                        </span>
                       </span>
                     </div>
 
@@ -783,25 +990,68 @@ export function LobbyPage() {
                         }}
                       >
                         <div>
-                          <span style={{ fontSize: "11px", color: "var(--muted)", display: "block" }}>Buy-in</span>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              color: "var(--muted)",
+                              display: "block",
+                            }}
+                          >
+                            Buy-in
+                          </span>
                           <strong style={{ fontSize: "14px", color: "#fff" }}>
-                            {tItem.buy_in === 0 ? "Gratuit (Freeroll)" : `${tItem.buy_in.toLocaleString("fr-FR")} Ar`}
+                            {tItem.buy_in === 0
+                              ? "Gratuit (Freeroll)"
+                              : `${tItem.buy_in.toLocaleString("fr-FR")} Ar`}
                           </strong>
                         </div>
                         <div>
-                          <span style={{ fontSize: "11px", color: "var(--muted)", display: "block" }}>Prize Pool Garanti</span>
-                          <strong style={{ fontSize: "14px", color: "var(--gold)" }}>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              color: "var(--muted)",
+                              display: "block",
+                            }}
+                          >
+                            Prize Pool Garanti
+                          </span>
+                          <strong
+                            style={{ fontSize: "14px", color: "var(--gold)" }}
+                          >
                             {tItem.prize_pool.toLocaleString("fr-FR")} Ar
                           </strong>
                         </div>
                         <div>
-                          <span style={{ fontSize: "11px", color: "var(--muted)", display: "block" }}>Tapis de départ</span>
-                          <span style={{ fontSize: "13px", color: "#fff", fontWeight: 600 }}>
-                            {tItem.starting_chips.toLocaleString("fr-FR")} jetons
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              color: "var(--muted)",
+                              display: "block",
+                            }}
+                          >
+                            Tapis de départ
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "13px",
+                              color: "#fff",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {tItem.starting_chips.toLocaleString("fr-FR")}{" "}
+                            jetons
                           </span>
                         </div>
                         <div>
-                          <span style={{ fontSize: "11px", color: "var(--muted)", display: "block" }}>Niveau des blinds</span>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              color: "var(--muted)",
+                              display: "block",
+                            }}
+                          >
+                            Niveau des blinds
+                          </span>
                           <span
                             style={{
                               fontSize: "13px",
@@ -812,16 +1062,27 @@ export function LobbyPage() {
                               gap: "4px",
                             }}
                           >
-                            <Timer size={13} /> {tItem.blind_interval_minutes} min
+                            <Timer size={13} /> {tItem.blind_interval_minutes}{" "}
+                            min
                           </span>
                         </div>
                       </div>
 
                       <div style={{ marginTop: "10px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
-                          <span style={{ color: "var(--muted)" }}>Joueurs inscrits</span>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: "12px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ color: "var(--muted)" }}>
+                            Joueurs inscrits
+                          </span>
                           <span style={{ color: "#fff", fontWeight: 600 }}>
-                            {tItem.registered_count} / {tItem.max_players} ({fillPercent}%)
+                            {tItem.registered_count} / {tItem.max_players} (
+                            {fillPercent}%)
                           </span>
                         </div>
                         <div
@@ -837,7 +1098,10 @@ export function LobbyPage() {
                             style={{
                               width: `${fillPercent}%`,
                               height: "100%",
-                              background: fillPercent >= 100 ? "var(--accent)" : "var(--gold)",
+                              background:
+                                fillPercent >= 100
+                                  ? "var(--accent)"
+                                  : "var(--gold)",
                               borderRadius: "4px",
                               transition: "width 0.4s ease",
                             }}
@@ -861,32 +1125,53 @@ export function LobbyPage() {
                             fontSize: "13px",
                           }}
                         >
-                          <CheckCircle2 size={15} style={{ display: "inline-block", verticalAlign: "middle", marginRight: "6px" }} />
+                          <CheckCircle2
+                            size={15}
+                            style={{
+                              display: "inline-block",
+                              verticalAlign: "middle",
+                              marginRight: "6px",
+                            }}
+                          />
                           Vous êtes inscrit
                         </div>
                       ) : isFull ? (
-                        <button type="button" className="button button-secondary table-card-join-btn" disabled>
+                        <button
+                          type="button"
+                          className="button button-secondary table-card-join-btn"
+                          disabled
+                        >
                           Tournoi Complet
                         </button>
                       ) : accessToken ? (
                         <button
                           type="button"
                           className="button button-gold table-card-join-btn"
-                          onClick={() => void handleRegisterTournament(tItem.id)}
+                          onClick={() =>
+                            void handleRegisterTournament(tItem.id)
+                          }
                           disabled={registeringTourney === tItem.id}
                         >
                           {registeringTourney === tItem.id ? (
                             <>
-                              <Loader2 size={16} className="spin" /> Inscription...
+                              <Loader2 size={16} className="spin" />{" "}
+                              Inscription...
                             </>
                           ) : (
                             <>
-                              S'inscrire ({tItem.buy_in === 0 ? "Gratuit" : `${tItem.buy_in.toLocaleString("fr-FR")} Ar`}) <ArrowUpRight size={16} />
+                              S'inscrire (
+                              {tItem.buy_in === 0
+                                ? "Gratuit"
+                                : `${tItem.buy_in.toLocaleString("fr-FR")} Ar`}
+                              ) <ArrowUpRight size={16} />
                             </>
                           )}
                         </button>
                       ) : (
-                        <Link to="/auth?next=/lobby" className="button button-gold table-card-join-btn">
+                        <Link
+                          to="/auth?next=/lobby"
+                          className="button button-gold table-card-join-btn"
+                        >
                           Se connecter pour jouer <ArrowUpRight size={16} />
                         </Link>
                       )}
@@ -900,20 +1185,45 @@ export function LobbyPage() {
       ) : loading ? (
         <div className="lobby-cards-grid">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="casino-table-card" style={{ minHeight: "200px", opacity: 0.6 }}>
-              <div className="skeleton-line short" style={{ height: "20px", marginBottom: "14px" }} />
-              <div className="skeleton-line" style={{ height: "36px", marginBottom: "14px" }} />
+            <div
+              key={i}
+              className="casino-table-card"
+              style={{ minHeight: "200px", opacity: 0.6 }}
+            >
+              <div
+                className="skeleton-line short"
+                style={{ height: "20px", marginBottom: "14px" }}
+              />
+              <div
+                className="skeleton-line"
+                style={{ height: "36px", marginBottom: "14px" }}
+              />
               <div className="skeleton-line" style={{ height: "36px" }} />
             </div>
           ))}
         </div>
       ) : shown.length === 0 ? (
-        <div className="empty-note" style={{ padding: "40px 20px", textAlign: "center", borderRadius: "14px" }}>
-          <p style={{ fontSize: "15px", color: "var(--text)", margin: "0 0 8px", fontWeight: 600 }}>
+        <div
+          className="empty-note lobby-empty-state"
+          style={{
+            padding: "40px 20px",
+            textAlign: "center",
+            borderRadius: "14px",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "15px",
+              color: "var(--text)",
+              margin: "0 0 8px",
+              fontWeight: 600,
+            }}
+          >
             Aucune table ne correspond à vos filtres actuels.
           </p>
           <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-            Modifiez vos critères de recherche ou créez votre propre table en un instant !
+            Modifiez vos critères de recherche ou créez votre propre table en un
+            instant !
           </span>
           <div style={{ marginTop: "16px" }}>
             <button
@@ -932,11 +1242,19 @@ export function LobbyPage() {
         <div className="lobby-cards-grid">
           {shown.map((table) => {
             const live = table.status === "running";
-            const meta = GAME_SUITS[table.game_type] ?? { icon: "♠", color: "var(--gold)", label: table.game_type };
+            const meta = GAME_SUITS[table.game_type] ?? {
+              icon: "♠",
+              color: "var(--gold)",
+              label: table.game_type,
+            };
             const isFull = table.player_count >= table.max_players;
 
             return (
-              <div key={table.id} className={`casino-table-card game-${table.game_type}`} style={{ borderTop: `3px solid ${meta.color}` }}>
+              <div
+                key={table.id}
+                className={`casino-table-card game-${table.game_type}`}
+                style={{ borderTop: `3px solid ${meta.color}` }}
+              >
                 <div className="table-card-header">
                   <div className="table-card-title-group">
                     <div
@@ -957,38 +1275,65 @@ export function LobbyPage() {
                     </div>
                   </div>
 
-                  <span className={`table-card-live-pill ${live ? "running" : "waiting"}`}>
+                  <span
+                    className={`table-card-live-pill ${live ? "running" : "waiting"}`}
+                  >
                     <i />
-                    <span>{live ? "En cours" : "Ouverte"}</span>
+                    <span>{live ? "En cours" : t("discovery.open")}</span>
                   </span>
                 </div>
 
                 <div className="table-card-body">
                   <div className="table-seats-row">
-                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>Sièges :</span>
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                      Sièges :
+                    </span>
                     <strong style={{ fontSize: "12px", color: "#fff" }}>
                       {table.player_count} / {table.max_players} places occupées
                     </strong>
                   </div>
 
                   <div className="table-seats-dots">
-                    {Array.from({ length: table.max_players }).map((_, sIdx) => (
-                      <span
-                        key={sIdx}
-                        className={`seat-dot ${sIdx < table.player_count ? "occupied" : ""}`}
-                        title={sIdx < table.player_count ? "Siège occupé" : "Siège libre"}
-                      />
-                    ))}
+                    {Array.from({ length: table.max_players }).map(
+                      (_, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className={`seat-dot ${sIdx < table.player_count ? "occupied" : ""}`}
+                          title={
+                            sIdx < table.player_count
+                              ? "Siège occupé"
+                              : "Siège libre"
+                          }
+                        />
+                      ),
+                    )}
                   </div>
 
                   <div className="table-stakes-row">
                     <span style={{ color: "var(--muted)" }}>Enjeux :</span>
-                    <span className="table-stakes-val">{table.stakes || "Gratuit"}</span>
+                    <span className="table-stakes-val">
+                      {table.stakes || "Gratuit"}
+                    </span>
                   </div>
 
                   {table.club_name && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--gold)", flexWrap: "wrap" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "11px",
+                        color: "var(--gold)",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
                         <Users size={12} /> Club : {table.club_name}
                       </span>
                       {table.club_is_certified && (
@@ -1019,7 +1364,11 @@ export function LobbyPage() {
                     type="button"
                     className={`button ${live || isFull ? "button-secondary" : "button-gold"} table-card-join-btn`}
                     onClick={() => join(table)}
-                    disabled={joining === table.id || table.status === "finished" || isFull}
+                    disabled={
+                      joining === table.id ||
+                      table.status === "finished" ||
+                      isFull
+                    }
                   >
                     {joining === table.id ? (
                       <>
@@ -1041,7 +1390,13 @@ export function LobbyPage() {
                   <div className="table-card-secondary-row">
                     <Link
                       to={`/game/${table.game_type}/${table.table_code}?mode=spectator`}
-                      style={{ color: "var(--muted)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                      style={{
+                        color: "var(--muted)",
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
                     >
                       <Eye size={13} /> Mode spectateur
                     </Link>
@@ -1050,7 +1405,15 @@ export function LobbyPage() {
                       type="button"
                       onClick={() => void launchSimulation(table.game_type)}
                       disabled={startingSimulation !== null}
-                      style={{ border: 0, background: "none", color: "var(--muted)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                      style={{
+                        border: 0,
+                        background: "none",
+                        color: "var(--muted)",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
                     >
                       <Bot size={13} /> Démo IA
                     </button>
@@ -1064,7 +1427,11 @@ export function LobbyPage() {
 
       {/* Modal Créer une table */}
       {showCreateTable && (
-        <div className="modal-backdrop" role="presentation" onClick={() => setShowCreateTable(false)}>
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={() => setShowCreateTable(false)}
+        >
           <section
             className="create-table-modal"
             role="dialog"
@@ -1087,7 +1454,8 @@ export function LobbyPage() {
               </button>
             </div>
             <p className="modal-intro">
-              Personnalisez le nom et la capacité de votre table. Partagez ensuite le lien direct avec vos amis.
+              Personnalisez le nom et la capacité de votre table. Partagez
+              ensuite le lien direct avec vos amis.
             </p>
             <label className="field-label" htmlFor="table-name">
               Nom de la table
@@ -1157,7 +1525,10 @@ export function LobbyPage() {
               />
               <span>
                 <strong>Table privée (Lien d'invitation requis)</strong>
-                <small>Idéal pour jouer entre amis ou collègues avec partage WhatsApp instantané.</small>
+                <small>
+                  Idéal pour jouer entre amis ou collègues avec partage WhatsApp
+                  instantané.
+                </small>
               </span>
             </label>
             <div className="modal-actions" style={{ marginTop: "20px" }}>
@@ -1174,7 +1545,9 @@ export function LobbyPage() {
                 disabled={creatingTable}
                 onClick={() => void submitTable()}
               >
-                {creatingTable ? "Création en cours..." : "Créer et ouvrir la table"}
+                {creatingTable
+                  ? "Création en cours..."
+                  : "Créer et ouvrir la table"}
               </button>
             </div>
           </section>
@@ -1187,26 +1560,21 @@ export function LobbyPage() {
         </div>
       )}
 
-      <div className="empty-note" style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
-        <Lock size={15} />
-        <span>Les tables privées ne sont accessibles qu'avec leur lien d'invitation ou code unique.</span>
-      </div>
-
-      {/* Mobile Floating Action Button to Create Table */}
-      <button
-        type="button"
-        className="mobile-fab-create show-on-mobile"
-        onClick={() => {
-          haptics.buttonTap();
-          if (!accessToken) navigate("/auth?next=/lobby");
-          else setShowCreateTable(true);
+      <div
+        className="empty-note"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          justifyContent: "center",
         }}
-        title="Créer une table"
-        aria-label="Créer une table privée"
       >
-        <Plus size={22} />
-        <span>Créer</span>
-      </button>
+        <Lock size={15} />
+        <span>
+          Les tables privées ne sont accessibles qu'avec leur lien d'invitation
+          ou code unique.
+        </span>
+      </div>
     </div>
   );
 }

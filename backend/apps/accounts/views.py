@@ -52,7 +52,9 @@ class RequestOTPView(APIView):
         ).exists()
         if recent:
             return Response(
-                {"detail": "Veuillez patienter quelques instants avant de demander un nouveau code."},
+                {
+                    "detail": "Veuillez patienter quelques instants avant de demander un nouveau code."
+                },
                 status=429,
             )
         code = f"{secrets.randbelow(1_000_000):06d}"
@@ -95,7 +97,9 @@ class VerifyOTPView(APIView):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         code = str(request.data.get("code", "")).strip()
         if not code:
-            return Response({"detail": "Le code de vérification est requis."}, status=400)
+            return Response(
+                {"detail": "Le code de vérification est requis."}, status=400
+            )
 
         with transaction.atomic():
             challenge = (
@@ -109,7 +113,12 @@ class VerifyOTPView(APIView):
                 or challenge.expires_at <= timezone.now()
                 or challenge.attempts >= 5
             ):
-                return Response({"detail": "Code expiré ou introuvable. Veuillez redemander un nouveau code."}, status=400)
+                return Response(
+                    {
+                        "detail": "Code expiré ou introuvable. Veuillez redemander un nouveau code."
+                    },
+                    status=400,
+                )
             challenge.attempts += 1
             challenge.save(update_fields=["attempts"])
 

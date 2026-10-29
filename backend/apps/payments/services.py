@@ -1,4 +1,5 @@
 import uuid
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -60,7 +61,11 @@ def initiate_payment_intent(
     user_limits = KYC_LIMITS.get(user.kyc_level, KYC_LIMITS["discovered"])
     max_allowed = user_limits.get(direction, 0)
     if amount > max_allowed:
-        tier_label = user.get_kyc_level_display() if hasattr(user, "get_kyc_level_display") else user.kyc_level
+        tier_label = (
+            user.get_kyc_level_display()
+            if hasattr(user, "get_kyc_level_display")
+            else user.kyc_level
+        )
         raise ValidationError(
             f"Le montant de {amount:,} Ar dépasse le plafond de {direction} autorisé pour votre niveau ({tier_label} : max {max_allowed:,} Ar). Veuillez mettre à niveau vos documents KYC."
         )
@@ -68,13 +73,16 @@ def initiate_payment_intent(
     # 1b. Vérification des règles de Jeu Responsable (Auto-exclusion, pause, plafonds personnels)
     if direction == "deposit":
         from apps.responsible_gaming.services import check_deposit_allowed
+
         check_deposit_allowed(user, amount)
 
     # 2. Gestion de l'idempotence
     existing = PaymentIntent.objects.filter(idempotency_key=idempotency_key).first()
     if existing:
         if existing.user_id != user.pk:
-            raise ValidationError("Clé d'idempotence déjà utilisée par un autre compte.")
+            raise ValidationError(
+                "Clé d'idempotence déjà utilisée par un autre compte."
+            )
         return existing
 
     # 3. Si retrait : vérifier solde et verrouiller les fonds
@@ -118,7 +126,15 @@ def initiate_payment_intent(
         "adapter_response": init_result.raw_response,
         "message": init_result.message,
     }
-    intent.save(update_fields=["provider_reference", "checkout_url", "status", "error_message", "metadata"])
+    intent.save(
+        update_fields=[
+            "provider_reference",
+            "checkout_url",
+            "status",
+            "error_message",
+            "metadata",
+        ]
+    )
 
     record_audit(
         user,
@@ -135,7 +151,9 @@ def initiate_payment_intent(
 
 
 @transaction.atomic
-def settle_payment_intent(intent: PaymentIntent, success: bool = True, reason: str = "") -> PaymentIntent:
+def settle_payment_intent(
+    intent: PaymentIntent, success: bool = True, reason: str = ""
+) -> PaymentIntent:
     """
     Rapprochement comptable définitif d'un PaymentIntent après notification du webhook opérateur.
     Exécute les écritures de débit/crédit en partie double dans le grand livre (Ledger).
@@ -171,7 +189,10 @@ def settle_payment_intent(intent: PaymentIntent, success: bool = True, reason: s
                 destination_account=player_acc,
                 idempotency_key=txn_key,
                 description=f"Dépôt Mobile Money {intent.get_provider_display()} ({intent.amount:,} Ar)",
-                metadata={"payment_intent_id": str(intent.id), "provider": intent.provider},
+                metadata={
+                    "payment_intent_id": str(intent.id),
+                    "provider": intent.provider,
+                },
                 processed_at=now,
             )
 
@@ -230,7 +251,10 @@ def settle_payment_intent(intent: PaymentIntent, success: bool = True, reason: s
                 destination_account=platform_acc,
                 idempotency_key=txn_key,
                 description=f"Retrait Mobile Money {intent.get_provider_display()} ({intent.amount:,} Ar)",
-                metadata={"payment_intent_id": str(intent.id), "provider": intent.provider},
+                metadata={
+                    "payment_intent_id": str(intent.id),
+                    "provider": intent.provider,
+                },
                 processed_at=now,
             )
 

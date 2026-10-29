@@ -17,6 +17,7 @@ function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/games" element={<HomePage catalog />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/lobby/:gameType" element={<LobbyPage />} />
@@ -28,7 +29,10 @@ function App() {
         <Route path="/backoffice" element={<BackofficePage />} />
         <Route path="/casino" element={<Navigate to="/lobby" replace />} />
         <Route path="/games/test" element={<Navigate to="/lobby" replace />} />
-        <Route path="/games/hasard" element={<Navigate to="/lobby" replace />} />
+        <Route
+          path="/games/hasard"
+          element={<Navigate to="/lobby" replace />}
+        />
         <Route path="/clubs" element={<ClubsPage />} />
         {/* Redirect old play hub route to lobby */}
         <Route path="/play" element={<Navigate to="/lobby" replace />} />

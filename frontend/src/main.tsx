@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "react-query";
-import { DeviceProvider } from "./hooks/useDeviceMode";
+import { DeviceProvider } from "./hooks/DeviceProvider";
 import App from "./App";
 import "./i18n";
 import "./styles/index.css";

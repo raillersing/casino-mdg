@@ -1,7 +1,8 @@
 import os
 import uuid
-import requests
 from typing import Any, Dict
+
+import requests
 
 from .base import BaseMobileMoneyAdapter, PaymentInitiationResult
 
@@ -85,7 +86,11 @@ class AirtelMoneyAdapter(BaseMobileMoneyAdapter):
                     success=airtel_status,
                     provider_reference=ref_id,
                     status="processing" if airtel_status else "failed",
-                    message="Demande de débit Airtel Money envoyée par USSD." if airtel_status else res.text,
+                    message=(
+                        "Demande de débit Airtel Money envoyée par USSD."
+                        if airtel_status
+                        else res.text
+                    ),
                     raw_response=data,
                 )
             except Exception as exc:
@@ -101,7 +106,11 @@ class AirtelMoneyAdapter(BaseMobileMoneyAdapter):
             provider_reference=ref_id,
             status="processing",
             message=f"Simulation Airtel Money: Confirmez le paiement de {intent.amount} Ar sur votre numéro {formatted_phone}.",
-            raw_response={"simulation": True, "operator": "Airtel Money", "phone": formatted_phone},
+            raw_response={
+                "simulation": True,
+                "operator": "Airtel Money",
+                "phone": formatted_phone,
+            },
         )
 
     def initiate_withdrawal(self, intent, phone_number: str) -> PaymentInitiationResult:
@@ -113,7 +122,11 @@ class AirtelMoneyAdapter(BaseMobileMoneyAdapter):
             provider_reference=ref_id,
             status="processing",
             message=f"Retrait de {intent.amount} Ar vers le compte Airtel Money ({formatted_phone}) en cours de transfert.",
-            raw_response={"simulation": True, "operator": "Airtel Money", "phone": formatted_phone},
+            raw_response={
+                "simulation": True,
+                "operator": "Airtel Money",
+                "phone": formatted_phone,
+            },
         )
 
     def verify_transaction_status(self, provider_reference: str) -> Dict[str, Any]:

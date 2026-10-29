@@ -186,11 +186,15 @@ class ClubApiTests(TestCase):
         # Stranger cannot consult or request certification
         self.client.force_authenticate(self.stranger)
         self.assertEqual(
-            self.client.get(f"/api/v1/clubs/{club_id}/request-certification/").status_code,
+            self.client.get(
+                f"/api/v1/clubs/{club_id}/request-certification/"
+            ).status_code,
             403,
         )
         self.assertEqual(
-            self.client.post(f"/api/v1/clubs/{club_id}/request-certification/").status_code,
+            self.client.post(
+                f"/api/v1/clubs/{club_id}/request-certification/"
+            ).status_code,
             403,
         )
 
@@ -204,7 +208,9 @@ class ClubApiTests(TestCase):
         self.assertEqual(overview.data["criteria"]["member_count"], 1)
 
         # Requesting without meeting full criteria puts it in pending
-        pending_resp = self.client.post(f"/api/v1/clubs/{club_id}/request-certification/")
+        pending_resp = self.client.post(
+            f"/api/v1/clubs/{club_id}/request-certification/"
+        )
         self.assertEqual(pending_resp.status_code, 200)
         self.assertEqual(pending_resp.data["certification_status"], "pending")
         self.assertFalse(pending_resp.data["is_certified"])
@@ -215,7 +221,9 @@ class ClubApiTests(TestCase):
         )
         for i in range(4):
             u = User.objects.create_user(
-                email=f"member{i}@mdg.local", phone=f"+26134000900{i}", display_name=f"M{i}"
+                email=f"member{i}@mdg.local",
+                phone=f"+26134000900{i}",
+                display_name=f"M{i}",
             )
             ClubMembership.objects.create(club_id=club_id, user=u)
 
@@ -252,9 +260,7 @@ class ClubApiTests(TestCase):
         self.assertTrue(club_table["club_is_certified"])
 
         # Subsequent request rejected because already certified
-        duplicate = self.client.post(
-            f"/api/v1/clubs/{club_id}/request-certification/"
-        )
+        duplicate = self.client.post(f"/api/v1/clubs/{club_id}/request-certification/")
         self.assertEqual(duplicate.status_code, 400)
 
     def test_club_league_leaderboard_endpoint(self):
@@ -273,5 +279,3 @@ class ClubApiTests(TestCase):
         self.assertEqual(first["rank"], 1)
         self.assertIn("tier", first)
         self.assertIn("total_points", first)
-
-

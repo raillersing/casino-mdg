@@ -1,7 +1,8 @@
 import os
 import uuid
-import requests
 from typing import Any, Dict
+
+import requests
 
 from .base import BaseMobileMoneyAdapter, PaymentInitiationResult
 
@@ -15,9 +16,7 @@ class MVolaAdapter(BaseMobileMoneyAdapter):
         self.client_secret = os.getenv("MVOLA_CLIENT_SECRET", "")
         self.merchant_number = os.getenv("MVOLA_MERCHANT_NUMBER", "0340000000")
         self.base_url = (
-            "https://sandbox.mvola.mg"
-            if sandbox
-            else "https://api.mvola.mg"
+            "https://sandbox.mvola.mg" if sandbox else "https://api.mvola.mg"
         )
 
     def _format_phone(self, phone: str) -> str:
@@ -39,7 +38,10 @@ class MVolaAdapter(BaseMobileMoneyAdapter):
                 auth_res = requests.post(
                     f"{self.base_url}/token",
                     auth=(self.client_id, self.client_secret),
-                    data={"grant_type": "client_credentials", "scope": "EXT_INT_MVOLA_SCOPE"},
+                    data={
+                        "grant_type": "client_credentials",
+                        "scope": "EXT_INT_MVOLA_SCOPE",
+                    },
                     timeout=10,
                 )
                 if not auth_res.ok:
@@ -82,7 +84,11 @@ class MVolaAdapter(BaseMobileMoneyAdapter):
                     success=res.ok,
                     provider_reference=server_ref,
                     status="processing" if res.ok else "failed",
-                    message="Notification Push USSD envoyée sur votre téléphone MVola (#111#)." if res.ok else res.text,
+                    message=(
+                        "Notification Push USSD envoyée sur votre téléphone MVola (#111#)."
+                        if res.ok
+                        else res.text
+                    ),
                     raw_response=data,
                 )
             except Exception as exc:
@@ -98,7 +104,11 @@ class MVolaAdapter(BaseMobileMoneyAdapter):
             provider_reference=ref_id,
             status="processing",
             message=f"Simulation MVola: Validez le paiement de {intent.amount} Ar sur votre numéro {formatted_phone}.",
-            raw_response={"simulation": True, "operator": "MVola (Telma)", "phone": formatted_phone},
+            raw_response={
+                "simulation": True,
+                "operator": "MVola (Telma)",
+                "phone": formatted_phone,
+            },
         )
 
     def initiate_withdrawal(self, intent, phone_number: str) -> PaymentInitiationResult:
@@ -110,7 +120,11 @@ class MVolaAdapter(BaseMobileMoneyAdapter):
             provider_reference=ref_id,
             status="processing",
             message=f"Retrait de {intent.amount} Ar vers le compte MVola {formatted_phone} en cours de traitement.",
-            raw_response={"simulation": True, "operator": "MVola", "phone": formatted_phone},
+            raw_response={
+                "simulation": True,
+                "operator": "MVola",
+                "phone": formatted_phone,
+            },
         )
 
     def verify_transaction_status(self, provider_reference: str) -> Dict[str, Any]:

@@ -1,7 +1,8 @@
 import os
 import uuid
-import requests
 from typing import Any, Dict
+
+import requests
 
 from .base import BaseMobileMoneyAdapter, PaymentInitiationResult
 
@@ -49,7 +50,12 @@ class OrangeMoneyAdapter(BaseMobileMoneyAdapter):
                     "lang": "fr",
                     "reference": ref_id,
                 }
-                res = requests.post(f"{self.base_url}/webpayment", json=payload, headers=headers, timeout=15)
+                res = requests.post(
+                    f"{self.base_url}/webpayment",
+                    json=payload,
+                    headers=headers,
+                    timeout=15,
+                )
                 if res.ok:
                     data = res.json()
                     payment_url = data.get("payment_url", "")
@@ -81,7 +87,11 @@ class OrangeMoneyAdapter(BaseMobileMoneyAdapter):
             checkout_url=f"https://sandbox.orange.mg/pay/{ref_id}",
             status="processing",
             message=f"Simulation Orange Money: Confirmez le paiement de {intent.amount} Ar (#144#) sur {formatted_phone}.",
-            raw_response={"simulation": True, "operator": "Orange Money", "phone": formatted_phone},
+            raw_response={
+                "simulation": True,
+                "operator": "Orange Money",
+                "phone": formatted_phone,
+            },
         )
 
     def initiate_withdrawal(self, intent, phone_number: str) -> PaymentInitiationResult:
@@ -93,7 +103,11 @@ class OrangeMoneyAdapter(BaseMobileMoneyAdapter):
             provider_reference=ref_id,
             status="processing",
             message=f"Retrait de {intent.amount} Ar vers Orange Money ({formatted_phone}) en cours de transfert.",
-            raw_response={"simulation": True, "operator": "Orange Money", "phone": formatted_phone},
+            raw_response={
+                "simulation": True,
+                "operator": "Orange Money",
+                "phone": formatted_phone,
+            },
         )
 
     def verify_transaction_status(self, provider_reference: str) -> Dict[str, Any]:

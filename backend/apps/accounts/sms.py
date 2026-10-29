@@ -6,6 +6,7 @@ Gracefully falls back to logging and dev mode if no external provider is configu
 
 import logging
 import os
+
 import requests
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,9 @@ def send_sms_otp(phone: str, code: str) -> bool:
                     f"[SMS Gateway: Twilio] Failed to deliver to {phone}: {response.status_code} - {response.text}"
                 )
         except Exception as exc:
-            logger.error(f"[SMS Gateway: Twilio] Connection error sending to {phone}: {exc}")
+            logger.error(
+                f"[SMS Gateway: Twilio] Connection error sending to {phone}: {exc}"
+            )
 
     # 2. Try Generic HTTP Gateway if configured
     gateway_url = os.getenv("SMS_GATEWAY_URL", "").strip()
@@ -74,7 +77,9 @@ def send_sms_otp(phone: str, code: str) -> bool:
                     f"[SMS Gateway: Webhook] Failed to deliver to {phone}: {response.status_code} - {response.text}"
                 )
         except Exception as exc:
-            logger.error(f"[SMS Gateway: Webhook] Connection error sending to {phone}: {exc}")
+            logger.error(
+                f"[SMS Gateway: Webhook] Connection error sending to {phone}: {exc}"
+            )
 
     # 3. Fallback / Log
     logger.info(f"[SMS Gateway: Local Fallback] Code OTP généré pour {phone}: {code}")

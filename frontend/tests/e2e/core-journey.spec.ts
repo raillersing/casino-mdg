@@ -29,15 +29,13 @@ test("navigates from home to the lobby and sees an available table", async ({
 
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Le jeu a une/i }),
+    page.getByRole("heading", { name: /Vos jeux préférés/i }),
   ).toBeVisible();
-  await page.getByRole("link", { name: /Entrer dans le lobby/i }).click();
+  await page.getByRole("link", { name: /Voir les tables/i }).click();
 
   await expect(page).toHaveURL(/\/lobby$/);
   await expect(page.getByText("Table Émeraude")).toBeVisible();
-  await expect(page.locator(".table-main > span")).toHaveText(
-    "Poker Texas Hold'em",
-  );
+  await expect(page.locator(".casino-table-card")).toContainText("Poker");
 });
 
 test("completes the local OTP onboarding journey", async ({ page }) => {
@@ -90,9 +88,9 @@ test("switches the core home screen to Malagasy", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Changer de langue" }).click();
   await expect(
-    page.getByRole("heading", { name: /Manana adiresy/i }),
+    page.getByRole("heading", { name: /Ny lalao tianao/i }),
   ).toBeVisible();
-  await expect(page.getByText("Hiditra amin'ny lobby")).toBeVisible();
+  await expect(page.getByText("Hijery ny latabatra")).toBeVisible();
 });
 
 test("switches the lobby journey to Malagasy", async ({ page }) => {

@@ -457,6 +457,13 @@ func TestRamiKnockSettlementAndHMAC(t *testing.T) {
 	if _, err := manager.JoinPlayer(table.ID, "r1", "Joueur 1", 1); err != nil {
 		t.Fatal(err)
 	}
+	game := table.State.(*rami.Game)
+	// Give r0 a hand with deadwood = 3 <= 10
+	game.Players[0].Hand = []rami.Card{{Suit: 0, Rank: 1}, {Suit: 0, Rank: 2}}
+	game.Players[1].Hand = []rami.Card{{Suit: 1, Rank: 10}, {Suit: 2, Rank: 10}}
+	game.Current = 0
+	game.Finished = false
+
 	server := NewServer(cfg, manager)
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
@@ -482,12 +489,6 @@ func TestRamiKnockSettlementAndHMAC(t *testing.T) {
 	c1 := connect("r1")
 	defer c1.Close()
 
-	game := table.State.(*rami.Game)
-	// Give r0 a hand with deadwood = 3 <= 10
-	game.Players[0].Hand = []rami.Card{{Suit: 0, Rank: 1}, {Suit: 0, Rank: 2}}
-	game.Players[1].Hand = []rami.Card{{Suit: 1, Rank: 10}, {Suit: 2, Rank: 10}}
-	game.Current = 0
-	game.Finished = false
 
 	seq := manager.TableSequence(table.ID)
 	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "knock", Sequence: seq}); err != nil {
@@ -555,6 +556,10 @@ func TestBeloteGameOverBroadcastToAllPlayers(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	round := table.State.(*belote.Round)
+	round.Phase = "finished"
+	round.TeamPoints = [2]int{550, 100}
+
 	server := NewServer(cfg, manager)
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
@@ -580,9 +585,6 @@ func TestBeloteGameOverBroadcastToAllPlayers(t *testing.T) {
 	c1 := connect("b1")
 	defer c1.Close()
 
-	round := table.State.(*belote.Round)
-	round.Phase = "finished"
-	round.TeamPoints = [2]int{550, 100}
 
 	seq := manager.TableSequence(table.ID)
 	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "new_hand", Sequence: seq}); err != nil {

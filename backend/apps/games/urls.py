@@ -22,8 +22,8 @@ from .views import (
     TestGamesActivityView,
     TestGamesCatalogView,
     TestInstantPlayView,
-    TournamentListCreateView,
     TournamentDetailView,
+    TournamentListCreateView,
     TournamentRegisterView,
 )
 
@@ -101,7 +101,19 @@ urlpatterns = [
         TestDrawResultView.as_view(),
         name="test-draw-result",
     ),
-    path("tournaments/", TournamentListCreateView.as_view(), name="tournament-list-create"),
-    path("tournaments/<uuid:tournament_id>/", TournamentDetailView.as_view(), name="tournament-detail"),
-    path("tournaments/<uuid:tournament_id>/register/", TournamentRegisterView.as_view(), name="tournament-register"),
+    path(
+        "tournaments/",
+        TournamentListCreateView.as_view(),
+        name="tournament-list-create",
+    ),
+    path(
+        "tournaments/<uuid:tournament_id>/",
+        TournamentDetailView.as_view(),
+        name="tournament-detail",
+    ),
+    path(
+        "tournaments/<uuid:tournament_id>/register/",
+        TournamentRegisterView.as_view(),
+        name="tournament-register",
+    ),
 ]

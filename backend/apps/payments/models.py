@@ -42,7 +42,9 @@ class PaymentIntent(models.Model):
     ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="payment_intents"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="payment_intents",
     )
     provider = models.CharField(max_length=20, choices=WebhookInboxEvent.PROVIDERS)
     direction = models.CharField(max_length=20, choices=DIRECTIONS)

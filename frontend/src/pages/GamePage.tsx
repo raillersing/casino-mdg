@@ -33,26 +33,58 @@ import {
   sendTableMessage,
   type ChatMessage,
 } from "@services/social";
-import { getTables, joinTable, recordGameResult, startBotSimulation } from "@services/games";
+import {
+  getTables,
+  joinTable,
+  recordGameResult,
+  startBotSimulation,
+} from "@services/games";
 import { useGameStore } from "@stores/gameStore";
 import { useWebSocket } from "@hooks/useWebSocket";
 import { trackEvent } from "@services/analytics";
 import { TableExitModal } from "@components/game/TableExitModal";
 import { getSeatPosition } from "@utils/tableLayout";
 import { TableSettingsModal } from "@components/game/TableSettingsModal";
-import { HandReplayerModal, type ReplayableHand } from "@components/game/HandReplayerModal";
+import {
+  HandReplayerModal,
+  type ReplayableHand,
+} from "@components/game/HandReplayerModal";
 import { DominoTile } from "@components/game/DominoTile";
 import { LudoBoard } from "@components/game/LudoBoard";
 import { haptics } from "@utils/haptics";
 import { webNotifications } from "@utils/notifications";
 
 const BOT_NAMES = [
-  "Tovo", "Rija", "Saholy", "Lova", "Feno", "Koto", "Miary", "Tsiky",
-  "Hery", "Soa", "Miora", "Faly", "Rado", "Nofy", "Vola", "Hanta",
+  "Tovo",
+  "Rija",
+  "Saholy",
+  "Lova",
+  "Feno",
+  "Koto",
+  "Miary",
+  "Tsiky",
+  "Hery",
+  "Soa",
+  "Miora",
+  "Faly",
+  "Rado",
+  "Nofy",
+  "Vola",
+  "Hanta",
 ];
 const AVATAR_COLORS = [
-  "#e57373", "#ba68c8", "#64b5f6", "#4db6ac", "#ffb74d", "#a1887f",
-  "#90a4ae", "#f06292", "#7986cb", "#4dd0e1", "#81c784", "#fff176",
+  "#e57373",
+  "#ba68c8",
+  "#64b5f6",
+  "#4db6ac",
+  "#ffb74d",
+  "#a1887f",
+  "#90a4ae",
+  "#f06292",
+  "#7986cb",
+  "#4dd0e1",
+  "#81c784",
+  "#fff176",
 ];
 function botNameForSeat(index: number) {
   return BOT_NAMES[index % BOT_NAMES.length];
@@ -89,10 +121,15 @@ type SoundKind =
   | "game_over";
 
 function playSound(kind: SoundKind) {
-  if (typeof window === "undefined" || !(window as unknown as Record<string, unknown>).AudioContext) return;
+  if (
+    typeof window === "undefined" ||
+    !(window as unknown as Record<string, unknown>).AudioContext
+  )
+    return;
   if (localStorage.getItem("mdg-poker-sound") === "off") return;
 
-  const Ctx = (window as unknown as Record<string, unknown>).AudioContext as typeof AudioContext;
+  const Ctx = (window as unknown as Record<string, unknown>)
+    .AudioContext as typeof AudioContext;
   const ctx = new Ctx();
   if (ctx.state === "suspended") void ctx.resume();
 
@@ -101,7 +138,12 @@ function playSound(kind: SoundKind) {
   masterGain.gain.value = 0.15;
   masterGain.connect(ctx.destination);
 
-  const envelope = (g: GainNode, attack: number, sustain: number, decay: number) => {
+  const envelope = (
+    g: GainNode,
+    attack: number,
+    sustain: number,
+    decay: number,
+  ) => {
     g.gain.setValueAtTime(0.0001, now);
     g.gain.exponentialRampToValueAtTime(sustain, now + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, now + attack + decay);
@@ -470,7 +512,9 @@ export function GamePage() {
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [showQuickReactions, setShowQuickReactions] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
-  const [playerChats, setPlayerChats] = useState<Record<string, { text: string; expiresAt: number }>>({});
+  const [playerChats, setPlayerChats] = useState<
+    Record<string, { text: string; expiresAt: number }>
+  >({});
   const [socialError, setSocialError] = useState("");
 
   const showSpeechBubble = useCallback((author: string, text: string) => {
@@ -528,7 +572,9 @@ export function GamePage() {
     {},
   );
   const [payouts, setPayouts] = useState<Record<string, number>>({});
-  const [bestCards, setBestCards] = useState<Record<string, Array<{ rank: number; suit: number }>>>({});
+  const [bestCards, setBestCards] = useState<
+    Record<string, Array<{ rank: number; suit: number }>>
+  >({});
   const [potAwarded, setPotAwarded] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(
     () => localStorage.getItem("mdg-poker-sound") !== "off",
@@ -545,7 +591,9 @@ export function GamePage() {
   const [muteChat, setMuteChat] = useState(
     () => localStorage.getItem("mdg-poker-mutechat") === "on",
   );
-  const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(() => haptics.isEnabled());
+  const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(() =>
+    haptics.isEnabled(),
+  );
   const [isLandscapeMode, setIsLandscapeMode] = useState<boolean>(
     () => localStorage.getItem("mdg-table-landscape") === "on",
   );
@@ -570,7 +618,9 @@ export function GamePage() {
   );
   const [gameOver, setGameOver] = useState(false);
   const [resultModalDismissed, setResultModalDismissed] = useState(false);
-  const [selectedRamiCards, setSelectedRamiCards] = useState<Set<string>>(new Set());
+  const [selectedRamiCards, setSelectedRamiCards] = useState<Set<string>>(
+    new Set(),
+  );
   const [pokerLevel, setPokerLevel] = useState(0);
   const [handsPlayed, setHandsPlayed] = useState(0);
   const [nextHandCountdown, setNextHandCountdown] = useState(0);
@@ -583,18 +633,32 @@ export function GamePage() {
     localStorage.setItem("mdg-table-landscape", next ? "on" : "off");
     try {
       if (next) {
-        if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+        if (
+          document.documentElement.requestFullscreen &&
+          !document.fullscreenElement
+        ) {
           await document.documentElement.requestFullscreen().catch(() => {});
         }
         if (window.screen?.orientation && "lock" in window.screen.orientation) {
-          await (window.screen.orientation as unknown as { lock: (mode: string) => Promise<void> }).lock("landscape").catch(() => {});
+          await (
+            window.screen.orientation as unknown as {
+              lock: (mode: string) => Promise<void>;
+            }
+          )
+            .lock("landscape")
+            .catch(() => {});
         }
       } else {
         if (document.fullscreenElement && document.exitFullscreen) {
           await document.exitFullscreen().catch(() => {});
         }
-        if (window.screen?.orientation && "unlock" in window.screen.orientation) {
-          (window.screen.orientation as unknown as { unlock: () => void }).unlock();
+        if (
+          window.screen?.orientation &&
+          "unlock" in window.screen.orientation
+        ) {
+          (
+            window.screen.orientation as unknown as { unlock: () => void }
+          ).unlock();
         }
       }
     } catch {
@@ -615,7 +679,10 @@ export function GamePage() {
   };
 
   const [pushNotifsEnabled, setPushNotifsEnabled] = useState<boolean>(() => {
-    return localStorage.getItem("mdg-push-notifs") !== "off" && webNotifications.getPermission() === "granted";
+    return (
+      localStorage.getItem("mdg-push-notifs") !== "off" &&
+      webNotifications.getPermission() === "granted"
+    );
   });
   const updatePushNotifs = (enabled: boolean) => {
     setPushNotifsEnabled(enabled);
@@ -625,7 +692,9 @@ export function GamePage() {
   const [botChats, setBotChats] = useState<
     Record<string, { text: string; emote: string; ts: number }>
   >({});
-  const [thinkingSeats, setThinkingSeats] = useState<Record<string, boolean>>({});
+  const [thinkingSeats, setThinkingSeats] = useState<Record<string, boolean>>(
+    {},
+  );
   const [showRebuy, setShowRebuy] = useState(false);
   const pots = Array.isArray(gameState?.pots)
     ? (gameState.pots as Array<{ amount?: number; eligible?: string[] }>)
@@ -640,7 +709,9 @@ export function GamePage() {
   const holeDealTimers = useRef<number[]>([]);
   const wasMyTurnRef = useRef(false);
   const prevBeloteTrickLenRef = useRef(0);
-  const sendGameActionRef = useRef<((action: string, actionPayload?: unknown) => void) | null>(null);
+  const sendGameActionRef = useRef<
+    ((action: string, actionPayload?: unknown) => void) | null
+  >(null);
   const accessToken = useGameStore((state) => state.accessToken);
   const setSession = useGameStore((state) => state.setSession);
   const setGuestMode = useGameStore((state) => state.setGuestMode);
@@ -676,7 +747,7 @@ export function GamePage() {
   );
   const isSeated = Boolean(
     myPokerPlayer ||
-      statePlayers.some((player) => String(player.id || "") === userId),
+    statePlayers.some((player) => String(player.id || "") === userId),
   );
   const highestBet = statePlayers.reduce(
     (highest, player) => Math.max(highest, Number(player.bet || 0)),
@@ -724,7 +795,8 @@ export function GamePage() {
     : [];
   const ramiFinished = Boolean(gameState?.finished);
   const pokerWinners = useMemo(
-    () => (Array.isArray(gameState?.winners) ? (gameState.winners as string[]) : []),
+    () =>
+      Array.isArray(gameState?.winners) ? (gameState.winners as string[]) : [],
     [gameState?.winners],
   );
   const isPokerShowdown = isPoker && gameState?.phase === "showdown";
@@ -732,7 +804,8 @@ export function GamePage() {
     isPokerShowdown && gameState?.finish_reason === "uncontested";
   const isSessionFinished = isPoker && gameState?.session_finished === true;
   const renderedCommunityCards = communityCards.slice(0, visibleCommunityCount);
-  const cardKey = (card: { rank: number; suit: number }) => `${card.rank}-${card.suit}`;
+  const cardKey = (card: { rank: number; suit: number }) =>
+    `${card.rank}-${card.suit}`;
   const winningCardKeys = useMemo(() => {
     const set = new Set<string>();
     for (const winnerId of pokerWinners) {
@@ -746,16 +819,19 @@ export function GamePage() {
   const currentPlayerId = String(
     gameState?.current_player_id || statePlayers[currentPlayerIndex]?.id || "",
   );
-  const nameForPlayer = (playerId: string) => {
-    const player = tablePlayers.find(
-      (item) => String(item.id || "") === playerId,
-    );
-    return String(
-      player?.name || (playerId === userId ? t("game.you") : playerId),
-    );
-  };
+  const nameForPlayer = useCallback(
+    (playerId: string) => {
+      const player = tablePlayers.find(
+        (item) => String(item.id || "") === playerId,
+      );
+      return String(
+        player?.name || (playerId === userId ? t("game.you") : playerId),
+      );
+    },
+    [tablePlayers, userId, t],
+  );
 
-  const finishedInfo = useMemo(() => {
+  const finishedInfo = (() => {
     if (!gameState) return null;
 
     // 1. DOMINO
@@ -781,8 +857,8 @@ export function GamePage() {
           scoreLabel: isBlocked
             ? `${pips} pts en main`
             : isWinner
-            ? "0 pt (Domino !)"
-            : `${pips} pts en main`,
+              ? "0 pt (Domino !)"
+              : `${pips} pts en main`,
           subtext: `${tiles.length} domino${tiles.length > 1 ? "s" : ""} restant${tiles.length > 1 ? "s" : ""}`,
         };
       });
@@ -790,12 +866,14 @@ export function GamePage() {
       return {
         isFinished: true,
         gameType: "domino",
-        title: isWinnerMe ? "🏆 Victoire Domino !" : "Partie de Domino Terminée",
+        title: isWinnerMe
+          ? "🏆 Victoire Domino !"
+          : "Partie de Domino Terminée",
         subtitle: isBlocked
           ? `Partie fermée (Gasy) ! ${winnerName} l'emporte avec le plus faible total de points.`
           : isWinnerMe
-          ? "Félicitations ! Vous avez posé tous vos dominos en premier !"
-          : `${winnerName} a posé tous ses dominos et remporte la partie !`,
+            ? "Félicitations ! Vous avez posé tous vos dominos en premier !"
+            : `${winnerName} a posé tous ses dominos et remporte la partie !`,
         winnerName,
         isWinnerMe,
         scores,
@@ -821,7 +899,9 @@ export function GamePage() {
             isMe: pId === userId,
             scoreVal: score,
             scoreLabel: `${score} / 4 pions rentrés`,
-            subtext: isWinner ? "🏆 Vainqueur à la Maison" : `${4 - score} pion(s) restant(s)`,
+            subtext: isWinner
+              ? "🏆 Vainqueur à la Maison"
+              : `${4 - score} pion(s) restant(s)`,
           };
         })
         .sort((a, b) => b.scoreVal - a.scoreVal)
@@ -830,7 +910,9 @@ export function GamePage() {
       return {
         isFinished: true,
         gameType: "ludo",
-        title: isWinnerMe ? "🏆 Victoire Ludo Mada !" : "Partie de Ludo Terminée",
+        title: isWinnerMe
+          ? "🏆 Victoire Ludo Mada !"
+          : "Partie de Ludo Terminée",
         subtitle: isWinnerMe
           ? "Magnifique ! Vous avez ramené vos 4 pions à la maison en premier !"
           : `${winnerName} a rentré tous ses 4 pions et remporte la partie !`,
@@ -844,30 +926,46 @@ export function GamePage() {
     // 3. BELOTE
     if (gameType === "belote") {
       const phase = String(gameState.phase || "");
-      const isRoundFinished = phase === "finished" || phase === "settled" || phase === "settled_reported";
-      const isMatchGameOver = gameOver || beloteCumulative[0] >= 501 || beloteCumulative[1] >= 501;
+      const isRoundFinished =
+        phase === "finished" ||
+        phase === "settled" ||
+        phase === "settled_reported";
+      const isMatchGameOver =
+        gameOver || beloteCumulative[0] >= 501 || beloteCumulative[1] >= 501;
 
       if (isRoundFinished || isMatchGameOver) {
-        const winningRoundTeam = beloteTeamPoints[0] > beloteTeamPoints[1] ? 0 : 1;
-        const winningMatchTeam = beloteCumulative[0] > beloteCumulative[1] ? 0 : 1;
-        const isMyTeamWinner = myPokerPlayer?.team === (isMatchGameOver ? winningMatchTeam : winningRoundTeam);
+        const winningRoundTeam =
+          beloteTeamPoints[0] > beloteTeamPoints[1] ? 0 : 1;
+        const winningMatchTeam =
+          beloteCumulative[0] > beloteCumulative[1] ? 0 : 1;
+        const isMyTeamWinner =
+          myPokerPlayer?.team ===
+          (isMatchGameOver ? winningMatchTeam : winningRoundTeam);
 
         const scores = [
           {
             id: "team_1",
             name: "Équipe 1 (Nord & Sud)",
-            isWinner: (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 0,
+            isWinner:
+              (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 0,
             isMe: myPokerPlayer?.team === 0,
-            rank: (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 0 ? 1 : 2,
+            rank:
+              (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 0
+                ? 1
+                : 2,
             scoreLabel: `Manche : ${beloteTeamPoints[0]} pts`,
             subtext: `Total Cumulé : ${beloteCumulative[0]} / 501 points`,
           },
           {
             id: "team_2",
             name: "Équipe 2 (Est & Ouest)",
-            isWinner: (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 1,
+            isWinner:
+              (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 1,
             isMe: myPokerPlayer?.team === 1,
-            rank: (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 1 ? 1 : 2,
+            rank:
+              (isMatchGameOver ? winningMatchTeam : winningRoundTeam) === 1
+                ? 1
+                : 2,
             scoreLabel: `Manche : ${beloteTeamPoints[1]} pts`,
             subtext: `Total Cumulé : ${beloteCumulative[1]} / 501 points`,
           },
@@ -877,7 +975,9 @@ export function GamePage() {
           isFinished: true,
           gameType: "belote",
           title: isMatchGameOver
-            ? (isMyTeamWinner ? "🏆 Victoire du Match de Belote !" : "Fin du Match de Belote")
+            ? isMyTeamWinner
+              ? "🏆 Victoire du Match de Belote !"
+              : "Fin du Match de Belote"
             : "Manche de Belote Terminée",
           subtitle: isMatchGameOver
             ? `L'Équipe ${winningMatchTeam + 1} remporte la partie finale avec ${beloteCumulative[winningMatchTeam]} points !`
@@ -885,7 +985,9 @@ export function GamePage() {
           winnerName: `Équipe ${isMatchGameOver ? winningMatchTeam + 1 : winningRoundTeam + 1}`,
           isWinnerMe: isMyTeamWinner,
           scores,
-          actionLabel: isMatchGameOver ? "Nouveau Match de Belote" : "Distribuer la manche suivante",
+          actionLabel: isMatchGameOver
+            ? "Nouveau Match de Belote"
+            : "Distribuer la manche suivante",
         };
       }
     }
@@ -909,15 +1011,23 @@ export function GamePage() {
           isWinner,
           isMe: pId === userId,
           rank: isWinner ? 1 : idx + 2,
-          scoreLabel: isWinner ? (isGin ? "0 pt (Grand Gin)" : "0 pt (Knock)") : `+${deadwood} pts de pénalité`,
-          subtext: isWinner ? "Combinaisons validées" : "Cartes restantes non combinées",
+          scoreLabel: isWinner
+            ? isGin
+              ? "0 pt (Grand Gin)"
+              : "0 pt (Knock)"
+            : `+${deadwood} pts de pénalité`,
+          subtext: isWinner
+            ? "Combinaisons validées"
+            : "Cartes restantes non combinées",
         };
       });
 
       return {
         isFinished: true,
         gameType: "rami",
-        title: isWinnerMe ? "🏆 Victoire Rami Malagasy !" : "Partie de Rami Terminée",
+        title: isWinnerMe
+          ? "🏆 Victoire Rami Malagasy !"
+          : "Partie de Rami Terminée",
         subtitle: isGin
           ? `${winnerName} réalise un Grand Gin sans aucune carte résiduelle !`
           : `${winnerName} a fermé son jeu (Knock) et remporte la manche !`,
@@ -929,8 +1039,7 @@ export function GamePage() {
     }
 
     return null;
-  }, [gameState, gameType, userId, gameOver, beloteTeamPoints, beloteCumulative, myPokerPlayer, statePlayers]);
-
+  })();
   useEffect(() => {
     if (finishedInfo?.isFinished) {
       playSound("game_over");
@@ -938,7 +1047,7 @@ export function GamePage() {
         haptics.winCelebration();
       }
     }
-  }, [finishedInfo?.isFinished]);
+  }, [finishedInfo?.isFinished, finishedInfo?.isWinnerMe]);
   const socketUrl =
     import.meta.env.VITE_WS_URL ||
     `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
@@ -1050,7 +1159,11 @@ export function GamePage() {
                 sendGameActionRef.current?.("new_hand");
               }, 1200);
             }
-            if (phase === "bidding" || phase === "preflop" || phase === "playing") {
+            if (
+              phase === "bidding" ||
+              phase === "preflop" ||
+              phase === "playing"
+            ) {
               setResultModalDismissed(false);
             }
             if (phase === "showdown") {
@@ -1061,7 +1174,10 @@ export function GamePage() {
                 (state.game_state.payouts as Record<string, number>) || {},
               );
               setBestCards(
-                (state.game_state.best_cards as Record<string, Array<{ rank: number; suit: number }>>) || {},
+                (state.game_state.best_cards as Record<
+                  string,
+                  Array<{ rank: number; suit: number }>
+                >) || {},
               );
             }
             if (
@@ -1215,7 +1331,10 @@ export function GamePage() {
             setShowdownRanks(details.hand_ranks || {});
             setPayouts(details.payouts || {});
             setBestCards(
-              (details as Record<string, unknown>).best_cards as Record<string, Array<{ rank: number; suit: number }>> || {},
+              ((details as Record<string, unknown>).best_cards as Record<
+                string,
+                Array<{ rank: number; suit: number }>
+              >) || {},
             );
             setPotAwarded(false);
             window.setTimeout(() => setPotAwarded(true), 900);
@@ -1244,8 +1363,14 @@ export function GamePage() {
             };
             const winners = Object.keys(summary.winners || {});
             const ranks = summary.hand_ranks || {};
-            const boardStrings = communityCards.map((c) => `${cardView(c).value}${cardView(c).suit}`);
-            const boardFinal = boardStrings.length ? boardStrings : ["A♠", "K♥", "Q♦", "J♣", "10♠"];
+            const boardStrings = (
+              Array.isArray(gameState?.community)
+                ? (gameState.community as Array<{ rank: number; suit: number }>)
+                : []
+            ).map((c) => `${cardView(c).value}${cardView(c).suit}`);
+            const boardFinal = boardStrings.length
+              ? boardStrings
+              : ["A♠", "K♥", "Q♦", "J♣", "10♠"];
             setHandHistory((current) => [
               ...current.slice(-19),
               {
@@ -1254,8 +1379,15 @@ export function GamePage() {
                 pot: summary.pot || 0,
                 ranks,
                 communityCards: boardFinal,
-                holeCards: holeCards.map((c) => `${cardView(c).value}${cardView(c).suit}`),
-                commitmentHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                holeCards: (Array.isArray(myPokerPlayer?.cards)
+                  ? (myPokerPlayer.cards as Array<{
+                      rank: number;
+                      suit: number;
+                    }>)
+                  : []
+                ).map((c) => `${cardView(c).value}${cardView(c).suit}`),
+                commitmentHash:
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                 serverSeed: `s_seed_${Date.now().toString(16)}`,
                 clientSeed: `c_seed_${userId || "player"}`,
                 deckSignature: boardFinal.join(","),
@@ -1275,7 +1407,10 @@ export function GamePage() {
           }
           if (action === "thinking") {
             setThinkingPlayer(payload.player_id || "");
-            setThinkingSeats((prev) => ({ ...prev, [payload.player_id || ""]: true }));
+            setThinkingSeats((prev) => ({
+              ...prev,
+              [payload.player_id || ""]: true,
+            }));
           } else if (action === "bot_chat") {
             const bc = payload.payload as { text?: string; emote?: string };
             setBotChats((prev) => ({
@@ -1313,7 +1448,9 @@ export function GamePage() {
               setDealPulse((value) => value + 1);
               // Reset wager to street minimum so 2000 doesn't stick to next tour
               if (gameType === "poker") {
-                const streetMin = Number((details as { min_raise_to?: number }).min_raise_to ?? 0);
+                const streetMin = Number(
+                  (details as { min_raise_to?: number }).min_raise_to ?? 0,
+                );
                 if (streetMin > 0) setWager(streetMin);
                 else if (details.community) setWager(200);
               }
@@ -1351,7 +1488,8 @@ export function GamePage() {
             if (action === "meld") playSound("meld");
             if (action === "knock") playSound("knock");
             if (action === "new_hand") playSound("new_hand");
-            if (action === "roll_dice" || action === "move_pawn") playSound("chip");
+            if (action === "roll_dice" || action === "move_pawn")
+              playSound("chip");
             if (action === "play_tile") playSound("card_played");
             if (action === "draw_tile") playSound("draw");
             if (action !== "result" && !presentationOnly) {
@@ -1415,7 +1553,10 @@ export function GamePage() {
             });
         }
         if (payload.type === "error") {
-          const errorMsg = typeof payload.payload === "string" ? payload.payload : t("game.tableConnectionError");
+          const errorMsg =
+            typeof payload.payload === "string"
+              ? payload.payload
+              : t("game.tableConnectionError");
           setGameConnectionError(errorMsg);
           // Clear thinking overlay if bot action was rejected (e.g., illegal check)
           setThinkingPlayer("");
@@ -1441,6 +1582,8 @@ export function GamePage() {
       visibleHoleCardCount,
       playFeedback,
       motionEnabled,
+      gameState,
+      myPokerPlayer,
     ],
   );
 
@@ -1480,10 +1623,19 @@ export function GamePage() {
     const prev = prevPhaseRef.current;
     if (prev !== null && prev !== phase) {
       // street changed or new hand: reset to min for this street
-      const resetTo = Number(gameState.min_raise_to ?? gameState.big_blind ?? minRaiseTo ?? 200);
-      setWager(Math.min(maxRaiseTo, Math.max(resetTo, Number(gameState.small_blind || 100) * 2)));
+      const resetTo = Number(
+        gameState.min_raise_to ?? gameState.big_blind ?? minRaiseTo ?? 200,
+      );
+      setWager(
+        Math.min(
+          maxRaiseTo,
+          Math.max(resetTo, Number(gameState.small_blind || 100) * 2),
+        ),
+      );
     } else {
-      setWager((current) => Math.min(maxRaiseTo, Math.max(minRaiseTo, current)));
+      setWager((current) =>
+        Math.min(maxRaiseTo, Math.max(minRaiseTo, current)),
+      );
     }
     prevPhaseRef.current = phase;
   }, [gameState, isPoker, maxRaiseTo, minRaiseTo]);
@@ -1493,7 +1645,9 @@ export function GamePage() {
       playSound("your_turn");
       haptics.actionTurnAlert();
       if (pushNotifsEnabled) {
-        webNotifications.notifyTurn(`${gameType ? gameType.toUpperCase() : "Poker"} (Table ${tableId || ""})`);
+        webNotifications.notifyTurn(
+          `${gameType ? gameType.toUpperCase() : "Poker"} (Table ${tableId || ""})`,
+        );
       }
     }
     wasMyTurnRef.current = isMyTurn;
@@ -1538,7 +1692,9 @@ export function GamePage() {
     [engineTableId, gameType, spectator],
   );
   const handleConnectionStateChange = useCallback(
-    (state: "connecting" | "connected" | "reconnecting" | "closed" | "offline") => {
+    (
+      state: "connecting" | "connected" | "reconnecting" | "closed" | "offline",
+    ) => {
       setConnectionState(state);
     },
     [],
@@ -1565,7 +1721,8 @@ export function GamePage() {
   }, [accessToken, setGuestMode, setSession]);
 
   useEffect(() => {
-    if (tableId && (admissionToken || accessToken)) setConnectionState("connecting");
+    if (tableId && (admissionToken || accessToken))
+      setConnectionState("connecting");
     else if (demoAi && !engineTableId) setConnectionState("offline");
   }, [accessToken, admissionToken, demoAi, engineTableId, tableId]);
 
@@ -1608,10 +1765,11 @@ export function GamePage() {
             });
           }
         } else if (demoAi && accessToken) {
-          const bots = gameType === "poker" ? 8 : (gameType === "rami" ? 1 : 3);
+          const bots = gameType === "poker" ? 8 : gameType === "rami" ? 1 : 3;
           void startBotSimulation(
             accessToken,
-            (gameType as "poker" | "belote" | "rami" | "ludo" | "domino") || "poker",
+            (gameType as "poker" | "belote" | "rami" | "ludo" | "domino") ||
+              "poker",
             "balanced",
             `auto-sim-${Date.now()}`,
             bots,
@@ -1631,10 +1789,11 @@ export function GamePage() {
       })
       .catch(() => {
         if (demoAi && accessToken) {
-          const bots = gameType === "poker" ? 8 : (gameType === "rami" ? 1 : 3);
+          const bots = gameType === "poker" ? 8 : gameType === "rami" ? 1 : 3;
           void startBotSimulation(
             accessToken,
-            (gameType as "poker" | "belote" | "rami" | "ludo" | "domino") || "poker",
+            (gameType as "poker" | "belote" | "rami" | "ludo" | "domino") ||
+              "poker",
             "balanced",
             `auto-sim-${Date.now()}`,
             bots,
@@ -1745,7 +1904,9 @@ export function GamePage() {
       const result = await createTableInvitation(tableId, accessToken);
       const safeGame = gameType || "poker";
       const link = `${window.location.origin}/game/${safeGame}/${tableId}?invite=${result.token}`;
-      const msg = encodeURIComponent(`Avia hilalao ${safeGame.toUpperCase()} amiko amin'ny MDG Game Club ! Tsindrio eto : ${link}`);
+      const msg = encodeURIComponent(
+        `Avia hilalao ${safeGame.toUpperCase()} amiko amin'ny MDG Game Club ! Tsindrio eto : ${link}`,
+      );
       window.open(`https://api.whatsapp.com/send?text=${msg}`, "_blank");
       void trackEvent("invite_sent", {
         game_type: safeGame,
@@ -1816,7 +1977,10 @@ export function GamePage() {
   };
 
   const hasActiveHand = Boolean(
-    isPoker && holeCards.length > 0 && gameState?.phase !== "showdown" && !pokerWinners.length,
+    isPoker &&
+    holeCards.length > 0 &&
+    gameState?.phase !== "showdown" &&
+    !pokerWinners.length,
   );
 
   return (
@@ -1827,7 +1991,11 @@ export function GamePage() {
         <button
           type="button"
           className="back-link"
-          style={{ background: "transparent", border: "none", cursor: "pointer" }}
+          style={{
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+          }}
           onClick={() => setShowExitModal(true)}
         >
           <ChevronLeft size={17} /> {t("game.leaveTable")}
@@ -1857,7 +2025,11 @@ export function GamePage() {
         <button
           className={`icon-button ${isLandscapeMode ? "active" : ""}`}
           onClick={toggleLandscapeMode}
-          title={isLandscapeMode ? "Mode Portrait" : "Basculer en Mode Paysage Plein Écran"}
+          title={
+            isLandscapeMode
+              ? "Mode Portrait"
+              : "Basculer en Mode Paysage Plein Écran"
+          }
           aria-label="Mode Paysage"
           style={{ color: isLandscapeMode ? "var(--gold)" : undefined }}
         >
@@ -1883,12 +2055,18 @@ export function GamePage() {
       {isSittingOut && (
         <div className="sit-out-floating-banner">
           <strong>⏸️ Mode Pause (Sit-Out) Actif</strong>
-          <p>Vous conservez votre place. Vos mains sont passées automatiquement.</p>
+          <p>
+            Vous conservez votre place. Vos mains sont passées automatiquement.
+          </p>
           <button
             type="button"
             className="primary-button"
             onClick={() => setIsSittingOut(false)}
-            style={{ padding: "8px 24px", fontSize: "0.95rem", fontWeight: 700 }}
+            style={{
+              padding: "8px 24px",
+              fontSize: "0.95rem",
+              fontWeight: 700,
+            }}
           >
             ▶️ Reprendre ma place (I'm Back)
           </button>
@@ -1916,7 +2094,14 @@ export function GamePage() {
           <span>⏳ Quitter à la fin de cette main</span>
           <button
             type="button"
-            style={{ background: "transparent", border: "none", color: "var(--gold)", cursor: "pointer", padding: "0 2px", fontWeight: "bold" }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--gold)",
+              cursor: "pointer",
+              padding: "0 2px",
+              fontWeight: "bold",
+            }}
             onClick={() => setLeaveAfterHand(false)}
             title="Annuler le départ programmé"
           >
@@ -1968,24 +2153,55 @@ export function GamePage() {
         <p className="secure-note game-sync-note">{invitationState}</p>
       )}
       {connectionState === "connected" && (
-        <p className="secure-note game-sync-note" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <p
+          className="secure-note game-sync-note"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <span>
-            {t("game.syncedPlayers", { count: playerCount })} · {t("game.sequence")} {sequence}
+            {t("game.syncedPlayers", { count: playerCount })} ·{" "}
+            {t("game.sequence")} {sequence}
             {lastAction ? ` · ${lastAction}` : ""}
           </span>
           <NetworkQualityBadge overrideLatency={latency} compact />
         </p>
       )}
       {connectionState === "reconnecting" && (
-        <p className="secure-note game-sync-note" style={{ color: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+        <p
+          className="secure-note game-sync-note"
+          style={{
+            color: "var(--gold)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+          }}
+        >
           <Loader2 size={14} className="spin" />
-          <span>{t("game.reconnecting")} · Place réservée 30s (Tolérance 3G / JIRAMA)...</span>
+          <span>
+            {t("game.reconnecting")} · Place réservée 30s (Tolérance 3G /
+            JIRAMA)...
+          </span>
         </p>
       )}
       {connectionState === "offline" && (
-        <p className="secure-note game-sync-note" style={{ color: "var(--red)", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+        <p
+          className="secure-note game-sync-note"
+          style={{
+            color: "var(--red)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+          }}
+        >
           <AlertCircle size={14} />
-          <span>Réseau interrompu · Vos jetons et votre place restent protégés...</span>
+          <span>
+            Réseau interrompu · Vos jetons et votre place restent protégés...
+          </span>
         </p>
       )}
       {resultMessage && (
@@ -2067,7 +2283,9 @@ export function GamePage() {
                       <div className="showdown-player-cards">
                         {playerCards.length > 0 ? (
                           playerCards.map((card, idx) => {
-                            const isWinning = winningCardKeys.has(cardKey(card));
+                            const isWinning = winningCardKeys.has(
+                              cardKey(card),
+                            );
                             return (
                               <div
                                 key={`showdown-hole-${idx}`}
@@ -2079,9 +2297,7 @@ export function GamePage() {
                           })
                         ) : (
                           <span className="muted">
-                            {isUncontestedWin
-                              ? "—"
-                              : t("game.revealedCards")}
+                            {isUncontestedWin ? "—" : t("game.revealedCards")}
                           </span>
                         )}
                       </div>
@@ -2097,8 +2313,7 @@ export function GamePage() {
 
             {/* Pot total */}
             <div className="showdown-pot">
-              {t("game.pot")}{" "}
-              <strong>{String(gameState?.pot ?? 0)}</strong>
+              {t("game.pot")} <strong>{String(gameState?.pot ?? 0)}</strong>
             </div>
 
             {!isSessionFinished && !spectator && (
@@ -2126,7 +2341,7 @@ export function GamePage() {
               <span
                 key={i}
                 style={{
-                  left: `${5 + (i * 8)}%`,
+                  left: `${5 + i * 8}%`,
                   animationDelay: `${i * 0.2}s`,
                   background: AVATAR_COLORS[i % AVATAR_COLORS.length],
                 }}
@@ -2273,10 +2488,27 @@ export function GamePage() {
                 hasCards={!player?.folded}
                 stats={(() => {
                   const pid = String(player?.id || "");
-                  const tp = (tablePlayers as unknown as Array<Record<string, unknown>>)?.find((p: Record<string, unknown>) => String(p.id) === pid) as Record<string, unknown> | undefined;
-                  const prof = String((tp as Record<string, unknown>)?.BotProfile || (tp as Record<string, unknown>)?.botProfile || "");
-                  const map: Record<string, string> = { fish: "VPIP 42% · PFR 8%", rock: "VPIP 12% · PFR 9%", maniac: "VPIP 38% · PFR 28%", shark: "VPIP 22% · PFR 18%", donkey: "VPIP 35% · PFR 12%", balanced: "VPIP 24% · PFR 14%" };
-                  return prof ? map[prof] || map.balanced : "VPIP 24% · PFR 14%";
+                  const tp = (
+                    tablePlayers as unknown as Array<Record<string, unknown>>
+                  )?.find(
+                    (p: Record<string, unknown>) => String(p.id) === pid,
+                  ) as Record<string, unknown> | undefined;
+                  const prof = String(
+                    (tp as Record<string, unknown>)?.BotProfile ||
+                      (tp as Record<string, unknown>)?.botProfile ||
+                      "",
+                  );
+                  const map: Record<string, string> = {
+                    fish: "VPIP 42% · PFR 8%",
+                    rock: "VPIP 12% · PFR 9%",
+                    maniac: "VPIP 38% · PFR 28%",
+                    shark: "VPIP 22% · PFR 18%",
+                    donkey: "VPIP 35% · PFR 12%",
+                    balanced: "VPIP 24% · PFR 14%",
+                  };
+                  return prof
+                    ? map[prof] || map.balanced
+                    : "VPIP 24% · PFR 14%";
                 })()}
               />
             );
@@ -2314,7 +2546,12 @@ export function GamePage() {
                     {...cardView(card)}
                   />
                 ) : (
-                  <PlayingCard key={`empty-${index}`} value="?" suit="" hidden />
+                  <PlayingCard
+                    key={`empty-${index}`}
+                    value="?"
+                    suit=""
+                    hidden
+                  />
                 ),
               )}
           </div>
@@ -2345,9 +2582,7 @@ export function GamePage() {
                 + Recharger
               </button>
             )}
-            {myBet > 0 && (
-              <span className="you-bet-chip">{myBet}</span>
-            )}
+            {myBet > 0 && <span className="you-bet-chip">{myBet}</span>}
           </div>
           <div className="hole-cards">
             {(renderedHoleCards.length
@@ -2378,28 +2613,39 @@ export function GamePage() {
               <span>🎲</span>
               <span>Ludo Malagasy · Arena 4 Joueurs</span>
             </div>
-            <div className={`ludo-turn-indicator-pill ${finishedInfo ? "game-finished-pill" : isMyTurn ? "is-my-turn" : ""}`}>
+            <div
+              className={`ludo-turn-indicator-pill ${finishedInfo ? "game-finished-pill" : isMyTurn ? "is-my-turn" : ""}`}
+            >
               <span
                 className="ludo-pulse-dot"
                 style={{
                   backgroundColor: finishedInfo
                     ? "#ffd700"
                     : isMyTurn
-                    ? "#10b981"
-                    : ["#e53935", "#43a047", "#fbc02d", "#1e88e5"][Number(gameState?.current ?? 0)] || "#ffd700",
+                      ? "#10b981"
+                      : ["#e53935", "#43a047", "#fbc02d", "#1e88e5"][
+                          Number(gameState?.current ?? 0)
+                        ] || "#ffd700",
                 }}
               />
               <span>
                 {finishedInfo
                   ? `🏁 ${finishedInfo.title} · Vainqueur : ${finishedInfo.winnerName}`
                   : isMyTurn
-                  ? "🟢 C'est à vous de jouer !"
-                  : `Au tour de ${nameForPlayer(String(statePlayers[Number(gameState?.current ?? 0)]?.id || ""))} (${["Rouge", "Vert", "Jaune", "Bleu"][Number(gameState?.current ?? 0)] || "Joueur"})`}
+                    ? "🟢 C'est à vous de jouer !"
+                    : `Au tour de ${nameForPlayer(String(statePlayers[Number(gameState?.current ?? 0)]?.id || ""))} (${["Rouge", "Vert", "Jaune", "Bleu"][Number(gameState?.current ?? 0)] || "Joueur"})`}
               </span>
             </div>
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-              <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}>
-                Dernier dé : <strong style={{ color: "#ffd700", fontSize: "1.05rem" }}>{Number(gameState?.last_roll ?? 0) > 0 ? Number(gameState?.last_roll) : "—"}</strong>
+              <span
+                style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}
+              >
+                Dernier dé :{" "}
+                <strong style={{ color: "#ffd700", fontSize: "1.05rem" }}>
+                  {Number(gameState?.last_roll ?? 0) > 0
+                    ? Number(gameState?.last_roll)
+                    : "—"}
+                </strong>
               </span>
             </div>
           </div>
@@ -2412,11 +2658,17 @@ export function GamePage() {
               { camp: 3, name: "Bleu", class: "pod-blue", hex: "#1e88e5" },
               { camp: 2, name: "Jaune", class: "pod-yellow", hex: "#fbc02d" },
             ].map((c) => {
-              const player = statePlayers.find((p) => Number(p.color ?? 0) === c.camp) || statePlayers[c.camp];
+              const player =
+                statePlayers.find((p) => Number(p.color ?? 0) === c.camp) ||
+                statePlayers[c.camp];
               const isTheirTurn = Number(gameState?.current ?? 0) === c.camp;
               const isMe = String(player?.id || "") === userId;
               const pawns = Array.isArray(player?.pawns)
-                ? (player.pawns as Array<{ id: number; state: string; position: number }>)
+                ? (player.pawns as Array<{
+                    id: number;
+                    state: string;
+                    position: number;
+                  }>)
                 : [];
               const yardCount = pawns.filter((p) => p.state === "base").length;
               const homeCount = pawns.filter((p) => p.state === "home").length;
@@ -2428,15 +2680,23 @@ export function GamePage() {
                   className={`ludo-player-pod ${c.class} ${isTheirTurn ? "active-turn" : ""}`}
                 >
                   <div className="ludo-pod-header">
-                    <div className="ludo-pod-avatar" style={{ backgroundColor: c.hex }}>
-                      {isMe ? "M" : String(player?.name || c.name)[0].toUpperCase()}
+                    <div
+                      className="ludo-pod-avatar"
+                      style={{ backgroundColor: c.hex }}
+                    >
+                      {isMe
+                        ? "M"
+                        : String(player?.name || c.name)[0].toUpperCase()}
                     </div>
                     <div className="ludo-pod-identity">
                       <span className="ludo-pod-name">
-                        {isMe ? `${t("game.you")} (${c.name})` : String(player?.name || `Camp ${c.name}`)}
+                        {isMe
+                          ? `${t("game.you")} (${c.name})`
+                          : String(player?.name || `Camp ${c.name}`)}
                       </span>
                       <span className="ludo-pod-tag" style={{ color: c.hex }}>
-                        {isMe ? "Vous" : demoAi ? "Bot IA" : "Joueur"} · Camp {c.name}
+                        {isMe ? "Vous" : demoAi ? "Bot IA" : "Joueur"} · Camp{" "}
+                        {c.name}
                       </span>
                     </div>
                   </div>
@@ -2469,14 +2729,24 @@ export function GamePage() {
                   id: String(p.id || ""),
                   name: String(p.name || ""),
                   color: Number(p.color ?? 0),
-                  pawns: Array.isArray(p.pawns) ? (p.pawns as Array<{ id: number; state: "base" | "track" | "home_path" | "home"; position: number }>) : [],
+                  pawns: Array.isArray(p.pawns)
+                    ? (p.pawns as Array<{
+                        id: number;
+                        state: "base" | "track" | "home_path" | "home";
+                        position: number;
+                      }>)
+                    : [],
                   score: Number(p.score ?? 0),
                 }))}
                 currentTurnIndex={Number(gameState?.current ?? 0)}
                 lastRoll={Number(gameState?.last_roll ?? 0)}
                 canRoll={Boolean(gameState?.can_roll ?? true)}
                 canMove={Boolean(gameState?.can_move ?? false)}
-                validMoves={Array.isArray(gameState?.valid_moves) ? (gameState.valid_moves as number[]) : []}
+                validMoves={
+                  Array.isArray(gameState?.valid_moves)
+                    ? (gameState.valid_moves as number[])
+                    : []
+                }
                 isMyTurn={isMyTurn}
                 myColorIndex={Number(myPokerPlayer?.color ?? 0)}
                 onRollDice={() => {
@@ -2492,8 +2762,22 @@ export function GamePage() {
           {/* Quick Interactive Actions */}
           <div className="ludo-arena-quick-actions">
             {finishedInfo ? (
-              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
-                <span style={{ fontSize: "0.95rem", color: "#ffd700", fontWeight: 700 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.95rem",
+                    color: "#ffd700",
+                    fontWeight: 700,
+                  }}
+                >
                   🏁 Partie terminée — Vainqueur : {finishedInfo.winnerName}
                 </span>
                 <button
@@ -2530,30 +2814,58 @@ export function GamePage() {
                   </button>
                 )}
 
-                {isMyTurn && Boolean(gameState?.can_move) && Array.isArray(gameState?.valid_moves) && (gameState.valid_moves as number[]).length > 0 && (
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.85rem", color: "#ffd700", fontWeight: 700 }}>
-                      Dé: {Number(gameState?.last_roll ?? 0)} — Déplacez un pion :
-                    </span>
-                    {(gameState.valid_moves as number[]).map((pId) => (
-                      <button
-                        key={`quick-pawn-${pId}`}
-                        type="button"
-                        className="button button-gold button-small"
-                        onClick={() => {
-                          sendGameAction("move_pawn", { pawn_id: pId });
+                {isMyTurn &&
+                  Boolean(gameState?.can_move) &&
+                  Array.isArray(gameState?.valid_moves) &&
+                  (gameState.valid_moves as number[]).length > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.85rem",
+                          color: "#ffd700",
+                          fontWeight: 700,
                         }}
-                        style={{ padding: "8px 14px", fontWeight: 700 }}
                       >
-                        ♟️ Avancer Pion #{pId + 1}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        Dé: {Number(gameState?.last_roll ?? 0)} — Déplacez un
+                        pion :
+                      </span>
+                      {(gameState.valid_moves as number[]).map((pId) => (
+                        <button
+                          key={`quick-pawn-${pId}`}
+                          type="button"
+                          className="button button-gold button-small"
+                          onClick={() => {
+                            sendGameAction("move_pawn", { pawn_id: pId });
+                          }}
+                          style={{ padding: "8px 14px", fontWeight: 700 }}
+                        >
+                          ♟️ Avancer Pion #{pId + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                 {!isMyTurn && (
-                  <span style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.6)" }}>
-                    ⏳ Tour de l'adversaire ({nameForPlayer(String(statePlayers[Number(gameState?.current ?? 0)]?.id || ""))})…
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "rgba(255, 255, 255, 0.6)",
+                    }}
+                  >
+                    ⏳ Tour de l'adversaire (
+                    {nameForPlayer(
+                      String(
+                        statePlayers[Number(gameState?.current ?? 0)]?.id || "",
+                      ),
+                    )}
+                    )…
                   </span>
                 )}
               </>
@@ -2561,7 +2873,16 @@ export function GamePage() {
           </div>
 
           {finishedInfo && (
-            <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "center", margin: "14px 0", flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "14px 0",
+                flexWrap: "wrap",
+              }}
+            >
               <button
                 type="button"
                 className="button button-gold"
@@ -2588,236 +2909,388 @@ export function GamePage() {
       )}
 
       {/* 3. Modern Domino Arena Stage (Malagasy Rosewood Lounge, Emerald Runner, Wooden Rack) */}
-      {gameType === "domino" && (() => {
-        const myTiles = Array.isArray(myPokerPlayer?.hand)
-          ? (myPokerPlayer.hand as Array<{ left: number; right: number }>)
-          : [];
-        const leftEnd = Number(gameState?.left_end ?? -1);
-        const rightEnd = Number(gameState?.right_end ?? -1);
-        const boardEmpty = leftEnd === -1 && rightEnd === -1;
-        const boneyardCount = Number(gameState?.boneyard_count ?? 0);
-        const canPlayLeft = (t: { left: number; right: number }) => boardEmpty || t.left === leftEnd || t.right === leftEnd;
-        const canPlayRight = (t: { left: number; right: number }) => boardEmpty || t.left === rightEnd || t.right === rightEnd;
-        const hasPlayable = myTiles.some((t) => canPlayLeft(t) || canPlayRight(t));
+      {gameType === "domino" &&
+        (() => {
+          const myTiles = Array.isArray(myPokerPlayer?.hand)
+            ? (myPokerPlayer.hand as Array<{ left: number; right: number }>)
+            : [];
+          const leftEnd = Number(gameState?.left_end ?? -1);
+          const rightEnd = Number(gameState?.right_end ?? -1);
+          const boardEmpty = leftEnd === -1 && rightEnd === -1;
+          const boneyardCount = Number(gameState?.boneyard_count ?? 0);
+          const canPlayLeft = (t: { left: number; right: number }) =>
+            boardEmpty || t.left === leftEnd || t.right === leftEnd;
+          const canPlayRight = (t: { left: number; right: number }) =>
+            boardEmpty || t.left === rightEnd || t.right === rightEnd;
+          const hasPlayable = myTiles.some(
+            (t) => canPlayLeft(t) || canPlayRight(t),
+          );
 
-        return (
-          <div className="domino-arena-stage">
-            {/* Header / HUD */}
-            <div className="domino-stage-header">
-              <div className="domino-stage-title">
-                <span>🁓</span>
-                <span>Domino Double-Six · Salon Prestige</span>
-              </div>
-              <div
-                className={`domino-end-indicator ${finishedInfo ? "game-finished-pill" : isMyTurn ? "is-my-turn" : ""}`}
-                style={{
-                  background: finishedInfo
-                    ? "linear-gradient(135deg, rgba(211, 176, 107, 0.25) 0%, rgba(16, 185, 129, 0.2) 100%)"
-                    : isMyTurn ? "rgba(16, 185, 129, 0.25)" : "rgba(0,0,0,0.45)",
-                  borderColor: finishedInfo ? "#d3b06b" : isMyTurn ? "#10b981" : "rgba(255,255,255,0.15)",
-                  color: finishedInfo ? "#ffd700" : isMyTurn ? "#6ee7b7" : "#fff",
-                }}
-              >
-                <span>
-                  {finishedInfo
-                    ? `🏁 ${finishedInfo.title} · Vainqueur : ${finishedInfo.winnerName}`
-                    : isMyTurn
-                    ? "🟢 Votre tour · Choisissez un domino à poser"
-                    : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}
-                </span>
-              </div>
-              {/* 3D Boneyard (Talon) Stack */}
-              <div
-                className={`domino-boneyard-pile ${isMyTurn && !hasPlayable && boneyardCount > 0 ? "can-draw" : ""}`}
-                onClick={() => {
-                  if (isMyTurn && !hasPlayable && boneyardCount > 0) {
-                    playSound("domino_draw");
-                    sendGameAction("draw_tile");
-                  }
-                }}
-                title={isMyTurn && !hasPlayable && boneyardCount > 0 ? "Cliquez pour piocher un domino !" : `Talon : ${boneyardCount} dominos`}
-              >
-                <div className="domino-tiles-stack-art">
-                  <div className="boneyard-tile-layer boneyard-layer-1" />
-                  <div className="boneyard-tile-layer boneyard-layer-2" />
-                  <div className="boneyard-tile-layer boneyard-layer-3" />
+          return (
+            <div className="domino-arena-stage">
+              {/* Header / HUD */}
+              <div className="domino-stage-header">
+                <div className="domino-stage-title">
+                  <span>🁓</span>
+                  <span>Domino Double-Six · Salon Prestige</span>
                 </div>
-                <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#ffd700" }}>
-                  Talon ({boneyardCount})
-                </span>
-                {isMyTurn && !hasPlayable && boneyardCount > 0 && (
-                  <span style={{ fontSize: "0.68rem", color: "#10b981", fontWeight: 700 }}>
-                    📥 Piocher !
+                <div
+                  className={`domino-end-indicator ${finishedInfo ? "game-finished-pill" : isMyTurn ? "is-my-turn" : ""}`}
+                  style={{
+                    background: finishedInfo
+                      ? "linear-gradient(135deg, rgba(211, 176, 107, 0.25) 0%, rgba(16, 185, 129, 0.2) 100%)"
+                      : isMyTurn
+                        ? "rgba(16, 185, 129, 0.25)"
+                        : "rgba(0,0,0,0.45)",
+                    borderColor: finishedInfo
+                      ? "#d3b06b"
+                      : isMyTurn
+                        ? "#10b981"
+                        : "rgba(255,255,255,0.15)",
+                    color: finishedInfo
+                      ? "#ffd700"
+                      : isMyTurn
+                        ? "#6ee7b7"
+                        : "#fff",
+                  }}
+                >
+                  <span>
+                    {finishedInfo
+                      ? `🏁 ${finishedInfo.title} · Vainqueur : ${finishedInfo.winnerName}`
+                      : isMyTurn
+                        ? "🟢 Votre tour · Choisissez un domino à poser"
+                        : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}
                   </span>
-                )}
-              </div>
-            </div>
-
-            {/* Opponents Row with Standing Mini-Racks */}
-            <div className="domino-opponents-row">
-              {seatPlayers.map((player, idx) => {
-                const isTheirTurn = currentPlayerId === String(player.id || "");
-                const count = Number(player.tile_count ?? (Array.isArray(player.hand) ? player.hand.length : 7));
-                return (
-                  <div key={String(player.id || idx)} className={`domino-opponent-card ${isTheirTurn ? "active-turn" : ""}`}>
-                    <div className="domino-opponent-avatar" style={{ backgroundColor: avatarColor(String(player.name || `P${idx}`)) }}>
-                      {String(player.name || `P`)[0].toUpperCase()}
-                    </div>
-                    <div className="domino-opponent-info">
-                      <span className="domino-opponent-name">{String(player.name || `Joueur ${idx + 1}`)}</span>
-                      <div className="domino-mini-rack" title={`${count} dominos cachés`}>
-                        {Array.from({ length: Math.min(count, 7) }).map((_, i) => (
-                          <div key={i} className="domino-face-down-mini" />
-                        ))}
-                        {count > 7 && <span style={{ fontSize: "10px", color: "#ffd700", marginLeft: "2px" }}>+{count - 7}</span>}
-                      </div>
-                    </div>
-                    {isTheirTurn && (
-                      <span style={{ fontSize: "11px", color: "#ffd700", marginLeft: "auto", fontWeight: 700 }}>
-                        Réfléchit…
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Center Velvet Runner with Played Dominoes Chain */}
-            <div className="domino-center-mat">
-              <div className="domino-ends-bar">
-                <span className="domino-end-indicator">
-                  ◀ Bout Gauche : <strong>{leftEnd >= 0 ? leftEnd : "Libre"}</strong>
-                </span>
-                <span className="domino-end-indicator">
-                  Bout Droit : <strong>{rightEnd >= 0 ? rightEnd : "Libre"}</strong> ▶
-                </span>
-              </div>
-
-              <div className="domino-chain-scrollable">
-                {Array.isArray(gameState?.board) && (gameState.board as Array<{ left: number; right: number }>).length > 0 ? (
-                  (gameState.board as Array<{ left: number; right: number }>).map((tile, tIdx, arr) => {
-                    const isLatest = tIdx === 0 || tIdx === arr.length - 1;
-                    return (
-                      <div
-                        key={`domino-chain-tile-${tIdx}`}
-                        className={isLatest ? "domino-snap-anim" : ""}
-                      >
-                        <DominoTile
-                          left={tile.left}
-                          right={tile.right}
-                          orientation={tile.left === tile.right ? "vertical" : "horizontal"}
-                          size="medium"
-                        />
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: "0.95rem", margin: "auto", textAlign: "center", padding: "20px" }}>
-                    ✨ Table ouverte en Palissandre. Le premier joueur ouvre la ligne avec son domino !
-                  </div>
-                )}
-              </div>
-
-              {Boolean(gameState?.blocked) && (
-                <div style={{ background: "rgba(239, 68, 68, 0.25)", border: "1px solid #ef4444", borderRadius: "12px", padding: "8px 16px", textAlign: "center", fontSize: "0.9rem", color: "#fca5a5" }}>
-                  🔒 <strong>Partie Fermée (Gasy) !</strong> Gagnant au décompte des points minimaux : {String(gameState?.winner || "Adversaire")}
                 </div>
-              )}
-            </div>
-
-            {/* Malagasy Rosewood Rack (Player's Domino Hand) */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-              <div style={{ fontSize: "0.8rem", color: "#d4af37", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                🪵 Votre Chevalet (Dominos en main)
+                {/* 3D Boneyard (Talon) Stack */}
+                <div
+                  className={`domino-boneyard-pile ${isMyTurn && !hasPlayable && boneyardCount > 0 ? "can-draw" : ""}`}
+                  onClick={() => {
+                    if (isMyTurn && !hasPlayable && boneyardCount > 0) {
+                      playSound("domino_draw");
+                      sendGameAction("draw_tile");
+                    }
+                  }}
+                  title={
+                    isMyTurn && !hasPlayable && boneyardCount > 0
+                      ? "Cliquez pour piocher un domino !"
+                      : `Talon : ${boneyardCount} dominos`
+                  }
+                >
+                  <div className="domino-tiles-stack-art">
+                    <div className="boneyard-tile-layer boneyard-layer-1" />
+                    <div className="boneyard-tile-layer boneyard-layer-2" />
+                    <div className="boneyard-tile-layer boneyard-layer-3" />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: "0.78rem",
+                      fontWeight: 800,
+                      color: "#ffd700",
+                    }}
+                  >
+                    Talon ({boneyardCount})
+                  </span>
+                  {isMyTurn && !hasPlayable && boneyardCount > 0 && (
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        color: "#10b981",
+                        fontWeight: 700,
+                      }}
+                    >
+                      📥 Piocher !
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="domino-rack-wooden">
-                {myTiles.map((t, idx) => {
-                  const mLeft = canPlayLeft(t);
-                  const mRight = canPlayRight(t);
-                  const isPlayable = isMyTurn && (mLeft || mRight);
 
+              {/* Opponents Row with Standing Mini-Racks */}
+              <div className="domino-opponents-row">
+                {seatPlayers.map((player, idx) => {
+                  const isTheirTurn =
+                    currentPlayerId === String(player.id || "");
+                  const count = Number(
+                    player.tile_count ??
+                      (Array.isArray(player.hand) ? player.hand.length : 7),
+                  );
                   return (
                     <div
-                      key={`domino-my-tile-${idx}`}
-                      className={`domino-rack-tile-wrapper ${isPlayable ? "domino-rack-playable-tile" : ""}`}
+                      key={String(player.id || idx)}
+                      className={`domino-opponent-card ${isTheirTurn ? "active-turn" : ""}`}
                     >
-                      <DominoTile
-                        left={t.left}
-                        right={t.right}
-                        orientation="vertical"
-                        size="medium"
-                        isPlayable={isPlayable}
-                        onClick={() => {
-                          if (!isPlayable) return;
-                          playSound("domino_snap");
-                          const side = mLeft ? "left" : "right";
-                          sendGameAction("play_tile", { tile: t, side });
+                      <div
+                        className="domino-opponent-avatar"
+                        style={{
+                          backgroundColor: avatarColor(
+                            String(player.name || `P${idx}`),
+                          ),
                         }}
-                      />
+                      >
+                        {String(player.name || `P`)[0].toUpperCase()}
+                      </div>
+                      <div className="domino-opponent-info">
+                        <span className="domino-opponent-name">
+                          {String(player.name || `Joueur ${idx + 1}`)}
+                        </span>
+                        <div
+                          className="domino-mini-rack"
+                          title={`${count} dominos cachés`}
+                        >
+                          {Array.from({ length: Math.min(count, 7) }).map(
+                            (_, i) => (
+                              <div key={i} className="domino-face-down-mini" />
+                            ),
+                          )}
+                          {count > 7 && (
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                color: "#ffd700",
+                                marginLeft: "2px",
+                              }}
+                            >
+                              +{count - 7}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {isTheirTurn && (
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            color: "#ffd700",
+                            marginLeft: "auto",
+                            fontWeight: 700,
+                          }}
+                        >
+                          Réfléchit…
+                        </span>
+                      )}
                     </div>
                   );
                 })}
               </div>
-            </div>
 
-            {finishedInfo && (
-              <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "center", margin: "14px 0", flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  className="button button-gold"
-                  onClick={() => {
-                    sendGameAction("new_hand");
-                    setResultModalDismissed(false);
-                  }}
-                  style={{ padding: "10px 20px", fontWeight: 700 }}
-                >
-                  🁓 Rejouer une partie de Domino
-                </button>
-                <button
-                  type="button"
-                  className="button button-ghost"
-                  onClick={() => setResultModalDismissed(false)}
-                  style={{ padding: "10px 16px" }}
-                >
-                  🏆 Voir le décompte des points
-                </button>
+              {/* Center Velvet Runner with Played Dominoes Chain */}
+              <div className="domino-center-mat">
+                <div className="domino-ends-bar">
+                  <span className="domino-end-indicator">
+                    ◀ Bout Gauche :{" "}
+                    <strong>{leftEnd >= 0 ? leftEnd : "Libre"}</strong>
+                  </span>
+                  <span className="domino-end-indicator">
+                    Bout Droit :{" "}
+                    <strong>{rightEnd >= 0 ? rightEnd : "Libre"}</strong> ▶
+                  </span>
+                </div>
+
+                <div className="domino-chain-scrollable">
+                  {Array.isArray(gameState?.board) &&
+                  (gameState.board as Array<{ left: number; right: number }>)
+                    .length > 0 ? (
+                    (
+                      gameState.board as Array<{ left: number; right: number }>
+                    ).map((tile, tIdx, arr) => {
+                      const isLatest = tIdx === 0 || tIdx === arr.length - 1;
+                      return (
+                        <div
+                          key={`domino-chain-tile-${tIdx}`}
+                          className={isLatest ? "domino-snap-anim" : ""}
+                        >
+                          <DominoTile
+                            left={tile.left}
+                            right={tile.right}
+                            orientation={
+                              tile.left === tile.right
+                                ? "vertical"
+                                : "horizontal"
+                            }
+                            size="medium"
+                          />
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div
+                      style={{
+                        color: "rgba(255, 255, 255, 0.65)",
+                        fontSize: "0.95rem",
+                        margin: "auto",
+                        textAlign: "center",
+                        padding: "20px",
+                      }}
+                    >
+                      ✨ Table ouverte en Palissandre. Le premier joueur ouvre
+                      la ligne avec son domino !
+                    </div>
+                  )}
+                </div>
+
+                {Boolean(gameState?.blocked) && (
+                  <div
+                    style={{
+                      background: "rgba(239, 68, 68, 0.25)",
+                      border: "1px solid #ef4444",
+                      borderRadius: "12px",
+                      padding: "8px 16px",
+                      textAlign: "center",
+                      fontSize: "0.9rem",
+                      color: "#fca5a5",
+                    }}
+                  >
+                    🔒 <strong>Partie Fermée (Gasy) !</strong> Gagnant au
+                    décompte des points minimaux :{" "}
+                    {String(gameState?.winner || "Adversaire")}
+                  </div>
+                )}
               </div>
-            )}
-            {emote && <div className="table-emote">{emote}</div>}
-          </div>
-        );
-      })()}
+
+              {/* Malagasy Rosewood Rack (Player's Domino Hand) */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.8rem",
+                    color: "#d4af37",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  🪵 Votre Chevalet (Dominos en main)
+                </div>
+                <div className="domino-rack-wooden">
+                  {myTiles.map((t, idx) => {
+                    const mLeft = canPlayLeft(t);
+                    const mRight = canPlayRight(t);
+                    const isPlayable = isMyTurn && (mLeft || mRight);
+
+                    return (
+                      <div
+                        key={`domino-my-tile-${idx}`}
+                        className={`domino-rack-tile-wrapper ${isPlayable ? "domino-rack-playable-tile" : ""}`}
+                      >
+                        <DominoTile
+                          left={t.left}
+                          right={t.right}
+                          orientation="vertical"
+                          size="medium"
+                          isPlayable={isPlayable}
+                          onClick={() => {
+                            if (!isPlayable) return;
+                            playSound("domino_snap");
+                            const side = mLeft ? "left" : "right";
+                            sendGameAction("play_tile", { tile: t, side });
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {finishedInfo && (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "14px 0",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="button button-gold"
+                    onClick={() => {
+                      sendGameAction("new_hand");
+                      setResultModalDismissed(false);
+                    }}
+                    style={{ padding: "10px 20px", fontWeight: 700 }}
+                  >
+                    🁓 Rejouer une partie de Domino
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-ghost"
+                    onClick={() => setResultModalDismissed(false)}
+                    style={{ padding: "10px 16px" }}
+                  >
+                    🏆 Voir le décompte des points
+                  </button>
+                </div>
+              )}
+              {emote && <div className="table-emote">{emote}</div>}
+            </div>
+          );
+        })()}
 
       {/* 4. Modern Belote Arena Stage (Prestige Club Card Table, Square Layout, Trick Animations, Fanned Hand) */}
       {gameType === "belote" && (
         <div className="belote-arena-stage">
           {/* Scoreboard Marquee */}
           <div className="belote-scoreboard-marquee">
-            <div className="belote-stage-title" style={{ color: "#ffd700", display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              className="belote-stage-title"
+              style={{
+                color: "#ffd700",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
               <span>♠</span>
               <span>Belote Contrée Malagasy</span>
             </div>
-            <div className={`ludo-turn-indicator-pill ${finishedInfo ? "game-finished-pill" : isMyTurn ? "is-my-turn" : ""}`} style={{ margin: "0 auto" }}>
+            <div
+              className={`ludo-turn-indicator-pill ${finishedInfo ? "game-finished-pill" : isMyTurn ? "is-my-turn" : ""}`}
+              style={{ margin: "0 auto" }}
+            >
               <span>
                 {finishedInfo
                   ? `🏁 ${finishedInfo.title} · ${finishedInfo.winnerName}`
                   : isMyTurn
-                  ? "🟢 C'est à vous de jouer !"
-                  : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}
+                    ? "🟢 C'est à vous de jouer !"
+                    : `⏳ Au tour de ${nameForPlayer(currentPlayerId)}`}
               </span>
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
               <span className="belote-team-score-badge team-us">
-                Équipe 1 (Nous) : <strong>{beloteTeamPoints[0]} pts</strong> (Total {beloteCumulative[0]})
+                Équipe 1 (Nous) : <strong>{beloteTeamPoints[0]} pts</strong>{" "}
+                (Total {beloteCumulative[0]})
               </span>
               <span className="belote-team-score-badge">
-                Équipe 2 (Eux) : <strong>{beloteTeamPoints[1]} pts</strong> (Total {beloteCumulative[1]})
+                Équipe 2 (Eux) : <strong>{beloteTeamPoints[1]} pts</strong>{" "}
+                (Total {beloteCumulative[1]})
               </span>
             </div>
             {beloteTrump !== "" && (
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", fontWeight: 700 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                }}
+              >
                 <span style={{ color: "rgba(255,255,255,0.7)" }}>Atout :</span>
-                <span style={{ fontSize: "1.2rem", color: [1, 2].includes(Number(beloteTrump)) ? "#ef4444" : "#f3f4f6" }}>
+                <span
+                  style={{
+                    fontSize: "1.2rem",
+                    color: [1, 2].includes(Number(beloteTrump))
+                      ? "#ef4444"
+                      : "#f3f4f6",
+                  }}
+                >
                   {["♣", "♦", "♥", "♠"][Number(beloteTrump)] || "?"}
                 </span>
               </div>
@@ -2827,13 +3300,36 @@ export function GamePage() {
           {/* Square Arena with 4 Players (North=Partner, West=Opp1, East=Opp2, South=Hero) */}
           <div className="belote-square-arena">
             {/* North: Partner */}
-            <div className={`belote-seat-card belote-seat-north ${currentPlayerId === String(seatPlayers[1]?.id || "") ? "active-turn" : ""}`}>
-              <div className="ludo-pod-avatar" style={{ backgroundColor: "#4db6ac" }}>P</div>
+            <div
+              className={`belote-seat-card belote-seat-north ${currentPlayerId === String(seatPlayers[1]?.id || "") ? "active-turn" : ""}`}
+            >
+              <div
+                className="ludo-pod-avatar"
+                style={{ backgroundColor: "#4db6ac" }}
+              >
+                P
+              </div>
               <div className="ludo-pod-identity">
-                <span className="ludo-pod-name">{String(seatPlayers[1]?.name || "Partenaire")}</span>
-                <span style={{ fontSize: "0.7rem", color: "#4db6ac", fontWeight: 600 }}>Partenaire (Équipe 1) · {Number(seatPlayers[1]?.hand_count ?? 8)} cartes</span>
+                <span className="ludo-pod-name">
+                  {String(seatPlayers[1]?.name || "Partenaire")}
+                </span>
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "#4db6ac",
+                    fontWeight: 600,
+                  }}
+                >
+                  Partenaire (Équipe 1) ·{" "}
+                  {Number(seatPlayers[1]?.hand_count ?? 8)} cartes
+                </span>
                 <div className="belote-opponent-cards-mini">
-                  {Array.from({ length: Math.min(Number(seatPlayers[1]?.hand_count ?? 8), 8) }).map((_, i) => (
+                  {Array.from({
+                    length: Math.min(
+                      Number(seatPlayers[1]?.hand_count ?? 8),
+                      8,
+                    ),
+                  }).map((_, i) => (
                     <div key={i} className="belote-mini-card-back" />
                   ))}
                 </div>
@@ -2841,13 +3337,35 @@ export function GamePage() {
             </div>
 
             {/* West: Left Opponent */}
-            <div className={`belote-seat-card belote-seat-west ${currentPlayerId === String(seatPlayers[0]?.id || "") ? "active-turn" : ""}`}>
-              <div className="ludo-pod-avatar" style={{ backgroundColor: "#e57373" }}>O</div>
+            <div
+              className={`belote-seat-card belote-seat-west ${currentPlayerId === String(seatPlayers[0]?.id || "") ? "active-turn" : ""}`}
+            >
+              <div
+                className="ludo-pod-avatar"
+                style={{ backgroundColor: "#e57373" }}
+              >
+                O
+              </div>
               <div className="ludo-pod-identity">
-                <span className="ludo-pod-name">{String(seatPlayers[0]?.name || "Adversaire Ouest")}</span>
-                <span style={{ fontSize: "0.7rem", color: "#e57373", fontWeight: 600 }}>Adversaire · {Number(seatPlayers[0]?.hand_count ?? 8)} cartes</span>
+                <span className="ludo-pod-name">
+                  {String(seatPlayers[0]?.name || "Adversaire Ouest")}
+                </span>
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "#e57373",
+                    fontWeight: 600,
+                  }}
+                >
+                  Adversaire · {Number(seatPlayers[0]?.hand_count ?? 8)} cartes
+                </span>
                 <div className="belote-opponent-cards-mini">
-                  {Array.from({ length: Math.min(Number(seatPlayers[0]?.hand_count ?? 8), 8) }).map((_, i) => (
+                  {Array.from({
+                    length: Math.min(
+                      Number(seatPlayers[0]?.hand_count ?? 8),
+                      8,
+                    ),
+                  }).map((_, i) => (
                     <div key={i} className="belote-mini-card-back" />
                   ))}
                 </div>
@@ -2859,7 +3377,14 @@ export function GamePage() {
               {beloteTrump !== "" && (
                 <div className="belote-trump-gold-seal">
                   <span>Atout :</span>
-                  <span style={{ fontSize: "1rem", color: [1, 2].includes(Number(beloteTrump)) ? "#ef4444" : "#ffd700" }}>
+                  <span
+                    style={{
+                      fontSize: "1rem",
+                      color: [1, 2].includes(Number(beloteTrump))
+                        ? "#ef4444"
+                        : "#ffd700",
+                    }}
+                  >
                     {["♣", "♦", "♥", "♠"][Number(beloteTrump)] || "?"}
                   </span>
                 </div>
@@ -2908,19 +3433,46 @@ export function GamePage() {
                   ) : (
                     <div className="pli-slot-empty" />
                   )}
-                  <span className="pli-slot-label" style={{ color: "#ffd700", fontWeight: 800 }}>Vous</span>
+                  <span
+                    className="pli-slot-label"
+                    style={{ color: "#ffd700", fontWeight: 800 }}
+                  >
+                    Vous
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* East: Right Opponent */}
-            <div className={`belote-seat-card belote-seat-east ${currentPlayerId === String(seatPlayers[2]?.id || "") ? "active-turn" : ""}`}>
-              <div className="ludo-pod-avatar" style={{ backgroundColor: "#ba68c8" }}>E</div>
+            <div
+              className={`belote-seat-card belote-seat-east ${currentPlayerId === String(seatPlayers[2]?.id || "") ? "active-turn" : ""}`}
+            >
+              <div
+                className="ludo-pod-avatar"
+                style={{ backgroundColor: "#ba68c8" }}
+              >
+                E
+              </div>
               <div className="ludo-pod-identity">
-                <span className="ludo-pod-name">{String(seatPlayers[2]?.name || "Adversaire Est")}</span>
-                <span style={{ fontSize: "0.7rem", color: "#ba68c8", fontWeight: 600 }}>Adversaire · {Number(seatPlayers[2]?.hand_count ?? 8)} cartes</span>
+                <span className="ludo-pod-name">
+                  {String(seatPlayers[2]?.name || "Adversaire Est")}
+                </span>
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "#ba68c8",
+                    fontWeight: 600,
+                  }}
+                >
+                  Adversaire · {Number(seatPlayers[2]?.hand_count ?? 8)} cartes
+                </span>
                 <div className="belote-opponent-cards-mini">
-                  {Array.from({ length: Math.min(Number(seatPlayers[2]?.hand_count ?? 8), 8) }).map((_, i) => (
+                  {Array.from({
+                    length: Math.min(
+                      Number(seatPlayers[2]?.hand_count ?? 8),
+                      8,
+                    ),
+                  }).map((_, i) => (
                     <div key={i} className="belote-mini-card-back" />
                   ))}
                 </div>
@@ -2928,11 +3480,26 @@ export function GamePage() {
             </div>
 
             {/* South: You */}
-            <div className={`belote-seat-card belote-seat-south ${isMyTurn ? "active-turn" : ""}`}>
-              <div className="ludo-pod-avatar" style={{ backgroundColor: "#ffd700", color: "#111" }}>M</div>
+            <div
+              className={`belote-seat-card belote-seat-south ${isMyTurn ? "active-turn" : ""}`}
+            >
+              <div
+                className="ludo-pod-avatar"
+                style={{ backgroundColor: "#ffd700", color: "#111" }}
+              >
+                M
+              </div>
               <div className="ludo-pod-identity">
                 <span className="ludo-pod-name">{t("game.you")}</span>
-                <span style={{ fontSize: "0.7rem", color: "#ffd700", fontWeight: 600 }}>Équipe 1 · {myHand.length} cartes en main</span>
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "#ffd700",
+                    fontWeight: 600,
+                  }}
+                >
+                  Équipe 1 · {myHand.length} cartes en main
+                </span>
               </div>
             </div>
           </div>
@@ -2971,7 +3538,16 @@ export function GamePage() {
           </div>
 
           {finishedInfo && (
-            <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "center", margin: "14px 0", flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "14px 0",
+                flexWrap: "wrap",
+              }}
+            >
               <button
                 type="button"
                 className="button button-gold"
@@ -3006,23 +3582,35 @@ export function GamePage() {
               <span>🂡</span>
               <span>Gin Rami Malagasy</span>
             </div>
-            <div className={`ludo-turn-indicator-pill ${finishedInfo ? "game-finished-pill" : ""}`}>
+            <div
+              className={`ludo-turn-indicator-pill ${finishedInfo ? "game-finished-pill" : ""}`}
+            >
               <span>
                 {finishedInfo
                   ? `🏁 ${finishedInfo.title} · Vainqueur : ${finishedInfo.winnerName}`
                   : isMyTurn
-                  ? "🟢 Votre tour · Tirez ou défaussez"
-                  : `⏳ Tour de ${nameForPlayer(currentPlayerId)}`}
+                    ? "🟢 Votre tour · Tirez ou défaussez"
+                    : `⏳ Tour de ${nameForPlayer(currentPlayerId)}`}
               </span>
             </div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "24px", margin: "20px 0" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "24px",
+              margin: "20px 0",
+            }}
+          >
             <div className="rami-discard-area">
               <div className="rami-discard-label">Défausse</div>
               <div className="rami-discard">
                 {ramiDiscard.length > 0 ? (
-                  <PlayingCard {...cardView(ramiDiscard[ramiDiscard.length - 1])} />
+                  <PlayingCard
+                    {...cardView(ramiDiscard[ramiDiscard.length - 1])}
+                  />
                 ) : (
                   <PlayingCard value="?" suit="" hidden />
                 )}
@@ -3044,22 +3632,31 @@ export function GamePage() {
 
           {/* Melds Area */}
           <div className="rami-melds-area">
-            {Array.isArray(gameState?.players) && (gameState?.players as Array<Record<string, unknown>>).map((p, idx) => {
-              const melds = p.melds as Array<Array<{ suit: number; rank: number }>> | undefined;
-              if (!melds || melds.length === 0) return null;
-              return (
-                <div key={`melds-${idx}`} className="rami-player-melds">
-                  <div className="rami-meld-label">{String(p.name || p.id || `Joueur ${idx + 1}`)} — Melds</div>
-                  {melds.map((meld, mIdx) => (
-                    <div key={`meld-${mIdx}`} className="rami-meld">
-                      {meld.map((card, cIdx) => (
-                        <PlayingCard key={`meld-card-${cIdx}`} {...cardView(card)} />
+            {Array.isArray(gameState?.players) &&
+              (gameState?.players as Array<Record<string, unknown>>).map(
+                (p, idx) => {
+                  const melds = p.melds as
+                    Array<Array<{ suit: number; rank: number }>> | undefined;
+                  if (!melds || melds.length === 0) return null;
+                  return (
+                    <div key={`melds-${idx}`} className="rami-player-melds">
+                      <div className="rami-meld-label">
+                        {String(p.name || p.id || `Joueur ${idx + 1}`)} — Melds
+                      </div>
+                      {melds.map((meld, mIdx) => (
+                        <div key={`meld-${mIdx}`} className="rami-meld">
+                          {meld.map((card, cIdx) => (
+                            <PlayingCard
+                              key={`meld-card-${cIdx}`}
+                              {...cardView(card)}
+                            />
+                          ))}
+                        </div>
                       ))}
                     </div>
-                  ))}
-                </div>
-              );
-            })}
+                  );
+                },
+              )}
           </div>
 
           {/* Hero Hand */}
@@ -3087,7 +3684,16 @@ export function GamePage() {
           </div>
 
           {finishedInfo && (
-            <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "center", margin: "14px 0", flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "14px 0",
+                flexWrap: "wrap",
+              }}
+            >
               <button
                 type="button"
                 className="button button-gold"
@@ -3118,58 +3724,77 @@ export function GamePage() {
           {showStatsBar ? (
             <div className="hand-stats-ribbon">
               <div className="hand-stats-pills">
-                {isPoker && typeof gameState?.hand_rank === "string" && Boolean(gameState.hand_rank) && (
-                  <>
-                    <span className="hand-stats-pill hand-rank-pill">
-                      <span className="pill-dot">🃏</span>
-                      <strong>{String(gameState.hand_rank)}</strong>
-                    </span>
-                    {typeof gameState.hand_outs === "number" && (gameState.hand_outs as number) > 0 && (
-                      <span className="hand-stats-pill hand-outs-pill">
-                        🎯 <strong>{gameState.hand_outs} outs</strong> ({Number(gameState.hand_prob).toFixed(0)}%)
+                {isPoker &&
+                  typeof gameState?.hand_rank === "string" &&
+                  Boolean(gameState.hand_rank) && (
+                    <>
+                      <span className="hand-stats-pill hand-rank-pill">
+                        <span className="pill-dot">🃏</span>
+                        <strong>{String(gameState.hand_rank)}</strong>
                       </span>
-                    )}
-                    {(() => {
-                      const rank = String(gameState.hand_rank);
-                      const map: Record<string, string> = {
-                        "Quinte flush": "Équité ~92%",
-                        "Carré": "Équité ~99%",
-                        "Full": "Équité ~85%",
-                        "Couleur": "Équité ~65%",
-                        "Quinte": "Équité ~60%",
-                        "Brelan": "Équité ~70%",
-                        "Double paire": "Équité ~55%",
-                        "Paire": "Équité ~55%",
-                        "Carte haute": "Équité ~45%",
-                      };
-                      const eq = map[rank];
-                      return eq ? (
-                        <span className="hand-stats-pill hand-equity-pill">
-                          📈 {eq}
-                        </span>
-                      ) : null;
-                    })()}
-                    {typeof gameState.pot === "number" && typeof gameState.to_call === "number" && (gameState.to_call as number) > 0 && (
-                      <span className="hand-stats-pill hand-odds-pill">
-                        💰 Pot {gameState.pot} · Suivre {gameState.to_call}
+                      {typeof gameState.hand_outs === "number" &&
+                        (gameState.hand_outs as number) > 0 && (
+                          <span className="hand-stats-pill hand-outs-pill">
+                            🎯 <strong>{gameState.hand_outs} outs</strong> (
+                            {Number(gameState.hand_prob).toFixed(0)}%)
+                          </span>
+                        )}
+                      {(() => {
+                        const rank = String(gameState.hand_rank);
+                        const map: Record<string, string> = {
+                          "Quinte flush": "Équité ~92%",
+                          Carré: "Équité ~99%",
+                          Full: "Équité ~85%",
+                          Couleur: "Équité ~65%",
+                          Quinte: "Équité ~60%",
+                          Brelan: "Équité ~70%",
+                          "Double paire": "Équité ~55%",
+                          Paire: "Équité ~55%",
+                          "Carte haute": "Équité ~45%",
+                        };
+                        const eq = map[rank];
+                        return eq ? (
+                          <span className="hand-stats-pill hand-equity-pill">
+                            📈 {eq}
+                          </span>
+                        ) : null;
+                      })()}
+                      {typeof gameState.pot === "number" &&
+                        typeof gameState.to_call === "number" &&
+                        (gameState.to_call as number) > 0 && (
+                          <span className="hand-stats-pill hand-odds-pill">
+                            💰 Pot {gameState.pot} · Suivre {gameState.to_call}
+                          </span>
+                        )}
+                    </>
+                  )}
+                {gameType === "belote" &&
+                  typeof gameState?.trump === "string" &&
+                  Boolean(gameState.trump) && (
+                    <>
+                      <span className="hand-stats-pill">
+                        ♠ Atout : <strong>{String(gameState.trump)}</strong>
                       </span>
-                    )}
-                  </>
-                )}
-                {gameType === "belote" && typeof gameState?.trump === "string" && Boolean(gameState.trump) && (
-                  <>
-                    <span className="hand-stats-pill">
-                      ♠ Atout : <strong>{String(gameState.trump)}</strong>
-                    </span>
-                    <span className="hand-stats-pill">
-                      Équipe : <strong>{(gameState as unknown as { team_points?: [number, number] }).team_points?.join(" / ") ?? "0/0"}</strong>
-                    </span>
-                  </>
-                )}
+                      <span className="hand-stats-pill">
+                        Équipe :{" "}
+                        <strong>
+                          {(
+                            gameState as unknown as {
+                              team_points?: [number, number];
+                            }
+                          ).team_points?.join(" / ") ?? "0/0"}
+                        </strong>
+                      </span>
+                    </>
+                  )}
                 {gameType === "rami" && (
                   <>
                     <span className="hand-stats-pill">
-                      Score : <strong>{(myPokerPlayer as unknown as { score?: number })?.score ?? 0}</strong>
+                      Score :{" "}
+                      <strong>
+                        {(myPokerPlayer as unknown as { score?: number })
+                          ?.score ?? 0}
+                      </strong>
                     </span>
                     <span className="hand-stats-pill">
                       Main : <strong>{myHand.length} cartes</strong>
@@ -3223,7 +3848,14 @@ export function GamePage() {
             {t("spectatorReadOnly")}
           </div>
         ) : isPoker ? (
-          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div
+            style={{
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+            }}
+          >
             {isMyTurn ? (
               <>
                 <div className="action-row">
@@ -3235,7 +3867,8 @@ export function GamePage() {
                     }}
                     disabled={
                       !isMyTurn ||
-                      (allowedActions.length > 0 && !allowedActions.includes("fold"))
+                      (allowedActions.length > 0 &&
+                        !allowedActions.includes("fold"))
                     }
                   >
                     {t("game.fold")}
@@ -3252,7 +3885,9 @@ export function GamePage() {
                         !allowedActions.includes(facingBet ? "call" : "check"))
                     }
                   >
-                    {facingBet ? `Suivre ${toCall.toLocaleString("fr-FR")}` : t("game.check")}
+                    {facingBet
+                      ? `Suivre ${toCall.toLocaleString("fr-FR")}`
+                      : t("game.check")}
                   </button>
                   <button
                     className="action-bet"
@@ -3275,11 +3910,19 @@ export function GamePage() {
                   </button>
                   <label className="wager-control">
                     <span>Mise</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
                       <button
                         type="button"
                         className="bet-stepper-btn"
-                        onClick={() => setWager((w) => Math.max(minRaiseTo, w - 100))}
+                        onClick={() =>
+                          setWager((w) => Math.max(minRaiseTo, w - 100))
+                        }
                         disabled={!isMyTurn || wager <= minRaiseTo}
                         title="-100"
                       >
@@ -3292,12 +3935,16 @@ export function GamePage() {
                         step={100}
                         value={wager}
                         disabled={!isMyTurn}
-                        onChange={(event) => setWager(Number(event.target.value))}
+                        onChange={(event) =>
+                          setWager(Number(event.target.value))
+                        }
                       />
                       <button
                         type="button"
                         className="bet-stepper-btn"
-                        onClick={() => setWager((w) => Math.min(maxRaiseTo, w + 100))}
+                        onClick={() =>
+                          setWager((w) => Math.min(maxRaiseTo, w + 100))
+                        }
                         disabled={!isMyTurn || wager >= maxRaiseTo}
                         title="+100"
                       >
@@ -3321,7 +3968,12 @@ export function GamePage() {
                     className="bet-shortcut-button"
                     onClick={() => {
                       const pot = Number(gameState?.pot || 0);
-                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + Math.round(pot * 0.33))));
+                      setWager(
+                        Math.min(
+                          maxRaiseTo,
+                          Math.max(minRaiseTo, myBet + Math.round(pot * 0.33)),
+                        ),
+                      );
                     }}
                   >
                     1/3 Pot
@@ -3331,7 +3983,12 @@ export function GamePage() {
                     className="bet-shortcut-button"
                     onClick={() => {
                       const pot = Number(gameState?.pot || 0);
-                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + Math.round(pot * 0.5))));
+                      setWager(
+                        Math.min(
+                          maxRaiseTo,
+                          Math.max(minRaiseTo, myBet + Math.round(pot * 0.5)),
+                        ),
+                      );
                     }}
                   >
                     1/2 Pot
@@ -3341,7 +3998,12 @@ export function GamePage() {
                     className="bet-shortcut-button"
                     onClick={() => {
                       const pot = Number(gameState?.pot || 0);
-                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + Math.round(pot * 0.67))));
+                      setWager(
+                        Math.min(
+                          maxRaiseTo,
+                          Math.max(minRaiseTo, myBet + Math.round(pot * 0.67)),
+                        ),
+                      );
                     }}
                   >
                     2/3 Pot
@@ -3351,7 +4013,12 @@ export function GamePage() {
                     className="bet-shortcut-button"
                     onClick={() => {
                       const pot = Number(gameState?.pot || 0);
-                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + Math.round(pot * 0.75))));
+                      setWager(
+                        Math.min(
+                          maxRaiseTo,
+                          Math.max(minRaiseTo, myBet + Math.round(pot * 0.75)),
+                        ),
+                      );
                     }}
                   >
                     3/4 Pot
@@ -3361,7 +4028,9 @@ export function GamePage() {
                     className="bet-shortcut-button"
                     onClick={() => {
                       const pot = Number(gameState?.pot || 0);
-                      setWager(Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + pot)));
+                      setWager(
+                        Math.min(maxRaiseTo, Math.max(minRaiseTo, myBet + pot)),
+                      );
                     }}
                   >
                     Pot
@@ -3378,38 +4047,60 @@ export function GamePage() {
             ) : !isPokerShowdown && gameState?.phase !== "showdown" ? (
               /* Actions anticipées (Pre-actions) */
               <div className="pre-actions-container">
-                <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginRight: "4px" }}>
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--muted)",
+                    marginRight: "4px",
+                  }}
+                >
                   ⚡ Actions anticipées :
                 </span>
-                <label className={`pre-action-item ${preAction === "check_fold" ? "active" : ""}`}>
+                <label
+                  className={`pre-action-item ${preAction === "check_fold" ? "active" : ""}`}
+                >
                   <input
                     type="checkbox"
                     checked={preAction === "check_fold"}
-                    onChange={(e) => setPreAction(e.target.checked ? "check_fold" : null)}
+                    onChange={(e) =>
+                      setPreAction(e.target.checked ? "check_fold" : null)
+                    }
                   />
                   Check / Fold
                 </label>
-                <label className={`pre-action-item ${preAction === "auto_check" ? "active" : ""}`}>
+                <label
+                  className={`pre-action-item ${preAction === "auto_check" ? "active" : ""}`}
+                >
                   <input
                     type="checkbox"
                     checked={preAction === "auto_check"}
-                    onChange={(e) => setPreAction(e.target.checked ? "auto_check" : null)}
+                    onChange={(e) =>
+                      setPreAction(e.target.checked ? "auto_check" : null)
+                    }
                   />
                   Auto-Check
                 </label>
-                <label className={`pre-action-item ${preAction === "call_any" ? "active" : ""}`}>
+                <label
+                  className={`pre-action-item ${preAction === "call_any" ? "active" : ""}`}
+                >
                   <input
                     type="checkbox"
                     checked={preAction === "call_any"}
-                    onChange={(e) => setPreAction(e.target.checked ? "call_any" : null)}
+                    onChange={(e) =>
+                      setPreAction(e.target.checked ? "call_any" : null)
+                    }
                   />
                   Suivre (Call)
                 </label>
-                <label className={`pre-action-item ${preAction === "fold_any" ? "active" : ""}`}>
+                <label
+                  className={`pre-action-item ${preAction === "fold_any" ? "active" : ""}`}
+                >
                   <input
                     type="checkbox"
                     checked={preAction === "fold_any"}
-                    onChange={(e) => setPreAction(e.target.checked ? "fold_any" : null)}
+                    onChange={(e) =>
+                      setPreAction(e.target.checked ? "fold_any" : null)
+                    }
                   />
                   Se coucher (Fold)
                 </label>
@@ -3432,7 +4123,11 @@ export function GamePage() {
         )}
       </div>
       {showQuickReactions && (
-        <div className="table-quick-reactions-popover" role="dialog" aria-label="Réactions rapides">
+        <div
+          className="table-quick-reactions-popover"
+          role="dialog"
+          aria-label="Réactions rapides"
+        >
           <div className="quick-emojis-bar">
             {["👏", "🔥", "👍", "😎", "🎯", "😱", "♠", "🎲"].map((emoji) => (
               <button
@@ -3484,8 +4179,12 @@ export function GamePage() {
             alignItems: "center",
             gap: "5px",
             color: showQuickReactions ? "var(--gold)" : "var(--soft)",
-            borderColor: showQuickReactions ? "var(--gold)" : "rgba(211, 176, 107, 0.22)",
-            background: showQuickReactions ? "rgba(211, 176, 107, 0.18)" : undefined,
+            borderColor: showQuickReactions
+              ? "var(--gold)"
+              : "rgba(211, 176, 107, 0.22)",
+            background: showQuickReactions
+              ? "rgba(211, 176, 107, 0.18)"
+              : undefined,
           }}
         >
           <Smile size={14} />
@@ -3503,7 +4202,9 @@ export function GamePage() {
           type="button"
           onClick={() => updatePreference("motion", !motionEnabled)}
           title={motionEnabled ? "Animations actives" : "Animations réduites"}
-          aria-label={motionEnabled ? "Animations actives" : "Animations réduites"}
+          aria-label={
+            motionEnabled ? "Animations actives" : "Animations réduites"
+          }
         >
           <Sparkles size={14} style={{ opacity: motionEnabled ? 1 : 0.4 }} />
         </button>
@@ -3513,8 +4214,12 @@ export function GamePage() {
             setShowChatDrawer((prev) => !prev);
             setUnreadChatCount(0);
           }}
-          title={showChatDrawer ? "Masquer le tchat" : "Ouvrir le tchat de la table"}
-          aria-label={showChatDrawer ? "Masquer le tchat" : "Ouvrir le tchat de la table"}
+          title={
+            showChatDrawer ? "Masquer le tchat" : "Ouvrir le tchat de la table"
+          }
+          aria-label={
+            showChatDrawer ? "Masquer le tchat" : "Ouvrir le tchat de la table"
+          }
           style={{ position: "relative" }}
         >
           <MessageCircle size={14} />
@@ -3548,7 +4253,9 @@ export function GamePage() {
           style={{
             color: isLandscapeMode ? "var(--gold)" : "var(--soft)",
             borderColor: isLandscapeMode ? "var(--gold)" : undefined,
-            background: isLandscapeMode ? "rgba(211, 176, 107, 0.18)" : undefined,
+            background: isLandscapeMode
+              ? "rgba(211, 176, 107, 0.18)"
+              : undefined,
           }}
         >
           <RotateCw size={14} />
@@ -3562,30 +4269,53 @@ export function GamePage() {
             className="chat-drawer-backdrop"
             onClick={() => setShowChatDrawer(false)}
           />
-          <aside className="table-chat-drawer" role="dialog" aria-label="Tchat de la table">
+          <aside
+            className="table-chat-drawer"
+            role="dialog"
+            aria-label="Tchat de la table"
+          >
             <div className="chat-drawer-header">
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
                 <MessageCircle size={16} style={{ color: "var(--gold)" }} />
                 <strong>{t("game.tableChat")}</strong>
                 {muteChat && (
-                  <small style={{ color: "#ef5350", fontSize: "11px", display: "flex", alignItems: "center", gap: "3px" }}>
+                  <small
+                    style={{
+                      color: "#ef5350",
+                      fontSize: "11px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "3px",
+                    }}
+                  >
                     <MessageSquareOff size={12} /> Sourdine
                   </small>
                 )}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "4px" }}
+              >
                 <button
                   type="button"
                   className="icon-button"
                   onClick={() => {
                     const next = !muteChat;
                     setMuteChat(next);
-                    localStorage.setItem("mdg-poker-mutechat", next ? "on" : "off");
+                    localStorage.setItem(
+                      "mdg-poker-mutechat",
+                      next ? "on" : "off",
+                    );
                   }}
                   title={muteChat ? "Activer le son du tchat" : "Mode silence"}
                   aria-label={muteChat ? "Activer le tchat" : "Mode silence"}
                 >
-                  {muteChat ? <MessageSquareOff size={15} style={{ color: "#ef5350" }} /> : <MessageCircle size={15} />}
+                  {muteChat ? (
+                    <MessageSquareOff size={15} style={{ color: "#ef5350" }} />
+                  ) : (
+                    <MessageCircle size={15} />
+                  )}
                 </button>
                 <button
                   type="button"
@@ -3611,7 +4341,16 @@ export function GamePage() {
             </div>
 
             {/* Phrases de courtoisie rapides (Zéro clavier virtuel) */}
-            <div className="quick-phrases-strip" style={{ display: "flex", gap: "6px", overflowX: "auto", padding: "6px 0", scrollbarWidth: "none" }}>
+            <div
+              className="quick-phrases-strip"
+              style={{
+                display: "flex",
+                gap: "6px",
+                overflowX: "auto",
+                padding: "6px 0",
+                scrollbarWidth: "none",
+              }}
+            >
               {[
                 "Tsara lalao !",
                 "Misaotra !",
@@ -3623,7 +4362,13 @@ export function GamePage() {
                   key={phrase}
                   type="button"
                   className="button button-small button-outline"
-                  style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "99px", flexShrink: 0, whiteSpace: "nowrap" }}
+                  style={{
+                    fontSize: "11px",
+                    padding: "3px 8px",
+                    borderRadius: "99px",
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  }}
                   onClick={() => void sendQuickPhrase(phrase)}
                 >
                   {phrase}
@@ -3655,15 +4400,30 @@ export function GamePage() {
               <button
                 type="button"
                 className="button button-small button-secondary"
-                style={{ flex: 1, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                style={{
+                  flex: 1,
+                  fontSize: "11px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                }}
                 onClick={() => void inviteFriend()}
               >
-                <Copy size={13} /> {invite ? t("game.invitationCopied") : "Copier le lien"}
+                <Copy size={13} />{" "}
+                {invite ? t("game.invitationCopied") : "Copier le lien"}
               </button>
               <button
                 type="button"
                 className="button button-small button-gold"
-                style={{ flex: 1, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                style={{
+                  flex: 1,
+                  fontSize: "11px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                }}
                 onClick={() => void shareWhatsApp()}
               >
                 <Send size={13} /> WhatsApp
@@ -3692,7 +4452,16 @@ export function GamePage() {
             )}
           </div>
           {/* Phrases de courtoisie rapides (Zéro clavier virtuel) */}
-          <div className="quick-phrases-strip" style={{ display: "flex", gap: "6px", overflowX: "auto", padding: "6px 0", scrollbarWidth: "none" }}>
+          <div
+            className="quick-phrases-strip"
+            style={{
+              display: "flex",
+              gap: "6px",
+              overflowX: "auto",
+              padding: "6px 0",
+              scrollbarWidth: "none",
+            }}
+          >
             {[
               "Tsara lalao !",
               "Misaotra !",
@@ -3704,7 +4473,13 @@ export function GamePage() {
                 key={phrase}
                 type="button"
                 className="button button-small button-outline"
-                style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "99px", flexShrink: 0, whiteSpace: "nowrap" }}
+                style={{
+                  fontSize: "11px",
+                  padding: "3px 8px",
+                  borderRadius: "99px",
+                  flexShrink: 0,
+                  whiteSpace: "nowrap",
+                }}
                 onClick={() => void sendQuickPhrase(phrase)}
               >
                 {phrase}
@@ -3733,15 +4508,30 @@ export function GamePage() {
             <button
               type="button"
               className="button button-small button-secondary"
-              style={{ flex: 1, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+              style={{
+                flex: 1,
+                fontSize: "11px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+              }}
               onClick={() => void inviteFriend()}
             >
-              <Copy size={13} /> {invite ? t("game.invitationCopied") : "Copier le lien"}
+              <Copy size={13} />{" "}
+              {invite ? t("game.invitationCopied") : "Copier le lien"}
             </button>
             <button
               type="button"
               className="button button-small button-gold"
-              style={{ flex: 1, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+              style={{
+                flex: 1,
+                fontSize: "11px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+              }}
               onClick={() => void shareWhatsApp()}
             >
               <Send size={13} /> WhatsApp
@@ -3883,7 +4673,10 @@ export function GamePage() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="game-result-card" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="game-result-card"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="game-result-trophy">
               {finishedInfo.isWinnerMe ? "🏆" : "🎖️"}
             </div>
@@ -3898,16 +4691,25 @@ export function GamePage() {
                 >
                   <div className="game-result-player-identity">
                     <span className="game-result-rank-badge">
-                      {sc.rank === 1 ? "🥇" : sc.rank === 2 ? "🥈" : sc.rank === 3 ? "🥉" : `#${sc.rank}`}
+                      {sc.rank === 1
+                        ? "🥇"
+                        : sc.rank === 2
+                          ? "🥈"
+                          : sc.rank === 3
+                            ? "🥉"
+                            : `#${sc.rank}`}
                     </span>
                     <div className="game-result-player-name">
-                      {sc.name} {sc.isMe && <span style={{ color: "#ffd700", fontSize: "11px" }}>({t("game.you")})</span>}
+                      {sc.name}{" "}
+                      {sc.isMe && (
+                        <span style={{ color: "#ffd700", fontSize: "11px" }}>
+                          ({t("game.you")})
+                        </span>
+                      )}
                       {sc.subtext && <small>{sc.subtext}</small>}
                     </div>
                   </div>
-                  <div className="game-result-score-val">
-                    {sc.scoreLabel}
-                  </div>
+                  <div className="game-result-score-val">{sc.scoreLabel}</div>
                 </div>
               ))}
             </div>
@@ -3971,36 +4773,35 @@ function PlayerSeat({
   stats?: string;
 }) {
   const avColor = avatarColor(name);
-  const activeBubble = playerChat || (botChat ? `${botChat.emote} ${botChat.text}` : null);
+  const activeBubble =
+    playerChat || (botChat ? `${botChat.emote} ${botChat.text}` : null);
   return (
     <div
       className={`player-seat seat-${pos} ${active ? "active-seat" : ""} ${folded ? "folded-seat" : ""}`}
       style={seatStyle}
       title={stats ? `${name} — ${stats}` : name}
     >
-      <div className="seat-avatar" style={{ background: avColor }}>{name[0]}</div>
+      <div className="seat-avatar" style={{ background: avColor }}>
+        {name[0]}
+      </div>
       <div>
         <strong>{name}</strong>
         <span>{chips}</span>
         {stats && <small className="seat-stats">{stats}</small>}
       </div>
       {badge && (
-        <i className={`seat-badge ${badge.includes("D") ? "seat-dealer" : badge.includes("BB") ? "seat-big-blind" : badge.includes("SB") ? "seat-small-blind" : ""}`}>
+        <i
+          className={`seat-badge ${badge.includes("D") ? "seat-dealer" : badge.includes("BB") ? "seat-big-blind" : badge.includes("SB") ? "seat-small-blind" : ""}`}
+        >
           {badge}
         </i>
       )}
       {action && <b className="seat-action-bubble">{action}</b>}
-      {thinking && !activeBubble && <span className="seat-thinking-bubble">…</span>}
-      {activeBubble && (
-        <span className="seat-chat-bubble">
-          {activeBubble}
-        </span>
+      {thinking && !activeBubble && (
+        <span className="seat-thinking-bubble">…</span>
       )}
-      {bet > 0 && (
-        <span className="seat-bet-chip">
-          {bet}
-        </span>
-      )}
+      {activeBubble && <span className="seat-chat-bubble">{activeBubble}</span>}
+      {bet > 0 && <span className="seat-bet-chip">{bet}</span>}
       {hasCards && (
         <div className="seat-hole-cards">
           <span className="seat-card-back" />
@@ -4020,7 +4821,8 @@ function badgeForSeat(
   const badges: string[] = [];
   if (state.button_player_id != null) {
     if (playerId === String(state.button_player_id || "")) badges.push("D");
-    if (playerId === String(state.small_blind_player_id || "")) badges.push("SB");
+    if (playerId === String(state.small_blind_player_id || ""))
+      badges.push("SB");
     if (playerId === String(state.big_blind_player_id || "")) badges.push("BB");
   }
   return badges.join(" · ");
@@ -4048,9 +4850,11 @@ function PlayingCard({
 }) {
   const suitClass =
     suitIndex !== undefined
-      ? ["suit-club", "suit-diamond", "suit-heart", "suit-spade"][suitIndex] || ""
+      ? ["suit-club", "suit-diamond", "suit-heart", "suit-spade"][suitIndex] ||
+        ""
       : "";
-  const isRed = red || ["♦", "♥"].includes(suit) || suitIndex === 1 || suitIndex === 2;
+  const isRed =
+    red || ["♦", "♥"].includes(suit) || suitIndex === 1 || suitIndex === 2;
 
   if (hidden) {
     return (
@@ -4191,15 +4995,23 @@ function GameStateSummary({
     const trumpNum = Number(state.trump ?? -1);
     const trumpLabel = trumpNum >= 0 && trumpNum < 4 ? suits[trumpNum] : "—";
     const proposedTrumpNum = Number(state.proposed_trump ?? -1);
-    const proposedTrumpLabel = proposedTrumpNum >= 0 && proposedTrumpNum < 4 ? suits[proposedTrumpNum] : "—";
+    const proposedTrumpLabel =
+      proposedTrumpNum >= 0 && proposedTrumpNum < 4
+        ? suits[proposedTrumpNum]
+        : "—";
     if (phase === "bidding") {
       const bidder = Number(state.bidder ?? -1);
-      const bidderName = bidder >= 0 && Array.isArray(state.players)
-        ? String((state.players as Array<Record<string, unknown>>)[bidder]?.name || "")
-        : "";
+      const bidderName =
+        bidder >= 0 && Array.isArray(state.players)
+          ? String(
+              (state.players as Array<Record<string, unknown>>)[bidder]?.name ||
+                "",
+            )
+          : "";
       return (
         <div className="secure-note game-sync-note">
-          <strong>{t("games.belote")}</strong> · {t("game.bidding")} · {t("game.proposedTrump")} :{" "}
+          <strong>{t("games.belote")}</strong> · {t("game.bidding")} ·{" "}
+          {t("game.proposedTrump")} :{" "}
           <span className="belote-trump">{proposedTrumpLabel}</span>
           {bidderName ? ` · ${t("game.bidder")} : ${bidderName}` : ""}
         </div>
@@ -4208,15 +5020,17 @@ function GameStateSummary({
     if (phase === "all_passed") {
       return (
         <div className="secure-note game-sync-note">
-          <strong>{t("games.belote")}</strong> · {t("game.allPassed")} — {t("game.redeal")}
+          <strong>{t("games.belote")}</strong> · {t("game.allPassed")} —{" "}
+          {t("game.redeal")}
         </div>
       );
     }
     return (
       <div className="secure-note game-sync-note">
         <strong>{t("games.belote")}</strong> · {t("game.trump")} :{" "}
-        <span className="belote-trump">{trumpLabel}</span> · {t("game.team")} 1 : {String(points[0])}{" "}
-        · {t("game.team")} 2 : {String(points[1])} · {t("game.trick")} :{" "}
+        <span className="belote-trump">{trumpLabel}</span> · {t("game.team")} 1
+        : {String(points[0])} · {t("game.team")} 2 : {String(points[1])} ·{" "}
+        {t("game.trick")} :{" "}
         {Array.isArray(state.trick) ? state.trick.length : 0}/4
       </div>
     );
@@ -4226,7 +5040,8 @@ function GameStateSummary({
     const lastRoll = Number(state.last_roll ?? 0);
     return (
       <div className="secure-note game-sync-note">
-        <strong>🎲 Ludo Malagasy</strong> · Tour : Joueur {activePlayerIndex + 1}
+        <strong>🎲 Ludo Malagasy</strong> · Tour : Joueur{" "}
+        {activePlayerIndex + 1}
         {lastRoll > 0 ? ` · Dé : ${lastRoll}` : ""} · Joueurs : {players.length}
       </div>
     );
@@ -4237,8 +5052,9 @@ function GameStateSummary({
     const boneyardCount = Number(state.boneyard_count ?? 0);
     return (
       <div className="secure-note game-sync-note">
-        <strong>🁓 Domino Double-Six</strong> · Ligne : [{left >= 0 ? left : "—"} | {right >= 0 ? right : "—"}]
-        · Talon restant : {boneyardCount} · Joueurs : {players.length}
+        <strong>🁓 Domino Double-Six</strong> · Ligne : [{left >= 0 ? left : "—"}{" "}
+        | {right >= 0 ? right : "—"}] · Talon restant : {boneyardCount} ·
+        Joueurs : {players.length}
       </div>
     );
   }
@@ -4249,7 +5065,11 @@ function GameStateSummary({
       {Array.isArray(state.discard) ? state.discard.length : 0} ·
       {t("lobby.players")} : {players.length}
       {Number(state.knocked_by ?? -1) >= 0 && (
-        <> · {t("game.knock")}{state.gin ? ` (${t("game.gin")})` : ""}</>
+        <>
+          {" "}
+          · {t("game.knock")}
+          {state.gin ? ` (${t("game.gin")})` : ""}
+        </>
       )}
     </div>
   );
@@ -4318,7 +5138,9 @@ function GameSpecificControls({
       ];
       return (
         <div className="action-row belote-controls">
-          <span className="muted" style={{ marginRight: 8 }}>{t("game.chooseTrump")} :</span>
+          <span className="muted" style={{ marginRight: 8 }}>
+            {t("game.chooseTrump")} :
+          </span>
           {suits.map((suit) => (
             <button
               key={suit.value}
@@ -4349,7 +5171,9 @@ function GameSpecificControls({
     if (phase === "all_passed") {
       return (
         <div className="action-row belote-controls">
-          <span className="muted">{t("game.allPassed")} — {t("game.redeal")}</span>
+          <span className="muted">
+            {t("game.allPassed")} — {t("game.redeal")}
+          </span>
         </div>
       );
     }
@@ -4357,8 +5181,11 @@ function GameSpecificControls({
     const beloteAnnounced = Array.isArray(state?.belote_announced)
       ? (state?.belote_announced as boolean[])
       : [];
-    const myPlayerIndex = (statePlayers || []).findIndex((p) => String(p.id || "") === userId);
-    const canAnnounceBelote = myPlayerIndex >= 0 && !beloteAnnounced[myPlayerIndex];
+    const myPlayerIndex = (statePlayers || []).findIndex(
+      (p) => String(p.id || "") === userId,
+    );
+    const canAnnounceBelote =
+      myPlayerIndex >= 0 && !beloteAnnounced[myPlayerIndex];
     return (
       <div className="action-row belote-controls">
         {canAnnounceBelote && (
@@ -4384,7 +5211,8 @@ function GameSpecificControls({
                 onAction("play_card", { card });
               }}
             >
-              {t("game.play")} {cardView(card).value}{cardView(card).suit}
+              {t("game.play")} {cardView(card).value}
+              {cardView(card).suit}
             </button>
           ))
         ) : (
@@ -4397,15 +5225,33 @@ function GameSpecificControls({
   if (gameType === "ludo") {
     const canRoll = Boolean(state?.can_roll ?? true);
     const canMove = Boolean(state?.can_move ?? false);
-    const validMoves = Array.isArray(state?.valid_moves) ? (state.valid_moves as number[]) : [];
-    const lastRoll = Number(state?.last_roll ?? 0);
-    const myPlayerIndex = (statePlayers || []).findIndex((p) => String(p.id || "") === userId);
-    const myPawns = myPlayerIndex >= 0 && Array.isArray((statePlayers?.[myPlayerIndex] as Record<string, unknown>)?.pawns)
-      ? ((statePlayers?.[myPlayerIndex] as Record<string, unknown>).pawns as Array<{ id: number; state: string; position: number }>)
+    const validMoves = Array.isArray(state?.valid_moves)
+      ? (state.valid_moves as number[])
       : [];
+    const lastRoll = Number(state?.last_roll ?? 0);
+    const myPlayerIndex = (statePlayers || []).findIndex(
+      (p) => String(p.id || "") === userId,
+    );
+    const myPawns =
+      myPlayerIndex >= 0 &&
+      Array.isArray(
+        (statePlayers?.[myPlayerIndex] as Record<string, unknown>)?.pawns,
+      )
+        ? ((statePlayers?.[myPlayerIndex] as Record<string, unknown>)
+            .pawns as Array<{ id: number; state: string; position: number }>)
+        : [];
 
     return (
-      <div className="action-row ludo-controls" style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
+      <div
+        className="action-row ludo-controls"
+        style={{
+          display: "flex",
+          gap: "8px",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
         {canRoll && (
           <button
             className="action-bet"
@@ -4414,19 +5260,35 @@ function GameSpecificControls({
               playSound("chip");
               onAction("roll_dice");
             }}
-            style={{ fontWeight: "bold", padding: "10px 20px", fontSize: "1rem" }}
+            style={{
+              fontWeight: "bold",
+              padding: "10px 20px",
+              fontSize: "1rem",
+            }}
           >
             🎲 {t("game.rollDice") || "Lancer le Dé"}
           </button>
         )}
         {canMove && validMoves.length > 0 && (
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
             <span className="muted" style={{ fontWeight: 600 }}>
               Dé: {lastRoll} — {t("game.choosePawn") || "Déplacer le pion"} :
             </span>
             {validMoves.map((pawnId) => {
               const pawn = myPawns.find((p) => p.id === pawnId);
-              const pState = pawn?.state === "base" ? "Yard" : pawn?.state === "home_path" ? "Coulloir" : `Pos ${pawn?.position ?? 0}`;
+              const pState =
+                pawn?.state === "base"
+                  ? "Yard"
+                  : pawn?.state === "home_path"
+                    ? "Coulloir"
+                    : `Pos ${pawn?.position ?? 0}`;
               return (
                 <button
                   key={pawnId}
@@ -4444,36 +5306,70 @@ function GameSpecificControls({
           </div>
         )}
         {!canRoll && !canMove && (
-          <span className="muted">{t("game.waitingOpponent") || "Tour de l'adversaire..."}</span>
+          <span className="muted">
+            {t("game.waitingOpponent") || "Tour de l'adversaire..."}
+          </span>
         )}
       </div>
     );
   }
 
   if (gameType === "domino") {
-    const myPlayer = (statePlayers || []).find((p) => String(p.id || "") === userId) as Record<string, unknown> | undefined;
-    const dominoHand = Array.isArray(myPlayer?.hand) ? (myPlayer.hand as Array<{ left: number; right: number }>) : [];
+    const myPlayer = (statePlayers || []).find(
+      (p) => String(p.id || "") === userId,
+    ) as Record<string, unknown> | undefined;
+    const dominoHand = Array.isArray(myPlayer?.hand)
+      ? (myPlayer.hand as Array<{ left: number; right: number }>)
+      : [];
     const leftEnd = Number(state?.left_end ?? -1);
     const rightEnd = Number(state?.right_end ?? -1);
-    const boneyardCount = Array.isArray(state?.boneyard) ? (state.boneyard as unknown[]).length : Number(state?.boneyard_count ?? 0);
+    const boneyardCount = Array.isArray(state?.boneyard)
+      ? (state.boneyard as unknown[]).length
+      : Number(state?.boneyard_count ?? 0);
     const boardEmpty = leftEnd === -1 && rightEnd === -1;
 
     const canPlayTile = (t: { left: number; right: number }) => {
       if (boardEmpty) return true;
-      return t.left === leftEnd || t.right === leftEnd || t.left === rightEnd || t.right === rightEnd;
+      return (
+        t.left === leftEnd ||
+        t.right === leftEnd ||
+        t.left === rightEnd ||
+        t.right === rightEnd
+      );
     };
 
     const hasPlayable = dominoHand.some(canPlayTile);
 
     return (
-      <div className="action-row domino-controls" style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center" }}>
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", justifyContent: "center" }}>
+      <div
+        className="action-row domino-controls"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: "6px",
+            flexWrap: "wrap",
+            justifyContent: "center",
+          }}
+        >
           {dominoHand.length > 0 ? (
             dominoHand.map((t, idx) => {
               const playable = canPlayTile(t);
-              const matchesLeft = boardEmpty || t.left === leftEnd || t.right === leftEnd;
-              const matchesRight = boardEmpty || t.left === rightEnd || t.right === rightEnd;
-              const matchesBoth = !boardEmpty && matchesLeft && matchesRight && leftEnd !== rightEnd;
+              const matchesLeft =
+                boardEmpty || t.left === leftEnd || t.right === leftEnd;
+              const matchesRight =
+                boardEmpty || t.left === rightEnd || t.right === rightEnd;
+              const matchesBoth =
+                !boardEmpty &&
+                matchesLeft &&
+                matchesRight &&
+                leftEnd !== rightEnd;
 
               return (
                 <div key={idx} style={{ display: "flex", gap: "2px" }}>
@@ -4515,7 +5411,9 @@ function GameSpecificControls({
                         padding: "8px 12px",
                         fontWeight: "bold",
                         opacity: playable ? 1 : 0.45,
-                        border: playable ? "1px solid #10b981" : "1px solid #4b5563",
+                        border: playable
+                          ? "1px solid #10b981"
+                          : "1px solid #4b5563",
                       }}
                     >
                       [{t.left} | {t.right}]
@@ -4525,7 +5423,9 @@ function GameSpecificControls({
               );
             })
           ) : (
-            <span className="muted">{t("game.noTiles") || "Aucun domino en main"}</span>
+            <span className="muted">
+              {t("game.noTiles") || "Aucun domino en main"}
+            </span>
           )}
         </div>
         <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
@@ -4538,7 +5438,8 @@ function GameSpecificControls({
                 onAction("draw_tile");
               }}
             >
-              📥 {t("game.drawTile") || "Piocher dans le Talon"} ({boneyardCount})
+              📥 {t("game.drawTile") || "Piocher dans le Talon"} (
+              {boneyardCount})
             </button>
           )}
           {boneyardCount === 0 && !hasPlayable && (
@@ -4585,7 +5486,9 @@ function GameSpecificControls({
             className="action-bet"
             disabled={!enabled || selectedCards.size < 3}
             onClick={() => {
-              const cards = hand.filter((c) => selectedCards.has(`${c.suit}-${c.rank}`));
+              const cards = hand.filter((c) =>
+                selectedCards.has(`${c.suit}-${c.rank}`),
+              );
               playSound("meld");
               onAction("meld", { cards });
               onClearSelection?.();
@@ -4609,7 +5512,8 @@ function GameSpecificControls({
               onAction("discard", { card });
             }}
           >
-            {t("game.discardCard")} {cardView(card).value}{cardView(card).suit}
+            {t("game.discardCard")} {cardView(card).value}
+            {cardView(card).suit}
           </button>
         ))
       ) : (

@@ -25,6 +25,7 @@ class Club(models.Model):
     def save(self, *args, **kwargs):
         if not self.code:
             import secrets
+
             self.code = f"MDG-{secrets.randbelow(9000) + 1000}"
         super().save(*args, **kwargs)
 
@@ -113,9 +114,13 @@ class ClubEventParticipant(models.Model):
 
 class ClubChatMessage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="chat_messages")
+    club = models.ForeignKey(
+        Club, on_delete=models.CASCADE, related_name="chat_messages"
+    )
     author = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="club_chat_messages"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="club_chat_messages",
     )
     body = models.CharField(max_length=500)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -123,4 +128,3 @@ class ClubChatMessage(models.Model):
     class Meta:
         db_table = "club_chat_messages"
         ordering = ["created_at"]
-

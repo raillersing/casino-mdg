@@ -583,5 +583,27 @@
     "closeMenu": "Fermer le menu",
     "primaryNavigation": "Navigation principale",
     "close": "Fermer"
+  },
+  "discovery": {
+    "homeTitle": "Vos jeux préférés, tout simplement.",
+    "catalogTitle": "À quoi voulez-vous jouer ?",
+    "intro": "Choisissez un jeu, puis jouez en ligne ou entraînez-vous contre l’ordinateur.",
+    "allGames": "Tous les jeux",
+    "choose": "Choisissez votre jeu",
+    "count": "5 jeux",
+    "search": "Rechercher un jeu",
+    "categories": "Catégories de jeux",
+    "all": "Tous",
+    "cards": "Cartes",
+    "board": "Plateau",
+    "chooseGame": "Choisir ce jeu",
+    "none": "Aucun jeu trouvé.",
+    "reset": "Voir tous les jeux",
+    "onlineTitle": "Envie de jouer à plusieurs ?",
+    "onlineDesc": "Retrouvez les tables disponibles ou créez une table pour vos proches.",
+    "online": "Voir les tables",
+    "help": "Vous débutez ? Choisissez un jeu puis « Entraînement » pour découvrir son fonctionnement.",
+    "lobbyTitle": "Trouvez votre table",
+    "open": "Ouverte"
   }
 }

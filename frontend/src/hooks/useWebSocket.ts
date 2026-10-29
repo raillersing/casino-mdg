@@ -7,7 +7,8 @@ const MAX_RECONNECT_DELAY = 12000;
 const MAX_RECONNECT_ATTEMPTS = 15;
 const HEARTBEAT_INTERVAL = 10000;
 
-export type ConnectionState = "connecting" | "connected" | "reconnecting" | "closed" | "offline";
+export type ConnectionState =
+  "connecting" | "connected" | "reconnecting" | "closed" | "offline";
 
 type WebSocketOptions = {
   enabled?: boolean;
@@ -91,7 +92,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
             JSON.stringify({
               type: "ping",
               timestamp: new Date().toISOString(),
-            })
+            }),
           );
         }
       }, HEARTBEAT_INTERVAL);
@@ -107,7 +108,10 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       }
       callbacks.current.onClose?.();
 
-      if (!closed.current && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+      if (
+        !closed.current &&
+        reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
+      ) {
         reconnectAttempts.current++;
         updateState("reconnecting");
         if (reconnectTimer.current !== null) {
@@ -115,8 +119,9 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
         }
         // Calcul exponentiel avec gigue (jitter) pour Madagascar mobile 3G/4G
         const expDelay = Math.min(
-          BASE_RECONNECT_DELAY * Math.pow(1.3, reconnectAttempts.current) + Math.random() * 400,
-          MAX_RECONNECT_DELAY
+          BASE_RECONNECT_DELAY * Math.pow(1.3, reconnectAttempts.current) +
+            Math.random() * 400,
+          MAX_RECONNECT_DELAY,
         );
         reconnectTimer.current = window.setTimeout(connect, expDelay);
       } else if (closed.current) {
@@ -136,7 +141,9 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
           (message.type === "pong" || message.type === "heartbeat") &&
           heartbeatSentAt.current !== null
         ) {
-          const latencyMs = Math.round(performance.now() - heartbeatSentAt.current);
+          const latencyMs = Math.round(
+            performance.now() - heartbeatSentAt.current,
+          );
           heartbeatSentAt.current = null;
           setLatency(latencyMs);
           callbacks.current.onLatencyUpdate?.(latencyMs);

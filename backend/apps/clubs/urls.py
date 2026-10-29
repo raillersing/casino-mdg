@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    ClubCertificationRequestView,
+    ClubChatView,
     ClubEventCompleteView,
     ClubEventJoinView,
     ClubEventsView,
@@ -8,11 +10,9 @@ from .views import (
     ClubInvitationView,
     ClubJoinView,
     ClubLeaderboardView,
+    ClubLeagueLeaderboardView,
     ClubListCreateView,
     ClubMembersView,
-    ClubCertificationRequestView,
-    ClubChatView,
-    ClubLeagueLeaderboardView,
 )
 
 urlpatterns = [

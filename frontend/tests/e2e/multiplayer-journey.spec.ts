@@ -334,15 +334,16 @@ test("expose spectator and demo AI journeys from the lobby", async ({
   await stubGameApis(page);
   await page.goto("/lobby");
 
-  await expect(page.getByRole("link", { name: /Regarder/i })).toHaveAttribute(
-    "href",
-    /mode=spectator/,
-  );
   await expect(
-    page.getByRole("button", { name: /Jeux de hasard/i }).last(),
+    page.getByRole("link", { name: "Mode spectateur", exact: true }),
+  ).toHaveAttribute("href", /mode=spectator/);
+  await expect(
+    page.getByRole("button", { name: "Partie Rapide", exact: true }),
   ).toBeVisible();
 
-  await page.getByRole("link", { name: /Regarder/i }).click();
+  await page
+    .getByRole("link", { name: "Mode spectateur", exact: true })
+    .click();
   await expect(page).toHaveURL(/mode=spectator/);
   await expect(page.getByText("Mode spectateur")).toBeVisible();
   await expect(page.getByText(/lecture seule/i).first()).toBeVisible();
@@ -356,7 +357,11 @@ test("starts a real declared demo AI session from the lobby", async ({
 }) => {
   await stubGameApis(page);
   await page.goto("/lobby");
-  await page.getByRole("button", { name: /Lancer une partie IA/i }).click();
+  await page
+    .getByRole("button", { name: "Partie Rapide", exact: true })
+    .click();
+  await page.getByRole("button", { name: "♠ Poker", exact: true }).click();
+  await page.getByRole("button", { name: /Démarrer contre les Bots/i }).click();
   await expect(page).toHaveURL(/\/game\/poker\/BOT-POKER-001\?mode=demo_ai/);
   await expect(page.getByText("Démo contre l’IA")).toBeVisible();
   // The URL keeps the human-readable table code; the socket uses the

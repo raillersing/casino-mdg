@@ -72,4 +72,3 @@ class DailyMissionTests(TestCase):
         )
         self.assertEqual(duplicate.status_code, 200)
         self.assertTrue(duplicate.data["duplicate"])
-

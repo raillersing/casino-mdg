@@ -19,9 +19,7 @@ from apps.wallet.models import LedgerEntry, WalletTransaction
 from apps.wallet.services import credit_simulation_bonus
 
 
-def engine_headers(
-    game_id, game_type, outcome, amount, metadata=None, player_id=None
-):
+def engine_headers(game_id, game_type, outcome, amount, metadata=None, player_id=None):
     signature = hmac.new(
         settings.GAME_ENGINE_RESULT_SECRET.encode(),
         game_result_signature_payload(
@@ -93,7 +91,7 @@ class GameResultTests(TestCase):
                     )
                     if outcome == "win"
                     else {}
-                )
+                ),
             )
         response = client.get("/api/v1/games/results/")
         self.assertEqual(response.status_code, 200)
@@ -137,14 +135,14 @@ class GameResultTests(TestCase):
             "/api/v1/games/results/",
             payload,
             format="json",
-            **engine_headers(game_id, "poker", "win", 100)
+            **engine_headers(game_id, "poker", "win", 100),
         )
         replay = {**payload, "amount": 999}
         second = client.post(
             "/api/v1/games/results/",
             replay,
             format="json",
-            **engine_headers(game_id, "poker", "win", 999)
+            **engine_headers(game_id, "poker", "win", 999),
         )
         self.assertEqual(first.status_code, 201)
         self.assertEqual(second.status_code, 409)
@@ -180,10 +178,14 @@ class GameResultTests(TestCase):
 
     def test_multiple_players_can_record_results_for_same_game_id(self):
         winner = User.objects.create_user(
-            email="tablewinner@mdg.local", phone="+261340000019", display_name="TableWinner"
+            email="tablewinner@mdg.local",
+            phone="+261340000019",
+            display_name="TableWinner",
         )
         loser = User.objects.create_user(
-            email="tableloser@mdg.local", phone="+261340000020", display_name="TableLoser"
+            email="tableloser@mdg.local",
+            phone="+261340000020",
+            display_name="TableLoser",
         )
         credit_simulation_bonus(winner)
         game_id = str(uuid.uuid4())
@@ -227,7 +229,12 @@ class GameResultTests(TestCase):
         )
         teammate_resp = client.post(
             "/api/v1/games/results/",
-            {"game_id": game_id, "game_type": "belote", "outcome": "win", "amount": 162},
+            {
+                "game_id": game_id,
+                "game_type": "belote",
+                "outcome": "win",
+                "amount": 162,
+            },
             format="json",
             **teammate_headers,
         )
@@ -236,10 +243,14 @@ class GameResultTests(TestCase):
 
     def test_game_session_round_and_participants_persistence(self):
         owner = User.objects.create_user(
-            email="sessionowner@mdg.local", phone="+261340000021", display_name="SessionOwner"
+            email="sessionowner@mdg.local",
+            phone="+261340000021",
+            display_name="SessionOwner",
         )
         guest = User.objects.create_user(
-            email="sessionguest@mdg.local", phone="+261340000022", display_name="SessionGuest"
+            email="sessionguest@mdg.local",
+            phone="+261340000022",
+            display_name="SessionGuest",
         )
         table = GameTable.objects.create(
             table_code="fullring-test-01",
@@ -319,7 +330,7 @@ class GameResultTests(TestCase):
                     payload["game_type"],
                     payload["outcome"],
                     payload["amount"],
-                )
+                ),
             )
         client.force_authenticate(second)
         payload = {
@@ -337,7 +348,7 @@ class GameResultTests(TestCase):
                 payload["game_type"],
                 payload["outcome"],
                 payload["amount"],
-            )
+            ),
         )
         ranking = client.get("/api/v1/games/leaderboard/")
         self.assertEqual(ranking.status_code, 200)
@@ -345,7 +356,9 @@ class GameResultTests(TestCase):
 
     def test_internal_s2s_settlement_credits_winners_and_ignores_bots(self):
         user1 = User.objects.create_user(
-            email="s2s_winner@mdg.local", phone="+261340000030", display_name="S2SWinner"
+            email="s2s_winner@mdg.local",
+            phone="+261340000030",
+            display_name="S2SWinner",
         )
         user2 = User.objects.create_user(
             email="s2s_loser@mdg.local", phone="+261340000031", display_name="S2SLoser"
@@ -366,12 +379,16 @@ class GameResultTests(TestCase):
         }
 
         # 1. Missing secret should be rejected
-        unauth_resp = client.post("/api/v1/games/internal/settle-round/", payload, format="json")
+        unauth_resp = client.post(
+            "/api/v1/games/internal/settle-round/", payload, format="json"
+        )
         self.assertEqual(unauth_resp.status_code, 403)
 
         # 2. Valid secret processes settlement
         headers = {"HTTP_X_GAME_ENGINE_SECRET": settings.GAME_ENGINE_RESULT_SECRET}
-        resp = client.post("/api/v1/games/internal/settle-round/", payload, format="json", **headers)
+        resp = client.post(
+            "/api/v1/games/internal/settle-round/", payload, format="json", **headers
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["status"], "ok")
         self.assertEqual(resp.data["settled_count"], 2)
@@ -388,7 +405,9 @@ class GameResultTests(TestCase):
         self.assertIsNone(loss_res.transaction)
 
         # 3. Idempotency: replay S2S settlement does not double credit
-        replay_resp = client.post("/api/v1/games/internal/settle-round/", payload, format="json", **headers)
+        replay_resp = client.post(
+            "/api/v1/games/internal/settle-round/", payload, format="json", **headers
+        )
         self.assertEqual(replay_resp.status_code, 200)
         self.assertEqual(replay_resp.data["settled_count"], 0)
 

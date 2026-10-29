@@ -207,7 +207,9 @@ class GameParticipant(models.Model):
     payout = models.PositiveBigIntegerField(default=0)
     net_gain = models.BigIntegerField(default=0)
     outcome = models.CharField(
-        max_length=10, choices=[("win", "Victoire"), ("loss", "Défaite"), ("draw", "Égalité")], default="draw"
+        max_length=10,
+        choices=[("win", "Victoire"), ("loss", "Défaite"), ("draw", "Égalité")],
+        default="draw",
     )
     hand_rank = models.CharField(max_length=64, blank=True)
 
@@ -470,15 +472,33 @@ class Tournament(models.Model):
     ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=120)
-    game_type = models.CharField(max_length=20, choices=GameTable.GAME_TYPES, default="poker")
-    format = models.CharField(max_length=20, choices=FORMAT_CHOICES, default="sit_and_go")
+    game_type = models.CharField(
+        max_length=20, choices=GameTable.GAME_TYPES, default="poker"
+    )
+    format = models.CharField(
+        max_length=20, choices=FORMAT_CHOICES, default="sit_and_go"
+    )
     buy_in = models.PositiveBigIntegerField(default=1000)
     starting_chips = models.PositiveIntegerField(default=1500)
     max_players = models.PositiveIntegerField(default=6)
     blind_interval_minutes = models.PositiveIntegerField(default=3)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="registering")
-    club = models.ForeignKey("clubs.Club", null=True, blank=True, on_delete=models.SET_NULL, related_name="tournaments")
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_tournaments")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="registering"
+    )
+    club = models.ForeignKey(
+        "clubs.Club",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tournaments",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_tournaments",
+    )
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -501,10 +521,18 @@ class TournamentParticipant(models.Model):
         ("winner", "Vainqueur"),
     ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name="participants")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tournament_participations")
+    tournament = models.ForeignKey(
+        Tournament, on_delete=models.CASCADE, related_name="participants"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="tournament_participations",
+    )
     chips = models.PositiveIntegerField(default=1500)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="registered")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="registered"
+    )
     rank = models.PositiveIntegerField(null=True, blank=True)
     payout = models.PositiveBigIntegerField(default=0)
     registered_at = models.DateTimeField(auto_now_add=True)
@@ -512,7 +540,8 @@ class TournamentParticipant(models.Model):
     class Meta:
         db_table = "tournament_participants"
         constraints = [
-            models.UniqueConstraint(fields=["tournament", "user"], name="unique_tournament_participant")
+            models.UniqueConstraint(
+                fields=["tournament", "user"], name="unique_tournament_participant"
+            )
         ]
         ordering = ["rank", "-chips", "registered_at"]
-

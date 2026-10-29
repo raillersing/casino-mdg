@@ -14,11 +14,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ─── Security ─────────────────────────────────────────────────
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-key-change-in-prod")
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-raw_allowed_hosts = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h.strip()]
-if "*" in raw_allowed_hosts or not raw_allowed_hosts or "votre-domaine.com" in raw_allowed_hosts:
+raw_allowed_hosts = [
+    h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h.strip()
+]
+if (
+    "*" in raw_allowed_hosts
+    or not raw_allowed_hosts
+    or "votre-domaine.com" in raw_allowed_hosts
+):
     ALLOWED_HOSTS = ["*"]
 else:
-    ALLOWED_HOSTS = list(set(raw_allowed_hosts + ["localhost", "127.0.0.1", "backend", "testserver"]))
+    ALLOWED_HOSTS = list(
+        set(raw_allowed_hosts + ["localhost", "127.0.0.1", "backend", "testserver"])
+    )
 
 # ─── Apps ─────────────────────────────────────────────────────
 DJANGO_APPS = [

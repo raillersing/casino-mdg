@@ -39,7 +39,6 @@ from config.middleware import (
     REQUEST_DURATION_SECONDS,
 )
 
-
 GAME_LABELS = {
     "poker": "Poker Texas Hold'em (9-Max)",
     "belote": "Belote Malgache (4J)",
@@ -142,7 +141,9 @@ def _probe_database_and_cache():
             "status": db_status,
             "latency_ms": db_latency_ms,
             "conn_max_age": conn_max_age,
-            "pooling_mode": "persistent" if conn_max_age > 0 else "ephemeral_per_request",
+            "pooling_mode": (
+                "persistent" if conn_max_age > 0 else "ephemeral_per_request"
+            ),
         },
         "cache_redis": {
             "status": cache_status,
@@ -189,9 +190,9 @@ def _collect_http_telemetry():
         entry["duration_sec"] += dur
 
     top_endpoints = []
-    for item in sorted(
-        by_endpoint.values(), key=lambda x: x["calls"], reverse=True
-    )[:8]:
+    for item in sorted(by_endpoint.values(), key=lambda x: x["calls"], reverse=True)[
+        :8
+    ]:
         calls = item["calls"]
         avg_ms = round((item["duration_sec"] / calls) * 1000, 2) if calls else 0.0
         top_endpoints.append(
@@ -433,9 +434,9 @@ class LiveDashboardView(APIView):
         instant_handle = int(instant_agg["total_cost"] or 0)
         instant_payout = int(instant_agg["total_prize"] or 0)
 
-        draw_entries_qs = DrawEntry.objects.filter(created_at__gte=since).select_related(
-            "draw"
-        )
+        draw_entries_qs = DrawEntry.objects.filter(
+            created_at__gte=since
+        ).select_related("draw")
         draw_entries_count = draw_entries_qs.count()
         draw_handle = sum(int(entry.draw.entry_cost) for entry in draw_entries_qs)
 
@@ -547,9 +548,9 @@ class LiveDashboardView(APIView):
                     "ggr_sim": ig_cost - ig_prize,
                     "observed_rtp_pct": ig_rtp,
                     "theoretical_rtp_pct": THEORETICAL_RTP_BY_SLUG.get(ig.slug, 96.2),
-                    "win_rate_pct": round((ig_wins / plays_cnt) * 100, 1)
-                    if plays_cnt > 0
-                    else 0.0,
+                    "win_rate_pct": (
+                        round((ig_wins / plays_cnt) * 100, 1) if plays_cnt > 0 else 0.0
+                    ),
                 }
             )
 
@@ -702,9 +703,8 @@ class LiveDashboardView(APIView):
 
         # Funnel de conversion joueur (6 étapes clés)
         f_activation = event_counts.get("activation_viewed", 0)
-        f_hub_opened = (
-            event_counts.get("test_games_opened", 0)
-            + event_counts.get("play_hub_viewed", 0)
+        f_hub_opened = event_counts.get("test_games_opened", 0) + event_counts.get(
+            "play_hub_viewed", 0
         )
         f_intent = (
             event_counts.get("matchmaking_started", 0)
@@ -719,16 +719,23 @@ class LiveDashboardView(APIView):
             + event_counts.get("table_joined", 0)
         )
         f_played = event_counts.get("test_game_played", 0)
-        f_completed = (
-            event_counts.get("first_game_completed", 0)
-            + event_counts.get("bot_simulation_completed", 0)
+        f_completed = event_counts.get("first_game_completed", 0) + event_counts.get(
+            "bot_simulation_completed", 0
         )
 
         raw_stages = [
             ("activation_viewed", "1. Découverte & Activation", f_activation),
-            ("hub_opened", "2. Ouverture Lobby & Catalogue", max(f_hub_opened, f_intent)),
+            (
+                "hub_opened",
+                "2. Ouverture Lobby & Catalogue",
+                max(f_hub_opened, f_intent),
+            ),
             ("matchmaking_or_demo", "3. Lancement Matchmaking / IA", f_intent),
-            ("table_joined", "4. Table Rejointe (Humain ou Bot)", max(f_matched, f_played)),
+            (
+                "table_joined",
+                "4. Table Rejointe (Humain ou Bot)",
+                max(f_matched, f_played),
+            ),
             ("game_played", "5. Première Main / Partie Jouée", f_played),
             ("game_completed", "6. Partie Complétée & Réglée", f_completed),
         ]
@@ -736,8 +743,12 @@ class LiveDashboardView(APIView):
         conversion_funnel = []
         prev_val = top_count
         for key, label, val in raw_stages:
-            from_top_pct = round(min(100.0, (val / top_count) * 100), 1) if top_count > 0 else 0.0
-            step_pct = round(min(100.0, (val / prev_val) * 100), 1) if prev_val > 0 else 0.0
+            from_top_pct = (
+                round(min(100.0, (val / top_count) * 100), 1) if top_count > 0 else 0.0
+            )
+            step_pct = (
+                round(min(100.0, (val / prev_val) * 100), 1) if prev_val > 0 else 0.0
+            )
             drop_pct = round(max(0.0, 100.0 - step_pct), 1) if prev_val > 0 else 0.0
             conversion_funnel.append(
                 {
@@ -757,7 +768,9 @@ class LiveDashboardView(APIView):
         mm_bot_fallback = event_counts.get("bot_fallback_started", 0)
         mm_timeout = event_counts.get("matchmaking_timeout", 0)
         mm_cancelled = event_counts.get("matchmaking_cancelled", 0)
-        mm_total_resolved = max(mm_started, mm_human + mm_bot_fallback + mm_cancelled, 1)
+        mm_total_resolved = max(
+            mm_started, mm_human + mm_bot_fallback + mm_cancelled, 1
+        )
 
         reconnections_ok = event_counts.get("reconnection_succeeded", 0)
         sessions_paused = event_counts.get("session_paused", 0)
@@ -820,10 +833,9 @@ class LiveDashboardView(APIView):
             }
 
         # Flux d'activité joueur en direct (15 derniers événements)
-        recent_events = (
-            ProductEvent.objects.select_related("user")
-            .order_by("-created_at")[:15]
-        )
+        recent_events = ProductEvent.objects.select_related("user").order_by(
+            "-created_at"
+        )[:15]
         live_activity_stream = []
         for item in recent_events:
             lat = None

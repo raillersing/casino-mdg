@@ -18,17 +18,11 @@ class BaseMobileMoneyAdapter:
     def __init__(self, sandbox: bool = True):
         self.sandbox = sandbox
 
-    def initiate_deposit(
-        self, intent, phone_number: str
-    ) -> PaymentInitiationResult:
+    def initiate_deposit(self, intent, phone_number: str) -> PaymentInitiationResult:
         raise NotImplementedError
 
-    def initiate_withdrawal(
-        self, intent, phone_number: str
-    ) -> PaymentInitiationResult:
+    def initiate_withdrawal(self, intent, phone_number: str) -> PaymentInitiationResult:
         raise NotImplementedError
 
-    def verify_transaction_status(
-        self, provider_reference: str
-    ) -> Dict[str, Any]:
+    def verify_transaction_status(self, provider_reference: str) -> Dict[str, Any]:
         raise NotImplementedError
