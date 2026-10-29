@@ -31,7 +31,7 @@ Ces sources motivent des choix de conception ; elles ne prouvent pas un gain d'u
 
 ## Limites
 
-La refonte conserve les services et les moteurs existants. Les tests de navigation utilisent une liste de tables contrôlée ; ils ne qualifient pas les parties multijoueurs réelles ni le backend. Les textes français ajoutés suivent la langue de la demande ; leur traduction malgache reste à prévoir.
+La refonte conserve les services et les moteurs existants. Les tests de navigation utilisent une liste de tables contrôlée ; ils ne qualifient pas les parties multijoueurs réelles ni le backend. Les principaux textes du catalogue et le titre/statut du lobby disposent de traductions françaises et malgaches. Des descriptions de jeux et des libellés secondaires restent en français.
 
 ## Vérifications observées
 
@@ -41,3 +41,11 @@ La refonte conserve les services et les moteurs existants. Les tests de navigati
 - Compilation TypeScript, bundle Vite et génération PWA : réussis.
 - Accessibilité automatisée axe de l'accueil : réussie après attribution d'un nom accessible distinct au bloc multijoueur. Les 4 tests navigateur finaux passent.
 - Corrections nécessaires à la compilation : trois sélecteurs CSS préexistants étaient laissés ouverts avant des media queries. Leur règle pour le mode mobile forcé a été explicitée.
+
+## Contrôle avant publication
+
+- 28 tests unitaires réussis.
+- 13 tests navigateur accueil, catalogue, lobby, accessibilité, OTP, portefeuille, missions et changement de langue réussis.
+- La suite complète initiale a révélé 9 échecs : les attentes liées à la refonte ont été mises à jour ; les scénarios multijoueurs restent à distinguer des échecs historiques.
+- Le lint global échoue sur six avertissements dans DailyMissionsModal, useDeviceMode et GamePage, fichiers hors refonte ; les fichiers de la refonte passent le lint ciblé.
+- La dernière CI master observée avant publication (40828662585) est en échec sur plusieurs jobs. Cela ne constitue pas une validation de cette branche.
