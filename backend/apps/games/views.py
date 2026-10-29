@@ -65,9 +65,7 @@ def valid_engine_signature(request, game_id, game_type, outcome, amount, metadat
     if not received:
         return False
     player_id = (
-        str(request.user.pk)
-        if request.user and request.user.is_authenticated
-        else None
+        str(request.user.pk) if request.user and request.user.is_authenticated else None
     )
     if player_id is not None:
         expected_bound = hmac.new(
@@ -86,9 +84,7 @@ def valid_engine_signature(request, game_id, game_type, outcome, amount, metadat
             return True
     expected_legacy = hmac.new(
         settings.GAME_ENGINE_RESULT_SECRET.encode(),
-        game_result_signature_payload(
-            game_id, game_type, outcome, amount, metadata
-        ),
+        game_result_signature_payload(game_id, game_type, outcome, amount, metadata),
         hashlib.sha256,
     ).hexdigest()
     return hmac.compare_digest(received, expected_legacy)
@@ -183,7 +179,15 @@ class BotSimulationView(APIView):
         if existing:
             return Response(bot_simulation_payload(existing))
         bot_names = (
-            "Tovo", "Rija", "Saholy", "Koto", "Lova", "Mika", "Zaza", "Bao", "Naly"
+            "Tovo",
+            "Rija",
+            "Saholy",
+            "Koto",
+            "Lova",
+            "Mika",
+            "Zaza",
+            "Bao",
+            "Naly",
         )
         with transaction.atomic():
             table = GameTable.objects.create(
@@ -234,6 +238,7 @@ class BotSimulationView(APIView):
             response.raise_for_status()
         except requests.RequestException as exc:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning("Bot attach failed: %s", exc)
             session.status = "cancelled"
@@ -305,6 +310,7 @@ class InternalGameSettleView(APIView):
     Crédite et enregistre les résultats de fin de manche de façon infalsifiable,
     indépendamment de la connectivité réseau du navigateur du joueur au moment du showdown.
     """
+
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -358,21 +364,25 @@ class InternalGameSettleView(APIView):
                 user = None
 
             if not user:
-                settled_details.append({
-                    "player_id": player_id,
-                    "status": "ignored_non_user",
-                    "outcome": outcome,
-                })
+                settled_details.append(
+                    {
+                        "player_id": player_id,
+                        "status": "ignored_non_user",
+                        "outcome": outcome,
+                    }
+                )
                 continue
 
             existing = GameResult.objects.filter(game_id=game_id, user=user).first()
             if existing:
-                settled_details.append({
-                    "player_id": player_id,
-                    "status": "already_settled",
-                    "id": existing.pk,
-                    "outcome": existing.outcome,
-                })
+                settled_details.append(
+                    {
+                        "player_id": player_id,
+                        "status": "already_settled",
+                        "id": existing.pk,
+                        "outcome": existing.outcome,
+                    }
+                )
                 continue
 
             try:
@@ -401,29 +411,40 @@ class InternalGameSettleView(APIView):
                             "source": "game-engine-s2s",
                         },
                     )
-                    settled_details.append({
-                        "player_id": player_id,
-                        "status": "settled",
-                        "id": result.pk,
-                        "outcome": outcome,
-                        "amount": amount,
-                        "transaction_id": str(transaction_entry.pk) if transaction_entry else None,
-                    })
+                    settled_details.append(
+                        {
+                            "player_id": player_id,
+                            "status": "settled",
+                            "id": result.pk,
+                            "outcome": outcome,
+                            "amount": amount,
+                            "transaction_id": (
+                                str(transaction_entry.pk) if transaction_entry else None
+                            ),
+                        }
+                    )
             except IntegrityError:
                 existing = GameResult.objects.filter(game_id=game_id, user=user).first()
-                settled_details.append({
-                    "player_id": player_id,
-                    "status": "already_settled",
-                    "id": existing.pk if existing else None,
-                })
+                settled_details.append(
+                    {
+                        "player_id": player_id,
+                        "status": "already_settled",
+                        "id": existing.pk if existing else None,
+                    }
+                )
 
-        settled_count = len([d for d in settled_details if d.get("status") == "settled"])
-        return Response({
-            "status": "ok",
-            "game_id": str(game_id),
-            "settled_count": settled_count,
-            "details": settled_details,
-        }, status=200)
+        settled_count = len(
+            [d for d in settled_details if d.get("status") == "settled"]
+        )
+        return Response(
+            {
+                "status": "ok",
+                "game_id": str(game_id),
+                "settled_count": settled_count,
+                "details": settled_details,
+            },
+            status=200,
+        )
 
 
 class TableListCreateView(APIView):
@@ -686,12 +707,8 @@ class MatchmakingQueueView(APIView):
         game_type = request.data.get("game_type", "poker")
         if game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
-        target_size = request.data.get("max_players") or request.data.get(
-            "target_size"
-        )
-        ticket, created = queue_player(
-            request.user, game_type, target_size=target_size
-        )
+        target_size = request.data.get("max_players") or request.data.get("target_size")
+        ticket, created = queue_player(request.user, game_type, target_size=target_size)
         return Response(
             {"ticket": matchmaking_payload(ticket), "created": created},
             status=201 if created else 200,
@@ -768,9 +785,7 @@ class GameResultCreateView(APIView):
                 {"detail": "Une victoire doit être attestée par le moteur de jeu."},
                 status=403,
             )
-        existing = GameResult.objects.filter(
-            game_id=game_id, user=request.user
-        ).first()
+        existing = GameResult.objects.filter(game_id=game_id, user=request.user).first()
         if existing:
             if (
                 existing.game_type,
@@ -1173,8 +1188,12 @@ class DailyMissionsView(APIView):
         for day_offset in range(1, 7):
             past_date = today - timedelta(days=day_offset)
             if (
-                GameResult.objects.filter(user=user, created_at__date=past_date).exists()
-                or DailyRewardClaim.objects.filter(user=user, mission_date=past_date).exists()
+                GameResult.objects.filter(
+                    user=user, created_at__date=past_date
+                ).exists()
+                or DailyRewardClaim.objects.filter(
+                    user=user, mission_date=past_date
+                ).exists()
             ):
                 streak_count += 1
             else:
@@ -1204,7 +1223,11 @@ class DailyMissionsView(APIView):
             with transaction.atomic():
                 claim = (
                     DailyRewardClaim.objects.select_for_update()
-                    .filter(user=request.user, mission_key="daily_streak", mission_date=today)
+                    .filter(
+                        user=request.user,
+                        mission_key="daily_streak",
+                        mission_date=today,
+                    )
                     .first()
                 )
                 if claim:
@@ -1213,8 +1236,12 @@ class DailyMissionsView(APIView):
                 for day_offset in range(1, 7):
                     past_date = today - timedelta(days=day_offset)
                     if (
-                        GameResult.objects.filter(user=request.user, created_at__date=past_date).exists()
-                        or DailyRewardClaim.objects.filter(user=request.user, mission_date=past_date).exists()
+                        GameResult.objects.filter(
+                            user=request.user, created_at__date=past_date
+                        ).exists()
+                        or DailyRewardClaim.objects.filter(
+                            user=request.user, mission_date=past_date
+                        ).exists()
                     ):
                         streak_count += 1
                     else:
@@ -1385,9 +1412,7 @@ class TournamentListCreateView(APIView):
         if not Tournament.objects.exists():
             seed_default_tournaments()
 
-        tournaments = Tournament.objects.all().order_by(
-            "-status", "-created_at"
-        )[:30]
+        tournaments = Tournament.objects.all().order_by("-status", "-created_at")[:30]
         return Response(
             {"results": [tournament_payload(t, request.user) for t in tournaments]}
         )
@@ -1459,7 +1484,9 @@ class TournamentRegisterView(APIView):
             )
 
         if tournament.participants.filter(user=request.user).exists():
-            return Response({"detail": "Vous êtes déjà inscrit à ce tournoi."}, status=400)
+            return Response(
+                {"detail": "Vous êtes déjà inscrit à ce tournoi."}, status=400
+            )
 
         if tournament.participants.count() >= tournament.max_players:
             return Response({"detail": "Ce tournoi est complet."}, status=400)
@@ -1483,4 +1510,3 @@ class TournamentRegisterView(APIView):
             },
             status=201,
         )
-

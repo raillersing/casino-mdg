@@ -21,7 +21,12 @@ ALLOWED_MIME_TYPES = {
 REQUIRED_DOCUMENTS_BY_LEVEL = {
     "light_player": [],  # Phone OTP is sufficient
     "verified": ["national_id_front", "national_id_back"],  # or passport
-    "vip": ["national_id_front", "national_id_back", "proof_of_residence", "source_of_funds"],
+    "vip": [
+        "national_id_front",
+        "national_id_back",
+        "proof_of_residence",
+        "source_of_funds",
+    ],
 }
 
 
@@ -31,15 +36,17 @@ def validate_file_security(uploaded_file: UploadedFile) -> Tuple[str, str, int]:
     Retourne (mime_type, file_hash, file_size).
     """
     if uploaded_file.size > MAX_FILE_SIZE:
-        raise ValidationError(f"Le fichier dépasse la taille maximale autorisée (5 Mo). Taille: {uploaded_file.size} octets.")
+        raise ValidationError(
+            f"Le fichier dépasse la taille maximale autorisée (5 Mo). Taille: {uploaded_file.size} octets."
+        )
 
     ext = os.path.splitext(uploaded_file.name)[1].lower()
-    
+
     # Lire l'en-tête pour valider les magic bytes
     initial_pos = uploaded_file.tell() if hasattr(uploaded_file, "tell") else 0
     header = uploaded_file.read(32)
     uploaded_file.seek(0)
-    
+
     detected_mime = None
     if header.startswith(b"\xff\xd8\xff"):
         detected_mime = "image/jpeg"
@@ -51,10 +58,14 @@ def validate_file_security(uploaded_file: UploadedFile) -> Tuple[str, str, int]:
         detected_mime = "application/pdf"
 
     if not detected_mime:
-        raise ValidationError("Format de fichier non reconnu ou non autorisé. Formats acceptés : JPEG, PNG, WEBP, PDF.")
+        raise ValidationError(
+            "Format de fichier non reconnu ou non autorisé. Formats acceptés : JPEG, PNG, WEBP, PDF."
+        )
 
     if ext not in ALLOWED_MIME_TYPES.get(detected_mime, []):
-        raise ValidationError(f"L'extension {ext} ne correspond pas au contenu détecté ({detected_mime}).")
+        raise ValidationError(
+            f"L'extension {ext} ne correspond pas au contenu détecté ({detected_mime})."
+        )
 
     # Calcul SHA-256
     sha256 = hashlib.sha256()
@@ -72,10 +83,14 @@ def attach_document_to_request(
     """Valide et attache un document à une demande KYC."""
     valid_types = dict(KYCDocument.DOCUMENT_TYPES)
     if document_type not in valid_types:
-        raise ValidationError(f"Type de document '{document_type}' invalide. Types autorisés : {list(valid_types.keys())}")
+        raise ValidationError(
+            f"Type de document '{document_type}' invalide. Types autorisés : {list(valid_types.keys())}"
+        )
 
     if kyc_request.status not in ["pending", "resubmission_requested"]:
-        raise ValidationError("Impossible d'ajouter un document à une demande déjà clôturée.")
+        raise ValidationError(
+            "Impossible d'ajouter un document à une demande déjà clôturée."
+        )
 
     mime_type, file_hash, file_size = validate_file_security(uploaded_file)
 
@@ -151,13 +166,19 @@ def review_kyc_request(
         for doc_id, doc_info in doc_statuses.items():
             doc = kyc_request.documents.filter(id=doc_id).first()
             if doc:
-                if "status" in doc_info and doc_info["status"] in ["valid", "rejected", "pending"]:
+                if "status" in doc_info and doc_info["status"] in [
+                    "valid",
+                    "rejected",
+                    "pending",
+                ]:
                     doc.status = doc_info["status"]
                 if "reason" in doc_info:
                     doc.rejection_reason = str(doc_info["reason"])[:255]
                 doc.save(update_fields=["status", "rejection_reason"])
 
-    kyc_request.save(update_fields=["status", "reviewer", "reviewer_notes", "reviewed_at"])
+    kyc_request.save(
+        update_fields=["status", "reviewer", "reviewer_notes", "reviewed_at"]
+    )
 
     record_audit(
         reviewer,

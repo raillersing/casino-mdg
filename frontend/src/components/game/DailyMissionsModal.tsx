@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   X,
   Flame,
@@ -34,7 +34,7 @@ export function DailyMissionsModal({
   const [claimingKey, setClaimingKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const loadMissions = async () => {
+  const loadMissions = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
     try {
@@ -45,14 +45,14 @@ export function DailyMissionsModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken]);
 
   useEffect(() => {
     if (isOpen) {
       void loadMissions();
       setMessage(null);
     }
-  }, [isOpen, accessToken]);
+  }, [isOpen, loadMissions]);
 
   const handleClaim = async (key: string, rewardAmount: number) => {
     if (!accessToken) return;
@@ -60,11 +60,15 @@ export function DailyMissionsModal({
     try {
       const res = await claimMissionOrStreak(accessToken, key);
       haptics.winCelebration();
-      setMessage(`Félicitations ! +${res.reward || rewardAmount} Ar crédités sur votre compte.`);
+      setMessage(
+        `Félicitations ! +${res.reward || rewardAmount} Ar crédités sur votre compte.`,
+      );
       if (onRewardClaimed) onRewardClaimed(res.reward || rewardAmount);
       await loadMissions();
     } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : "Erreur lors de la réclamation.");
+      setMessage(
+        err instanceof Error ? err.message : "Erreur lors de la réclamation.",
+      );
     } finally {
       setClaimingKey(null);
     }
@@ -106,10 +110,23 @@ export function DailyMissionsModal({
               <Flame size={22} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--gold)" }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "1.2rem",
+                  fontWeight: 700,
+                  color: "var(--gold)",
+                }}
+              >
                 Missions &amp; Bonus Série
               </h3>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--muted)" }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.82rem",
+                  color: "var(--muted)",
+                }}
+              >
                 Récompenses quotidiennes et progression
               </p>
             </div>
@@ -146,8 +163,18 @@ export function DailyMissionsModal({
         )}
 
         {loading && !data ? (
-          <div style={{ textAlign: "center", padding: "30px 10px", color: "var(--muted)" }}>
-            <Loader2 size={24} className="spin" style={{ margin: "0 auto 8px" }} />
+          <div
+            style={{
+              textAlign: "center",
+              padding: "30px 10px",
+              color: "var(--muted)",
+            }}
+          >
+            <Loader2
+              size={24}
+              className="spin"
+              style={{ margin: "0 auto 8px" }}
+            />
             Chargement de vos quêtes...
           </div>
         ) : (
@@ -170,9 +197,17 @@ export function DailyMissionsModal({
                   marginBottom: "12px",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
                   <Calendar size={18} style={{ color: "var(--gold)" }} />
-                  <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--gold)" }}>
+                  <span
+                    style={{
+                      fontSize: "0.95rem",
+                      fontWeight: 700,
+                      color: "var(--gold)",
+                    }}
+                  >
                     Série de Connexion : Jour {streak?.current_day || 1}/7
                   </span>
                 </div>
@@ -192,7 +227,9 @@ export function DailyMissionsModal({
                     }}
                   >
                     <Gift size={14} />
-                    {claimingKey === "daily_streak" ? "Réclamation..." : `Prendre +${streak.reward} Ar`}
+                    {claimingKey === "daily_streak"
+                      ? "Réclamation..."
+                      : `Prendre +${streak.reward} Ar`}
                   </button>
                 )}
                 {streak?.claimed && (
@@ -221,7 +258,9 @@ export function DailyMissionsModal({
                   textAlign: "center",
                 }}
               >
-                {(streak?.schedule || [100, 200, 300, 500, 750, 1000, 2500]).map((amt, i) => {
+                {(
+                  streak?.schedule || [100, 200, 300, 500, 750, 1000, 2500]
+                ).map((amt, i) => {
                   const dayNum = i + 1;
                   const isCurrent = dayNum === (streak?.current_day || 1);
                   const isPast = dayNum < (streak?.current_day || 1);
@@ -246,7 +285,11 @@ export function DailyMissionsModal({
                       <div
                         style={{
                           fontSize: "0.7rem",
-                          color: isCurrent ? "var(--gold)" : isPast ? "#81c784" : "var(--muted)",
+                          color: isCurrent
+                            ? "var(--gold)"
+                            : isPast
+                              ? "#81c784"
+                              : "var(--muted)",
                           fontWeight: 600,
                         }}
                       >
@@ -284,9 +327,18 @@ export function DailyMissionsModal({
                 </span>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
                 {missions.map((m) => {
-                  const percent = Math.min(100, Math.round((m.progress / m.goal) * 100));
+                  const percent = Math.min(
+                    100,
+                    Math.round((m.progress / m.goal) * 100),
+                  );
                   return (
                     <div
                       key={m.key}
@@ -312,7 +364,9 @@ export function DailyMissionsModal({
                           }}
                         >
                           <span>{m.title}</span>
-                          <span style={{ color: "var(--gold)", fontWeight: 700 }}>
+                          <span
+                            style={{ color: "var(--gold)", fontWeight: 700 }}
+                          >
                             +{m.reward} Ar
                           </span>
                         </div>
@@ -331,7 +385,8 @@ export function DailyMissionsModal({
                             style={{
                               height: "100%",
                               width: `${percent}%`,
-                              background: percent === 100 ? "#4caf50" : "var(--gold)",
+                              background:
+                                percent === 100 ? "#4caf50" : "var(--gold)",
                               transition: "width 0.3s ease",
                             }}
                           />
@@ -382,7 +437,12 @@ export function DailyMissionsModal({
                             {claimingKey === m.key ? "..." : "Réclamer"}
                           </button>
                         ) : (
-                          <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                          <span
+                            style={{
+                              fontSize: "0.78rem",
+                              color: "var(--muted)",
+                            }}
+                          >
                             En cours
                           </span>
                         )}

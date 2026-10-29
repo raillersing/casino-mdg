@@ -233,12 +233,8 @@ class AuditTests(TestCase):
         self.assertEqual(
             data["application_stats"]["services_health"]["database"]["status"], "ok"
         )
-        self.assertEqual(
-            data["application_stats"]["network_latency"]["samples"], 3
-        )
-        self.assertIsNotNone(
-            data["application_stats"]["network_latency"]["p95_ms"]
-        )
+        self.assertEqual(data["application_stats"]["network_latency"]["samples"], 3)
+        self.assertIsNotNone(data["application_stats"]["network_latency"]["p95_ms"])
         self.assertEqual(
             len(data["application_stats"]["network_latency"]["global_regions_matrix"]),
             6,
@@ -251,9 +247,7 @@ class AuditTests(TestCase):
         )
 
         # Pillar 3: Player flow
-        self.assertEqual(
-            data["player_flow"]["realtime_presence"]["online_30s"], 1
-        )
+        self.assertEqual(data["player_flow"]["realtime_presence"]["online_30s"], 1)
         self.assertEqual(
             data["player_flow"]["realtime_presence"]["searching_matchmaking"], 1
         )

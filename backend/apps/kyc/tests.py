@@ -1,4 +1,5 @@
 import io
+
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -16,7 +17,10 @@ class KYCTests(TestCase):
             email="other@mdg.local", phone="+261340000026", display_name="Autre Joueur"
         )
         self.staff_user = User.objects.create_superuser(
-            email="staff@mdg.local", phone="+261340000099", display_name="Admin Staff", password="pass"
+            email="staff@mdg.local",
+            phone="+261340000099",
+            display_name="Admin Staff",
+            password="pass",
         )
         self.client = APIClient()
 
@@ -29,24 +33,34 @@ class KYCTests(TestCase):
         self.assertIsNone(res.data["request"])
 
         # Créer une demande
-        first = self.client.post("/api/v1/kyc/status/", {"requested_level": "verified"}, format="json")
+        first = self.client.post(
+            "/api/v1/kyc/status/", {"requested_level": "verified"}, format="json"
+        )
         self.assertEqual(first.status_code, 201)
         self.assertEqual(first.data["status"], "pending")
 
         # Conflit sur deuxième demande concurrente
-        second = self.client.post("/api/v1/kyc/status/", {"requested_level": "vip"}, format="json")
+        second = self.client.post(
+            "/api/v1/kyc/status/", {"requested_level": "vip"}, format="json"
+        )
         self.assertEqual(second.status_code, 409)
 
     def test_document_upload_success_and_validation(self):
         self.client.force_authenticate(self.user)
-        
+
         # Fichier PNG valide (1x1 px PNG header minimal)
         valid_png_content = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-        file = SimpleUploadedFile("cin_recto.png", valid_png_content, content_type="image/png")
+        file = SimpleUploadedFile(
+            "cin_recto.png", valid_png_content, content_type="image/png"
+        )
 
         res = self.client.post(
             "/api/v1/kyc/documents/upload/",
-            {"file": file, "document_type": "national_id_front", "requested_level": "verified"},
+            {
+                "file": file,
+                "document_type": "national_id_front",
+                "requested_level": "verified",
+            },
             format="multipart",
         )
         self.assertEqual(res.status_code, 201)
@@ -57,9 +71,11 @@ class KYCTests(TestCase):
 
     def test_invalid_file_rejected(self):
         self.client.force_authenticate(self.user)
-        
+
         # Faux fichier image avec contenu texte
-        fake_file = SimpleUploadedFile("malicious.png", b"NOT_A_PNG_FILE_CONTENT", content_type="image/png")
+        fake_file = SimpleUploadedFile(
+            "malicious.png", b"NOT_A_PNG_FILE_CONTENT", content_type="image/png"
+        )
         res = self.client.post(
             "/api/v1/kyc/documents/upload/",
             {"file": fake_file, "document_type": "national_id_front"},
@@ -97,10 +113,16 @@ class KYCTests(TestCase):
         # 1. Joueur soumet document et demande
         self.client.force_authenticate(self.user)
         valid_pdf = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF"
-        file = SimpleUploadedFile("certificat.pdf", valid_pdf, content_type="application/pdf")
+        file = SimpleUploadedFile(
+            "certificat.pdf", valid_pdf, content_type="application/pdf"
+        )
         self.client.post(
             "/api/v1/kyc/documents/upload/",
-            {"file": file, "document_type": "proof_of_residence", "requested_level": "verified"},
+            {
+                "file": file,
+                "document_type": "proof_of_residence",
+                "requested_level": "verified",
+            },
             format="multipart",
         )
         req = KYCRequest.objects.get(user=self.user)
@@ -119,12 +141,12 @@ class KYCTests(TestCase):
             format="json",
         )
         self.assertEqual(review_res.status_code, 200)
-        
+
         # 4. Vérifier que l'utilisateur est maintenant "verified"
         self.user.refresh_from_db()
         self.assertEqual(self.user.kyc_level, "verified")
         self.assertIsNotNone(self.user.kyc_verified_at)
-        
+
         req.refresh_from_db()
         self.assertEqual(req.status, "approved")
         self.assertEqual(req.reviewer_id, self.staff_user.pk)

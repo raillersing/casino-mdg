@@ -1,10 +1,9 @@
-from django.test import TestCase, override_settings
-from rest_framework.test import APIClient
-
 import hashlib
 import hmac
 
 from django.conf import settings
+from django.test import TestCase, override_settings
+from rest_framework.test import APIClient
 
 from apps.accounts.models import User
 from apps.games.models import BotSimulationSession, GameTable, TableSeat
@@ -21,7 +20,7 @@ class TableApiTests(TestCase):
     def test_public_list_seeds_demo_tables(self):
         response = self.client.get("/api/v1/games/tables/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 4)
+        self.assertEqual(len(response.data["results"]), 6)
         self.assertEqual(
             {item["mode"] for item in response.data["results"]}, {"HUMAN_MATCH"}
         )
@@ -176,7 +175,10 @@ class TableApiTests(TestCase):
 
     def test_join_returns_signed_admission_token(self):
         table = GameTable.objects.create(
-            table_code="test-adm-001", name="Test Admission", game_type="poker", max_players=6
+            table_code="test-adm-001",
+            name="Test Admission",
+            game_type="poker",
+            max_players=6,
         )
         self.client.force_authenticate(self.user)
         response = self.client.post(f"/api/v1/games/tables/{table.pk}/join/")
@@ -187,7 +189,10 @@ class TableApiTests(TestCase):
 
     def test_admission_endpoint_returns_token_for_seated_and_spectator(self):
         table = GameTable.objects.create(
-            table_code="test-adm-002", name="Test Admission Spec", game_type="poker", max_players=6
+            table_code="test-adm-002",
+            name="Test Admission Spec",
+            game_type="poker",
+            max_players=6,
         )
         self.client.force_authenticate(self.user)
         # As spectator (not seated yet)
@@ -198,7 +203,9 @@ class TableApiTests(TestCase):
 
         # As player (after joining)
         self.client.post(f"/api/v1/games/tables/{table.pk}/join/")
-        response_seated = self.client.post(f"/api/v1/games/tables/{table.pk}/admission/")
+        response_seated = self.client.post(
+            f"/api/v1/games/tables/{table.pk}/admission/"
+        )
         self.assertEqual(response_seated.status_code, 200)
         self.assertEqual(response_seated.data["role"], "player")
         self.assertEqual(response_seated.data["seat_index"], 0)
@@ -281,5 +288,3 @@ class TableApiTests(TestCase):
         self.assertEqual(matched_table.max_players, 6)
         self.assertEqual(matched_table.game_type, "poker")
         self.assertEqual(matched_table.seats.count(), 2)
-
-

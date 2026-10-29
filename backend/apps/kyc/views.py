@@ -32,7 +32,11 @@ def serialize_document(doc: KYCDocument, request) -> dict:
         "status_display": doc.get_status_display(),
         "rejection_reason": doc.rejection_reason,
         "uploaded_at": doc.created_at.isoformat(),
-        "download_url": request.build_absolute_uri(f"/api/v1/kyc/documents/{doc.id}/") if request else f"/api/v1/kyc/documents/{doc.id}/",
+        "download_url": (
+            request.build_absolute_uri(f"/api/v1/kyc/documents/{doc.id}/")
+            if request
+            else f"/api/v1/kyc/documents/{doc.id}/"
+        ),
     }
 
 
@@ -55,7 +59,11 @@ class KYCStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        latest = KYCRequest.objects.filter(user=request.user).prefetch_related("documents").first()
+        latest = (
+            KYCRequest.objects.filter(user=request.user)
+            .prefetch_related("documents")
+            .first()
+        )
         return Response(
             {
                 "level": request.user.kyc_level,
@@ -63,7 +71,8 @@ class KYCStatusView(APIView):
                 "request": serialize_request(latest, request) if latest else None,
                 "documents_enabled": True,
                 "available_document_types": [
-                    {"code": code, "label": label} for code, label in KYCDocument.DOCUMENT_TYPES
+                    {"code": code, "label": label}
+                    for code, label in KYCDocument.DOCUMENT_TYPES
                 ],
             }
         )
@@ -71,9 +80,16 @@ class KYCStatusView(APIView):
     def post(self, request):
         level = str(request.data.get("requested_level", ""))
         if level not in dict(KYCRequest.LEVELS):
-            return Response({"detail": "Niveau KYC invalide."}, status=status.HTTP_400_BAD_REQUEST)
-        if KYCRequest.objects.filter(user=request.user, status__in=["pending", "resubmission_requested"]).exists():
-            return Response({"detail": "Une demande est déjà en cours de traitement."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "Niveau KYC invalide."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if KYCRequest.objects.filter(
+            user=request.user, status__in=["pending", "resubmission_requested"]
+        ).exists():
+            return Response(
+                {"detail": "Une demande est déjà en cours de traitement."},
+                status=status.HTTP_409_CONFLICT,
+            )
         item = KYCRequest.objects.create(
             user=request.user,
             requested_level=level,
@@ -97,14 +113,21 @@ class KYCDocumentUploadView(APIView):
     def post(self, request):
         file_obj = request.FILES.get("file")
         if not file_obj:
-            return Response({"detail": "Aucun fichier fourni."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Aucun fichier fourni."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         document_type = request.data.get("document_type", "")
         if not document_type:
-            return Response({"detail": "Le paramètre 'document_type' est requis."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Le paramètre 'document_type' est requis."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Récupérer ou créer la demande KYC en cours
-        kyc_req = KYCRequest.objects.filter(user=request.user, status__in=["pending", "resubmission_requested"]).first()
+        kyc_req = KYCRequest.objects.filter(
+            user=request.user, status__in=["pending", "resubmission_requested"]
+        ).first()
         if not kyc_req:
             requested_level = request.data.get("requested_level", "verified")
             if requested_level not in dict(KYCRequest.LEVELS):
@@ -118,7 +141,10 @@ class KYCDocumentUploadView(APIView):
         try:
             doc = attach_document_to_request(kyc_req, document_type, file_obj)
         except ValidationError as exc:
-            return Response({"detail": exc.message if hasattr(exc, "message") else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": exc.message if hasattr(exc, "message") else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {
@@ -141,24 +167,35 @@ class KYCDocumentDownloadView(APIView):
 
         # Contrôle d'accès : seul le propriétaire ou le staff peut accéder au document
         if doc.kyc_request.user_id != request.user.pk and not request.user.is_staff:
-            return Response({"detail": "Accès non autorisé à ce document."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "Accès non autorisé à ce document."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if not doc.file or not doc.file.storage.exists(doc.file.name):
             raise Http404("Fichier non trouvé sur le serveur de stockage.")
 
-        response = FileResponse(doc.file.open("rb"), content_type=doc.mime_type or "application/octet-stream")
+        response = FileResponse(
+            doc.file.open("rb"),
+            content_type=doc.mime_type or "application/octet-stream",
+        )
         response["Content-Disposition"] = f'inline; filename="{doc.file_name}"'
         return response
 
 
 # ─── Backoffice KYC Endpoints ──────────────────────────────────────────
 
+
 class BackofficeKYCListView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def get(self, request):
         status_filter = request.query_params.get("status")
-        queryset = KYCRequest.objects.select_related("user", "reviewer").prefetch_related("documents").all()
+        queryset = (
+            KYCRequest.objects.select_related("user", "reviewer")
+            .prefetch_related("documents")
+            .all()
+        )
         if status_filter:
             queryset = queryset.filter(status=status_filter)
 
@@ -187,18 +224,29 @@ class BackofficeKYCReviewView(APIView):
 
     def post(self, request, request_id):
         try:
-            item = KYCRequest.objects.select_related("user").prefetch_related("documents").get(pk=request_id)
+            item = (
+                KYCRequest.objects.select_related("user")
+                .prefetch_related("documents")
+                .get(pk=request_id)
+            )
         except KYCRequest.DoesNotExist:
-            return Response({"detail": "Demande KYC introuvable."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Demande KYC introuvable."}, status=status.HTTP_404_NOT_FOUND
+            )
 
         action = request.data.get("action")
         notes = str(request.data.get("notes", ""))
         doc_statuses = request.data.get("doc_statuses")
 
         try:
-            reviewed = review_kyc_request(item, request.user, action, notes=notes, doc_statuses=doc_statuses)
+            reviewed = review_kyc_request(
+                item, request.user, action, notes=notes, doc_statuses=doc_statuses
+            )
         except ValidationError as exc:
-            return Response({"detail": exc.message if hasattr(exc, "message") else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": exc.message if hasattr(exc, "message") else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {

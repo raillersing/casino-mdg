@@ -1,23 +1,6 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useCallback, useState } from "react";
 
-export type DeviceMode = "auto" | "desktop" | "mobile";
-
-interface DeviceContextValue {
-  mode: DeviceMode;
-  isMobile: boolean;
-  hasTouch: boolean;
-  setMode: (mode: DeviceMode) => void;
-  toggleMode: () => void;
-}
-
-const DeviceContext = createContext<DeviceContextValue | undefined>(undefined);
-
+import { DeviceContext, type DeviceMode } from "./deviceContext";
 const STORAGE_KEY = "casino_mdg_device_mode";
 
 export function DeviceProvider({ children }: { children: React.ReactNode }) {
@@ -70,14 +53,14 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const setMode = (newMode: DeviceMode) => {
+  const setMode = useCallback((newMode: DeviceMode) => {
     setModeState(newMode);
     try {
       localStorage.setItem(STORAGE_KEY, newMode);
     } catch {
       // Ignore
     }
-  };
+  }, []);
 
   const isMobile = useMemo(() => {
     if (mode === "desktop") return false;
@@ -98,13 +81,13 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isMobile]);
 
-  const toggleMode = () => {
+  const toggleMode = useCallback(() => {
     if (isMobile) {
       setMode("desktop");
     } else {
       setMode("mobile");
     }
-  };
+  }, [isMobile, setMode]);
 
   const value = useMemo(
     () => ({
@@ -114,16 +97,10 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       setMode,
       toggleMode,
     }),
-    [mode, isMobile, hasTouch],
+    [mode, isMobile, hasTouch, setMode, toggleMode],
   );
 
-  return <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>;
-}
-
-export function useDeviceMode(): DeviceContextValue {
-  const context = useContext(DeviceContext);
-  if (!context) {
-    throw new Error("useDeviceMode must be used within a DeviceProvider");
-  }
-  return context;
+  return (
+    <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>
+  );
 }

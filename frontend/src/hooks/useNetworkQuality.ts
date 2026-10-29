@@ -17,13 +17,23 @@ export interface NetworkQualityState {
 export function useNetworkQuality(pollIntervalMs = 12000) {
   const [samples, setSamples] = useState<number[]>([]);
   const [isTesting, setIsTesting] = useState(false);
-  const [state, setState] = useState<Omit<NetworkQualityState, "samples" | "jitter" | "isTesting">>({
+  const [state, setState] = useState<
+    Omit<NetworkQualityState, "samples" | "jitter" | "isTesting">
+  >({
     isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
     latencyMs: null,
-    effectiveType: typeof navigator !== "undefined" ? ((navigator as unknown as { connection?: { effectiveType?: string } }).connection?.effectiveType || "4g") : "4g",
+    effectiveType:
+      typeof navigator !== "undefined"
+        ? (navigator as unknown as { connection?: { effectiveType?: string } })
+            .connection?.effectiveType || "4g"
+        : "4g",
     quality: "good",
     lastChecked: Date.now(),
-    downlink: typeof navigator !== "undefined" ? ((navigator as unknown as { connection?: { downlink?: number } }).connection?.downlink || null) : null,
+    downlink:
+      typeof navigator !== "undefined"
+        ? (navigator as unknown as { connection?: { downlink?: number } })
+            .connection?.downlink || null
+        : null,
   });
 
   const isCheckingRef = useRef(false);
@@ -56,7 +66,14 @@ export function useNetworkQuality(pollIntervalMs = 12000) {
 
       if (res.ok) {
         const duration = Math.round(performance.now() - start);
-        const navConn = typeof navigator !== "undefined" ? (navigator as unknown as { connection?: { effectiveType?: string; downlink?: number } }).connection : undefined;
+        const navConn =
+          typeof navigator !== "undefined"
+            ? (
+                navigator as unknown as {
+                  connection?: { effectiveType?: string; downlink?: number };
+                }
+              ).connection
+            : undefined;
         const effType = navConn?.effectiveType || "4g";
         const dl = navConn?.downlink ?? null;
 
@@ -96,12 +113,18 @@ export function useNetworkQuality(pollIntervalMs = 12000) {
     }
   }, []);
 
-  const jitter = samples.length >= 2
-    ? Math.round(
-        samples.slice(1).reduce((acc, curr, idx) => acc + Math.abs(curr - samples[idx]), 0) /
-          (samples.length - 1),
-      )
-    : 0;
+  const jitter =
+    samples.length >= 2
+      ? Math.round(
+          samples
+            .slice(1)
+            .reduce(
+              (acc, curr, idx) => acc + Math.abs(curr - samples[idx]),
+              0,
+            ) /
+            (samples.length - 1),
+        )
+      : 0;
 
   useEffect(() => {
     const handleOnline = () => {

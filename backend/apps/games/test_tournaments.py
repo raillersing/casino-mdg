@@ -8,10 +8,14 @@ from apps.games.models import Tournament, TournamentParticipant
 class TournamentApiTests(TestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
-            email="tourney1@mdg.local", phone="+261340009901", display_name="TourneyPlayer1"
+            email="tourney1@mdg.local",
+            phone="+261340009901",
+            display_name="TourneyPlayer1",
         )
         self.user2 = User.objects.create_user(
-            email="tourney2@mdg.local", phone="+261340009902", display_name="TourneyPlayer2"
+            email="tourney2@mdg.local",
+            phone="+261340009902",
+            display_name="TourneyPlayer2",
         )
         self.client = APIClient()
 
@@ -65,7 +69,9 @@ class TournamentApiTests(TestCase):
         detail = self.client.get(f"/api/v1/games/tournaments/{tournament.id}/")
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(len(detail.data["participants"]), 1)
-        self.assertEqual(detail.data["participants"][0]["display_name"], "TourneyPlayer1")
+        self.assertEqual(
+            detail.data["participants"][0]["display_name"], "TourneyPlayer1"
+        )
 
         # Player 2 registers -> tournament fills up and starts
         self.client.force_authenticate(self.user2)

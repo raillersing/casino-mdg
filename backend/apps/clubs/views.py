@@ -24,6 +24,7 @@ def membership_for(club, user):
 
 def club_payload(club, user):
     from apps.games.models import GameTable
+
     membership = membership_for(club, user)
     return {
         "id": str(club.id),
@@ -88,10 +89,16 @@ def event_payload(event, user):
         "participant_count": event.participants.count(),
         "points_reward": event.points_reward,
         "status": event.status,
-        "joined": event.participants.filter(user=user).exists() if user and user.is_authenticated else False,
-        "rewarded": event.participants.filter(
-            user=user, rewarded_at__isnull=False
-        ).exists() if user and user.is_authenticated else False,
+        "joined": (
+            event.participants.filter(user=user).exists()
+            if user and user.is_authenticated
+            else False
+        ),
+        "rewarded": (
+            event.participants.filter(user=user, rewarded_at__isnull=False).exists()
+            if user and user.is_authenticated
+            else False
+        ),
     }
 
 
@@ -118,7 +125,9 @@ class ClubListCreateView(APIView):
 
     def get(self, request):
         if request.user and request.user.is_authenticated:
-            clubs = Club.objects.filter(visibility="open") | Club.objects.filter(memberships__user=request.user)
+            clubs = Club.objects.filter(visibility="open") | Club.objects.filter(
+                memberships__user=request.user
+            )
         else:
             clubs = Club.objects.filter(visibility="open")
         return Response(
@@ -163,7 +172,9 @@ class ClubCertificationRequestView(APIView):
             return Response({"detail": "Club introuvable."}, status=404)
         if club.owner != request.user and not request.user.is_staff:
             return Response(
-                {"detail": "Seul le fondateur ou l'administration peut consulter les critères."},
+                {
+                    "detail": "Seul le fondateur ou l'administration peut consulter les critères."
+                },
                 status=403,
             )
         eligibility = check_club_eligibility(club, request.user)
@@ -189,7 +200,9 @@ class ClubCertificationRequestView(APIView):
 
         if club.owner != request.user and not request.user.is_staff:
             return Response(
-                {"detail": "Seul le fondateur peut demander la certification de ce club."},
+                {
+                    "detail": "Seul le fondateur peut demander la certification de ce club."
+                },
                 status=403,
             )
 
@@ -201,7 +214,9 @@ class ClubCertificationRequestView(APIView):
             club.is_certified = True
             club.certification_status = "certified"
             club.member_limit = 250
-            club.save(update_fields=["is_certified", "certification_status", "member_limit"])
+            club.save(
+                update_fields=["is_certified", "certification_status", "member_limit"]
+            )
             message = "Félicitations ! Votre club remplit tous les critères et a été certifié avec succès."
         else:
             club.certification_status = "pending"
@@ -229,7 +244,9 @@ class ClubChatView(APIView):
         except Club.DoesNotExist:
             return Response({"detail": "Club introuvable."}, status=404)
 
-        messages = club.chat_messages.select_related("author").order_by("-created_at")[:50]
+        messages = club.chat_messages.select_related("author").order_by("-created_at")[
+            :50
+        ]
         results = [
             {
                 "id": str(m.id),
@@ -560,6 +577,7 @@ class ClubLeagueLeaderboardView(APIView):
 
     def get(self, request):
         from django.db.models import Count, Sum
+
         from apps.games.models import GameTable
 
         clubs = Club.objects.annotate(
@@ -572,13 +590,15 @@ class ClubLeagueLeaderboardView(APIView):
             tier = (
                 "Or"
                 if index == 1
-                else "Argent"
-                if index == 2
-                else "Bronze"
-                if index == 3
-                else "Élite"
-                if index <= 5
-                else "Challenger"
+                else (
+                    "Argent"
+                    if index == 2
+                    else (
+                        "Bronze"
+                        if index == 3
+                        else "Élite" if index <= 5 else "Challenger"
+                    )
+                )
             )
             tables_count = GameTable.objects.filter(club=club).count()
             league.append(
@@ -596,4 +616,3 @@ class ClubLeagueLeaderboardView(APIView):
                 }
             )
         return Response({"league": league})
-

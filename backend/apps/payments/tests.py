@@ -133,12 +133,20 @@ class PaymentWebhookTests(TestCase):
 
         intent = PaymentIntent.objects.get(id=intent_id)
         self.assertEqual(intent.status, "completed")
-        self.assertEqual(WalletTransaction.objects.filter(currency_code="MGA", type="deposit").count(), 1)
+        self.assertEqual(
+            WalletTransaction.objects.filter(
+                currency_code="MGA", type="deposit"
+            ).count(),
+            1,
+        )
 
     def test_withdrawal_lifecycle_with_held_balance_and_refund(self):
         # Créditer initialement le solde MGA
         player_mga, _ = LedgerAccount.objects.get_or_create(
-            user=self.user, account_type="player", currency_code="MGA", defaults={"balance": 50000}
+            user=self.user,
+            account_type="player",
+            currency_code="MGA",
+            defaults={"balance": 50000},
         )
         player_mga.balance = 50000
         player_mga.save()

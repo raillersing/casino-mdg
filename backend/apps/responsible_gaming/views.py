@@ -1,5 +1,5 @@
-from django.db import models
 from django.core.exceptions import ValidationError
+from django.db import models
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -26,10 +26,16 @@ def serialize_rg_profile(profile: ResponsibleGamingProfile, user) -> dict:
         "reality_check_interval_minutes": profile.reality_check_interval_minutes,
         # Statuts de restriction
         "is_active_cooling_off": profile.is_active_cooling_off(),
-        "cooling_off_until": profile.cooling_off_until.isoformat() if profile.cooling_off_until else None,
+        "cooling_off_until": (
+            profile.cooling_off_until.isoformat() if profile.cooling_off_until else None
+        ),
         "is_active_self_exclusion": profile.is_active_self_exclusion(),
         "is_permanently_excluded": profile.is_permanently_excluded,
-        "self_exclusion_until": profile.self_exclusion_until.isoformat() if profile.self_exclusion_until else None,
+        "self_exclusion_until": (
+            profile.self_exclusion_until.isoformat()
+            if profile.self_exclusion_until
+            else None
+        ),
         "is_blocked": profile.is_blocked_from_playing(),
         # Consommation actuelle
         "deposit_usage": usage,
@@ -48,7 +54,10 @@ class ResponsibleGamingStatusView(APIView):
         try:
             profile = update_player_limits(request.user, request.data)
         except ValidationError as exc:
-            return Response({"detail": exc.message if hasattr(exc, "message") else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": exc.message if hasattr(exc, "message") else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {
@@ -65,13 +74,21 @@ class ResponsibleGamingCoolingOffView(APIView):
         try:
             duration_hours = int(request.data.get("duration_hours", 24))
         except (ValueError, TypeError):
-            return Response({"detail": "Durée de pause invalide."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Durée de pause invalide."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         reason = str(request.data.get("reason", ""))
         try:
-            profile = apply_cooling_off(request.user, duration_hours=duration_hours, reason=reason)
+            profile = apply_cooling_off(
+                request.user, duration_hours=duration_hours, reason=reason
+            )
         except ValidationError as exc:
-            return Response({"detail": exc.message if hasattr(exc, "message") else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": exc.message if hasattr(exc, "message") else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {
@@ -95,13 +112,23 @@ class ResponsibleGamingSelfExclusionView(APIView):
                 months = None
 
         if not permanent and not months:
-            return Response({"detail": "Veuillez spécifier une durée en mois ou confirmer l'exclusion définitive."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "detail": "Veuillez spécifier une durée en mois ou confirmer l'exclusion définitive."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         reason = str(request.data.get("reason", ""))
         try:
-            profile = apply_self_exclusion(request.user, months=months, permanent=permanent, reason=reason)
+            profile = apply_self_exclusion(
+                request.user, months=months, permanent=permanent, reason=reason
+            )
         except ValidationError as exc:
-            return Response({"detail": exc.message if hasattr(exc, "message") else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": exc.message if hasattr(exc, "message") else str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {
@@ -134,10 +161,18 @@ class BackofficeResponsibleGamingListView(APIView):
                         "email": item.user.email,
                     },
                     "is_active_cooling_off": item.is_active_cooling_off(),
-                    "cooling_off_until": item.cooling_off_until.isoformat() if item.cooling_off_until else None,
+                    "cooling_off_until": (
+                        item.cooling_off_until.isoformat()
+                        if item.cooling_off_until
+                        else None
+                    ),
                     "is_active_self_exclusion": item.is_active_self_exclusion(),
                     "is_permanently_excluded": item.is_permanently_excluded,
-                    "self_exclusion_until": item.self_exclusion_until.isoformat() if item.self_exclusion_until else None,
+                    "self_exclusion_until": (
+                        item.self_exclusion_until.isoformat()
+                        if item.self_exclusion_until
+                        else None
+                    ),
                     "reason": item.self_exclusion_reason or item.cooling_off_reason,
                     "updated_at": item.updated_at.isoformat(),
                 }
