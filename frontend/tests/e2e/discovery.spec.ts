@@ -2,12 +2,22 @@ import { expect, test } from "@playwright/test";
 
 for (const width of [1440, 390, 320]) {
   test(`game discovery and navigation at ${width}px`, async ({ page }) => {
+    test.setTimeout(120_000);
     await page.setViewportSize({ width, height: 900 });
     await page.route("**/api/v1/games/tables/**", (route) =>
       route.fulfill({ json: { results: [] } }),
     );
     await page.goto("/");
     await expect(page.locator(".discovery-card")).toHaveCount(5);
+    for (const cover of await page.locator(".discovery-art img").all()) {
+      await cover.scrollIntoViewIfNeeded();
+      await expect
+        .poll(() =>
+          cover.evaluate((image) => (image as HTMLImageElement).naturalWidth),
+        )
+        .toBeGreaterThan(0);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
     expect(
       await page
         .locator(".discovery-card")
