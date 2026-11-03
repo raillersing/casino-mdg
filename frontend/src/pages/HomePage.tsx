@@ -115,8 +115,14 @@ export function HomePage({ catalog = false }: { catalog?: boolean }) {
               className={`discovery-card discovery-${game.color}`}
             >
               <div className="discovery-art" aria-hidden="true">
-                <span className="discovery-art-back">{game.symbol}</span>
-                <span className="discovery-art-front">{game.symbol}</span>
+                <img
+                  src={`/images/games/${game.id}-cover.webp`}
+                  alt=""
+                  loading={game.id === "belote" ? "eager" : "lazy"}
+                  decoding="async"
+                  width={960}
+                  height={640}
+                />
               </div>
               <div className="discovery-card-copy">
                 <span className="discovery-players">{game.players}</span>

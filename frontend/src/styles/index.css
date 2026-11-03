@@ -10842,3 +10842,10 @@ h3 {
     font-size: 12px;
   }
 }
+
+/* Illustrated game storefront covers. Keep titles in accessible HTML. */
+.discovery-card .discovery-art { height: auto; aspect-ratio: 3 / 2; background: #161b24; }
+.discovery-card .discovery-art::before { display: none; }
+.discovery-art img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 240ms ease; }
+.discovery-card:hover .discovery-art img { transform: scale(1.035); }
+@media (prefers-reduced-motion: reduce) { .discovery-art img { transition: none; } }
