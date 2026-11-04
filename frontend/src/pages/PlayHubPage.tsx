@@ -20,6 +20,8 @@ import { useGameStore } from "@stores/gameStore";
 import { startBotSimulation } from "@services/games";
 import { createGuestToken } from "@services/auth";
 import { BotCountSelector } from "@components/game/BotCountSelector";
+import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
+import { JoinPrivateTableModal } from "@components/game/JoinPrivateTableModal";
 
 const GAME_META: Record<
   string,
@@ -112,6 +114,7 @@ export function PlayHubPage() {
   const [showGuestName, setShowGuestName] = useState(false);
   const [guestInput, setGuestInput] = useState("");
   const [startingMode, setStartingMode] = useState<string | null>(null);
+  const [showJoinPrivate, setShowJoinPrivate] = useState(false);
   const [botCount, setBotCount] = useState(gameType === "rami" ? 1 : 3);
   const [launchError, setLaunchError] = useState("");
 
@@ -251,6 +254,21 @@ export function PlayHubPage() {
       action: launchPrivate,
       lock: !accessToken,
     },
+    {
+      id: "join_code",
+      label: "Code Privé",
+      desc: "Rejoindre une table avec le code à 6 caractères de vos amis",
+      icon: Lock,
+      color: "#ec4899",
+      action: () => {
+        if (!accessToken) {
+          navigate(`/auth?next=/play/${gameType}`);
+          return;
+        }
+        setShowJoinPrivate(true);
+      },
+      lock: !accessToken,
+    },
   ];
 
   return (
@@ -261,6 +279,12 @@ export function PlayHubPage() {
           <ArrowLeft size={16} /> Tous les jeux
         </Link>
       </div>
+
+      {/* Live Stats Ticker */}
+      <LiveStatsTicker
+        activeGameFilter={gameType}
+        onSelectGame={(g) => navigate(`/play/${g}`)}
+      />
 
       {/* Game Hero */}
       <section className="hub-hero">
@@ -471,6 +495,17 @@ export function PlayHubPage() {
           </Link>
         </div>
       )}
+
+      {/* Modal Rejoindre Table Privée */}
+      <JoinPrivateTableModal
+        isOpen={showJoinPrivate}
+        accessToken={accessToken || ""}
+        onClose={() => setShowJoinPrivate(false)}
+        onJoined={(table) => {
+          setShowJoinPrivate(false);
+          navigate(`/game/${table.game_type}/${table.table_code}`);
+        }}
+      />
     </div>
   );
 }

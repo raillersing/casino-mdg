@@ -36,6 +36,7 @@ import {
 import {
   getTables,
   joinTable,
+  joinTableByCode,
   recordGameResult,
   startBotSimulation,
 } from "@services/games";
@@ -1752,18 +1753,41 @@ export function GamePage() {
     getTables(gameType)
       .then(({ results }) => {
         const match = results.find(
-          (table) => table.table_code === tableId || table.id === tableId,
+          (table) =>
+            table.table_code === tableId ||
+            table.id === tableId ||
+            table.access_code === tableId,
         );
         if (match) {
           resolvedTableIdRef.current = match.id;
           setResolvedTableId(match.id);
           if (accessToken && !demoAi) {
-            void joinTable(match.id, accessToken).then((res) => {
+            void joinTable(
+              match.id,
+              accessToken,
+              match.access_code || undefined,
+            ).then((res) => {
               if (res?.admission_token) {
                 setAdmissionToken(res.admission_token);
               }
             });
           }
+        } else if (accessToken && !demoAi && tableId) {
+          // Attempt direct join by code or table ID (for private rooms)
+          void joinTableByCode(accessToken, tableId)
+            .then((res) => {
+              if (res?.table) {
+                resolvedTableIdRef.current = res.table.id;
+                setResolvedTableId(res.table.id);
+                if (res.admission_token) {
+                  setAdmissionToken(res.admission_token);
+                }
+              }
+            })
+            .catch(() => {
+              resolvedTableIdRef.current = tableId;
+              setResolvedTableId(tableId);
+            });
         } else if (demoAi && accessToken) {
           const bots = gameType === "poker" ? 8 : gameType === "rami" ? 1 : 3;
           void startBotSimulation(

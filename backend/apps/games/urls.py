@@ -9,11 +9,13 @@ from .views import (
     GameLeaderboardView,
     GameResultCreateView,
     InternalGameSettleView,
+    LiveStatsView,
     MatchmakingCancelView,
     MatchmakingHeartbeatView,
     MatchmakingQueueView,
     MatchmakingStatusView,
     TableAdmissionView,
+    TableJoinByCodeView,
     TableJoinView,
     TableListCreateView,
     TestDrawEntryView,
@@ -28,6 +30,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("live-stats/", LiveStatsView.as_view(), name="live-stats"),
     path("bot-simulations/", BotSimulationView.as_view(), name="bot-simulation"),
     path(
         "chance-simulations/",
@@ -50,6 +53,11 @@ urlpatterns = [
         name="internal-game-settle",
     ),
     path("tables/", TableListCreateView.as_view(), name="table-list-create"),
+    path(
+        "tables/join-by-code/",
+        TableJoinByCodeView.as_view(),
+        name="table-join-by-code",
+    ),
     path("tables/<uuid:table_id>/join/", TableJoinView.as_view(), name="table-join"),
     path(
         "tables/<uuid:table_id>/admission/",

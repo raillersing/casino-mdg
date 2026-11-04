@@ -288,3 +288,100 @@ class TableApiTests(TestCase):
         self.assertEqual(matched_table.max_players, 6)
         self.assertEqual(matched_table.game_type, "poker")
         self.assertEqual(matched_table.seats.count(), 2)
+
+    def test_table_creation_with_specific_rules_and_access_code(self):
+        self.client.force_authenticate(self.user)
+        response = self.client.post(
+            "/api/v1/games/tables/",
+            {
+                "name": "Belote Amis",
+                "game_type": "belote",
+                "is_private": True,
+                "stake_amount": 2000,
+                "turn_duration": 10,
+                "rules_config": {
+                    "target_score": 1001,
+                    "variant": "classique",
+                    "announcements": True,
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.data
+        self.assertEqual(data["name"], "Belote Amis")
+        self.assertEqual(data["game_type"], "belote")
+        self.assertEqual(data["max_players"], 4)
+        self.assertEqual(data["stake_amount"], 2000)
+        self.assertEqual(data["turn_duration"], 10)
+        self.assertEqual(data["stakes"], "2 000 Ar")
+        self.assertTrue(data["is_private"])
+        self.assertIsNotNone(data["access_code"])
+        self.assertEqual(len(data["access_code"]), 6)
+        self.assertEqual(data["rules_config"]["target_score"], 1001)
+
+    def test_table_join_by_code_and_access_code_protection(self):
+        self.client.force_authenticate(self.user)
+        create_resp = self.client.post(
+            "/api/v1/games/tables/",
+            {
+                "name": "Domino Prive",
+                "game_type": "domino",
+                "is_private": True,
+                "max_players": 4,
+            },
+            format="json",
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        access_code = create_resp.data["access_code"]
+        table_id = create_resp.data["id"]
+
+        second_user = User.objects.create_user(
+            email="friend@mdg.local", phone="+261340000302", display_name="Friend"
+        )
+        self.client.force_authenticate(second_user)
+
+        # 1. Direct join without access code fails for private table
+        direct_fail = self.client.post(f"/api/v1/games/tables/{table_id}/join/")
+        self.assertEqual(direct_fail.status_code, 403)
+
+        # 2. Direct join with correct access code succeeds
+        direct_ok = self.client.post(
+            f"/api/v1/games/tables/{table_id}/join/",
+            {"access_code": access_code},
+            format="json",
+        )
+        self.assertEqual(direct_ok.status_code, 201)
+
+        # 3. Join by code with another friend
+        third_user = User.objects.create_user(
+            email="friend2@mdg.local", phone="+261340000303", display_name="Friend 2"
+        )
+        self.client.force_authenticate(third_user)
+        by_code_ok = self.client.post(
+            "/api/v1/games/tables/join-by-code/",
+            {"code": access_code.lower()},  # case-insensitive
+            format="json",
+        )
+        self.assertEqual(by_code_ok.status_code, 201)
+        self.assertIn("admission_token", by_code_ok.data)
+
+        # 4. Join with invalid code returns 404
+        by_code_fail = self.client.post(
+            "/api/v1/games/tables/join-by-code/",
+            {"code": "INVAL9"},
+            format="json",
+        )
+        self.assertEqual(by_code_fail.status_code, 404)
+
+    def test_live_stats_endpoint(self):
+        resp = self.client.get("/api/v1/games/live-stats/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("total_online_players", resp.data)
+        self.assertIn("total_active_tables", resp.data)
+        self.assertIn("games", resp.data)
+        for g in ("belote", "domino", "ludo", "rami", "poker"):
+            self.assertIn(g, resp.data["games"])
+            self.assertIn("online_players", resp.data["games"][g])
+            self.assertIn("running_tables", resp.data["games"][g])
+            self.assertIn("open_tables", resp.data["games"][g])

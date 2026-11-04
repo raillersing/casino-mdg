@@ -4,6 +4,10 @@ export type GameTable = {
   name: string;
   game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
   stakes: string;
+  stake_amount?: number;
+  turn_duration?: number;
+  rules_config?: Record<string, unknown>;
+  access_code?: string | null;
   max_players: number;
   player_count: number;
   status: "open" | "running" | "finished";
@@ -12,6 +16,30 @@ export type GameTable = {
   club_id: string | null;
   club_name: string | null;
   club_is_certified?: boolean;
+};
+
+export type LiveGameStats = {
+  name: string;
+  online_players: number;
+  running_tables: number;
+  open_tables: number;
+  total_tables: number;
+};
+
+export type LiveStatsResponse = {
+  total_online_players: number;
+  total_running_tables: number;
+  total_open_tables: number;
+  total_active_tables: number;
+  games: {
+    belote: LiveGameStats;
+    domino: LiveGameStats;
+    ludo: LiveGameStats;
+    rami: LiveGameStats;
+    poker: LiveGameStats;
+    [key: string]: LiveGameStats;
+  };
+  updated_at: string;
 };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -80,16 +108,18 @@ export function cancelBotSimulation(accessToken: string, sessionId: string) {
   });
 }
 
-export function createTable(
-  accessToken: string,
-  payload: {
-    name: string;
-    game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
-    max_players: number;
-    is_private: boolean;
-    club_id?: string;
-  },
-) {
+export type CreateTablePayload = {
+  name: string;
+  game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
+  max_players: number;
+  is_private: boolean;
+  stake_amount?: number;
+  turn_duration?: number;
+  rules_config?: Record<string, unknown>;
+  club_id?: string;
+};
+
+export function createTable(accessToken: string, payload: CreateTablePayload) {
   return request<GameTable>("tables/", {
     method: "POST",
     headers: {
@@ -97,6 +127,28 @@ export function createTable(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export function getLiveStats(pingGame?: string) {
+  const query = pingGame ? `?ping_game=${encodeURIComponent(pingGame)}` : "";
+  return request<LiveStatsResponse>(`live-stats/${query}`);
+}
+
+export function joinTableByCode(accessToken: string, code: string) {
+  return request<{
+    table: GameTable;
+    table_id: string;
+    seat_index: number;
+    admission_token: string;
+    created: boolean;
+  }>("tables/join-by-code/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code }),
   });
 }
 
@@ -164,14 +216,23 @@ export function cancelMatch(accessToken: string, ticketId: string) {
   );
 }
 
-export function joinTable(tableId: string, accessToken: string) {
-  return request<{ table: GameTable; created: boolean; admission_token?: string }>(
-    `tables/${tableId}/join/`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
+export function joinTable(
+  tableId: string,
+  accessToken: string,
+  accessCode?: string,
+) {
+  return request<{
+    table: GameTable;
+    created: boolean;
+    admission_token?: string;
+  }>(`tables/${tableId}/join/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({ access_code: accessCode }),
+  });
 }
 
 export type GameStats = {

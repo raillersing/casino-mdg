@@ -26,13 +26,16 @@ import {
 import {
   cancelMatch,
   createTable,
+  getLiveStats,
   getMatchmakingStatus,
   getTables,
   joinTable,
   startBotSimulation,
   queueMatch,
   sendMatchmakingHeartbeat,
+  type CreateTablePayload,
   type GameTable,
+  type LiveStatsResponse,
   type MatchmakingTicket,
 } from "@services/games";
 import {
@@ -45,6 +48,9 @@ import { useTranslation } from "react-i18next";
 import { trackEvent } from "@services/analytics";
 import { createGuestToken } from "@services/auth";
 import { BotCountSelector } from "@components/game/BotCountSelector";
+import { CreateTableModal } from "@components/game/CreateTableModal";
+import { JoinPrivateTableModal } from "@components/game/JoinPrivateTableModal";
+import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
 import { haptics } from "@utils/haptics";
 
 const GAME_SUITS: Record<
@@ -90,7 +96,8 @@ export function LobbyPage() {
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
-  const [creatingTable, setCreatingTable] = useState(false);
+  const [showJoinPrivate, setShowJoinPrivate] = useState(false);
+  const [liveStats, setLiveStats] = useState<LiveStatsResponse | null>(null);
   const [startingSimulation, setStartingSimulation] = useState<string | null>(
     null,
   );
@@ -122,13 +129,6 @@ export function LobbyPage() {
       return next;
     });
   };
-
-  const [tableForm, setTableForm] = useState({
-    name: "",
-    game_type: "belote" as "poker" | "belote" | "rami" | "ludo" | "domino",
-    max_players: 4,
-    is_private: true,
-  });
 
   const [mobileTab, setMobileTab] = useState<
     "tables" | "quick" | "tournaments"
@@ -205,16 +205,13 @@ export function LobbyPage() {
       ["poker", "belote", "rami", "ludo", "domino"].includes(urlGameType)
     ) {
       setFilter(urlGameType);
-      setTableForm((current) => ({
-        ...current,
-        game_type: urlGameType as typeof current.game_type,
-      }));
     }
   }, [urlGameType]);
 
   const refreshData = useCallback(() => {
     setLoading(true);
     setError("");
+    getLiveStats().then(setLiveStats).catch(() => undefined);
     if (filter === "tournaments") {
       getTournaments(accessToken || "")
         .then((res) => setTournaments(res.results || []))
@@ -227,6 +224,23 @@ export function LobbyPage() {
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
   }, [filter, accessToken]);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchStats = () => {
+      getLiveStats()
+        .then((data) => {
+          if (mounted) setLiveStats(data);
+        })
+        .catch(() => undefined);
+    };
+    fetchStats();
+    const timer = window.setInterval(fetchStats, 15000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     refreshData();
@@ -431,28 +445,6 @@ export function LobbyPage() {
     }
   };
 
-  const submitTable = async () => {
-    if (!accessToken) {
-      navigate("/auth");
-      return;
-    }
-    setCreatingTable(true);
-    setError("");
-    try {
-      const table = await createTable(accessToken, {
-        ...tableForm,
-        name:
-          tableForm.name.trim() || t("createTable.defaultName", "Table de Jeu"),
-      });
-      setShowCreateTable(false);
-      navigate(`/game/${table.game_type}/${table.table_code}`);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t("app.error"));
-    } finally {
-      setCreatingTable(false);
-    }
-  };
-
   const counts = useMemo(() => {
     return {
       all: tables.length,
@@ -535,16 +527,42 @@ export function LobbyPage() {
           </button>
           <button
             type="button"
+            className="button button-small"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))",
+              border: "1px solid rgba(168, 85, 247, 0.5)",
+              color: "#c084fc",
+              fontWeight: 600,
+            }}
+            onClick={() => {
+              if (!accessToken) navigate("/auth?next=/lobby");
+              else setShowJoinPrivate(true);
+            }}
+          >
+            <Lock size={14} /> Rejoindre par Code
+          </button>
+          <button
+            type="button"
             className="button button-gold button-small"
             onClick={() => {
               if (!accessToken) navigate("/auth?next=/lobby");
               else setShowCreateTable(true);
             }}
           >
-            <Plus size={15} /> Créer une table privée
+            <Plus size={15} /> Créer une table
           </button>
         </div>
       </div>
+
+      {/* Barre de Télémétrie Joueurs Réels & Tables en Cours */}
+      <LiveStatsTicker
+        activeGameFilter={filter}
+        onSelectGame={(g) => {
+          setFilter(g);
+          setSearchParams({ filter: g });
+        }}
+      />
 
       {/* Mobile Segmented View Switcher */}
       <div className="mobile-lobby-tabs lobby-view-tabs">
@@ -622,7 +640,6 @@ export function LobbyPage() {
                     className={`lobby-deck-pill ${matchmakingGame === g ? "active" : ""}`}
                     onClick={() => {
                       setFilter(g);
-                      setTableForm((prev) => ({ ...prev, game_type: g }));
                     }}
                   >
                     <span style={{ color: meta.color }}>{meta.icon}</span>
@@ -736,38 +753,50 @@ export function LobbyPage() {
             key: "all",
             label: "Toutes les tables",
             icon: "★",
-            count: counts.all,
+            count: liveStats?.total_active_tables ?? counts.all,
+            online: liveStats?.total_online_players,
           },
           {
             key: "belote",
             label: "Belote Malagasy",
             icon: "♥",
-            count: counts.belote,
+            count: liveStats?.games?.belote?.total_tables ?? counts.belote,
+            online: liveStats?.games?.belote?.online_players,
           },
           {
             key: "domino",
             label: "Domino Double-Six",
             icon: "🁓",
-            count: counts.domino,
+            count: liveStats?.games?.domino?.total_tables ?? counts.domino,
+            online: liveStats?.games?.domino?.online_players,
           },
-          { key: "ludo", label: "Ludo Mada", icon: "🎲", count: counts.ludo },
+          {
+            key: "ludo",
+            label: "Ludo Mada",
+            icon: "🎲",
+            count: liveStats?.games?.ludo?.total_tables ?? counts.ludo,
+            online: liveStats?.games?.ludo?.online_players,
+          },
           {
             key: "rami",
             label: "Rami Malagasy",
             icon: "♦",
-            count: counts.rami,
+            count: liveStats?.games?.rami?.total_tables ?? counts.rami,
+            online: liveStats?.games?.rami?.online_players,
           },
           {
             key: "poker",
             label: "Poker Texas Hold'em",
             icon: "♠",
-            count: counts.poker,
+            count: liveStats?.games?.poker?.total_tables ?? counts.poker,
+            online: liveStats?.games?.poker?.online_players,
           },
           {
             key: "tournaments",
             label: "Tournois & Sit & Go",
             icon: "🏆",
             count: counts.tournaments,
+            online: 0,
           },
         ].map((tab) => (
           <button
@@ -783,6 +812,18 @@ export function LobbyPage() {
             <span style={{ color: "var(--gold)" }}>{tab.icon}</span>
             <span>{tab.label}</span>
             <span className="lobby-cat-count">{tab.count}</span>
+            {Boolean(tab.online && tab.online > 0) && (
+              <span
+                style={{
+                  fontSize: "10px",
+                  color: "#38bdf8",
+                  marginLeft: "4px",
+                  fontWeight: 600,
+                }}
+              >
+                · {tab.online}👥
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -1314,7 +1355,71 @@ export function LobbyPage() {
                     <span className="table-stakes-val">
                       {table.stakes || "Gratuit"}
                     </span>
+                    <span
+                      style={{
+                        marginLeft: "auto",
+                        fontSize: "11px",
+                        color: "#38bdf8",
+                        background: "rgba(56, 189, 248, 0.12)",
+                        border: "1px solid rgba(56, 189, 248, 0.25)",
+                        padding: "2px 7px",
+                        borderRadius: "5px",
+                        fontWeight: 600,
+                      }}
+                      title="Durée de réflexion par tour"
+                    >
+                      ⏱️ {table.turn_duration || 15}s
+                    </span>
                   </div>
+
+                  {table.is_private && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "4px 8px",
+                        borderRadius: "6px",
+                        background: "rgba(168, 85, 247, 0.12)",
+                        border: "1px solid rgba(168, 85, 247, 0.3)",
+                        fontSize: "11px",
+                        color: "#c084fc",
+                        marginTop: "6px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <Lock size={12} /> Salle Privée
+                      </span>
+                      {table.access_code && (
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            letterSpacing: "1px",
+                            cursor: "pointer",
+                            background: "rgba(168, 85, 247, 0.25)",
+                            padding: "1px 6px",
+                            borderRadius: "4px",
+                          }}
+                          title="Cliquer pour copier le code"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void navigator.clipboard.writeText(
+                              table.access_code || "",
+                            );
+                            alert(`Code copié : ${table.access_code}`);
+                          }}
+                        >
+                          Code: {table.access_code} 📋
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {table.club_name && (
                     <div
@@ -1425,134 +1530,37 @@ export function LobbyPage() {
         </div>
       )}
 
-      {/* Modal Créer une table */}
-      {showCreateTable && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onClick={() => setShowCreateTable(false)}
-        >
-          <section
-            className="create-table-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-table-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-heading">
-              <div>
-                <span className="eyebrow">Salon Privé ou Public</span>
-                <h2 id="create-table-title">Créer une table de jeu</h2>
-              </div>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Fermer"
-                onClick={() => setShowCreateTable(false)}
-              >
-                ×
-              </button>
-            </div>
-            <p className="modal-intro">
-              Personnalisez le nom et la capacité de votre table. Partagez
-              ensuite le lien direct avec vos amis.
-            </p>
-            <label className="field-label" htmlFor="table-name">
-              Nom de la table
-            </label>
-            <input
-              id="table-name"
-              className="text-input"
-              value={tableForm.name}
-              placeholder="Ex: Salon des As, Belote du Samedi..."
-              onChange={(event) =>
-                setTableForm((current) => ({
-                  ...current,
-                  name: event.target.value,
-                }))
-              }
-            />
-            <label className="field-label" htmlFor="table-game">
-              Jeu sélectionné
-            </label>
-            <select
-              id="table-game"
-              className="text-input"
-              value={tableForm.game_type}
-              onChange={(event) =>
-                setTableForm((current) => ({
-                  ...current,
-                  game_type: event.target.value as typeof current.game_type,
-                }))
-              }
-            >
-              <option value="belote">Belote Malagasy</option>
-              <option value="domino">Domino Double-Six</option>
-              <option value="ludo">Ludo Mada</option>
-              <option value="rami">Rami Malagasy</option>
-              <option value="poker">Poker Texas Hold'em</option>
-            </select>
-            <label className="field-label" htmlFor="table-players">
-              Nombre maximum de joueurs
-            </label>
-            <select
-              id="table-players"
-              className="text-input"
-              value={tableForm.max_players}
-              onChange={(event) =>
-                setTableForm((current) => ({
-                  ...current,
-                  max_players: Number(event.target.value),
-                }))
-              }
-            >
-              {[2, 4, 6, 9].map((players) => (
-                <option value={players} key={players}>
-                  {players} joueurs
-                </option>
-              ))}
-            </select>
-            <label className="private-toggle" style={{ marginTop: "10px" }}>
-              <input
-                type="checkbox"
-                checked={tableForm.is_private}
-                onChange={(event) =>
-                  setTableForm((current) => ({
-                    ...current,
-                    is_private: event.target.checked,
-                  }))
-                }
-              />
-              <span>
-                <strong>Table privée (Lien d'invitation requis)</strong>
-                <small>
-                  Idéal pour jouer entre amis ou collègues avec partage WhatsApp
-                  instantané.
-                </small>
-              </span>
-            </label>
-            <div className="modal-actions" style={{ marginTop: "20px" }}>
-              <button
-                type="button"
-                className="button button-outline"
-                onClick={() => setShowCreateTable(false)}
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                className="button button-gold"
-                disabled={creatingTable}
-                onClick={() => void submitTable()}
-              >
-                {creatingTable
-                  ? "Création en cours..."
-                  : "Créer et ouvrir la table"}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
+      {/* Modal Riche de Création de Table */}
+      <CreateTableModal
+        initialGameType={
+          (["belote", "domino", "ludo", "rami", "poker"].includes(filter)
+            ? (filter as "belote" | "domino" | "ludo" | "rami" | "poker")
+            : "belote")
+        }
+        isOpen={showCreateTable}
+        onClose={() => setShowCreateTable(false)}
+        onSubmit={async (payload: CreateTablePayload) => {
+          if (!accessToken) {
+            navigate("/auth?next=/lobby");
+            throw new Error("AUTH_REQUIRED");
+          }
+          const table = await createTable(accessToken, payload);
+          setShowCreateTable(false);
+          navigate(`/game/${table.game_type}/${table.table_code}`);
+          return table;
+        }}
+      />
+
+      {/* Modal Rejoindre une Table Privée par Code */}
+      <JoinPrivateTableModal
+        isOpen={showJoinPrivate}
+        accessToken={accessToken || ""}
+        onClose={() => setShowJoinPrivate(false)}
+        onJoined={(table) => {
+          setShowJoinPrivate(false);
+          navigate(`/game/${table.game_type}/${table.table_code}`);
+        }}
+      />
 
       {error && (
         <div className="empty-note" style={{ color: "var(--red)" }}>

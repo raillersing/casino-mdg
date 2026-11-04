@@ -1,9 +1,16 @@
+import secrets
 import uuid
 
 from django.conf import settings
 from django.db import models
 
 from .modes import GAME_MODES, HUMAN_MATCH
+
+ACCESS_CODE_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+
+
+def generate_table_access_code(length=6):
+    return "".join(secrets.choice(ACCESS_CODE_CHARS) for _ in range(length))
 
 
 class GameTable(models.Model):
@@ -20,10 +27,16 @@ class GameTable(models.Model):
     name = models.CharField(max_length=80)
     game_type = models.CharField(max_length=20, choices=GAME_TYPES)
     stakes = models.CharField(max_length=40, default="Gratuit")
+    stake_amount = models.PositiveBigIntegerField(default=0)
+    turn_duration = models.PositiveSmallIntegerField(default=15)
     max_players = models.PositiveSmallIntegerField(default=4)
     status = models.CharField(max_length=20, choices=STATUSES, default="open")
     mode = models.CharField(max_length=24, choices=GAME_MODES, default=HUMAN_MATCH)
     is_private = models.BooleanField(default=False)
+    access_code = models.CharField(
+        max_length=8, unique=True, null=True, blank=True, db_index=True
+    )
+    rules_config = models.JSONField(default=dict, blank=True)
     club = models.ForeignKey(
         "clubs.Club",
         null=True,
