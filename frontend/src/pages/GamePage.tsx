@@ -29,6 +29,7 @@ import { createGuestToken } from "@services/auth";
 import {
   createTableInvitation,
   acceptTableInvitation,
+  inviteFriendToTable,
   getTableChat,
   sendTableMessage,
   type ChatMessage,
@@ -37,6 +38,7 @@ import {
   getTables,
   joinTable,
   joinTableByCode,
+  leaveTable as leaveTableApi,
   recordGameResult,
   startBotSimulation,
 } from "@services/games";
@@ -46,6 +48,8 @@ import { trackEvent } from "@services/analytics";
 import { TableExitModal } from "@components/game/TableExitModal";
 import { getSeatPosition } from "@utils/tableLayout";
 import { TableSettingsModal } from "@components/game/TableSettingsModal";
+import { TableEmoteWheel } from "@components/game/TableEmoteWheel";
+import { SocialHubModal } from "@components/social/SocialHubModal";
 import {
   HandReplayerModal,
   type ReplayableHand,
@@ -496,7 +500,7 @@ type TableAction = {
 };
 
 export function GamePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { gameType, tableId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -512,6 +516,7 @@ export function GamePage() {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [showQuickReactions, setShowQuickReactions] = useState(false);
+  const [showSocialModal, setShowSocialModal] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [playerChats, setPlayerChats] = useState<
     Record<string, { text: string; expiresAt: number }>
@@ -1112,6 +1117,17 @@ export function GamePage() {
         if (typeof payload.sequence === "number") {
           sequenceRef.current = payload.sequence;
           setSequence(payload.sequence);
+        }
+        if (payload.type === "emote") {
+          const em = payload.payload as
+            | { text?: string; emote?: string }
+            | undefined;
+          const pId = payload.player_id || "";
+          const text = em?.text || em?.emote || "";
+          if (text) {
+            showSpeechBubble(pId, text);
+          }
+          return;
         }
         if (payload.type === "state") {
           const state = payload.payload as
@@ -1908,8 +1924,42 @@ export function GamePage() {
     }
   };
 
+  const handleInviteFriendToTable = async (
+    friendId: number,
+    friendName: string,
+  ) => {
+    if (!tableId || !accessToken) return;
+    try {
+      const result = await inviteFriendToTable(friendId, tableId, accessToken);
+      const link = `${window.location.origin}/game/${gameType}/${tableId}?invite=${result.token}`;
+      setInvite(link);
+      setShowSocialModal(false);
+      setSocialError(
+        i18n.language.startsWith("mg")
+          ? `Nalefa tany amin'i ${friendName} ny fanasana !`
+          : `Invitation envoyée à ${friendName} !`,
+      );
+    } catch (err) {
+      setSocialError(err instanceof Error ? err.message : t("app.error"));
+    }
+  };
+
   const sendQuickPhrase = async (phrase: string) => {
     sendEmote(phrase);
+    showSpeechBubble(userId, phrase);
+    if (user?.displayName) showSpeechBubble(user.displayName, phrase);
+
+    if (ws.current?.readyState === WebSocket.OPEN && engineTableId) {
+      ws.current.send(
+        JSON.stringify({
+          type: "emote",
+          table_id: engineTableId,
+          payload: { text: phrase, emote: phrase },
+          timestamp: new Date().toISOString(),
+        }),
+      );
+    }
+
     if (!tableId || !accessToken) return;
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate([30]);
@@ -1917,12 +1967,9 @@ export function GamePage() {
     try {
       const sent = await sendTableMessage(tableId, phrase, accessToken);
       setChat((current) => [...current, sent]);
-      showSpeechBubble(sent.author, sent.body);
-      showSpeechBubble(userId, sent.body);
-      if (user?.displayName) showSpeechBubble(user.displayName, sent.body);
       setSocialError("");
-    } catch (error) {
-      setSocialError(error instanceof Error ? error.message : t("app.error"));
+    } catch {
+      // Non-blocking for live emote
     }
   };
 
@@ -2000,6 +2047,11 @@ export function GamePage() {
         if (attempt < 4) window.setTimeout(() => flushLeave(attempt + 1), 25);
       };
       flushLeave();
+
+      // Libérer le siège et déclencher la fermeture automatique de la table dans Django
+      if (accessToken) {
+        void leaveTableApi(leaveTableId, accessToken).catch(() => undefined);
+      }
     }
     window.setTimeout(() => navigate("/lobby"), 150);
   };
@@ -2065,7 +2117,7 @@ export function GamePage() {
         </button>
         <button
           className="icon-button"
-          onClick={inviteFriend}
+          onClick={() => setShowSocialModal(true)}
           title={t("game.inviteFriend")}
           aria-label={t("game.inviteFriend")}
         >
@@ -4164,49 +4216,13 @@ export function GamePage() {
         )}
       </div>
       {showQuickReactions && (
-        <div
-          className="table-quick-reactions-popover"
-          role="dialog"
-          aria-label="Réactions rapides"
-        >
-          <div className="quick-emojis-bar">
-            {["👏", "🔥", "👍", "😎", "🎯", "😱", "♠", "🎲"].map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                className="quick-reaction-btn emoji"
-                onClick={() => {
-                  void sendQuickPhrase(emoji);
-                  setShowQuickReactions(false);
-                }}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-          <div className="quick-phrases-bar">
-            {[
-              "Tsara lalao !",
-              "Misaotra !",
-              "Alefa !",
-              "Andraso kely...",
-              "GG",
-              "Revanche ?",
-            ].map((phrase) => (
-              <button
-                key={phrase}
-                type="button"
-                className="quick-reaction-btn phrase"
-                onClick={() => {
-                  void sendQuickPhrase(phrase);
-                  setShowQuickReactions(false);
-                }}
-              >
-                {phrase}
-              </button>
-            ))}
-          </div>
-        </div>
+        <TableEmoteWheel
+          onSend={(phrase) => {
+            void sendQuickPhrase(phrase);
+          }}
+          onClose={() => setShowQuickReactions(false)}
+          cooldownSeconds={2.5}
+        />
       )}
       <div className="table-feel-toolbar" aria-label="Réglages de la table">
         <button
@@ -4705,6 +4721,13 @@ export function GamePage() {
         isOpen={showHandReplayer}
         onClose={() => setShowHandReplayer(false)}
         hands={handHistory}
+      />
+
+      <SocialHubModal
+        isOpen={showSocialModal}
+        onClose={() => setShowSocialModal(false)}
+        currentTableId={tableId}
+        onInviteFriend={handleInviteFriendToTable}
       />
 
       {finishedInfo && !resultModalDismissed && (

@@ -90,3 +90,39 @@ def join_table(table, user):
         table.status = "running"
         table.save(update_fields=["status", "updated_at"])
     return seat, True
+
+
+def leave_table(table, user):
+    with transaction.atomic():
+        try:
+            table = GameTable.objects.select_for_update().get(pk=table.pk)
+        except GameTable.DoesNotExist:
+            return False, False
+
+        deleted_count, _ = TableSeat.objects.filter(table=table, user=user).delete()
+        if deleted_count == 0:
+            return False, False
+
+        remaining_seats = table.seats.count()
+
+        # Auto-Close: Quand il n'y a plus aucun joueur sur la table, la table se ferme automatiquement
+        if remaining_seats == 0:
+            table.status = "finished"
+            table.save(update_fields=["status", "updated_at"])
+
+            try:
+                from .models import BotSimulationSession
+
+                BotSimulationSession.objects.filter(
+                    table=table, status__in={"queued", "running"}
+                ).update(status="completed")
+            except Exception:
+                pass
+
+            return True, True
+
+        elif table.status == "running" and remaining_seats < table.max_players:
+            table.status = "open"
+            table.save(update_fields=["status", "updated_at"])
+
+        return True, False

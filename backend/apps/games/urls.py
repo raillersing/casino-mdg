@@ -20,6 +20,7 @@ from .views import (
     TableCapabilitiesView,
     TableJoinByCodeView,
     TableJoinView,
+    TableLeaveView,
     TableListCreateView,
     TestDrawEntryView,
     TestDrawListView,
@@ -66,6 +67,11 @@ urlpatterns = [
         name="table-join-by-code",
     ),
     path("tables/<uuid:table_id>/join/", TableJoinView.as_view(), name="table-join"),
+    path(
+        "tables/<uuid:table_id>/leave/",
+        TableLeaveView.as_view(),
+        name="table-leave",
+    ),
     path(
         "tables/<uuid:table_id>/admission/",
         TableAdmissionView.as_view(),

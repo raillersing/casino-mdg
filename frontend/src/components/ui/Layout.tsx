@@ -5,6 +5,7 @@ import {
   CircleUserRound,
   Compass,
   UsersRound,
+  Users,
   Home,
   LogIn,
   Smartphone,
@@ -23,6 +24,7 @@ import { haptics } from "@utils/haptics";
 
 import { NetworkQualityBadge } from "@components/ui/NetworkQualityBadge";
 import { DailyMissionsModal } from "@components/game/DailyMissionsModal";
+import { SocialHubModal } from "@components/social/SocialHubModal";
 
 export function Layout({ children }: { children: ReactNode }) {
   const user = useGameStore((state) => state.user);
@@ -36,6 +38,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { setMode } = useDeviceMode();
   const [showMissionsModal, setShowMissionsModal] = useState(false);
+  const [showSocialModal, setShowSocialModal] = useState(false);
 
   // Desktop sidebar navigation items
   const sidebarNavItems = [
@@ -219,20 +222,36 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="topbar-actions">
             <NetworkQualityBadge compact />
             {user && (
-              <button
-                type="button"
-                className="icon-button"
-                onClick={() => setShowMissionsModal(true)}
-                title="Missions quotidiennes & Bonus Série"
-                aria-label="Missions quotidiennes & Bonus Série"
-                style={{
-                  color: "#ff7043",
-                  background: "rgba(255, 112, 67, 0.12)",
-                  borderColor: "rgba(255, 112, 67, 0.3)",
-                }}
-              >
-                <Flame size={18} />
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="icon-button social-hub-btn"
+                  onClick={() => setShowSocialModal(true)}
+                  title={language === "MG" ? "Namana sy hafatra" : "Amis & Messages"}
+                  aria-label={language === "MG" ? "Namana sy hafatra" : "Amis & Messages"}
+                  style={{
+                    color: "#83aeea",
+                    background: "rgba(131, 174, 234, 0.12)",
+                    borderColor: "rgba(131, 174, 234, 0.3)",
+                  }}
+                >
+                  <Users size={18} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => setShowMissionsModal(true)}
+                  title="Missions quotidiennes & Bonus Série"
+                  aria-label="Missions quotidiennes & Bonus Série"
+                  style={{
+                    color: "#ff7043",
+                    background: "rgba(255, 112, 67, 0.12)",
+                    borderColor: "rgba(255, 112, 67, 0.3)",
+                  }}
+                >
+                  <Flame size={18} />
+                </button>
+              </>
             )}
             <button
               className="language-toggle"
@@ -271,6 +290,11 @@ export function Layout({ children }: { children: ReactNode }) {
         <DailyMissionsModal
           isOpen={showMissionsModal}
           onClose={() => setShowMissionsModal(false)}
+        />
+
+        <SocialHubModal
+          isOpen={showSocialModal}
+          onClose={() => setShowSocialModal(false)}
         />
 
         {/* Bottom Navigation Bar (mobile) — 5 onglets tactiles haute-visibilité */}

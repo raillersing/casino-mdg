@@ -433,3 +433,95 @@ class TableApiTests(TestCase):
         self.assertEqual(
             self.client.get("/api/v1/games/live-stats/").data["total_online_players"], 0
         )
+
+    def test_leave_table_removes_seat_and_auto_closes_when_empty(self):
+        table = GameTable.objects.create(
+            table_code="leave-auto-close",
+            name="Auto Close Table",
+            game_type="belote",
+            max_players=4,
+            created_by=self.user,
+        )
+        self.client.force_authenticate(self.user)
+        join_res = self.client.post(f"/api/v1/games/tables/{table.pk}/join/")
+        self.assertEqual(join_res.status_code, 201)
+        self.assertEqual(table.seats.count(), 1)
+        self.assertEqual(table.status, "open")
+
+        # Player leaves table
+        leave_res = self.client.post(f"/api/v1/games/tables/{table.pk}/leave/")
+        self.assertEqual(leave_res.status_code, 200)
+        self.assertEqual(leave_res.data["status"], "finished")
+        self.assertEqual(leave_res.data["remaining_seats"], 0)
+
+        table.refresh_from_db()
+        self.assertEqual(table.status, "finished")
+        self.assertEqual(table.seats.count(), 0)
+
+        # Table should no longer appear in active tables list
+        list_res = self.client.get("/api/v1/games/tables/")
+        self.assertNotIn(str(table.pk), [t["id"] for t in list_res.data["results"]])
+
+    def test_leave_table_with_multiple_players_leaves_table_open_until_last_player(self):
+        other_user = User.objects.create_user(
+            email="other_leave@mdg.local", phone="+261340000088", display_name="Other Leave"
+        )
+        table = GameTable.objects.create(
+            table_code="multi-leave",
+            name="Multi Leave Table",
+            game_type="belote",
+            max_players=4,
+            created_by=self.user,
+        )
+        self.client.force_authenticate(self.user)
+        self.client.post(f"/api/v1/games/tables/{table.pk}/join/")
+
+        other_client = APIClient()
+        other_client.force_authenticate(other_user)
+        other_client.post(f"/api/v1/games/tables/{table.pk}/join/")
+
+        self.assertEqual(table.seats.count(), 2)
+
+        # First player leaves: remaining seats = 1, status stays open
+        leave_1 = self.client.post(f"/api/v1/games/tables/{table.pk}/leave/")
+        self.assertEqual(leave_1.status_code, 200)
+        self.assertEqual(leave_1.data["status"], "open")
+        self.assertEqual(leave_1.data["remaining_seats"], 1)
+
+        table.refresh_from_db()
+        self.assertEqual(table.status, "open")
+        self.assertEqual(table.seats.count(), 1)
+
+        # Second player leaves: table auto-closes
+        leave_2 = other_client.post(f"/api/v1/games/tables/{table.pk}/leave/")
+        self.assertEqual(leave_2.status_code, 200)
+        self.assertEqual(leave_2.data["status"], "finished")
+        self.assertEqual(leave_2.data["remaining_seats"], 0)
+
+        table.refresh_from_db()
+        self.assertEqual(table.status, "finished")
+        self.assertEqual(table.seats.count(), 0)
+
+    def test_stale_empty_tables_are_auto_closed_on_list(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        stale_table = GameTable.objects.create(
+            table_code="stale-empty-room",
+            name="Stale Empty Room",
+            game_type="poker",
+            max_players=6,
+            created_by=self.user,
+            status="open",
+        )
+        # Force updated_at back by 5 minutes
+        GameTable.objects.filter(pk=stale_table.pk).update(
+            updated_at=timezone.now() - timedelta(minutes=5)
+        )
+
+        resp = self.client.get("/api/v1/games/tables/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn(str(stale_table.pk), [t["id"] for t in resp.data["results"]])
+
+        stale_table.refresh_from_db()
+        self.assertEqual(stale_table.status, "finished")

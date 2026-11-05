@@ -38,7 +38,7 @@ from .models import (
     generate_table_access_code,
 )
 from .modes import DEMO_AI, SIMULATION_SOLO
-from .services import generate_admission_token, join_table
+from .services import generate_admission_token, join_table, leave_table
 from .table_rules import CAPABILITIES, validate_table_settings
 from .test_games import create_draw_entry, draw_now, ensure_test_catalog, play_instant
 
@@ -310,6 +310,16 @@ class BotSimulationCompleteView(APIView):
         session.status = "completed"
         session.completed_at = timezone.now()
         session.save(update_fields=["status", "completed_at"])
+
+        # Auto-Close: Fermer la table associée et libérer les sièges
+        try:
+            table = GameTable.objects.get(pk=table_id)
+            table.status = "finished"
+            table.save(update_fields=["status", "updated_at"])
+            table.seats.all().delete()
+        except GameTable.DoesNotExist:
+            pass
+
         return Response(bot_simulation_payload(session))
 
 
@@ -465,6 +475,15 @@ class TableListCreateView(APIView):
         )
 
     def get(self, request):
+        stale_threshold = timezone.now() - timedelta(minutes=2)
+        # Auto-cleanup: Fermer automatiquement les tables vides sans joueur
+        stale_empty = (
+            GameTable.objects.filter(status__in=["open", "running"])
+            .annotate(num_seats=Count("seats"))
+            .filter(num_seats=0, updated_at__lt=stale_threshold)
+        )
+        stale_empty.update(status="finished")
+
         visibility = Q(is_private=False)
         if request.user.is_authenticated:
             visibility |= (
@@ -475,6 +494,8 @@ class TableListCreateView(APIView):
         tables = (
             GameTable.objects.exclude(status="finished")
             .filter(visibility)
+            .annotate(num_seats=Count("seats"))
+            .filter(Q(num_seats__gt=0) | Q(created_at__gte=stale_threshold))
             .distinct()
             .prefetch_related("seats", "bot_simulation__bots")
         )
@@ -619,6 +640,29 @@ class TableJoinView(APIView):
                 "created": created,
             },
             status=201 if created else 200,
+        )
+
+
+class TableLeaveView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, table_id):
+        try:
+            table = GameTable.objects.get(pk=table_id)
+        except GameTable.DoesNotExist:
+            return Response({"detail": "Table introuvable."}, status=404)
+
+        left, closed = leave_table(table, request.user)
+        table.refresh_from_db()
+        return Response(
+            {
+                "left": left,
+                "table_closed": closed,
+                "status": table.status,
+                "remaining_seats": table.seats.count(),
+                "table_id": str(table.id),
+            },
+            status=200,
         )
 
 

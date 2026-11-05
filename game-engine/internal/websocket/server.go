@@ -66,6 +66,7 @@ const (
 	MsgError     MessageType = "error"
 	MsgSync      MessageType = "sync"
 	MsgHeartbeat MessageType = "heartbeat"
+	MsgEmote     MessageType = "emote"
 )
 
 type Message struct {
@@ -309,6 +310,8 @@ func (s *Server) handleMessage(client *Client, msg *Message) {
 		s.sendMessage(client, &Message{Type: MsgHeartbeat, TableID: client.tableID, Sequence: msg.Sequence, Timestamp: time.Now()})
 	case MsgSync:
 		s.handleSync(client, msg)
+	case MsgEmote:
+		s.handleEmote(client, msg)
 	default:
 		s.sendMessage(client, &Message{Type: MsgError, Payload: "unknown message type", Timestamp: time.Now()})
 	}
@@ -1494,6 +1497,19 @@ func (s *Server) handleSync(client *Client, msg *Message) {
 		return
 	}
 	s.sendMessage(client, &Message{Type: MsgSync, TableID: client.tableID, Payload: events, Sequence: msg.Sequence, Timestamp: time.Now()})
+}
+
+func (s *Server) handleEmote(client *Client, msg *Message) {
+	if client.tableID == "" || client.tableID != msg.TableID {
+		return
+	}
+	s.broadcastToTable(msg.TableID, &Message{
+		Type:      MsgEmote,
+		TableID:   msg.TableID,
+		PlayerID:  client.playerID,
+		Payload:   msg.Payload,
+		Timestamp: time.Now(),
+	})
 }
 
 func (s *Server) addClient(client *Client) {

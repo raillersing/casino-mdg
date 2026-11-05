@@ -95,3 +95,62 @@ class SocialTests(TestCase):
         self.assertEqual(response.status_code, 410)
         self.assertEqual(invitation.status, "expired")
         self.assertEqual(TableSeat.objects.filter(table=self.table).count(), 1)
+
+    def test_friendship_lifecycle_request_accept_and_table_invite(self):
+        # 1. User sends friend request to other
+        req_res = self.client.post(
+            "/api/v1/social/friends/",
+            {"target": "Other"},
+            format="json",
+        )
+        self.assertEqual(req_res.status_code, 201)
+
+        # 2. Other views pending requests and accepts
+        other_client = APIClient()
+        other_client.force_authenticate(self.other)
+        friends_list = other_client.get("/api/v1/social/friends/")
+        self.assertEqual(len(friends_list.data["pending_received"]), 1)
+        friendship_id = friends_list.data["pending_received"][0]["friendship_id"]
+
+        accept_res = other_client.post(
+            f"/api/v1/social/friends/{friendship_id}/accept/"
+        )
+        self.assertEqual(accept_res.status_code, 200)
+
+        # 3. User can now invite friend to table
+        invite_res = self.client.post(
+            f"/api/v1/social/friends/{self.other.pk}/invite-table/",
+            {"table_id": str(self.table.pk)},
+            format="json",
+        )
+        self.assertEqual(invite_res.status_code, 201)
+        self.assertTrue(invite_res.data["token"])
+
+    def test_direct_conversation_and_messaging(self):
+        # 1. Start direct conversation
+        conv_res = self.client.post(
+            "/api/v1/social/conversations/",
+            {"target_user_id": self.other.pk},
+            format="json",
+        )
+        self.assertEqual(conv_res.status_code, 200)
+        conv_id = conv_res.data["id"]
+
+        # 2. Send message
+        msg_res = self.client.post(
+            f"/api/v1/social/conversations/{conv_id}/messages/",
+            {"body": "Salama namana !"},
+            format="json",
+        )
+        self.assertEqual(msg_res.status_code, 201)
+        self.assertEqual(msg_res.data["body"], "Salama namana !")
+
+        # 3. Other user reads messages
+        other_client = APIClient()
+        other_client.force_authenticate(self.other)
+        read_res = other_client.get(
+            f"/api/v1/social/conversations/{conv_id}/messages/"
+        )
+        self.assertEqual(read_res.status_code, 200)
+        self.assertEqual(len(read_res.data["results"]), 1)
+        self.assertEqual(read_res.data["results"][0]["body"], "Salama namana !")

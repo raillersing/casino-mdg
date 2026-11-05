@@ -276,20 +276,27 @@ func (m *Manager) RemoveTable(id string) {
 
 // LeavePlayer removes a player who explicitly left. Unlike a transport
 // disconnect, an explicit leave does not preserve a grace-period seat.
+// If the table becomes empty, it is automatically removed from active memory.
 func (m *Manager) LeavePlayer(tableID, playerID string) bool {
 	table, ok := m.GetTable(tableID)
 	if !ok {
 		return false
 	}
 	table.mu.Lock()
-	defer table.mu.Unlock()
 	if _, exists := table.Players[playerID]; !exists {
+		table.mu.Unlock()
 		return false
 	}
 	delete(table.Players, playerID)
 	table.UpdatedAt = time.Now()
-	if len(table.Players) == 0 {
+	isEmpty := len(table.Players) == 0
+	if isEmpty {
 		table.IsActive = false
+	}
+	table.mu.Unlock()
+
+	if isEmpty {
+		m.RemoveTable(tableID)
 	}
 	return true
 }
@@ -1492,13 +1499,18 @@ func (m *Manager) DisconnectPlayer(tableID, playerID string) {
 	go func() {
 		time.Sleep(time.Until(deadline))
 		table.mu.Lock()
-		defer table.mu.Unlock()
+		shouldRemove := false
 		if current, exists := table.Players[playerID]; exists && !current.IsActive && time.Now().After(deadline) {
 			delete(table.Players, playerID)
 			table.UpdatedAt = time.Now()
 			if len(table.Players) == 0 {
 				table.IsActive = false
+				shouldRemove = true
 			}
+		}
+		table.mu.Unlock()
+		if shouldRemove {
+			m.RemoveTable(tableID)
 		}
 	}()
 }

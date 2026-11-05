@@ -244,6 +244,19 @@ export function joinTable(
   });
 }
 
+export function leaveTable(tableId: string, accessToken: string) {
+  return request<{ left: boolean; table_closed: boolean; table_id: string }>(
+    `tables/${tableId}/leave/`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+}
+
 export type GameStats = {
   played: number;
   wins: number;
