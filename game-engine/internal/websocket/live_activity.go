@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"encoding/json"
 	"net/http"
+	"time"
 )
 
 func (s *Server) LiveActivity(w http.ResponseWriter, r *http.Request) {
@@ -13,14 +14,16 @@ func (s *Server) LiveActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type activeTable struct {
-		ID      string   `json:"id"`
-		Game    string   `json:"game"`
-		Started bool     `json:"started"`
-		Humans  []string `json:"humans"`
+		ReservedHumans []string `json:"reserved_humans"`
+		Waiting        bool     `json:"waiting"`
+		ID             string   `json:"id"`
+		Game           string   `json:"game"`
+		Started        bool     `json:"started"`
+		Humans         []string `json:"humans"`
 	}
 	tables := map[string]*activeTable{}
 	for _, room := range s.roomManager.ActiveRooms() {
-		tables[room.ID] = &activeTable{room.ID, room.Game, room.Started, []string{}}
+		tables[room.ID] = &activeTable{room.ReservedHumans, room.Waiting, room.ID, room.Game, room.Started, []string{}}
 	}
 	s.mu.RLock()
 	for client := range s.connections {
@@ -54,5 +57,5 @@ func (s *Server) LiveActivity(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"tables": tables})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"tables": tables, "uptime_seconds": time.Since(s.startedAt).Seconds()})
 }

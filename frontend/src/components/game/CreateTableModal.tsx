@@ -26,8 +26,10 @@ export function CreateTableModal({
   const mg = i18n.language.startsWith("mg");
   const tr = (fr: string, translated: string) => (mg ? translated : fr);
   const formRef = useRef<HTMLFormElement>(null);
+  const creationKey = useRef("");
   useEffect(() => {
     if (isOpen) {
+      creationKey.current = crypto.randomUUID();
       const previous = document.activeElement as HTMLElement | null;
       const id = window.setTimeout(
         () => formRef.current?.querySelector<HTMLElement>("select")?.focus(),
@@ -115,6 +117,7 @@ export function CreateTableModal({
             setError("");
             try {
               await onSubmit({
+                idempotency_key: creationKey.current,
                 name: name.trim() || `Table ${game}`,
                 game_type: game,
                 max_players: players,

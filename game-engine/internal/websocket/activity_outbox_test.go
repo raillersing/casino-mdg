@@ -61,3 +61,21 @@ func TestRejectedActivityDoesNotBlockOtherGames(t *testing.T) {
 		t.Fatalf("pending=%d rejected=%d", len(pending), len(rejected))
 	}
 }
+
+func TestClosureSurvivesEngineRestartBeforeBackendAcknowledgement(t *testing.T) {
+	t.Setenv("ACTIVITY_OUTBOX_DIR", t.TempDir())
+	cfg := &config.Config{BackendInternalURL: "http://127.0.0.1:1", ResultSecret: "secret"}
+	first := &Server{config: cfg}
+	first.recordTableClosed("a/../../closed-game")
+	restarted := &Server{config: cfg}
+	if !restarted.isTableClosed("a/../../closed-game") {
+		t.Fatal("closed table can be recreated after restart")
+	}
+	if restarted.isTableClosed("different-table") {
+		t.Fatal("another game was incorrectly closed")
+	}
+	pending, _ := filepath.Glob(filepath.Join(activityOutboxDir(), "*.json"))
+	if len(pending) != 1 {
+		t.Fatal("backend closure not queued durably")
+	}
+}

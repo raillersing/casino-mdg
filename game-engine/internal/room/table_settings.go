@@ -60,9 +60,11 @@ func (m *Manager) ConfigureTable(tableID string, settings TableSettings) error {
 }
 
 type ActiveRoom struct {
-	ID      string `json:"id"`
-	Game    string `json:"game"`
-	Started bool   `json:"started"`
+	ReservedHumans []string `json:"reserved_humans"`
+	Waiting        bool     `json:"waiting"`
+	ID             string   `json:"id"`
+	Game           string   `json:"game"`
+	Started        bool     `json:"started"`
 }
 
 func (m *Manager) ActiveRooms() []ActiveRoom {
@@ -73,7 +75,13 @@ func (m *Manager) ActiveRooms() []ActiveRoom {
 		table.mu.RLock()
 		if table.IsActive {
 			started := SessionStarted(table)
-			result = append(result, ActiveRoom{table.ID, table.GameType, started})
+			reserved := []string{}
+			for _, player := range table.Players {
+				if !player.IsBot {
+					reserved = append(reserved, player.ID)
+				}
+			}
+			result = append(result, ActiveRoom{reserved, table.State == nil, table.ID, table.GameType, started})
 		}
 		table.mu.RUnlock()
 	}

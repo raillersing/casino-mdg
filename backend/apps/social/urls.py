@@ -3,9 +3,9 @@ from django.urls import path
 from .views import (
     DirectConversationListView,
     DirectConversationMessagesView,
-    FriendTableInviteView,
     FriendshipActionView,
     FriendshipListView,
+    FriendTableInviteView,
     TableChatView,
     TableInvitationAcceptView,
     TableInvitationView,

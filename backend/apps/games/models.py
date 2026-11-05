@@ -52,12 +52,20 @@ class GameTable(models.Model):
         on_delete=models.SET_NULL,
         related_name="created_tables",
     )
+    creation_key = models.CharField(max_length=64, null=True, blank=True)
+    creation_payload_hash = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "game_tables"
         ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["created_by", "creation_key"],
+                name="unique_owner_table_creation",
+            )
+        ]
 
     @property
     def player_count(self):
@@ -74,6 +82,7 @@ class TableSeat(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="table_seats"
     )
     seat_index = models.PositiveSmallIntegerField()
+    admitted_at = models.DateTimeField(null=True, blank=True)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

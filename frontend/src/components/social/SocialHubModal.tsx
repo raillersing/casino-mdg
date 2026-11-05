@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Users,
@@ -71,7 +71,7 @@ export function SocialHubModal({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load friends and pending requests
-  const loadSocialData = async () => {
+  const loadSocialData = useCallback(async () => {
     if (!accessToken) return;
     try {
       const data = await getFriends(accessToken);
@@ -84,7 +84,7 @@ export function SocialHubModal({
     } catch (err) {
       console.warn("Failed to load social data:", err);
     }
-  };
+  }, [accessToken]);
 
   useEffect(() => {
     if (!isOpen || !accessToken) return;
@@ -93,7 +93,7 @@ export function SocialHubModal({
       void loadSocialData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [isOpen, accessToken]);
+  }, [isOpen, accessToken, loadSocialData]);
 
   // Load messages when an active conversation is open
   useEffect(() => {
@@ -518,7 +518,9 @@ export function SocialHubModal({
                             </div>
                             <p className="conv-snippet">
                               {conv.last_message?.body ||
-                                (isMg ? "Hafatra vaovao" : "Nouvelle discussion")}
+                                (isMg
+                                  ? "Hafatra vaovao"
+                                  : "Nouvelle discussion")}
                             </p>
                           </div>
 
@@ -541,10 +543,8 @@ export function SocialHubModal({
             <div className="social-requests-panel">
               <div className="requests-section">
                 <h4>
-                  {isMg
-                    ? "Fangatahana voaray"
-                    : "Demandes reçues"}{" "}
-                  ({pendingReceived.length})
+                  {isMg ? "Fangatahana voaray" : "Demandes reçues"} (
+                  {pendingReceived.length})
                 </h4>
                 {pendingReceived.length === 0 ? (
                   <p className="section-empty-hint">
@@ -608,7 +608,10 @@ export function SocialHubModal({
                   </h4>
                   <div className="social-user-cards-list">
                     {pendingSent.map((req) => (
-                      <div key={req.friendship_id} className="social-user-card dim">
+                      <div
+                        key={req.friendship_id}
+                        className="social-user-card dim"
+                      >
                         <div className="user-card-avatar-wrap">
                           <div className="user-card-avatar">
                             {req.display_name[0]?.toUpperCase() || "U"}
@@ -631,7 +634,10 @@ export function SocialHubModal({
           {/* TAB 4: ADD FRIEND */}
           {!activeConv && activeTab === "add" && (
             <div className="social-add-panel">
-              <form onSubmit={(e) => void handleSendRequest(e)} className="add-friend-form">
+              <form
+                onSubmit={(e) => void handleSendRequest(e)}
+                className="add-friend-form"
+              >
                 <label>
                   <span>
                     {isMg

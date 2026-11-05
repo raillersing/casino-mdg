@@ -37,6 +37,7 @@ type Player struct {
 }
 
 type Game struct {
+	LastResult       int       `json:"last_result"`
 	Players          []*Player `json:"players"`
 	Current          int       `json:"current"` // Index in Players
 	LastRoll         int       `json:"last_roll"`
@@ -87,6 +88,7 @@ func (g *Game) RollDice() (int, error) {
 
 	roll := rand.Intn(6) + 1
 	g.LastRoll = roll
+	g.LastResult = roll
 	g.CanRoll = false
 
 	if roll == 6 {

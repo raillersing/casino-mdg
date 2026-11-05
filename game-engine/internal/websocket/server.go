@@ -81,6 +81,7 @@ type Message struct {
 }
 
 type Server struct {
+	startedAt    time.Time
 	config       *config.Config
 	roomManager  *room.Manager
 	clients      map[string]*Client
@@ -145,6 +146,7 @@ func (s *Server) AttachBots(w http.ResponseWriter, r *http.Request) {
 }
 
 type Client struct {
+	serverTimeout     bool
 	conn              *websocket.Conn
 	playerID          string
 	tableID           string
@@ -168,6 +170,7 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 		nodeID = "engine-node-1"
 	}
 	server := &Server{
+		startedAt:    time.Now(),
 		config:       cfg,
 		roomManager:  rm,
 		clients:      make(map[string]*Client),
@@ -177,6 +180,23 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 		snapshots:    state.NewSnapshotManagerWithNode(cfg.RedisURL, nodeID),
 		nodeID:       nodeID,
 	}
+	rm.SetTableClosedHandler(func(tableID string) {
+		snapshot, err := rm.Snapshot(tableID)
+		if err == nil {
+			if err = server.snapshots.SaveVersionedSnapshot(tableID, snapshot.Sequence, snapshot.Generation, snapshot); err != nil {
+				log.Printf("closed snapshot save failed: %v", err)
+			}
+		}
+		if cfg.BackendInternalURL != "" && cfg.ResultSecret != "" {
+			server.recordTableClosed(tableID)
+		}
+		server.mu.Lock()
+		if run := server.botRuns[tableID]; run != nil {
+			run.cancel()
+		}
+		server.mu.Unlock()
+		server.broadcastToTable(tableID, &Message{Type: MsgError, TableID: tableID, Payload: "table is closed", Timestamp: time.Now()})
+	})
 	if cfg.BackendInternalURL != "" && cfg.ResultSecret != "" {
 		go func() {
 			ticker := time.NewTicker(5 * time.Second)
@@ -318,6 +338,11 @@ func (s *Server) handleMessage(client *Client, msg *Message) {
 }
 
 func (s *Server) handleJoin(client *Client, msg *Message) {
+	if s.isTableClosed(msg.TableID) {
+		s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: "table is closed", Timestamp: time.Now()})
+		return
+	}
+
 	if client.tableID != "" {
 		if client.tableID != msg.TableID {
 			s.sendMessage(client, &Message{Type: MsgError, Payload: "leave current table first"})
@@ -370,7 +395,11 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 			}
 			restored, restoreErr := s.roomManager.RestoreSnapshot(snapshot)
 			if restoreErr != nil {
-				s.sendMessage(client, &Message{Type: MsgError, Payload: "invalid table snapshot", Timestamp: time.Now()})
+				message := "invalid table snapshot"
+				if restoreErr.Error() == "table is closed" {
+					message = "table is closed"
+				}
+				s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: message, Timestamp: time.Now()})
 				return
 			}
 			table = restored
@@ -464,23 +493,17 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 
 type botRun struct {
 	cancel context.CancelFunc
-	mu     sync.Mutex
 }
 
 func (s *Server) startBotTurns(tableID string) {
 	s.mu.Lock()
-	run, exists := s.botRuns[tableID]
-	if !exists {
-		run = &botRun{}
-		s.botRuns[tableID] = run
-	}
-	run.mu.Lock()
-	if run.cancel != nil {
-		run.cancel()
+	if _, exists := s.botRuns[tableID]; exists {
+		s.mu.Unlock()
+		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	run.cancel = cancel
-	run.mu.Unlock()
+	run := &botRun{cancel: cancel}
+	s.botRuns[tableID] = run
 	s.mu.Unlock()
 	go func() {
 		defer func() {
@@ -489,12 +512,25 @@ func (s *Server) startBotTurns(tableID string) {
 				delete(s.botRuns, tableID)
 			}
 			s.mu.Unlock()
+			// A manual rematch may arrive just as a finished worker exits.
+			if s.roomManager.IsSessionStarted(tableID) {
+				s.startBotTurns(tableID)
+			}
 		}()
-		for steps := 0; steps < 512; steps++ {
+		for {
 			select {
 			case <-ctx.Done():
 				return
 			default:
+			}
+			if forced, ok := s.roomManager.NextForcedAction(tableID); ok {
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(350 * time.Millisecond):
+				}
+				s.handleAction(&Client{playerID: forced.PlayerID, tableID: tableID}, &Message{Type: MsgAction, TableID: tableID, Action: forced.Action, Payload: forced.Payload, Sequence: forced.Sequence})
+				continue
 			}
 			turn, ok := s.roomManager.NextBotTurn(tableID)
 			if !ok {
@@ -504,7 +540,7 @@ func (s *Server) startBotTurns(tableID string) {
 				default:
 				}
 				if timeout, timedOut := s.roomManager.TimedOutAction(tableID); timedOut {
-					s.handleAction(&Client{playerID: timeout.PlayerID, tableID: tableID}, &Message{Type: MsgAction, TableID: tableID, PlayerID: timeout.PlayerID, Action: timeout.Action, Sequence: timeout.Sequence})
+					s.handleAction(&Client{playerID: timeout.PlayerID, tableID: tableID, serverTimeout: true}, &Message{Type: MsgAction, TableID: tableID, PlayerID: timeout.PlayerID, Action: timeout.Action, Payload: timeout.Payload, Sequence: timeout.Sequence})
 					time.Sleep(100 * time.Millisecond)
 					continue
 				}
@@ -522,7 +558,13 @@ func (s *Server) startBotTurns(tableID string) {
 				// Keep the authoritative table alive while a human is thinking so
 				// the server deadline, rather than a browser timer, decides the
 				// automatic check/fold.
-				if _, exists := s.roomManager.GetTable(tableID); exists {
+				waiting := false
+				if table, ok := s.roomManager.GetTable(tableID); ok {
+					table.RLock()
+					waiting = table.IsActive && table.State == nil
+					table.RUnlock()
+				}
+				if waiting || s.roomManager.IsSessionStarted(tableID) {
 					time.Sleep(250 * time.Millisecond)
 					continue
 				}
@@ -1043,12 +1085,41 @@ func (s *Server) handleLeave(client *Client, msg *Message) {
 }
 
 func (s *Server) handleAction(client *Client, msg *Message) {
+	if client.conn != nil && client.tableID != msg.TableID {
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "action is bound to the joined table"})
+		return
+	}
+
+	if client.conn != nil {
+		if values, ok := msg.Payload.(map[string]interface{}); ok {
+			for _, key := range []string{"automatic", "roll", "turn_passed"} {
+				delete(values, key)
+			}
+		}
+	}
+
 	if client.spectator {
 		s.sendMessage(client, &Message{Type: MsgError, TableID: client.tableID, Payload: "spectator is read-only", Timestamp: time.Now()})
 		return
 	}
 	previousPhase := s.roomManager.PokerPhase(msg.TableID)
-	event, replayed, err := s.roomManager.ApplyActionIdempotent(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload, msg.EventID)
+	var event room.Event
+	var replayed bool
+	var err error
+	if client.serverTimeout {
+		values := map[string]interface{}{"automatic": true}
+		if original, ok := msg.Payload.(map[string]interface{}); ok {
+			for key, value := range original {
+				values[key] = value
+			}
+		}
+		msg.Payload = values
+	}
+	if client.serverTimeout {
+		event, replayed, err = s.roomManager.ApplyServerTimeout(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload)
+	} else {
+		event, replayed, err = s.roomManager.ApplyActionIdempotent(msg.TableID, client.playerID, msg.Action, msg.Sequence, msg.Payload, msg.EventID)
+	}
 	if err != nil {
 		if err.Error() == "game_over" {
 			s.broadcastToTable(msg.TableID, &Message{Type: MsgError, TableID: msg.TableID, Payload: "game_over", Timestamp: time.Now()})
@@ -1058,7 +1129,7 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		}
 		return
 	}
-	actionMessage := &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: actionDetails(s.roomManager, msg.TableID, client.playerID, event.Action, msg.Payload), EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp}
+	actionMessage := &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: actionDetails(s.roomManager, msg.TableID, client.playerID, event.Action, event.Payload), EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp}
 	if replayed {
 		// A retry still receives an acknowledgement, but must not make every
 		// player render the same action twice.
@@ -1247,6 +1318,7 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		}
 		s.broadcastState(msg.TableID)
 		if msg.Action == "new_hand" {
+			s.roomManager.StartHumanDeadline(msg.TableID)
 			s.broadcastPokerLifecycle(msg.TableID)
 			s.broadcastPokerDeal(msg.TableID)
 		}
@@ -1361,6 +1433,11 @@ func (s *Server) broadcastPokerDeal(tableID string) {
 func actionDetails(manager *room.Manager, tableID, playerID, action string, payload interface{}) map[string]interface{} {
 	details := map[string]interface{}{"action": action}
 	if values, ok := payload.(map[string]interface{}); ok {
+		for _, key := range []string{"automatic", "pawn_id", "tile", "side", "roll", "turn_passed"} {
+			if value, exists := values[key]; exists {
+				details[key] = value
+			}
+		}
 		if amount, exists := values["amount"]; exists {
 			details["amount"] = amount
 		}

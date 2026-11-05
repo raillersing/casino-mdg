@@ -476,13 +476,6 @@ class TableListCreateView(APIView):
 
     def get(self, request):
         stale_threshold = timezone.now() - timedelta(minutes=2)
-        # Auto-cleanup: Fermer automatiquement les tables vides sans joueur
-        stale_empty = (
-            GameTable.objects.filter(status__in=["open", "running"])
-            .annotate(num_seats=Count("seats"))
-            .filter(num_seats=0, updated_at__lt=stale_threshold)
-        )
-        stale_empty.update(status="finished")
 
         visibility = Q(is_private=False)
         if request.user.is_authenticated:
@@ -495,7 +488,7 @@ class TableListCreateView(APIView):
             GameTable.objects.exclude(status="finished")
             .filter(visibility)
             .annotate(num_seats=Count("seats"))
-            .filter(Q(num_seats__gt=0) | Q(created_at__gte=stale_threshold))
+            .filter(Q(num_seats__gt=0) | Q(updated_at__gte=stale_threshold))
             .distinct()
             .prefetch_related("seats", "bot_simulation__bots")
         )
@@ -505,12 +498,39 @@ class TableListCreateView(APIView):
             {"results": [table_payload(table, request) for table in tables]}
         )
 
+    @transaction.atomic
     def post(self, request):
         if not is_feature_enabled("game_results"):
             return Response(
                 {"detail": "Les résultats de partie sont temporairement suspendus."},
                 status=503,
             )
+        creation_key = request.headers.get("Idempotency-Key") or request.data.get(
+            "idempotency_key"
+        )
+        creation_hash = ""
+        if creation_key is not None:
+            if not isinstance(creation_key, str) or not 1 <= len(creation_key) <= 64:
+                return Response({"detail": "Clé de création invalide."}, status=400)
+            get_user_model().objects.select_for_update().get(pk=request.user.pk)
+            creation_hash = hashlib.sha256(
+                json.dumps(request.data, sort_keys=True).encode()
+            ).hexdigest()
+            existing = GameTable.objects.filter(
+                created_by=request.user, creation_key=creation_key
+            ).first()
+            if existing:
+                if existing.creation_payload_hash != creation_hash:
+                    return Response(
+                        {
+                            "detail": (
+                                "Les réglages ont changé. "
+                                "Rouvrez le formulaire pour créer une autre table."
+                            )
+                        },
+                        status=409,
+                    )
+                return Response(table_payload(existing, request), status=200)
         game_type = request.data.get("game_type", "poker")
         if game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
@@ -571,6 +591,8 @@ class TableListCreateView(APIView):
                 access_code = generate_table_access_code()
 
         table = GameTable.objects.create(
+            creation_key=creation_key,
+            creation_payload_hash=creation_hash,
             name=str(request.data.get("name", "Ma table"))[:80],
             game_type=game_type,
             stakes=stakes_label,
@@ -669,9 +691,10 @@ class TableLeaveView(APIView):
 class TableAdmissionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, table_id):
         try:
-            table = GameTable.objects.get(pk=table_id)
+            table = GameTable.objects.select_for_update().get(pk=table_id)
             if table.status == "finished":
                 return Response({"detail": "Cette table est terminée."}, status=409)
             if (
@@ -701,6 +724,10 @@ class TableAdmissionView(APIView):
                     status=403,
                 )
             seat = TableSeat.objects.filter(table=table, user=request.user).first()
+            if seat:
+                seat.admitted_at = timezone.now()
+                seat.save(update_fields=["admitted_at"])
+                table.save(update_fields=["updated_at"])
             role = "player" if seat else "spectator"
             seat_index = seat.seat_index if seat else None
             admission_token = generate_admission_token(

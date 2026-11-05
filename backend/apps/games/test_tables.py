@@ -462,9 +462,13 @@ class TableApiTests(TestCase):
         list_res = self.client.get("/api/v1/games/tables/")
         self.assertNotIn(str(table.pk), [t["id"] for t in list_res.data["results"]])
 
-    def test_leave_table_with_multiple_players_leaves_table_open_until_last_player(self):
+    def test_leave_table_with_multiple_players_leaves_table_open_until_last_player(
+        self,
+    ):
         other_user = User.objects.create_user(
-            email="other_leave@mdg.local", phone="+261340000088", display_name="Other Leave"
+            email="other_leave@mdg.local",
+            phone="+261340000088",
+            display_name="Other Leave",
         )
         table = GameTable.objects.create(
             table_code="multi-leave",
@@ -502,8 +506,9 @@ class TableApiTests(TestCase):
         self.assertEqual(table.status, "finished")
         self.assertEqual(table.seats.count(), 0)
 
-    def test_stale_empty_tables_are_auto_closed_on_list(self):
+    def test_stale_empty_tables_are_hidden_without_writing_on_list(self):
         from datetime import timedelta
+
         from django.utils import timezone
 
         stale_table = GameTable.objects.create(
@@ -524,4 +529,4 @@ class TableApiTests(TestCase):
         self.assertNotIn(str(stale_table.pk), [t["id"] for t in resp.data["results"]])
 
         stale_table.refresh_from_db()
-        self.assertEqual(stale_table.status, "finished")
+        self.assertEqual(stale_table.status, "open")
