@@ -134,8 +134,10 @@ export function GamesPage() {
                   </span>
                 </div>
               </Link>
-              <GameActivitySummary gameType={game.id} compact />
-              <UniquePlayerStats gameType={game.id} compact />
+              <div className="discovery-game-stats">
+                <GameActivitySummary gameType={game.id} compact />
+                <UniquePlayerStats gameType={game.id} compact />
+              </div>
             </div>
           ))}
         </div>
