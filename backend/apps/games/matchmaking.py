@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 
 from .models import GameTable, MatchmakingTicket, PlayerPresence
@@ -19,6 +19,12 @@ def active_presence(game_type=None):
 
 @transaction.atomic
 def queue_player(user, game_type, target_size=None):
+    # Serialize queue allocation per game before locking individual tickets.
+    # Otherwise simultaneous entrants can lock their own tickets and deadlock.
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            game_key = list(dict(GameTable.GAME_TYPES)).index(game_type)
+            cursor.execute("SELECT pg_advisory_xact_lock(%s, %s)", [617204, game_key])
     now = timezone.now()
     PlayerPresence.objects.update_or_create(
         user=user,
@@ -32,43 +38,52 @@ def queue_player(user, game_type, target_size=None):
     )
     if not created and ticket.matched_table_id:
         return ticket, False
-    opponent = (
+    from .table_rules import CAPABILITIES
+
+    try:
+        capacity = (
+            int(target_size)
+            if target_size is not None
+            else (4 if game_type == "belote" else 2)
+        )
+    except (ValueError, TypeError):
+        raise ValueError("Nombre de joueurs invalide.")
+    if capacity not in CAPABILITIES[game_type]["players"]:
+        raise ValueError("Format de table invalide.")
+    ticket.target_players = capacity
+    ticket.save(update_fields=["target_players"])
+    candidates = list(
         MatchmakingTicket.objects.select_for_update()
-        .filter(game_type=game_type, status="queued", created_at__lt=ticket.created_at)
-        .exclude(user=user)
-        .order_by("created_at")
-        .first()
+        .filter(
+            game_type=game_type,
+            status="queued",
+            target_players=capacity,
+            user_id__in=active_presence().values("user_id"),
+        )
+        .order_by("created_at")[:capacity]
     )
-    if opponent:
-        try:
-            target_int = int(target_size) if target_size is not None else None
-        except (TypeError, ValueError):
-            target_int = None
-        if game_type == "poker":
-            max_players = target_int if target_int in (2, 6, 9) else 2
-        elif game_type == "belote":
-            max_players = 4
-        else:
-            max_players = target_int if target_int in (2, 4) else 4
+    if len(candidates) == capacity:
         table = GameTable.objects.create(
-            table_code=f"match-{str(ticket.id)[:8]}",
+            table_code=f"match-{ticket.id.hex[:26]}",
             name=f"Match {game_type.title()}",
             game_type=game_type,
-            stakes="Simulation",
-            max_players=max_players,
-            status="open",
+            stakes="Gratuit",
+            max_players=capacity,
+            created_by=candidates[0].user,
+            rules_config=CAPABILITIES[game_type]["defaults"],
+            turn_duration=30,
+            rules_version=1,
         )
-        join_table(table, opponent.user)
-        join_table(table, user)
-        opponent.status = "matched"
-        opponent.matched_table = table
-        opponent.save(update_fields=["status", "matched_table", "updated_at"])
-        ticket.status = "matched"
-        ticket.matched_table = table
-        ticket.save(update_fields=["status", "matched_table", "updated_at"])
-        PlayerPresence.objects.filter(user__in=[user, opponent.user]).update(
-            status="online", last_seen_at=now
-        )
+        for candidate in candidates:
+            join_table(table, candidate.user)
+            candidate.status = "matched"
+            candidate.matched_table = table
+            candidate.save(update_fields=["status", "matched_table", "updated_at"])
+            if candidate.pk == ticket.pk:
+                ticket = candidate
+        PlayerPresence.objects.filter(
+            user_id__in=[candidate.user_id for candidate in candidates]
+        ).update(status="online", last_seen_at=now)
     return ticket, created
 
 

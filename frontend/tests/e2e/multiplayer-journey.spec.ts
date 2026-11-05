@@ -143,7 +143,28 @@ async function stubGameApis(page: Page) {
                         },
                       ],
                       game_state: {
-                        players: [],
+                        players: [
+                          {
+                            id: "e2e-user",
+                            seat: 0,
+                            stack: 9700,
+                            folded: false,
+                            cards: [
+                              { rank: 2, suit: 1 },
+                              { rank: 2, suit: 2 },
+                            ],
+                          },
+                          {
+                            id: "poker-bot-1",
+                            seat: 1,
+                            stack: 9800,
+                            folded: false,
+                            cards: [
+                              { rank: 13, suit: 0 },
+                              { rank: 12, suit: 0 },
+                            ],
+                          },
+                        ],
                         community: [
                           { rank: 2, suit: 0 },
                           { rank: 5, suit: 1 },
@@ -382,15 +403,19 @@ test("shows bot actions with amount and pot in the live action log", async ({
   await expect(page.locator(".action-log")).toContainText("pot 300");
   await expect(page.locator(".action-log")).toContainText("Flop distribué");
   await expect(page.locator(".action-log")).toContainText("Showdown");
+  await expect(page.locator(".showdown-board-wrap")).toContainText("2");
+  await expect(page.locator(".showdown-board-wrap .playing-card")).toHaveCount(
+    5,
+  );
+  await expect(page.locator(".showdown-board-wrap")).toContainText("A");
+  await expect(page.locator(".showdown-players")).toContainText("K");
+  await page.getByRole("button", { name: "Fermer les résultats" }).click();
   await page.getByRole("button", { name: /Voir l’historique/i }).click();
   await expect(page.locator(".action-history")).toBeVisible();
   await expect(page.locator(".action-history")).toContainText(
     "Historique de la main",
   );
   await expect(page.locator(".action-history")).toContainText("Suit");
-  await expect(page.locator(".showdown-panel")).toContainText("Table finale");
-  await expect(page.locator(".showdown-panel")).toContainText("2");
-  await expect(page.locator(".showdown-panel")).toContainText("K");
 });
 
 test("keeps poker actions visible across state updates", async ({ page }) => {
@@ -407,11 +432,14 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   await stubGameApis(page);
   await page.goto("/game/poker/EMERALD-01");
   await expectCanonicalJoin(page);
-  await page.waitForTimeout(250);
+  await page.getByRole("button", { name: "Fermer les résultats" }).click();
 
   await page
-    .getByRole("link", { name: /Quitter la table/i })
-    .click({ noWaitAfter: true });
+    .getByRole("button", { name: "Quitter la table", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: /Quitter la table immédiatement/i })
+    .click();
   await expect(page).toHaveURL(/\/lobby$/, { timeout: 5_000 });
   await expect
     .poll(

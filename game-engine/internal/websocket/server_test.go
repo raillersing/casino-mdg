@@ -116,6 +116,14 @@ func TestWebSocketReconnectRestoresSequencePrivateStateAndResync(t *testing.T) {
 	if firstState.Sequence != 1 || secondState.Sequence != 2 {
 		t.Fatalf("join sequences=%d,%d", firstState.Sequence, secondState.Sequence)
 	}
+	// Existing players receive the new authoritative state when a peer joins.
+	var peerJoined Message
+	if err := first.ReadJSON(&peerJoined); err != nil {
+		t.Fatal(err)
+	}
+	if peerJoined.Type != MsgState || peerJoined.Sequence != 2 {
+		t.Fatalf("peer join state=%+v", peerJoined)
+	}
 	if err := first.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "check", Sequence: 2}); err != nil {
 		t.Fatal(err)
 	}
@@ -489,7 +497,6 @@ func TestRamiKnockSettlementAndHMAC(t *testing.T) {
 	c1 := connect("r1")
 	defer c1.Close()
 
-
 	seq := manager.TableSequence(table.ID)
 	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "knock", Sequence: seq}); err != nil {
 		t.Fatal(err)
@@ -584,7 +591,6 @@ func TestBeloteGameOverBroadcastToAllPlayers(t *testing.T) {
 	defer c0.Close()
 	c1 := connect("b1")
 	defer c1.Close()
-
 
 	seq := manager.TableSequence(table.ID)
 	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "new_hand", Sequence: seq}); err != nil {
@@ -694,4 +700,3 @@ func TestNotifyS2SSettlementTransmitsPayloadWithSecret(t *testing.T) {
 		t.Fatalf("expected game_type poker, got %v", receivedBody["game_type"])
 	}
 }
-

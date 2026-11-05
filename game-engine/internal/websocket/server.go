@@ -1,12 +1,12 @@
 package websocket
 
 import (
+	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -83,6 +83,7 @@ type Server struct {
 	config       *config.Config
 	roomManager  *room.Manager
 	clients      map[string]*Client
+	connections  map[*Client]bool
 	tableClients map[string]map[string]*Client
 	snapshots    *state.SnapshotManager
 	mu           sync.RWMutex
@@ -143,18 +144,21 @@ func (s *Server) AttachBots(w http.ResponseWriter, r *http.Request) {
 }
 
 type Client struct {
-	conn             *websocket.Conn
-	playerID         string
-	tableID          string
-	spectator        bool
-	isBot            bool
-	name             string
-	botTableID       string
-	admissionTableID string
-	admissionSeatID  int
-	admissionRole    string
-	send             chan []byte
-	lastPong         time.Time
+	conn              *websocket.Conn
+	playerID          string
+	tableID           string
+	spectator         bool
+	isBot             bool
+	name              string
+	botTableID        string
+	admissionTableID  string
+	admissionSeatID   int
+	admissionRole     string
+	turnDuration      int
+	admissionGameType string
+	settings          *room.TableSettings
+	send              chan []byte
+	lastPong          time.Time
 }
 
 func NewServer(cfg *config.Config, rm *room.Manager) *Server {
@@ -162,15 +166,27 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 	if nodeID == "" {
 		nodeID = "engine-node-1"
 	}
-	return &Server{
+	server := &Server{
 		config:       cfg,
 		roomManager:  rm,
 		clients:      make(map[string]*Client),
+		connections:  make(map[*Client]bool),
 		tableClients: make(map[string]map[string]*Client),
 		botRuns:      make(map[string]*botRun),
 		snapshots:    state.NewSnapshotManagerWithNode(cfg.RedisURL, nodeID),
 		nodeID:       nodeID,
 	}
+	if cfg.BackendInternalURL != "" && cfg.ResultSecret != "" {
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for {
+				server.dispatchHumanActivity()
+				<-ticker.C
+			}
+		}()
+	}
+	return server
 }
 
 func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
@@ -197,6 +213,15 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		admissionTableID: admissionTableID,
 		admissionSeatID:  admissionSeatID,
 		admissionRole:    admissionRole,
+	}
+	if !isBot && admissionTableID != "" {
+		claims, valid := authenticate(r.URL.Query().Get("token"), s.config.JWTSecret)
+		if !valid {
+			return
+		}
+		client.turnDuration = claims.TurnDuration
+		client.admissionGameType = claims.GameType
+		client.settings = claims.Settings
 	}
 	go s.writePump(client)
 	s.readPump(client)
@@ -290,6 +315,15 @@ func (s *Server) handleMessage(client *Client, msg *Message) {
 }
 
 func (s *Server) handleJoin(client *Client, msg *Message) {
+	if client.tableID != "" {
+		if client.tableID != msg.TableID {
+			s.sendMessage(client, &Message{Type: MsgError, Payload: "leave current table first"})
+			return
+		}
+		s.broadcastState(msg.TableID)
+		return
+	}
+
 	if client.isBot && msg.TableID != client.botTableID {
 		s.sendMessage(client, &Message{Type: MsgError, Payload: "bot token is bound to another table", Timestamp: time.Now()})
 		return
@@ -306,7 +340,10 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 				s.sendMessage(client, &Message{Type: MsgError, Payload: "unauthorized table creation requires admission ticket", Timestamp: time.Now()})
 				return
 			}
-			gameType := gameTypeFromPayload(msg.Payload)
+			gameType := client.admissionGameType
+			if gameType == "" {
+				gameType = gameTypeFromPayload(msg.Payload)
+			}
 			if !validGameType(gameType) {
 				s.sendMessage(client, &Message{Type: MsgError, Payload: "invalid game type", Timestamp: time.Now()})
 				return
@@ -340,6 +377,10 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		}
 	}
 
+	if client.admissionGameType != "" && table.GameType != client.admissionGameType {
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "admission game mismatch"})
+		return
+	}
 	client.tableID = msg.TableID
 	if !table.IsActive {
 		s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: "table is closed", Timestamp: time.Now()})
@@ -350,7 +391,16 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		s.sendMessage(client, &Message{Type: MsgError, Payload: "player identity mismatch", Timestamp: time.Now()})
 		return
 	}
-	s.addClient(client)
+	if client.settings != nil {
+		if err := s.roomManager.ConfigureTable(msg.TableID, *client.settings); err != nil {
+			s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error()})
+			return
+		}
+	}
+	if err := s.roomManager.ConfigureTurnDuration(msg.TableID, client.turnDuration); err != nil {
+		s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
+		return
+	}
 	client.spectator = (!client.isBot && roleFromPayload(msg.Payload) == "spectator") || client.admissionRole == "spectator"
 	if !client.spectator {
 		name := client.name
@@ -373,13 +423,24 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 			return
 		}
 		if !client.isBot {
-			_ = s.roomManager.StartTable(msg.TableID)
-		}
-		if requestTable, exists := s.roomManager.GetTable(msg.TableID); exists && requestTable.GameType == "poker" {
-			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(18500*time.Millisecond))
+			if s.roomManager.StartTable(msg.TableID) == nil && s.roomManager.IsSessionStarted(msg.TableID) {
+				s.roomManager.StartHumanDeadline(msg.TableID)
+				s.mu.RLock()
+				humans := []string{client.playerID}
+				for peer := range s.connections {
+					if peer.tableID == msg.TableID && !peer.isBot && !peer.spectator && peer.conn != nil {
+						humans = append(humans, peer.playerID)
+					}
+				}
+				s.mu.RUnlock()
+				for _, id := range humans {
+					s.recordHumanActivity(msg.TableID, id)
+				}
+			}
 		}
 	}
 
+	s.addClient(client)
 	playersCopy := table.CopyPlayers()
 	table.RLock()
 	gameState := publicGameState(table.State, client.playerID, playersCopy, table.ActionDeadline)
@@ -393,6 +454,7 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		"spectator":  client.spectator,
 	}
 	s.sendMessage(client, &Message{Type: MsgState, Payload: state, Sequence: seq, Timestamp: time.Now()})
+	s.broadcastState(msg.TableID, client)
 	s.persistSnapshot(msg.TableID)
 	s.startBotTurns(msg.TableID)
 }
@@ -521,7 +583,7 @@ func (s *Server) startBotTurns(tableID string) {
 			}
 			client := &Client{playerID: turn.PlayerID, tableID: tableID}
 			s.handleAction(client, &Message{Type: MsgAction, TableID: tableID, PlayerID: turn.PlayerID, Action: turn.Action, Payload: turn.Payload, Sequence: turn.Sequence})
-			_ = s.roomManager.SetPokerDeadline(tableID, time.Now().Add(18500*time.Millisecond))
+			_ = s.roomManager.SetPokerDeadline(tableID, time.Now().Add(s.roomManager.TurnDuration(tableID)))
 			time.Sleep(25 * time.Millisecond)
 		}
 	}()
@@ -571,7 +633,7 @@ func (s *Server) broadcastBotEmotes(tableID string, winners []string, handRanks 
 				text := msgList[safeRandIntnServer(len(msgList))]
 				s.broadcastToTable(tableID, &Message{
 					Type: MsgAction, TableID: tableID, PlayerID: p.ID, Action: "bot_chat",
-					Payload: map[string]interface{}{"text": text, "emote": emote},
+					Payload:  map[string]interface{}{"text": text, "emote": emote},
 					Sequence: 0, Timestamp: time.Now(),
 				})
 			}
@@ -721,22 +783,22 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 			rebeloteDeclared[i] = b
 		}
 		return map[string]interface{}{
-			"players":            players,
-			"phase":              game.Phase,
-			"bidding_round":      game.BiddingRound,
-			"trump":              game.Trump,
-			"proposed_trump":     game.ProposedTrump,
-			"bidder":             game.Bidder,
-			"passed":             passed,
-			"belote_announced":   beloteAnnounced,
-			"rebelote_declared":  rebeloteDeclared,
-			"current":            game.Current,
-			"current_player_id":  currentPlayerID,
-			"lead_suit":          game.LeadSuit,
-			"trick":              game.Trick,
-			"team_points":        game.TeamPoints,
-			"cumulative_scores":  game.CumulativeScores,
-			"action_deadline":    deadline,
+			"players":           players,
+			"phase":             game.Phase,
+			"bidding_round":     game.BiddingRound,
+			"trump":             game.Trump,
+			"proposed_trump":    game.ProposedTrump,
+			"bidder":            game.Bidder,
+			"passed":            passed,
+			"belote_announced":  beloteAnnounced,
+			"rebelote_declared": rebeloteDeclared,
+			"current":           game.Current,
+			"current_player_id": currentPlayerID,
+			"lead_suit":         game.LeadSuit,
+			"trick":             game.Trick,
+			"team_points":       game.TeamPoints,
+			"cumulative_scores": game.CumulativeScores,
+			"action_deadline":   deadline,
 		}
 	case *rami.Game:
 		players := make([]map[string]interface{}, 0, len(game.Players))
@@ -1192,8 +1254,11 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 		}
 	}
 	if !replayed {
+		if !client.isBot && !client.spectator && client.conn != nil {
+			s.recordHumanActivity(msg.TableID, client.playerID)
+		}
 		if tableGameType(s.roomManager, msg.TableID) == "poker" {
-			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(18500*time.Millisecond))
+			_ = s.roomManager.SetPokerDeadline(msg.TableID, time.Now().Add(s.roomManager.TurnDuration(msg.TableID)))
 		}
 		s.broadcastState(msg.TableID)
 		if msg.Action == "new_hand" {
@@ -1256,13 +1321,9 @@ func (s *Server) sendPokerLifecycle(client *Client, tableID string) {
 func (s *Server) tableClientSlice(tableID string, excludeSpectators bool) []*Client {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	group := s.tableClients[tableID]
-	if len(group) == 0 {
-		return nil
-	}
-	clients := make([]*Client, 0, len(group))
-	for _, client := range group {
-		if excludeSpectators && client.spectator {
+	clients := make([]*Client, 0)
+	for client := range s.connections {
+		if client.tableID != tableID || (excludeSpectators && client.spectator) {
 			continue
 		}
 		clients = append(clients, client)
@@ -1354,7 +1415,7 @@ func streetDetails(manager *room.Manager, tableID, previous, current string) map
 // broadcastState sends a fresh, player-scoped snapshot after every accepted
 // action. Private hands stay private while board, turn and stack changes are
 // immediately visible to every connected client.
-func (s *Server) broadcastState(tableID string) {
+func (s *Server) broadcastState(tableID string, excluded ...*Client) {
 	table, ok := s.roomManager.GetTable(tableID)
 	if !ok {
 		return
@@ -1362,6 +1423,9 @@ func (s *Server) broadcastState(tableID string) {
 	playersCopy := table.CopyPlayers()
 	clients := s.tableClientSlice(tableID, false)
 	for _, client := range clients {
+		if len(excluded) > 0 && client == excluded[0] {
+			continue
+		}
 		table.RLock()
 		sequence := table.Sequence
 		actionDeadline := table.ActionDeadline
@@ -1379,9 +1443,9 @@ func (s *Server) broadcastState(tableID string) {
 		payload := map[string]interface{}{
 			"table_id": table.ID, "game_type": table.GameType,
 			"players": playersCopy, "game_state": gameState,
-			"spectator": client.spectator,
+			"spectator":       client.spectator,
 			"action_deadline": deadline,
-			"poker_level": pokerLevel, "hands_played": handsPlayed,
+			"poker_level":     pokerLevel, "hands_played": handsPlayed,
 			"small_blind": smallBlind, "big_blind": bigBlind,
 		}
 		data, err := json.Marshal(&Message{Type: MsgState, Payload: payload, Sequence: sequence, Timestamp: time.Now()})
@@ -1453,14 +1517,10 @@ func (s *Server) handleSync(client *Client, msg *Message) {
 func (s *Server) addClient(client *Client) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if previous, exists := s.clients[client.playerID]; exists && previous.tableID != "" && previous.tableID != client.tableID {
-		if group, ok := s.tableClients[previous.tableID]; ok {
-			delete(group, client.playerID)
-			if len(group) == 0 {
-				delete(s.tableClients, previous.tableID)
-			}
-		}
+	if s.connections == nil {
+		s.connections = make(map[*Client]bool)
 	}
+	s.connections[client] = true
 	s.clients[client.playerID] = client
 	if client.tableID != "" {
 		group, ok := s.tableClients[client.tableID]
@@ -1475,21 +1535,39 @@ func (s *Server) addClient(client *Client) {
 func (s *Server) removeClient(client *Client) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// A reconnect replaces the previous socket for the same player. The old
-	// socket may close after the new one is registered and must not remove it.
-	if current, ok := s.clients[client.playerID]; ok && current == client {
-		delete(s.clients, client.playerID)
-		if client.tableID != "" {
-			if group, exists := s.tableClients[client.tableID]; exists {
-				delete(group, client.playerID)
-				if len(group) == 0 {
-					delete(s.tableClients, client.tableID)
-				}
-			}
-		}
-		return true
+	if !s.connections[client] {
+		return false
 	}
-	return false
+	delete(s.connections, client)
+	var sameTable, other *Client
+	for candidate := range s.connections {
+		if candidate.playerID != client.playerID {
+			continue
+		}
+		other = candidate
+		if candidate.tableID == client.tableID {
+			sameTable = candidate
+		}
+	}
+	if s.clients[client.playerID] == client {
+		if other != nil {
+			s.clients[client.playerID] = other
+		} else {
+			delete(s.clients, client.playerID)
+		}
+	}
+	if group := s.tableClients[client.tableID]; group != nil && group[client.playerID] == client {
+		if sameTable != nil {
+			group[client.playerID] = sameTable
+		} else {
+			delete(group, client.playerID)
+		}
+		if len(group) == 0 {
+			delete(s.tableClients, client.tableID)
+		}
+	}
+	// A socket on another table must not keep this table's player alive.
+	return sameTable == nil
 }
 
 func (s *Server) sendMessage(client *Client, message *Message) {
@@ -1515,16 +1593,19 @@ func (s *Server) broadcastToTable(tableID string, msg *Message) {
 }
 
 type userClaims struct {
-	Sub      string          `json:"sub"`
-	Name     string          `json:"name"`
-	TableID  string          `json:"table_id"`
-	SeatID   int             `json:"seat_id"`
-	Role     string          `json:"role"`
-	Type     string          `json:"type"`
-	RawExp   json.RawMessage `json:"exp"`
-	RawIat   json.RawMessage `json:"iat"`
-	Expires  int64           `json:"-"`
-	IssuedAt int64           `json:"-"`
+	GameType     string              `json:"game_type"`
+	Settings     *room.TableSettings `json:"table_settings"`
+	TurnDuration int                 `json:"turn_duration"`
+	Sub          string              `json:"sub"`
+	Name         string              `json:"name"`
+	TableID      string              `json:"table_id"`
+	SeatID       int                 `json:"seat_id"`
+	Role         string              `json:"role"`
+	Type         string              `json:"type"`
+	RawExp       json.RawMessage     `json:"exp"`
+	RawIat       json.RawMessage     `json:"iat"`
+	Expires      int64               `json:"-"`
+	IssuedAt     int64               `json:"-"`
 }
 
 func authenticate(token, secret string) (userClaims, bool) {

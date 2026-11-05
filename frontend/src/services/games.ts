@@ -19,6 +19,7 @@ export type GameTable = {
 };
 
 export type LiveGameStats = {
+  in_game_players?: number;
   name: string;
   online_players: number;
   running_tables: number;
@@ -27,7 +28,9 @@ export type LiveGameStats = {
 };
 
 export type LiveStatsResponse = {
+  running_tables_verified: boolean;
   total_online_players: number;
+  total_in_game_players?: number;
   total_running_tables: number;
   total_open_tables: number;
   total_active_tables: number;
@@ -132,7 +135,13 @@ export function createTable(accessToken: string, payload: CreateTablePayload) {
 
 export function getLiveStats(pingGame?: string) {
   const query = pingGame ? `?ping_game=${encodeURIComponent(pingGame)}` : "";
-  return request<LiveStatsResponse>(`live-stats/${query}`);
+  return request<LiveStatsResponse>(`live-stats/${query}`, {
+    signal: AbortSignal.timeout(8000),
+  }).then((data) => {
+    if (data.running_tables_verified !== true)
+      throw new Error("Activité non confirmée");
+    return data;
+  });
 }
 
 export function joinTableByCode(accessToken: string, code: string) {

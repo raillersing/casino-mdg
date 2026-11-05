@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .statistics_views import ConfirmHumanActivityView, UniquePlayerStatisticsView
 from .views import (
     BotSimulationCancelView,
     BotSimulationCompleteView,
@@ -14,7 +15,9 @@ from .views import (
     MatchmakingHeartbeatView,
     MatchmakingQueueView,
     MatchmakingStatusView,
+    ResumableTablesView,
     TableAdmissionView,
+    TableCapabilitiesView,
     TableJoinByCodeView,
     TableJoinView,
     TableListCreateView,
@@ -30,6 +33,10 @@ from .views import (
 )
 
 urlpatterns = [
+    path("resumable/", ResumableTablesView.as_view()),
+    path("table-capabilities/", TableCapabilitiesView.as_view()),
+    path("player-statistics/", UniquePlayerStatisticsView.as_view()),
+    path("internal/human-activity/", ConfirmHumanActivityView.as_view()),
     path("live-stats/", LiveStatsView.as_view(), name="live-stats"),
     path("bot-simulations/", BotSimulationView.as_view(), name="bot-simulation"),
     path(

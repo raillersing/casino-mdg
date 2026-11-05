@@ -323,7 +323,8 @@
     "bidder": "Preneur",
     "meld": "Poser",
     "cancel": "Annuler",
-    "reconnecting": "Reconnexion en cours..."
+    "reconnecting": "Reconnexion en cours...",
+    "closeResults": "Fermer les résultats"
   },
   "testGames": {
     "breadcrumb": "Jeux de hasard",
@@ -411,7 +412,7 @@
     "backHome": "Retour à l’accueil",
     "chooseMode": "Choisir un mode",
     "howToPlay": "Comment jouer",
-    "quickMatch": "Partie rapide",
+    "quickMatch": "Trouver des joueurs",
     "quickMatchDesc": "Trouvez des humains en quelques secondes via le matchmaking.",
     "practice": "S’entraîner",
     "practiceDesc": "Affrontez des bots pour apprendre sans pression.",
@@ -605,5 +606,24 @@
     "help": "Vous débutez ? Choisissez un jeu puis « Entraînement » pour découvrir son fonctionnement.",
     "lobbyTitle": "Trouvez votre table",
     "open": "Ouverte"
+  },
+  "welcome": {
+    "title": "Une partie, ensemble ?",
+    "intro": "Vos classiques malagasy, à partager entre proches ou avec de nouveaux partenaires.",
+    "choose": "Choisir un jeu",
+    "join": "J’ai un code privé",
+    "how": "Comment voulez-vous jouer ?",
+    "online": "Trouver une table",
+    "onlineDesc": "Consultez les places disponibles et choisissez votre partie.",
+    "friends": "Jouer avec mes proches",
+    "friendsDesc": "Créez une table privée et partagez son invitation.",
+    "practice": "M’entraîner",
+    "practiceDesc": "Choisissez votre jeu pour découvrir ses règles contre des robots.",
+    "discover": "À découvrir ensemble",
+    "discoverGame": "Découvrir ce jeu",
+    "helpTitle": "Une première partie ?",
+    "help": "Choisissez un jeu, découvrez ses règles, puis entraînez-vous ou invitez vos proches.",
+    "support": "Besoin d’aide ?",
+    "resume": "Reprendre une partie"
   }
 }

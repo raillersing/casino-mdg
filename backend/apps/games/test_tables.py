@@ -1,5 +1,4 @@
-import hashlib
-import hmac
+from unittest.mock import patch
 
 from django.conf import settings
 from django.test import TestCase, override_settings
@@ -17,13 +16,11 @@ class TableApiTests(TestCase):
             email="joueur@mdg.local", phone="+261340000001", display_name="Joueur"
         )
 
-    def test_public_list_seeds_demo_tables(self):
+    def test_public_list_does_not_seed_demo_tables(self):
         response = self.client.get("/api/v1/games/tables/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 6)
-        self.assertEqual(
-            {item["mode"] for item in response.data["results"]}, {"HUMAN_MATCH"}
-        )
+        self.assertEqual(len(response.data["results"]), 0)
+        self.assertEqual({item["mode"] for item in response.data["results"]}, set())
 
     def test_join_is_idempotent_and_never_duplicates_seat(self):
         table = GameTable.objects.create(
@@ -274,20 +271,29 @@ class TableApiTests(TestCase):
         )
         self.assertEqual(resp_a.status_code, 201)
 
-        # Player B queues for 6-max poker and matches Player A
         self.client.force_authenticate(player_b)
         resp_b = self.client.post(
             "/api/v1/games/matchmaking/queue/",
             {"game_type": "poker", "max_players": 6},
             format="json",
         )
-        self.assertEqual(resp_b.status_code, 201)
-        self.assertEqual(resp_b.data["ticket"]["status"], "matched")
-        matched_table_id = resp_b.data["ticket"]["table_id"]
-        matched_table = GameTable.objects.get(pk=matched_table_id)
-        self.assertEqual(matched_table.max_players, 6)
-        self.assertEqual(matched_table.game_type, "poker")
-        self.assertEqual(matched_table.seats.count(), 2)
+        self.assertEqual(resp_b.data["ticket"]["status"], "queued")
+        for i in range(4):
+            friend = User.objects.create_user(
+                email=f"capacity{i}@mdg.local",
+                phone=f"+26134000800{i}",
+                display_name=f"Capacity {i}",
+            )
+            self.client.force_authenticate(friend)
+            last = self.client.post(
+                "/api/v1/games/matchmaking/queue/",
+                {"game_type": "poker", "max_players": 6},
+                format="json",
+            )
+        self.assertEqual(last.data["ticket"]["status"], "matched")
+        table = GameTable.objects.get(pk=last.data["ticket"]["table_id"])
+        self.assertEqual(table.max_players, 6)
+        self.assertEqual(table.seats.count(), 6)
 
     def test_table_creation_with_specific_rules_and_access_code(self):
         self.client.force_authenticate(self.user)
@@ -297,12 +303,10 @@ class TableApiTests(TestCase):
                 "name": "Belote Amis",
                 "game_type": "belote",
                 "is_private": True,
-                "stake_amount": 2000,
+                "stake_amount": 0,
                 "turn_duration": 10,
                 "rules_config": {
                     "target_score": 1001,
-                    "variant": "classique",
-                    "announcements": True,
                 },
             },
             format="json",
@@ -312,9 +316,9 @@ class TableApiTests(TestCase):
         self.assertEqual(data["name"], "Belote Amis")
         self.assertEqual(data["game_type"], "belote")
         self.assertEqual(data["max_players"], 4)
-        self.assertEqual(data["stake_amount"], 2000)
+        self.assertEqual(data["stake_amount"], 0)
         self.assertEqual(data["turn_duration"], 10)
-        self.assertEqual(data["stakes"], "2 000 Ar")
+        self.assertEqual(data["stakes"], "Gratuit")
         self.assertTrue(data["is_private"])
         self.assertIsNotNone(data["access_code"])
         self.assertEqual(len(data["access_code"]), 6)
@@ -345,6 +349,14 @@ class TableApiTests(TestCase):
         direct_fail = self.client.post(f"/api/v1/games/tables/{table_id}/join/")
         self.assertEqual(direct_fail.status_code, 403)
 
+        # A public table identifier is not authorization to a private room.
+        by_public_code = self.client.post(
+            "/api/v1/games/tables/join-by-code/",
+            {"code": create_resp.data["table_code"]},
+            format="json",
+        )
+        self.assertEqual(by_public_code.status_code, 404)
+
         # 2. Direct join with correct access code succeeds
         direct_ok = self.client.post(
             f"/api/v1/games/tables/{table_id}/join/",
@@ -374,7 +386,8 @@ class TableApiTests(TestCase):
         )
         self.assertEqual(by_code_fail.status_code, 404)
 
-    def test_live_stats_endpoint(self):
+    @patch("apps.games.views.engine_activity", return_value={})
+    def test_live_stats_endpoint(self, mocked_engine):
         resp = self.client.get("/api/v1/games/live-stats/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("total_online_players", resp.data)
@@ -385,3 +398,38 @@ class TableApiTests(TestCase):
             self.assertIn("online_players", resp.data["games"][g])
             self.assertIn("running_tables", resp.data["games"][g])
             self.assertIn("open_tables", resp.data["games"][g])
+
+    @patch("apps.games.views.engine_activity", return_value={})
+    def test_live_stats_do_not_count_historical_seats_as_online(self, mocked_engine):
+        from datetime import timedelta
+
+        from django.core.cache import cache
+        from django.utils import timezone
+
+        from apps.games.models import PlayerPresence
+
+        cache.delete("casino_mdg_live_lobby_stats")
+        PlayerPresence.objects.all().delete()
+        table = GameTable.objects.create(
+            table_code="stale-seat-stats",
+            name="Old",
+            game_type="belote",
+            created_by=self.user,
+        )
+        TableSeat.objects.create(table=table, user=self.user, seat_index=0)
+        response = self.client.get("/api/v1/games/live-stats/")
+        self.assertEqual(response.data["total_online_players"], 0)
+        cache.delete("casino_mdg_live_lobby_stats")
+        PlayerPresence.objects.create(
+            user=self.user, last_seen_at=timezone.now(), game_type="belote"
+        )
+        self.assertEqual(
+            self.client.get("/api/v1/games/live-stats/").data["total_online_players"], 1
+        )
+        cache.delete("casino_mdg_live_lobby_stats")
+        PlayerPresence.objects.filter(user=self.user).update(
+            last_seen_at=timezone.now() - timedelta(seconds=61)
+        )
+        self.assertEqual(
+            self.client.get("/api/v1/games/live-stats/").data["total_online_players"], 0
+        )

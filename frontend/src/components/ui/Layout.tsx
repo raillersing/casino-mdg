@@ -15,6 +15,7 @@ import {
   Gamepad2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { sendMatchmakingHeartbeat } from "@services/games";
 import { getCurrentUser, refreshAccessToken } from "@services/auth";
 import { useGameStore } from "@stores/gameStore";
 import { useDeviceMode } from "@hooks/useDeviceMode";
@@ -81,6 +82,30 @@ export function Layout({ children }: { children: ReactNode }) {
           .catch(() => logout());
       });
   }, [accessToken, logout, refreshToken, setSession, setUser, user]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    const parts = location.pathname.split("/");
+    const game = ["play", "game"].includes(parts[1]) ? parts[2] : undefined;
+    const validGame = ["belote", "domino", "ludo", "rami", "poker"].includes(
+      game || "",
+    )
+      ? game
+      : undefined;
+    const heartbeat = () => {
+      if (document.visibilityState === "visible")
+        void sendMatchmakingHeartbeat(accessToken, validGame).catch(
+          () => undefined,
+        );
+    };
+    heartbeat();
+    const timer = window.setInterval(heartbeat, 15000);
+    document.addEventListener("visibilitychange", heartbeat);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", heartbeat);
+    };
+  }, [accessToken, location.pathname]);
 
   const isGamePage = location.pathname.startsWith("/game/");
 

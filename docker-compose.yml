@@ -93,9 +93,9 @@ services:
       - "5672:5672"
       - "15672:15672"  # Management UI
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 5s
-      timeout: 5s
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 15s
       retries: 5
     networks:
       - casino-mdg
@@ -136,7 +136,6 @@ services:
       # BuildKit cannot reach Debian mirrors through its isolated network here.
       # This only affects image build-time dependency installation.
       network: host
-    container_name: casino-mdg-backend
     restart: unless-stopped
     depends_on:
       postgres:
@@ -168,7 +167,6 @@ services:
       GAME_ENGINE_BOT_PROFILE: ${GAME_ENGINE_BOT_PROFILE:-normal}
       GAME_ENGINE_BOT_DELAY_MS: ${GAME_ENGINE_BOT_DELAY_MS:-1100}
     volumes:
-      - ./backend:/app
       - ./backend/media:/app/media
     ports:
       - "${BACKEND_PORT:-8001}:8000"
@@ -210,8 +208,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672//
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-    volumes:
-      - ./backend:/app
     command: celery -A config worker --loglevel=info --concurrency=2
     networks:
       - casino-mdg
@@ -241,8 +237,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672//
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-    volumes:
-      - ./backend:/app
     command: celery -A config beat --loglevel=info
     networks:
       - casino-mdg
@@ -262,6 +256,7 @@ services:
       backend:
         condition: service_healthy
     environment:
+      ACTIVITY_OUTBOX_DIR: /var/lib/casino-activity
       GAME_ENGINE_ADDR: :8080
       BACKEND_INTERNAL_URL: http://backend:8000
       REDIS_URL: redis://redis:6379/0
@@ -276,7 +271,7 @@ services:
       timeout: 5s
       retries: 6
     volumes:
-      - ./game-engine:/app
+      - engine-activity:/var/lib/casino-activity
     networks:
       - casino-mdg
 
@@ -370,6 +365,7 @@ services:
 # Volumes
 # ───────────────────────────────────────────
 volumes:
+  engine-activity:
   postgres_data:
   redis_data:
   rabbitmq_data:

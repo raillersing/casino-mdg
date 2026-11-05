@@ -35,31 +35,33 @@ func safeRandIntn(n int) int {
 
 // Table represents a game table (Poker, Belote, Rami)
 type Table struct {
-	ID            string
-	GameType      string
-	Players       map[string]*Player
-	State         interface{}
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	IsActive      bool
-	GracePeriod   time.Duration
-	Deterministic bool
-	Blinds        bool
-	Sequence      uint64
-	Events        []Event
+	Settings       *TableSettings `json:"settings,omitempty"`
+	TurnDuration   int            `json:"turn_duration,omitempty"`
+	ID             string
+	GameType       string
+	Players        map[string]*Player
+	State          interface{}
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	IsActive       bool
+	GracePeriod    time.Duration
+	Deterministic  bool
+	Blinds         bool
+	Sequence       uint64
+	Events         []Event
 	ActionDeadline time.Time
 	// Poker-specific persistent table state
-	PokerLevel       int
-	PokerHandsPlayed int
-	PokerSmallBlind  int64
-	PokerBigBlind    int64
-	BotTilt          map[string]int // hands remaining in tilt per bot ID
+	PokerLevel        int
+	PokerHandsPlayed  int
+	PokerSmallBlind   int64
+	PokerBigBlind     int64
+	BotTilt           map[string]int // hands remaining in tilt per bot ID
 	BotRecentStrength map[string]int // last showdown strength for tilt calculation
 	// Belote multi-round state
 	BeloteTeamScores  [2]int
 	BeloteTargetScore int
 	Generation        uint64
-	mu               sync.RWMutex
+	mu                sync.RWMutex
 }
 
 func (t *Table) RLock() {
@@ -95,6 +97,8 @@ type Event struct {
 }
 
 type TableSnapshot struct {
+	Settings          *TableSettings     `json:"settings,omitempty"`
+	TurnDuration      int                `json:"turn_duration,omitempty"`
 	ID                string             `json:"id"`
 	GameType          string             `json:"game_type"`
 	Sequence          uint64             `json:"sequence"`
@@ -324,6 +328,9 @@ func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int
 		existing.JoinedAt = time.Now()
 		return Event{TableID: tableID, PlayerID: playerID, Action: "reconnected", Sequence: table.Sequence}, nil
 	}
+	if table.Settings != nil && len(table.Players) >= table.Settings.MaxPlayers {
+		return Event{}, fmt.Errorf("table full")
+	}
 	if seat <= 0 {
 		if isBot {
 			// Bots must never take seat 0. Seat 0 is reserved for the human player
@@ -357,7 +364,7 @@ func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int
 		}
 	}
 	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, IsBot: isBot, BotProfile: botProfile, JoinedAt: time.Now()}
-	if initialize && table.GameType == "poker" && len(table.Players) >= 2 && table.State == nil {
+	if initialize && table.GameType == "poker" && len(table.Players) >= 2 && table.State == nil && (table.Settings == nil || len(table.Players) >= table.Settings.MaxPlayers) {
 		if err := initializePokerHand(table); err != nil {
 			return Event{}, err
 		}
@@ -367,7 +374,7 @@ func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int
 			return Event{}, err
 		}
 	}
-	if initialize && table.GameType == "rami" && len(table.Players) >= 2 && table.State == nil {
+	if initialize && table.GameType == "rami" && len(table.Players) >= 2 && table.State == nil && (table.Settings == nil || len(table.Players) >= table.Settings.MaxPlayers) {
 		if err := initializeRamiGame(table); err != nil {
 			return Event{}, err
 		}
@@ -415,7 +422,7 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 				highest = player.Bet
 			}
 		}
-			return decidePokerBotTurn(game, gamePlayer, table, profile, table.Sequence), true
+		return decidePokerBotTurn(game, gamePlayer, table, profile, table.Sequence), true
 	case *belote.Round:
 		if game.Finished() || game.Phase == "all_passed" || game.Current < 0 || game.Current >= len(game.Players) {
 			return BotTurn{}, false
@@ -1031,6 +1038,9 @@ func (m *Manager) StartTable(tableID string) error {
 	if table.State != nil {
 		return nil
 	}
+	if table.Settings != nil && len(table.Players) < table.Settings.MaxPlayers {
+		return fmt.Errorf("waiting for players")
+	}
 	if table.GameType == "poker" {
 		if len(table.Players) >= 2 {
 			return initializePokerHand(table)
@@ -1435,7 +1445,7 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 	if table.GameType == "belote" || table.GameType == "rami" || table.GameType == "ludo" || table.GameType == "domino" {
 		table.ActionDeadline = time.Time{}
 		if nextPlayer := nextHumanPlayer(table); nextPlayer != "" {
-			table.ActionDeadline = time.Now().Add(18 * time.Second)
+			table.ActionDeadline = time.Now().Add(time.Duration(tableTurnDuration(table)) * time.Second)
 		}
 	}
 	return event, false, nil
@@ -1759,7 +1769,7 @@ func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 	return TableSnapshot{
 		ID: table.ID, GameType: table.GameType, Sequence: table.Sequence,
 		Players: players, Events: events, UpdatedAt: table.UpdatedAt, State: state,
-		ActionDeadline: table.ActionDeadline,
+		Settings: table.Settings, ActionDeadline: table.ActionDeadline, TurnDuration: table.TurnDuration,
 		PokerLevel: table.PokerLevel, PokerHandsPlayed: table.PokerHandsPlayed,
 		PokerSmallBlind: table.PokerSmallBlind, PokerBigBlind: table.PokerBigBlind,
 		BeloteTeamScores: table.BeloteTeamScores, BeloteTargetScore: table.BeloteTargetScore,
@@ -1786,31 +1796,46 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 		CreatedAt: time.Now(), UpdatedAt: snapshot.UpdatedAt, IsActive: true,
 		GracePeriod: m.config.GracePeriod, Deterministic: m.config.Deterministic,
 		Blinds: m.config.Blinds, Sequence: snapshot.Sequence,
-		Events: append([]Event(nil), snapshot.Events...),
-		ActionDeadline: snapshot.ActionDeadline,
+		Events:   append([]Event(nil), snapshot.Events...),
+		Settings: snapshot.Settings, ActionDeadline: snapshot.ActionDeadline, TurnDuration: snapshot.TurnDuration,
 		PokerLevel: snapshot.PokerLevel, PokerHandsPlayed: snapshot.PokerHandsPlayed,
 		PokerSmallBlind: snapshot.PokerSmallBlind, PokerBigBlind: snapshot.PokerBigBlind,
 		BeloteTeamScores: snapshot.BeloteTeamScores, BeloteTargetScore: snapshot.BeloteTargetScore,
 		BotTilt: make(map[string]int), BotRecentStrength: make(map[string]int),
 		Generation: snapshot.Generation,
 	}
-	if snapshot.GameType == "poker" && len(snapshot.State) > 0 {
+	if snapshot.GameType == "poker" && len(snapshot.State) > 0 && string(snapshot.State) != "null" {
 		var hand poker.Hand
 		if err := json.Unmarshal(snapshot.State, &hand); err == nil {
 			table.State = &hand
 		}
 	}
-	if snapshot.GameType == "belote" && len(snapshot.State) > 0 {
+	if snapshot.GameType == "belote" && len(snapshot.State) > 0 && string(snapshot.State) != "null" {
 		var round belote.Round
 		if err := json.Unmarshal(snapshot.State, &round); err == nil {
 			table.State = &round
 		}
 	}
-	if snapshot.GameType == "rami" && len(snapshot.State) > 0 {
+	if snapshot.GameType == "rami" && len(snapshot.State) > 0 && string(snapshot.State) != "null" {
 		var game rami.Game
 		if err := json.Unmarshal(snapshot.State, &game); err == nil {
 			table.State = &game
 		}
+	}
+	if snapshot.GameType == "ludo" && len(snapshot.State) > 0 && string(snapshot.State) != "null" {
+		var game ludo.Game
+		if err := json.Unmarshal(snapshot.State, &game); err == nil {
+			table.State = &game
+		}
+	}
+	if snapshot.GameType == "domino" && len(snapshot.State) > 0 && string(snapshot.State) != "null" {
+		var game domino.Game
+		if err := json.Unmarshal(snapshot.State, &game); err == nil {
+			table.State = &game
+		}
+	}
+	if table.Settings != nil && table.GameType == "poker" {
+		table.Blinds = true
 	}
 	m.tables[table.ID] = table
 	return table, nil
@@ -1929,7 +1954,7 @@ func startNextPokerHand(table *Table) error {
 
 	// Advance level every 8 hands
 	table.PokerHandsPlayed++
-	if table.PokerHandsPlayed%8 == 0 {
+	if table.Settings == nil && table.PokerHandsPlayed%8 == 0 {
 		table.PokerLevel++
 		if table.PokerLevel >= len(blindLevels) {
 			table.PokerLevel = len(blindLevels) - 1
@@ -2317,4 +2342,40 @@ func validAction(action string) bool {
 		return true
 	}
 	return false
+}
+
+// ConfigureTurnDuration applies only signed admission settings and rejects drift.
+func (m *Manager) ConfigureTurnDuration(tableID string, seconds int) error {
+	if seconds == 0 {
+		return nil
+	} // Legacy admission tickets retain engine defaults.
+	if seconds < 5 || seconds > 120 {
+		return fmt.Errorf("invalid turn duration")
+	}
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return fmt.Errorf("table not found")
+	}
+	table.mu.Lock()
+	defer table.mu.Unlock()
+	if table.TurnDuration != 0 && table.TurnDuration != seconds {
+		return fmt.Errorf("table settings conflict")
+	}
+	table.TurnDuration = seconds
+	return nil
+}
+func tableTurnDuration(table *Table) int {
+	if table.TurnDuration >= 5 && table.TurnDuration <= 120 {
+		return table.TurnDuration
+	}
+	return 18
+}
+func (m *Manager) TurnDuration(tableID string) time.Duration {
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return 18 * time.Second
+	}
+	table.mu.RLock()
+	defer table.mu.RUnlock()
+	return time.Duration(tableTurnDuration(table)) * time.Second
 }
