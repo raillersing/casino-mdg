@@ -97,6 +97,7 @@ type Event struct {
 }
 
 type TableSnapshot struct {
+	Closed            bool               `json:"closed,omitempty"`
 	Settings          *TableSettings     `json:"settings,omitempty"`
 	TurnDuration      int                `json:"turn_duration,omitempty"`
 	ID                string             `json:"id"`
@@ -128,9 +129,10 @@ type Player struct {
 }
 
 type Manager struct {
-	config *config.Config
-	tables map[string]*Table
-	mu     sync.RWMutex
+	onTableClosed func(string)
+	config        *config.Config
+	tables        map[string]*Table
+	mu            sync.RWMutex
 }
 
 type Stats struct {
@@ -289,13 +291,15 @@ func (m *Manager) LeavePlayer(tableID, playerID string) bool {
 	}
 	delete(table.Players, playerID)
 	table.UpdatedAt = time.Now()
-	isEmpty := len(table.Players) == 0
+	isEmpty := !hasHumanSeat(table) || (table.State != nil && table.GameType != "poker")
 	if isEmpty {
+		appendEvent(table, "", "table_closed", nil)
 		table.IsActive = false
 	}
 	table.mu.Unlock()
 
 	if isEmpty {
+		m.notifyTableClosed(tableID)
 		m.RemoveTable(tableID)
 	}
 	return true
@@ -1319,14 +1323,29 @@ func decideRamiBotTurn(player *rami.Player, sequence uint64) BotTurn {
 // event_id after a reconnect; in that case the original event is returned and
 // the game state/sequence are left untouched.
 func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expectedSequence uint64, payload interface{}, eventID string) (Event, bool, error) {
+	return m.applyAction(tableID, playerID, action, expectedSequence, payload, eventID, false)
+}
+
+// ApplyServerTimeout is used only by the server clock. A departed poker player
+// remains in the current hand and must not prevent other players from finishing it.
+func (m *Manager) ApplyServerTimeout(tableID, playerID, action string, sequence uint64, payload interface{}) (Event, bool, error) {
+	return m.applyAction(tableID, playerID, action, sequence, payload, "", true)
+}
+func (m *Manager) applyAction(tableID, playerID, action string, expectedSequence uint64, payload interface{}, eventID string, serverTimeout bool) (Event, bool, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
 		return Event{}, false, fmt.Errorf("table not found")
 	}
 	table.mu.Lock()
 	defer table.mu.Unlock()
+	if !table.IsActive {
+		return Event{}, false, fmt.Errorf("table is closed")
+	}
 	if _, ok := table.Players[playerID]; !ok && !(action == "new_hand" && playerID == "") {
-		return Event{}, false, fmt.Errorf("player is not seated")
+		permitted := serverTimeout && table.GameType == "poker" && (action == "check" || action == "fold") && !table.ActionDeadline.IsZero() && !time.Now().Before(table.ActionDeadline)
+		if !permitted {
+			return Event{}, false, fmt.Errorf("player is not seated")
+		}
 	}
 	if eventID != "" {
 		for _, event := range table.Events {
@@ -1341,10 +1360,31 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 	if expectedSequence != table.Sequence {
 		return Event{}, false, fmt.Errorf("stale sequence: expected %d", table.Sequence)
 	}
+	if table.State == nil {
+		return Event{}, false, fmt.Errorf("waiting for players")
+	}
 	if !validActionForGame(table.GameType, action) {
 		return Event{}, false, fmt.Errorf("invalid action")
 	}
 	if action == "new_hand" {
+		if table.State == nil {
+			return Event{}, false, fmt.Errorf("waiting for players")
+		}
+		unfinished := false
+		switch game := table.State.(type) {
+		case *ludo.Game:
+			unfinished = !game.Finished
+		case *domino.Game:
+			unfinished = !game.Finished
+		case *rami.Game:
+			unfinished = !game.Finished
+		case *belote.Round:
+			unfinished = game.Phase != "finished" && game.Phase != "settled" && game.Phase != "settled_reported"
+		}
+		if unfinished {
+			return Event{}, false, fmt.Errorf("current round is not finished")
+		}
+
 		if table.GameType == "poker" {
 			if err := startNextPokerHand(table); err != nil {
 				return Event{}, false, err
@@ -1429,6 +1469,17 @@ func (m *Manager) ApplyActionIdempotent(tableID, playerID, action string, expect
 			return Event{}, false, err
 		}
 	}
+	if game, ok := table.State.(*ludo.Game); ok && action == "roll_dice" {
+		details := map[string]interface{}{}
+		if values, ok := payload.(map[string]interface{}); ok {
+			for key, value := range values {
+				details[key] = value
+			}
+		}
+		details["roll"] = game.LastResult
+		details["turn_passed"] = game.CanRoll && game.Players[game.Current].ID != playerID
+		payload = details
+	}
 	event := appendEvent(table, playerID, action, payload)
 	if eventID != "" {
 		event.ID = eventID
@@ -1495,21 +1546,24 @@ func (m *Manager) DisconnectPlayer(tableID, playerID string) {
 	}
 	player.IsActive = false
 	deadline := time.Now().Add(table.GracePeriod)
+	joinedAt := player.JoinedAt
 	table.mu.Unlock()
 	go func() {
 		time.Sleep(time.Until(deadline))
 		table.mu.Lock()
 		shouldRemove := false
-		if current, exists := table.Players[playerID]; exists && !current.IsActive && time.Now().After(deadline) {
+		if current, exists := table.Players[playerID]; exists && !current.IsActive && current.JoinedAt.Equal(joinedAt) && time.Now().After(deadline) {
 			delete(table.Players, playerID)
 			table.UpdatedAt = time.Now()
-			if len(table.Players) == 0 {
+			if !hasHumanSeat(table) || (table.State != nil && table.GameType != "poker") {
+				appendEvent(table, "", "table_closed", nil)
 				table.IsActive = false
 				shouldRemove = true
 			}
 		}
 		table.mu.Unlock()
 		if shouldRemove {
+			m.notifyTableClosed(tableID)
 			m.RemoveTable(tableID)
 		}
 	}()
@@ -1765,7 +1819,8 @@ func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 	events := append([]Event(nil), table.Events...)
 	state, _ := json.Marshal(table.State)
 	return TableSnapshot{
-		ID: table.ID, GameType: table.GameType, Sequence: table.Sequence,
+		Closed: !table.IsActive,
+		ID:     table.ID, GameType: table.GameType, Sequence: table.Sequence,
 		Players: players, Events: events, UpdatedAt: table.UpdatedAt, State: state,
 		Settings: table.Settings, ActionDeadline: table.ActionDeadline, TurnDuration: table.TurnDuration,
 		PokerLevel: table.PokerLevel, PokerHandsPlayed: table.PokerHandsPlayed,
@@ -1776,6 +1831,9 @@ func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 }
 
 func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
+	if snapshot.Closed {
+		return nil, fmt.Errorf("table is closed")
+	}
 	if snapshot.ID == "" || snapshot.GameType == "" {
 		return nil, fmt.Errorf("invalid table snapshot")
 	}
@@ -2376,4 +2434,28 @@ func (m *Manager) TurnDuration(tableID string) time.Duration {
 	table.mu.RLock()
 	defer table.mu.RUnlock()
 	return time.Duration(tableTurnDuration(table)) * time.Second
+}
+
+func (m *Manager) SetTableClosedHandler(handler func(string)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.onTableClosed = handler
+}
+func (m *Manager) notifyTableClosed(tableID string) {
+	m.mu.RLock()
+	handler := m.onTableClosed
+	m.mu.RUnlock()
+	if handler != nil {
+		handler(tableID)
+	}
+}
+
+// Called with the table locked; disconnected humans retain their grace seat.
+func hasHumanSeat(table *Table) bool {
+	for _, player := range table.Players {
+		if !player.IsBot {
+			return true
+		}
+	}
+	return false
 }

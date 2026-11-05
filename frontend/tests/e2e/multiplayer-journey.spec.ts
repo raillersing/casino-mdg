@@ -1,5 +1,105 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test("Ludo announces forced moves in its recent action history", async ({
+  page,
+}) => {
+  await stubGameApis(page);
+  await page.goto("/game/ludo/EMERALD-01");
+  await expectCanonicalJoin(page);
+  await page.evaluate(() => {
+    const socket = (
+      window as Window & {
+        __wsInstances: Array<{
+          onmessage: ((event: MessageEvent<string>) => void) | null;
+        }>;
+      }
+    ).__wsInstances.at(-1);
+    const players = ["e2e-user", "p2"].map((id, color) => ({
+      id,
+      color,
+      score: 0,
+      pawns: Array.from({ length: 4 }, (_, index) => ({
+        id: index,
+        state: "base",
+        position: -1,
+      })),
+    }));
+    for (const message of [
+      {
+        type: "state",
+        sequence: 10,
+        payload: {
+          table_id: "table-emerald",
+          game_type: "ludo",
+          players: {},
+          game_state: {
+            players,
+            current: 0,
+            can_roll: true,
+            can_move: false,
+            valid_moves: [],
+            last_roll: 0,
+            finished: false,
+          },
+        },
+      },
+      {
+        type: "action",
+        action: "move_pawn",
+        player_id: "e2e-user",
+        sequence: 11,
+        payload: { automatic: true, pawn_id: 0 },
+      },
+    ])
+      socket?.onmessage?.(
+        new MessageEvent("message", { data: JSON.stringify(message) }),
+      );
+  });
+  await page.getByText("Actions récentes", { exact: true }).click();
+  await expect(page.locator(".board-action-history")).toContainText(
+    "Déplacement pion · Automatique",
+  );
+  await page.evaluate(() => {
+    const socket = (
+      window as Window & {
+        __wsInstances: Array<{
+          onmessage: ((event: MessageEvent<string>) => void) | null;
+        }>;
+      }
+    ).__wsInstances.at(-1);
+    socket?.onmessage?.(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          type: "error",
+          table_id: "table-emerald",
+          payload: "table is closed",
+        }),
+      }),
+    );
+    socket?.onmessage?.(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          type: "state",
+          sequence: 12,
+          payload: {
+            game_state: {
+              players: [],
+              current: 0,
+              can_roll: true,
+              finished: false,
+            },
+          },
+        }),
+      }),
+    );
+  });
+  await expect(
+    page.getByText(
+      "Cette partie est terminée après le départ ou la déconnexion prolongée d’un joueur.",
+    ),
+  ).toBeVisible();
+});
+
 const table = {
   id: "table-emerald",
   table_code: "EMERALD-01",

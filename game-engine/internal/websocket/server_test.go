@@ -37,7 +37,7 @@ func testAdmissionToken(subject, tableID string, seatID int, role, secret string
 }
 
 func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("poker")
 	server := NewServer(cfg, manager)
@@ -82,7 +82,7 @@ func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
 }
 
 func TestWebSocketReconnectRestoresSequencePrivateStateAndResync(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("poker")
 	server := NewServer(cfg, manager)
@@ -184,7 +184,7 @@ func TestWebSocketReconnectRestoresSequencePrivateStateAndResync(t *testing.T) {
 }
 
 func TestFoldPublishesSignedLossResult(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("poker")
 	if _, err := manager.JoinPlayer(table.ID, "player-fold", "Fold", 1); err != nil {
@@ -229,7 +229,7 @@ func TestFoldPublishesSignedLossResult(t *testing.T) {
 }
 
 func TestWebSocketRejectsMissingToken(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0"}
+	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: ""}
 	server := NewServer(cfg, room.NewManager(cfg))
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
@@ -243,7 +243,7 @@ func TestWebSocketRejectsMissingToken(t *testing.T) {
 }
 
 func TestInternalBotTokenJoinsAsBotAndCannotBeForgedByPayload(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", BotServiceSecret: "bot-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	cfg := &config.Config{JWTSecret: "test-secret", BotServiceSecret: "bot-secret", RedisURL: "", GracePeriod: time.Second}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("poker")
 	server := NewServer(cfg, manager)
@@ -280,7 +280,7 @@ func TestInternalBotTokenJoinsAsBotAndCannotBeForgedByPayload(t *testing.T) {
 }
 
 func TestInternalBotTokenRejectsWrongTableAndExpiredToken(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", BotServiceSecret: "bot-secret", RedisURL: "redis://localhost:6379/0"}
+	cfg := &config.Config{JWTSecret: "test-secret", BotServiceSecret: "bot-secret", RedisURL: ""}
 	server := NewServer(cfg, room.NewManager(cfg))
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
@@ -296,7 +296,7 @@ func TestInternalBotTokenRejectsWrongTableAndExpiredToken(t *testing.T) {
 }
 
 func TestAuthenticatedWebSocketProvisionsRoomFromJoinPayload(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "", GracePeriod: time.Second}
 	server := NewServer(cfg, room.NewManager(cfg))
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
@@ -323,7 +323,7 @@ func TestAuthenticatedWebSocketProvisionsRoomFromJoinPayload(t *testing.T) {
 }
 
 func TestOldConnectionCloseDoesNotRemoveReplacement(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0"}
+	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: ""}
 	server := NewServer(cfg, room.NewManager(cfg))
 	oldClient := &Client{playerID: "player-1"}
 	newClient := &Client{playerID: "player-1"}
@@ -342,7 +342,7 @@ func TestOldConnectionCloseDoesNotRemoveReplacement(t *testing.T) {
 }
 
 func TestSpectatorReceivesStateButCannotAct(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTableWithID("spectator-table", "poker")
 	_, _ = manager.JoinPlayer(table.ID, "player-1", "Player", 1)
@@ -382,7 +382,7 @@ func TestSpectatorReceivesStateButCannotAct(t *testing.T) {
 }
 
 func TestWebSocketRejectsArbitraryRoomProvisionWithoutAdmissionTicket(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second}
+	cfg := &config.Config{JWTSecret: "test-secret", RedisURL: "", GracePeriod: time.Second}
 	server := NewServer(cfg, room.NewManager(cfg))
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
@@ -408,7 +408,7 @@ func TestWebSocketRejectsArbitraryRoomProvisionWithoutAdmissionTicket(t *testing
 }
 
 func TestWebSocketRejectsExpiredAdmissionToken(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	server := NewServer(cfg, manager)
 	httpServer := httptest.NewServer(serverHandler(server))
@@ -426,7 +426,7 @@ func TestWebSocketRejectsExpiredAdmissionToken(t *testing.T) {
 }
 
 func TestWebSocketAdmissionTokenBindsToSpecificTable(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	tableA := manager.CreateTable("poker")
 	tableB := manager.CreateTable("poker")
@@ -456,7 +456,7 @@ func TestWebSocketAdmissionTokenBindsToSpecificTable(t *testing.T) {
 }
 
 func TestRamiKnockSettlementAndHMAC(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("rami")
 	if _, err := manager.JoinPlayer(table.ID, "r0", "Joueur 0", 0); err != nil {
@@ -554,7 +554,7 @@ func TestRamiKnockSettlementAndHMAC(t *testing.T) {
 }
 
 func TestBeloteGameOverBroadcastToAllPlayers(t *testing.T) {
-	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "redis://localhost:6379/0", GracePeriod: time.Second, Deterministic: true}
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "", GracePeriod: time.Second, Deterministic: true}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("belote")
 	table.BeloteTargetScore = 501

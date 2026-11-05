@@ -11,7 +11,7 @@ from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import GameTable, HumanGameActivity, TableSeat
+from .models import BotSimulationSession, GameTable, HumanGameActivity, TableSeat
 from .player_statistics import unique_player_statistics
 
 
@@ -31,6 +31,21 @@ class ConfirmHumanActivityView(APIView):
         received = request.headers.get("X-Game-Engine-Secret", "")
         if not secret or not received or not hmac.compare_digest(secret, received):
             return Response({"detail": "Non autorisé."}, status=403)
+        if request.data.get("kind") == "table_closed":
+            try:
+                with transaction.atomic():
+                    table = GameTable.objects.select_for_update().get(
+                        pk=request.data.get("table_id")
+                    )
+                    if table.status != "finished":
+                        table.status = "finished"
+                        table.save(update_fields=["status", "updated_at"])
+                    BotSimulationSession.objects.filter(
+                        table=table, status__in=["queued", "running"]
+                    ).update(status="completed")
+            except (GameTable.DoesNotExist, ValidationError, ValueError, TypeError):
+                return Response({"detail": "Table inconnue."}, status=404)
+            return Response({"recorded": True})
         try:
             table = GameTable.objects.get(pk=request.data.get("table_id"))
             seat = TableSeat.objects.get(

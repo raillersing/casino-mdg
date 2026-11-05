@@ -223,3 +223,18 @@ if not DEBUG and os.getenv("SECURE_SSL_REDIRECT", "False").lower() == "true":
     CSRF_COOKIE_SECURE = True
 else:
     SECURE_SSL_REDIRECT = False
+
+# Real-time table expiry; the worker never expires tables while the engine is unavailable.
+TABLE_EMPTY_EXPIRY_SECONDS = int(os.getenv("TABLE_EMPTY_EXPIRY_SECONDS", "120"))
+TABLE_WAITING_EXPIRY_SECONDS = int(os.getenv("TABLE_WAITING_EXPIRY_SECONDS", "900"))
+TABLE_RUNNING_EXPIRY_SECONDS = int(os.getenv("TABLE_RUNNING_EXPIRY_SECONDS", "120"))
+CELERY_BEAT_SCHEDULE = {
+    "reconcile-game-tables": {
+        "task": "apps.games.tasks.reconcile_game_tables",
+        "schedule": 30.0,
+    }
+}
+
+TABLE_RESERVATION_EXPIRY_SECONDS = int(
+    os.getenv("TABLE_RESERVATION_EXPIRY_SECONDS", "120")
+)

@@ -148,9 +148,7 @@ class SocialTests(TestCase):
         # 3. Other user reads messages
         other_client = APIClient()
         other_client.force_authenticate(self.other)
-        read_res = other_client.get(
-            f"/api/v1/social/conversations/{conv_id}/messages/"
-        )
+        read_res = other_client.get(f"/api/v1/social/conversations/{conv_id}/messages/")
         self.assertEqual(read_res.status_code, 200)
         self.assertEqual(len(read_res.data["results"]), 1)
         self.assertEqual(read_res.data["results"][0]["body"], "Salama namana !")

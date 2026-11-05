@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,6 +17,7 @@ var activityOutboxMu sync.Mutex
 var activityDispatchMu sync.Mutex
 
 type activityEvent struct {
+	Kind       string `json:"kind,omitempty"`
 	TableID    string `json:"table_id"`
 	UserID     string `json:"user_id"`
 	OccurredAt string `json:"occurred_at"`
@@ -30,6 +32,31 @@ func activityOutboxDir() string {
 
 // Persist before dispatch so backend downtime and process restarts do not lose events.
 func (s *Server) recordHumanActivity(tableID, playerID string) {
+	s.persistActivity(activityEvent{TableID: tableID, UserID: playerID, OccurredAt: time.Now().UTC().Format(time.RFC3339Nano)})
+}
+func (s *Server) recordTableClosed(tableID string) {
+	// A small persistent tombstone also rejects old admission tickets after a
+	// process restart, before the backend has acknowledged the closure event.
+	path := closedMarkerPath(tableID)
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err == nil {
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
+		if err == nil {
+			_ = file.Sync()
+			_ = file.Close()
+			if dir, err := os.Open(filepath.Dir(path)); err == nil {
+				_ = dir.Sync()
+				_ = dir.Close()
+			}
+		} else {
+			log.Printf("closed marker persistence failed: %v", err)
+		}
+	} else {
+		log.Printf("closed marker directory failed: %v", err)
+	}
+
+	s.persistActivity(activityEvent{TableID: tableID, Kind: "table_closed", OccurredAt: time.Now().UTC().Format(time.RFC3339Nano)})
+}
+func (s *Server) persistActivity(event activityEvent) {
 	activityOutboxMu.Lock()
 	defer activityOutboxMu.Unlock()
 	dir := activityOutboxDir()
@@ -37,7 +64,7 @@ func (s *Server) recordHumanActivity(tableID, playerID string) {
 		log.Printf("activity outbox unavailable: %v", err)
 		return
 	}
-	body, err := json.Marshal(activityEvent{tableID, playerID, time.Now().UTC().Format(time.RFC3339Nano)})
+	body, err := json.Marshal(event)
 	if err != nil {
 		return
 	}
@@ -98,4 +125,16 @@ func (s *Server) dispatchHumanActivity() {
 			return
 		}
 	}
+}
+
+func closedMarkerPath(tableID string) string {
+	hash := sha256.Sum256([]byte(tableID))
+	return filepath.Join(activityOutboxDir(), "closed", fmt.Sprintf("%x", hash))
+}
+func (s *Server) isTableClosed(tableID string) bool {
+	if s.config.BackendInternalURL == "" || s.config.ResultSecret == "" {
+		return false
+	}
+	_, err := os.Stat(closedMarkerPath(tableID))
+	return err == nil || !os.IsNotExist(err)
 }

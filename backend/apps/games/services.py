@@ -2,8 +2,10 @@ import os
 from datetime import datetime, timezone
 
 import jwt
+import requests
 from django.db import transaction
 
+from .live_activity import engine_activity
 from .models import GameTable, TableSeat
 from .modes import HUMAN_MATCH
 
@@ -12,6 +14,8 @@ def generate_admission_token(
     user, table, seat_index=None, role="player", lifetime_seconds=60
 ):
     now = datetime.now(timezone.utc)
+    if role == "player" and seat_index is not None:
+        TableSeat.objects.filter(table=table, user=user).update(admitted_at=now)
     payload = {
         "sub": str(user.pk),
         "name": (
@@ -80,15 +84,26 @@ def join_table(table, user):
         raise ValueError("Cette table est terminée.")
     existing = TableSeat.objects.filter(table=table, user=user).first()
     if existing:
+        table.save(update_fields=["updated_at"])
         return existing, False
     if table.seats.count() >= table.max_players:
         raise ValueError("Cette table est complète.")
-    seat = TableSeat.objects.create(
-        table=table, user=user, seat_index=table.seats.count()
+    if table.status == "running":
+        try:
+            waiting = engine_activity().get(str(table.pk), {}).get("waiting") is True
+        except (requests.RequestException, ValueError):
+            waiting = False
+        if not waiting:
+            raise ValueError("Cette partie a déjà commencé.")
+        table.status = "open"
+    occupied = set(table.seats.values_list("seat_index", flat=True))
+    available = next(
+        index for index in range(table.max_players) if index not in occupied
     )
+    seat = TableSeat.objects.create(table=table, user=user, seat_index=available)
     if table.seats.count() >= table.max_players:
         table.status = "running"
-        table.save(update_fields=["status", "updated_at"])
+    table.save(update_fields=["status", "updated_at"])
     return seat, True
 
 
@@ -105,7 +120,7 @@ def leave_table(table, user):
 
         remaining_seats = table.seats.count()
 
-        # Auto-Close: Quand il n'y a plus aucun joueur sur la table, la table se ferme automatiquement
+        # Fermer la table quand le dernier joueur part.
         if remaining_seats == 0:
             table.status = "finished"
             table.save(update_fields=["status", "updated_at"])
@@ -120,9 +135,5 @@ def leave_table(table, user):
                 pass
 
             return True, True
-
-        elif table.status == "running" and remaining_seats < table.max_players:
-            table.status = "open"
-            table.save(update_fields=["status", "updated_at"])
 
         return True, False

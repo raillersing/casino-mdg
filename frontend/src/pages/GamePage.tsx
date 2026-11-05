@@ -491,6 +491,8 @@ function playSound(kind: SoundKind) {
 }
 
 type TableAction = {
+  automatic?: boolean;
+  roll?: number;
   id: string;
   playerId: string;
   action: string;
@@ -619,6 +621,7 @@ export function GamePage() {
     Array<Record<string, unknown>>
   >([]);
   const [resultMessage, setResultMessage] = useState("");
+  const closedTableRef = useRef<string | null>(null);
   const [gameState, setGameState] = useState<Record<string, unknown> | null>(
     null,
   );
@@ -1107,6 +1110,7 @@ export function GamePage() {
       try {
         const payload = JSON.parse(event.data) as {
           type?: string;
+          table_id?: string;
           action?: string;
           player_id?: string;
           outcome?: "win" | "loss" | "draw";
@@ -1114,14 +1118,18 @@ export function GamePage() {
           sequence?: number;
           payload?: unknown;
         };
+        if (
+          closedTableRef.current === engineTableId &&
+          ["state", "sync"].includes(payload.type || "")
+        )
+          return;
         if (typeof payload.sequence === "number") {
           sequenceRef.current = payload.sequence;
           setSequence(payload.sequence);
         }
         if (payload.type === "emote") {
           const em = payload.payload as
-            | { text?: string; emote?: string }
-            | undefined;
+            { text?: string; emote?: string } | undefined;
           const pId = payload.player_id || "";
           const text = em?.text || em?.emote || "";
           if (text) {
@@ -1295,7 +1303,13 @@ export function GamePage() {
             action?: string;
             player_id?: string;
             sequence?: number;
-            payload?: { amount?: number; phase?: string; pot_after?: number };
+            payload?: {
+              amount?: number;
+              phase?: string;
+              pot_after?: number;
+              automatic?: boolean;
+              roll?: number;
+            };
           }>;
           setActionLog((current) => {
             const existing = new Set(current.map((entry) => entry.id));
@@ -1307,12 +1321,16 @@ export function GamePage() {
                 id: `${event.sequence || Date.now()}-${event.player_id || "table"}`,
                 playerId: event.player_id || "",
                 action: event.action || "action",
+                automatic: event.payload?.automatic,
+                roll: event.payload?.roll,
                 amount: event.payload?.amount,
                 phase: event.payload?.phase,
                 potAfter: event.payload?.pot_after,
               }))
               .filter((entry) => !existing.has(entry.id));
-            return [...current, ...replayed].slice(-8);
+            return [...current, ...replayed].slice(
+              gameType === "poker" ? -8 : -64,
+            );
           });
           setLastAction("Reprise de la table");
           setGameConnectionError("");
@@ -1324,6 +1342,9 @@ export function GamePage() {
               : {}
           ) as {
             action?: string;
+            automatic?: boolean;
+            roll?: number;
+            turn_passed?: boolean;
             amount?: number;
             phase?: string;
             pot_after?: number;
@@ -1456,7 +1477,12 @@ export function GamePage() {
               delete next[payload.player_id || ""];
               return next;
             });
-            setLastAction(actionLabel(action));
+            setLastAction(
+              actionLabel(action) +
+                (details.roll ? ` · ${details.roll}` : "") +
+                (details.turn_passed ? ` · ${t("game.turnPassed")}` : "") +
+                (details.automatic ? ` · ${t("game.automaticAction")}` : ""),
+            );
             setLastActionPlayer(payload.player_id || "");
             if (action === "street_changed") {
               const dealtCount = Array.isArray(details.community)
@@ -1515,11 +1541,13 @@ export function GamePage() {
             if (action === "draw_tile") playSound("draw");
             if (action !== "result" && !presentationOnly) {
               setActionLog((current) => [
-                ...current.slice(-7),
+                ...current.slice(gameType === "poker" ? -7 : -63),
                 {
                   id: `${payload.sequence || Date.now()}-${payload.player_id || "table"}`,
                   playerId: payload.player_id || "",
                   action,
+                  automatic: details.automatic,
+                  roll: details.roll,
                   amount: details.amount,
                   phase: details.phase,
                   potAfter: details.pot_after ?? details.pot,
@@ -1574,6 +1602,13 @@ export function GamePage() {
             });
         }
         if (payload.type === "error") {
+          if (payload.payload === "table is closed") {
+            if (payload.table_id && payload.table_id !== engineTableId) return;
+            closedTableRef.current = engineTableId;
+            setGameState(null);
+            setGameConnectionError(t("game.tableClosed"));
+            return;
+          }
           const errorMsg =
             typeof payload.payload === "string"
               ? payload.payload
@@ -1605,6 +1640,7 @@ export function GamePage() {
       motionEnabled,
       gameState,
       myPokerPlayer,
+      showSpeechBubble,
     ],
   );
 
@@ -2249,6 +2285,21 @@ export function GamePage() {
           <NetworkQualityBadge overrideLatency={latency} compact />
         </p>
       )}
+      {gameType !== "poker" && actionLog.length > 0 && (
+        <details className="board-action-history">
+          <summary>{t("game.recentActions")}</summary>
+          <ol>
+            {actionLog.map((entry) => (
+              <li key={entry.id}>
+                {nameForPlayer(entry.playerId)} ·{" "}
+                {actionLabel(entry.action, entry.phase)}
+                {entry.roll ? ` · ${entry.roll}` : ""}
+                {entry.automatic ? ` · ${t("game.automaticAction")}` : ""}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
       {connectionState === "reconnecting" && (
         <p
           className="secure-note game-sync-note"
@@ -2467,7 +2518,10 @@ export function GamePage() {
                     <span>
                       {entry.playerId ? nameForPlayer(entry.playerId) : "Table"}
                     </span>
-                    <strong>{actionLabel(entry.action, entry.phase)}</strong>
+                    <strong>
+                      {actionLabel(entry.action, entry.phase)}
+                      {entry.automatic ? ` · ${t("game.automaticAction")}` : ""}
+                    </strong>
                     {entry.amount ? <em>{entry.amount}</em> : null}
                     {entry.potAfter ? (
                       <small>pot {entry.potAfter}</small>
@@ -2514,7 +2568,12 @@ export function GamePage() {
                           ? nameForPlayer(entry.playerId)
                           : "Table"}
                       </span>
-                      <strong>{actionLabel(entry.action, entry.phase)}</strong>
+                      <strong>
+                        {actionLabel(entry.action, entry.phase)}
+                        {entry.automatic
+                          ? ` · ${t("game.automaticAction")}`
+                          : ""}
+                      </strong>
                       {entry.amount ? <em>{entry.amount}</em> : null}
                       {entry.potAfter ? (
                         <small>pot {entry.potAfter}</small>
@@ -2832,7 +2891,9 @@ export function GamePage() {
                   score: Number(p.score ?? 0),
                 }))}
                 currentTurnIndex={Number(gameState?.current ?? 0)}
-                lastRoll={Number(gameState?.last_roll ?? 0)}
+                lastRoll={Number(
+                  gameState?.last_result || gameState?.last_roll || 0,
+                )}
                 canRoll={Boolean(gameState?.can_roll ?? true)}
                 canMove={Boolean(gameState?.can_move ?? false)}
                 validMoves={

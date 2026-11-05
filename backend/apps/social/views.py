@@ -189,9 +189,7 @@ class FriendshipListView(APIView):
         for f in friendships:
             friend = f.addressee if f.requester_id == user.pk else f.requester
             active_seat = (
-                TableSeat.objects.filter(user=friend)
-                .select_related("table")
-                .first()
+                TableSeat.objects.filter(user=friend).select_related("table").first()
             )
             friends_data.append(
                 {
@@ -204,13 +202,15 @@ class FriendshipListView(APIView):
                         friend.last_login
                         and (timezone.now() - friend.last_login).total_seconds() < 600
                     ),
-                    "current_table": {
-                        "id": str(active_seat.table.pk),
-                        "name": active_seat.table.name,
-                        "game_type": active_seat.table.game_type,
-                    }
-                    if active_seat
-                    else None,
+                    "current_table": (
+                        {
+                            "id": str(active_seat.table.pk),
+                            "name": active_seat.table.name,
+                            "game_type": active_seat.table.game_type,
+                        }
+                        if active_seat
+                        else None
+                    ),
                 }
             )
 
@@ -306,9 +306,7 @@ class FriendshipListView(APIView):
         Friendship.objects.create(
             requester=user, addressee=target_user, status="pending"
         )
-        return Response(
-            {"detail": "Demande d'ami envoyée avec succès !"}, status=201
-        )
+        return Response({"detail": "Demande d'ami envoyée avec succès !"}, status=201)
 
 
 class FriendshipActionView(APIView):
@@ -426,13 +424,15 @@ class DirectConversationListView(APIView):
                             < 600
                         ),
                     },
-                    "last_message": {
-                        "body": last_msg.body,
-                        "sender_id": last_msg.sender_id,
-                        "created_at": last_msg.created_at.isoformat(),
-                    }
-                    if last_msg
-                    else None,
+                    "last_message": (
+                        {
+                            "body": last_msg.body,
+                            "sender_id": last_msg.sender_id,
+                            "created_at": last_msg.created_at.isoformat(),
+                        }
+                        if last_msg
+                        else None
+                    ),
                     "unread_count": unread,
                     "updated_at": conv.updated_at.isoformat(),
                 }
@@ -443,9 +443,7 @@ class DirectConversationListView(APIView):
         user = request.user
         target_id = request.data.get("target_user_id")
         if not target_id:
-            return Response(
-                {"detail": "Identifiant utilisateur requis."}, status=400
-            )
+            return Response({"detail": "Identifiant utilisateur requis."}, status=400)
 
         try:
             target_user = User.objects.get(pk=target_id)
@@ -453,14 +451,10 @@ class DirectConversationListView(APIView):
             return Response({"detail": "Utilisateur introuvable."}, status=404)
 
         if target_user.pk == user.pk:
-            return Response(
-                {"detail": "Action impossible avec soi-même."}, status=400
-            )
+            return Response({"detail": "Action impossible avec soi-même."}, status=400)
 
         u1, u2 = (
-            (user, target_user)
-            if user.pk < target_user.pk
-            else (target_user, user)
+            (user, target_user) if user.pk < target_user.pk else (target_user, user)
         )
         conv, _ = DirectConversation.objects.get_or_create(user1=u1, user2=u2)
 
@@ -483,18 +477,16 @@ class DirectConversationMessagesView(APIView):
     def get(self, request, conversation_id):
         user = request.user
         try:
-            conv = DirectConversation.objects.select_related(
-                "user1", "user2"
-            ).get(id=conversation_id)
+            conv = DirectConversation.objects.select_related("user1", "user2").get(
+                id=conversation_id
+            )
         except DirectConversation.DoesNotExist:
             return Response({"detail": "Conversation introuvable."}, status=404)
 
         if user.pk not in (conv.user1_id, conv.user2_id):
             return Response({"detail": "Accès refusé."}, status=403)
 
-        conv.messages.filter(is_read=False).exclude(sender=user).update(
-            is_read=True
-        )
+        conv.messages.filter(is_read=False).exclude(sender=user).update(is_read=True)
 
         messages = conv.messages.order_by("created_at")[:100]
         return Response(

@@ -39,12 +39,16 @@ export function LiveStatsTicker({
       <div className="live-activity-header">
         <div className="live-pulse-badge">
           <span className="live-pulse-dot" />
-          <span className="live-pulse-text">{mg ? "MIVANTANA" : "EN DIRECT"}</span>
+          <span className="live-pulse-text">
+            {mg ? "MIVANTANA" : "EN DIRECT"}
+          </span>
         </div>
         <div className="live-sync-indicator">
           <ShieldCheck size={15} className="live-sync-icon" />
           <span>
-            {mg ? "Voamarina amin’ny mpizara lalao" : "Données réelles certifiées"}
+            {mg
+              ? "Voamarina amin’ny mpizara lalao"
+              : "Données réelles certifiées"}
           </span>
         </div>
       </div>

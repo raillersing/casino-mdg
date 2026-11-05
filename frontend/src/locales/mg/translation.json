@@ -311,7 +311,11 @@
     "chooseTrump": "Safidio ny atout",
     "announceBelote": "Ampahafantaro ny Belote",
     "reconnecting": "Mampifandray indray...",
-    "closeResults": "Hanidy ny valiny"
+    "closeResults": "Hanidy ny valiny",
+    "automaticAction": "Mandeha ho azy",
+    "tableClosed": "Tapitra ny lalao noho ny fialana na fahatapahan’ny fifandraisan’ny mpilalao.",
+    "recentActions": "Hetsika vao haingana",
+    "turnPassed": "Nafindra ho azy ny anjara"
   },
   "testGames": {
     "breadcrumb": "Lalao kisendrasendra",

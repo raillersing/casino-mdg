@@ -324,7 +324,11 @@
     "meld": "Poser",
     "cancel": "Annuler",
     "reconnecting": "Reconnexion en cours...",
-    "closeResults": "Fermer les résultats"
+    "closeResults": "Fermer les résultats",
+    "automaticAction": "Automatique",
+    "tableClosed": "Cette partie est terminée après le départ ou la déconnexion prolongée d’un joueur.",
+    "recentActions": "Actions récentes",
+    "turnPassed": "Tour passé automatiquement"
   },
   "testGames": {
     "breadcrumb": "Jeux de hasard",

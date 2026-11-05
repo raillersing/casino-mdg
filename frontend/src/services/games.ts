@@ -112,6 +112,7 @@ export function cancelBotSimulation(accessToken: string, sessionId: string) {
 }
 
 export type CreateTablePayload = {
+  idempotency_key?: string;
   name: string;
   game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
   max_players: number;
