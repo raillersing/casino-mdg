@@ -15,6 +15,7 @@ et ont été réutilisés. Voir
   conservées ; aperçu de l'activité après le bloc d'accueil.
 - Présence app récente et connexions humaines moteur, dédupliquées par compte,
   onglet et jeu. Les sièges historiques ne créent plus de joueurs en ligne.
+  Une socket encore ouverte après un départ explicite de la place est exclue.
   Comptage séparé des humains en partie et des tables publiques confirmées.
   Une indisponibilité est affichée comme telle, sans faux zéro.
 - Historique durable des participations multijoueurs humaines identifiées.

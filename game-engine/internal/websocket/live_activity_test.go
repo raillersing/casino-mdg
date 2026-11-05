@@ -13,6 +13,9 @@ func TestLiveActivityDeduplicatesConnectionsAndExcludesSpectators(t *testing.T) 
 	cfg := &config.Config{ResultSecret: "secret"}
 	manager := room.NewManager(cfg)
 	table := manager.CreateTable("ludo")
+	if _, err := manager.JoinPlayer(table.ID, "human", "Human", 0); err != nil {
+		t.Fatal(err)
+	}
 	server := NewServer(cfg, manager)
 	one := &Client{playerID: "human", tableID: table.ID}
 	two := &Client{playerID: "human", tableID: table.ID}
@@ -44,6 +47,15 @@ func TestLiveActivityDeduplicatesConnectionsAndExcludesSpectators(t *testing.T) 
 	server.removeClient(two)
 	if len(read()) != 1 {
 		t.Fatal("closing one tab removed another live tab")
+	}
+	// Explicitly leaving a seat must remove its activity even if another tab
+	// has not yet closed its socket.
+	if _, err := manager.JoinPlayer(table.ID, "other", "Other", 1); err != nil {
+		t.Fatal(err)
+	}
+	manager.LeavePlayer(table.ID, "human")
+	if len(read()) != 0 {
+		t.Fatal("unseated socket still counted as playing")
 	}
 	server.removeClient(one)
 	if len(read()) != 0 {

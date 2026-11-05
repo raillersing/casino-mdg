@@ -31,6 +31,17 @@ func (s *Server) LiveActivity(w http.ResponseWriter, r *http.Request) {
 		if entry == nil {
 			continue
 		}
+		table, exists := s.roomManager.GetTable(client.tableID)
+		if !exists {
+			continue
+		}
+		table.RLock()
+		player, seated := table.Players[client.playerID]
+		activePlayer := seated && player.IsActive
+		table.RUnlock()
+		if !activePlayer {
+			continue
+		}
 		found := false
 		for _, id := range entry.Humans {
 			if id == client.playerID {
