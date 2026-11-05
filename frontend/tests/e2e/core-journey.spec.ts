@@ -29,9 +29,9 @@ test("navigates from home to the lobby and sees an available table", async ({
 
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Vos jeux préférés/i }),
+    page.getByRole("heading", { name: /Une partie, ensemble/i }),
   ).toBeVisible();
-  await page.getByRole("link", { name: /Voir les tables/i }).click();
+  await page.getByRole("link", { name: /Trouver une table/i }).click();
 
   await expect(page).toHaveURL(/\/lobby$/);
   await expect(page.getByText("Table Émeraude")).toBeVisible();
@@ -88,9 +88,9 @@ test("switches the core home screen to Malagasy", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Changer de langue" }).click();
   await expect(
-    page.getByRole("heading", { name: /Ny lalao tianao/i }),
+    page.getByRole("heading", { name: /Andao hiara-hilalao/i }),
   ).toBeVisible();
-  await expect(page.getByText("Hijery ny latabatra")).toBeVisible();
+  await expect(page.getByText("Hitady latabatra")).toBeVisible();
 });
 
 test("switches the lobby journey to Malagasy", async ({ page }) => {

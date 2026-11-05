@@ -51,11 +51,15 @@ describe("Haptics Tactile Utility", () => {
     });
 
     haptics.setEnabled(false);
-    expect(globalThis.localStorage.getItem("casino_haptics_enabled")).toBe("false");
+    expect(globalThis.localStorage.getItem("casino_haptics_enabled")).toBe(
+      "false",
+    );
     expect(haptics.isEnabled()).toBe(false);
 
     haptics.setEnabled(true);
-    expect(globalThis.localStorage.getItem("casino_haptics_enabled")).toBe("true");
+    expect(globalThis.localStorage.getItem("casino_haptics_enabled")).toBe(
+      "true",
+    );
     expect(haptics.isEnabled()).toBe(true);
   });
 

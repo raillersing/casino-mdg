@@ -35,16 +35,20 @@ export function ResponsibleGamingModal({
 }: ResponsibleGamingModalProps) {
   const [tab, setTab] = useState<"limits" | "pause" | "exclusion">("limits");
   const [dailyLimit, setDailyLimit] = useState<string>(
-    profile?.daily_deposit_limit ? profile.daily_deposit_limit.toString() : ""
+    profile?.daily_deposit_limit ? profile.daily_deposit_limit.toString() : "",
   );
   const [weeklyLimit, setWeeklyLimit] = useState<string>(
-    profile?.weekly_deposit_limit ? profile.weekly_deposit_limit.toString() : ""
+    profile?.weekly_deposit_limit
+      ? profile.weekly_deposit_limit.toString()
+      : "",
   );
   const [monthlyLimit, setMonthlyLimit] = useState<string>(
-    profile?.monthly_deposit_limit ? profile.monthly_deposit_limit.toString() : ""
+    profile?.monthly_deposit_limit
+      ? profile.monthly_deposit_limit.toString()
+      : "",
   );
   const [realityCheck, setRealityCheck] = useState<number>(
-    profile?.reality_check_interval_minutes || 30
+    profile?.reality_check_interval_minutes || 30,
   );
 
   const [coolingHours, setCoolingHours] = useState<number>(24);
@@ -77,7 +81,9 @@ export function ResponsibleGamingModal({
       setSuccessMsg(res.message);
       onProfileUpdated();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de la mise à jour.");
+      setError(
+        err instanceof Error ? err.message : "Erreur lors de la mise à jour.",
+      );
     } finally {
       setLoading(false);
     }
@@ -93,7 +99,11 @@ export function ResponsibleGamingModal({
       setSuccessMsg(res.message);
       onProfileUpdated();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'activation de la pause.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Erreur lors de l'activation de la pause.",
+      );
     } finally {
       setLoading(false);
     }
@@ -102,7 +112,9 @@ export function ResponsibleGamingModal({
   const handleApplySelfExclusion = async () => {
     if (!token) return;
     if (!confirmExclusion) {
-      setError("Veuillez cocher la case de confirmation pour valider l'auto-exclusion.");
+      setError(
+        "Veuillez cocher la case de confirmation pour valider l'auto-exclusion.",
+      );
       return;
     }
     setLoading(true);
@@ -117,7 +129,9 @@ export function ResponsibleGamingModal({
       setSuccessMsg(res.message);
       onProfileUpdated();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'auto-exclusion.");
+      setError(
+        err instanceof Error ? err.message : "Erreur lors de l'auto-exclusion.",
+      );
     } finally {
       setLoading(false);
     }
@@ -137,7 +151,12 @@ export function ResponsibleGamingModal({
             </span>
             <h2>Jeu Responsable & Maîtrise</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Fermer">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Fermer"
+          >
             <X size={18} />
           </button>
         </div>
@@ -156,17 +175,29 @@ export function ResponsibleGamingModal({
               gap: "12px",
             }}
           >
-            <ShieldAlert size={22} color="var(--red)" style={{ flexShrink: 0, marginTop: "2px" }} />
+            <ShieldAlert
+              size={22}
+              color="var(--red)"
+              style={{ flexShrink: 0, marginTop: "2px" }}
+            />
             <div>
-              <strong style={{ color: "var(--red)", fontSize: "14px", display: "block" }}>
+              <strong
+                style={{
+                  color: "var(--red)",
+                  fontSize: "14px",
+                  display: "block",
+                }}
+              >
                 {profile.is_permanently_excluded
                   ? "Auto-exclusion définitive active"
                   : profile.is_active_self_exclusion
-                  ? `Auto-exclusion active jusqu'au ${new Date(profile.self_exclusion_until!).toLocaleDateString("fr-FR")}`
-                  : `Pause de jeu active jusqu'au ${new Date(profile.cooling_off_until!).toLocaleString("fr-FR")}`}
+                    ? `Auto-exclusion active jusqu'au ${new Date(profile.self_exclusion_until!).toLocaleDateString("fr-FR")}`
+                    : `Pause de jeu active jusqu'au ${new Date(profile.cooling_off_until!).toLocaleString("fr-FR")}`}
               </strong>
               <small style={{ color: "var(--soft)", fontSize: "12px" }}>
-                Durant cette période de protection, les dépôts et les participations aux tables en argent réel sont strictement bloqués.
+                Durant cette période de protection, les dépôts et les
+                participations aux tables en argent réel sont strictement
+                bloqués.
               </small>
             </div>
           </div>
@@ -192,13 +223,15 @@ export function ResponsibleGamingModal({
             className={tab === "limits" ? "active" : ""}
             onClick={() => setTab("limits")}
           >
-            <Sliders size={14} style={{ marginRight: "6px" }} /> Plafonds Personnels
+            <Sliders size={14} style={{ marginRight: "6px" }} /> Plafonds
+            Personnels
           </button>
           <button
             className={tab === "pause" ? "active" : ""}
             onClick={() => setTab("pause")}
           >
-            <PauseCircle size={14} style={{ marginRight: "6px" }} /> Faire une Pause
+            <PauseCircle size={14} style={{ marginRight: "6px" }} /> Faire une
+            Pause
           </button>
           <button
             className={tab === "exclusion" ? "active" : ""}
@@ -210,16 +243,33 @@ export function ResponsibleGamingModal({
 
         {tab === "limits" && (
           <form onSubmit={handleSaveLimits}>
-            <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "14px" }}>
-              Fixez vos propres limites de dépôts en Ariary (MGA). La réduction d'une limite prend effet immédiatement.
+            <p
+              style={{
+                fontSize: "12px",
+                color: "var(--muted)",
+                marginBottom: "14px",
+              }}
+            >
+              Fixez vos propres limites de dépôts en Ariary (MGA). La réduction
+              d'une limite prend effet immédiatement.
             </p>
 
             {/* Dépôt Journalier */}
             <div style={{ marginBottom: "12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                <label className="input-label" style={{ fontSize: "12px" }}>Plafond journalier (24h)</label>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "4px",
+                }}
+              >
+                <label className="input-label" style={{ fontSize: "12px" }}>
+                  Plafond journalier (24h)
+                </label>
                 <small style={{ color: "var(--gold)", fontSize: "11px" }}>
-                  Utilisé : {(profile?.deposit_usage?.daily || 0).toLocaleString("fr-FR")} Ar
+                  Utilisé :{" "}
+                  {(profile?.deposit_usage?.daily || 0).toLocaleString("fr-FR")}{" "}
+                  Ar
                 </small>
               </div>
               <input
@@ -229,16 +279,35 @@ export function ResponsibleGamingModal({
                 value={dailyLimit}
                 onChange={(e) => setDailyLimit(e.target.value)}
                 placeholder="Ex: 50 000 Ar (Laisser vide pour illimité)"
-                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  background: "var(--panel)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
               />
             </div>
 
             {/* Dépôt Hebdomadaire */}
             <div style={{ marginBottom: "12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                <label className="input-label" style={{ fontSize: "12px" }}>Plafond hebdomadaire (7 jours)</label>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "4px",
+                }}
+              >
+                <label className="input-label" style={{ fontSize: "12px" }}>
+                  Plafond hebdomadaire (7 jours)
+                </label>
                 <small style={{ color: "var(--gold)", fontSize: "11px" }}>
-                  Utilisé : {(profile?.deposit_usage?.weekly || 0).toLocaleString("fr-FR")} Ar
+                  Utilisé :{" "}
+                  {(profile?.deposit_usage?.weekly || 0).toLocaleString(
+                    "fr-FR",
+                  )}{" "}
+                  Ar
                 </small>
               </div>
               <input
@@ -248,16 +317,35 @@ export function ResponsibleGamingModal({
                 value={weeklyLimit}
                 onChange={(e) => setWeeklyLimit(e.target.value)}
                 placeholder="Ex: 200 000 Ar"
-                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  background: "var(--panel)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
               />
             </div>
 
             {/* Dépôt Mensuel */}
             <div style={{ marginBottom: "14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                <label className="input-label" style={{ fontSize: "12px" }}>Plafond mensuel (30 jours)</label>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "4px",
+                }}
+              >
+                <label className="input-label" style={{ fontSize: "12px" }}>
+                  Plafond mensuel (30 jours)
+                </label>
                 <small style={{ color: "var(--gold)", fontSize: "11px" }}>
-                  Utilisé : {(profile?.deposit_usage?.monthly || 0).toLocaleString("fr-FR")} Ar
+                  Utilisé :{" "}
+                  {(profile?.deposit_usage?.monthly || 0).toLocaleString(
+                    "fr-FR",
+                  )}{" "}
+                  Ar
                 </small>
               </div>
               <input
@@ -267,19 +355,40 @@ export function ResponsibleGamingModal({
                 value={monthlyLimit}
                 onChange={(e) => setMonthlyLimit(e.target.value)}
                 placeholder="Ex: 1 000 000 Ar"
-                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  background: "var(--panel)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
               />
             </div>
 
             {/* Rappel Réalité */}
             <div style={{ marginBottom: "18px" }}>
-              <label className="input-label" style={{ display: "block", marginBottom: "6px", fontSize: "12px" }}>
+              <label
+                className="input-label"
+                style={{
+                  display: "block",
+                  marginBottom: "6px",
+                  fontSize: "12px",
+                }}
+              >
                 Rappel de session en jeu ("Reality Check")
               </label>
               <select
                 value={realityCheck}
                 onChange={(e) => setRealityCheck(parseInt(e.target.value, 10))}
-                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  background: "var(--panel)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
               >
                 <option value="15">Toutes les 15 minutes</option>
                 <option value="30">Toutes les 30 minutes (Recommandé)</option>
@@ -288,11 +397,25 @@ export function ResponsibleGamingModal({
               </select>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button type="button" className="button button-outline" onClick={onClose}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+              }}
+            >
+              <button
+                type="button"
+                className="button button-outline"
+                onClick={onClose}
+              >
                 Annuler
               </button>
-              <button type="submit" className="button button-primary" disabled={loading}>
+              <button
+                type="submit"
+                className="button button-primary"
+                disabled={loading}
+              >
                 {loading ? "Enregistrement…" : "Enregistrer mes plafonds"}
               </button>
             </div>
@@ -301,11 +424,25 @@ export function ResponsibleGamingModal({
 
         {tab === "pause" && (
           <div className="rg-pause-tab">
-            <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "14px" }}>
-              Besoin de faire un break ? Activez une pause temporaire immédiate. Votre compte sera verrouillé pour la durée sélectionnée.
+            <p
+              style={{
+                fontSize: "12px",
+                color: "var(--muted)",
+                marginBottom: "14px",
+              }}
+            >
+              Besoin de faire un break ? Activez une pause temporaire immédiate.
+              Votre compte sera verrouillé pour la durée sélectionnée.
             </p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "10px",
+                marginBottom: "16px",
+              }}
+            >
               {[
                 { hours: 24, label: "24 heures" },
                 { hours: 48, label: "48 heures" },
@@ -319,9 +456,18 @@ export function ResponsibleGamingModal({
                   style={{
                     padding: "14px",
                     borderRadius: "8px",
-                    background: coolingHours === item.hours ? "rgba(211, 176, 107, 0.18)" : "var(--panel)",
-                    border: coolingHours === item.hours ? "1px solid var(--gold)" : "1px solid var(--line)",
-                    color: coolingHours === item.hours ? "var(--gold)" : "var(--text)",
+                    background:
+                      coolingHours === item.hours
+                        ? "rgba(211, 176, 107, 0.18)"
+                        : "var(--panel)",
+                    border:
+                      coolingHours === item.hours
+                        ? "1px solid var(--gold)"
+                        : "1px solid var(--line)",
+                    color:
+                      coolingHours === item.hours
+                        ? "var(--gold)"
+                        : "var(--text)",
                     fontWeight: 600,
                     cursor: "pointer",
                     textAlign: "center",
@@ -334,7 +480,14 @@ export function ResponsibleGamingModal({
             </div>
 
             <div style={{ marginBottom: "18px" }}>
-              <label className="input-label" style={{ display: "block", marginBottom: "4px", fontSize: "12px" }}>
+              <label
+                className="input-label"
+                style={{
+                  display: "block",
+                  marginBottom: "4px",
+                  fontSize: "12px",
+                }}
+              >
                 Motif personnel (facultatif)
               </label>
               <input
@@ -342,12 +495,29 @@ export function ResponsibleGamingModal({
                 value={pauseReason}
                 onChange={(e) => setPauseReason(e.target.value)}
                 placeholder="Ex: Repos, concentration professionnelle..."
-                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  background: "var(--panel)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
               />
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button type="button" className="button button-outline" onClick={onClose}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+              }}
+            >
+              <button
+                type="button"
+                className="button button-outline"
+                onClick={onClose}
+              >
                 Fermer
               </button>
               <button
@@ -356,7 +526,9 @@ export function ResponsibleGamingModal({
                 onClick={handleApplyCoolingOff}
                 disabled={loading || profile?.is_blocked}
               >
-                {loading ? "Activation…" : `Activer la pause de ${coolingHours}h`}
+                {loading
+                  ? "Activation…"
+                  : `Activer la pause de ${coolingHours}h`}
               </button>
             </div>
           </div>
@@ -376,14 +548,28 @@ export function ResponsibleGamingModal({
                 marginBottom: "16px",
               }}
             >
-              <AlertTriangle size={24} color="var(--red)" style={{ flexShrink: 0 }} />
+              <AlertTriangle
+                size={24}
+                color="var(--red)"
+                style={{ flexShrink: 0 }}
+              />
               <p style={{ margin: 0, fontSize: "12px", color: "var(--red)" }}>
-                <strong>Attention :</strong> L'auto-exclusion est un acte irréversible. Aucun déblocage anticipé ne sera accordé par le support client.
+                <strong>Attention :</strong> L'auto-exclusion est un acte
+                irréversible. Aucun déblocage anticipé ne sera accordé par le
+                support client.
               </p>
             </div>
 
             <div style={{ marginBottom: "14px" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", marginBottom: "10px" }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                  marginBottom: "10px",
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={isPermanent}
@@ -396,13 +582,29 @@ export function ResponsibleGamingModal({
 
               {!isPermanent && (
                 <div>
-                  <label className="input-label" style={{ display: "block", marginBottom: "6px", fontSize: "12px" }}>
+                  <label
+                    className="input-label"
+                    style={{
+                      display: "block",
+                      marginBottom: "6px",
+                      fontSize: "12px",
+                    }}
+                  >
                     Durée d'auto-exclusion temporaire
                   </label>
                   <select
                     value={exclusionMonths}
-                    onChange={(e) => setExclusionMonths(parseInt(e.target.value, 10))}
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
+                    onChange={(e) =>
+                      setExclusionMonths(parseInt(e.target.value, 10))
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      background: "var(--panel)",
+                      border: "1px solid var(--line)",
+                      color: "var(--text)",
+                    }}
                   >
                     <option value="1">1 mois</option>
                     <option value="3">3 mois</option>
@@ -414,7 +616,14 @@ export function ResponsibleGamingModal({
             </div>
 
             <div style={{ marginBottom: "16px" }}>
-              <label className="input-label" style={{ display: "block", marginBottom: "4px", fontSize: "12px" }}>
+              <label
+                className="input-label"
+                style={{
+                  display: "block",
+                  marginBottom: "4px",
+                  fontSize: "12px",
+                }}
+              >
                 Raison de la demande (obligatoire pour conformité)
               </label>
               <input
@@ -422,12 +631,29 @@ export function ResponsibleGamingModal({
                 value={exclusionReason}
                 onChange={(e) => setExclusionReason(e.target.value)}
                 placeholder="Ex: Prévention financière, gestion du temps..."
-                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  background: "var(--panel)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
                 required
               />
             </div>
 
-            <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", cursor: "pointer", marginBottom: "18px", fontSize: "12px", color: "var(--soft)" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
+                cursor: "pointer",
+                marginBottom: "18px",
+                fontSize: "12px",
+                color: "var(--soft)",
+              }}
+            >
               <input
                 type="checkbox"
                 checked={confirmExclusion}
@@ -435,12 +661,23 @@ export function ResponsibleGamingModal({
                 style={{ marginTop: "2px" }}
               />
               <span>
-                Je confirme comprendre que cette décision est ferme, immédiate et entraînera la clôture de mes sessions de jeu.
+                Je confirme comprendre que cette décision est ferme, immédiate
+                et entraînera la clôture de mes sessions de jeu.
               </span>
             </label>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button type="button" className="button button-outline" onClick={onClose}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+              }}
+            >
+              <button
+                type="button"
+                className="button button-outline"
+                onClick={onClose}
+              >
                 Annuler
               </button>
               <button
@@ -448,9 +685,17 @@ export function ResponsibleGamingModal({
                 className="button button-danger"
                 onClick={handleApplySelfExclusion}
                 disabled={loading || !confirmExclusion || profile?.is_blocked}
-                style={{ background: "var(--red)", color: "#fff", border: "none" }}
+                style={{
+                  background: "var(--red)",
+                  color: "#fff",
+                  border: "none",
+                }}
               >
-                {loading ? "Traitement…" : isPermanent ? "Confirmer l'exclusion définitive" : `Confirmer l'auto-exclusion (${exclusionMonths} mois)`}
+                {loading
+                  ? "Traitement…"
+                  : isPermanent
+                    ? "Confirmer l'exclusion définitive"
+                    : `Confirmer l'auto-exclusion (${exclusionMonths} mois)`}
               </button>
             </div>
           </div>

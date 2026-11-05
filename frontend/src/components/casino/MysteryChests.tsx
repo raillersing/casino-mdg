@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Sparkles, RefreshCw, Eye, Volume2, VolumeX, Trophy } from "lucide-react";
+import {
+  Sparkles,
+  RefreshCw,
+  Eye,
+  Volume2,
+  VolumeX,
+  Trophy,
+} from "lucide-react";
 import { casinoAudio } from "@utils/casinoAudio";
 import { type InstantPlay } from "@services/testGames";
 
@@ -11,10 +18,28 @@ interface MysteryChestsProps {
   onWin: (play: InstantPlay) => void;
 }
 
-const SYMBOL_MAP: Record<string, { label: string; icon: string; prizeText: string; tier: string }> = {
-  zebu: { label: "Zébu d'Or", icon: "🐂", prizeText: "Jackpot 500 SIM", tier: "jackpot" },
-  baobab: { label: "Baobab Royal", icon: "🌴", prizeText: "150 SIM", tier: "high" },
-  vanille: { label: "Vanille Bourbon", icon: "🌸", prizeText: "50 SIM", tier: "mid" },
+const SYMBOL_MAP: Record<
+  string,
+  { label: string; icon: string; prizeText: string; tier: string }
+> = {
+  zebu: {
+    label: "Zébu d'Or",
+    icon: "🐂",
+    prizeText: "Jackpot 500 SIM",
+    tier: "jackpot",
+  },
+  baobab: {
+    label: "Baobab Royal",
+    icon: "🌴",
+    prizeText: "150 SIM",
+    tier: "high",
+  },
+  vanille: {
+    label: "Vanille Bourbon",
+    icon: "🌸",
+    prizeText: "50 SIM",
+    tier: "mid",
+  },
 };
 
 const TIER_ORDER: Record<string, number> = { jackpot: 3, high: 2, mid: 1 };
@@ -26,7 +51,9 @@ export function MysteryChests({
   disabled = false,
   onWin,
 }: MysteryChestsProps) {
-  const [openedChests, setOpenedChests] = useState<boolean[]>(Array(9).fill(false));
+  const [openedChests, setOpenedChests] = useState<boolean[]>(
+    Array(9).fill(false),
+  );
   const [symbols, setSymbols] = useState<string[]>(Array(9).fill(""));
   const [currentPlay, setCurrentPlay] = useState<InstantPlay | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -89,12 +116,52 @@ export function MysteryChests({
         serverSymbols.length === 9
           ? serverSymbols
           : result.prize >= 500
-            ? ["zebu", "zebu", "zebu", "baobab", "vanille", "baobab", "vanille", "zebu", "vanille"]
+            ? [
+                "zebu",
+                "zebu",
+                "zebu",
+                "baobab",
+                "vanille",
+                "baobab",
+                "vanille",
+                "zebu",
+                "vanille",
+              ]
             : result.prize >= 150
-              ? ["baobab", "baobab", "baobab", "vanille", "zebu", "vanille", "zebu", "baobab", "vanille"]
+              ? [
+                  "baobab",
+                  "baobab",
+                  "baobab",
+                  "vanille",
+                  "zebu",
+                  "vanille",
+                  "zebu",
+                  "baobab",
+                  "vanille",
+                ]
               : result.prize > 0
-                ? ["vanille", "vanille", "vanille", "baobab", "zebu", "baobab", "zebu", "baobab", "zebu"]
-                : ["baobab", "vanille", "zebu", "zebu", "baobab", "vanille", "vanille", "zebu", "baobab"];
+                ? [
+                    "vanille",
+                    "vanille",
+                    "vanille",
+                    "baobab",
+                    "zebu",
+                    "baobab",
+                    "zebu",
+                    "baobab",
+                    "zebu",
+                  ]
+                : [
+                    "baobab",
+                    "vanille",
+                    "zebu",
+                    "zebu",
+                    "baobab",
+                    "vanille",
+                    "vanille",
+                    "zebu",
+                    "baobab",
+                  ];
 
       // Dealing animation: reveal chests one by one as "placed" before playable
       setSymbols(defaultSymbols);
@@ -146,7 +213,8 @@ export function MysteryChests({
         setWinningSymbol(bestSym);
         // Only celebrate if backend actually awarded a prize (prevents false visual wins)
         const shouldCelebrate = play && play.prize > 0;
-        const prizeTierOk = !play || !play.prize || checkPrizeMatchesSymbol(play.prize, bestSym);
+        const prizeTierOk =
+          !play || !play.prize || checkPrizeMatchesSymbol(play.prize, bestSym);
         if (shouldCelebrate && prizeTierOk) {
           const winId = window.setTimeout(() => {
             const current = currentPlayRef.current;
@@ -162,12 +230,20 @@ export function MysteryChests({
   const checkPrizeMatchesSymbol = (prize: number, sym: string) => {
     if (prize >= 500) return sym === "zebu";
     if (prize >= 150) return sym === "baobab" || sym === "zebu";
-    if (prize > 0) return sym === "vanille" || sym === "baobab" || sym === "zebu";
+    if (prize > 0)
+      return sym === "vanille" || sym === "baobab" || sym === "zebu";
     return false;
   };
 
   const openChest = (index: number) => {
-    if (!gameStarted || isPlaying || isDealing || isRevealingAll || openedChests[index]) return;
+    if (
+      !gameStarted ||
+      isPlaying ||
+      isDealing ||
+      isRevealingAll ||
+      openedChests[index]
+    )
+      return;
 
     casinoAudio.playChestCrack();
     // Functional update to avoid stale closure
@@ -196,7 +272,9 @@ export function MysteryChests({
 
     setIsRevealingAll(true);
     const alreadyOpened = [...openedChests];
-    const pendingIndices = alreadyOpened.map((o, i) => (!o ? i : -1)).filter((i) => i !== -1);
+    const pendingIndices = alreadyOpened
+      .map((o, i) => (!o ? i : -1))
+      .filter((i) => i !== -1);
 
     pendingIndices.forEach((chestIdx, seq) => {
       const id = window.setTimeout(() => {
@@ -251,23 +329,29 @@ export function MysteryChests({
         </span>
         <h2>COFFRE MADA</h2>
         <p>
-          Ouvrez les 9 coffres au trésor pour aligner 3 symboles identiques et gagner jusqu'à{" "}
-          {maxPrize.toLocaleString("fr-FR")} SIM !
+          Ouvrez les 9 coffres au trésor pour aligner 3 symboles identiques et
+          gagner jusqu'à {maxPrize.toLocaleString("fr-FR")} SIM !
         </p>
       </div>
 
       {/* Live Symbol Discovery Tracker */}
       {gameStarted && (
         <div className="chests-tracker-row">
-          <div className={`tracker-badge ${symbolTally.zebu === 2 ? "suspense" : symbolTally.zebu >= 3 ? "won" : ""}`}>
+          <div
+            className={`tracker-badge ${symbolTally.zebu === 2 ? "suspense" : symbolTally.zebu >= 3 ? "won" : ""}`}
+          >
             <span>🐂 Zébu</span>
             <strong>{symbolTally.zebu} / 3</strong>
           </div>
-          <div className={`tracker-badge ${symbolTally.baobab === 2 ? "suspense" : symbolTally.baobab >= 3 ? "won" : ""}`}>
+          <div
+            className={`tracker-badge ${symbolTally.baobab === 2 ? "suspense" : symbolTally.baobab >= 3 ? "won" : ""}`}
+          >
             <span>🌴 Baobab</span>
             <strong>{symbolTally.baobab} / 3</strong>
           </div>
-          <div className={`tracker-badge ${symbolTally.vanille === 2 ? "suspense" : symbolTally.vanille >= 3 ? "won" : ""}`}>
+          <div
+            className={`tracker-badge ${symbolTally.vanille === 2 ? "suspense" : symbolTally.vanille >= 3 ? "won" : ""}`}
+          >
             <span>🌸 Vanille</span>
             <strong>{symbolTally.vanille} / 3</strong>
           </div>
@@ -275,12 +359,17 @@ export function MysteryChests({
       )}
 
       {/* 3x3 Chests Grid with 3D Flip */}
-      <div className={`chests-grid-container ${isDealing ? "dealing" : ""} ${isRevealingAll ? "revealing-all" : ""}`}>
+      <div
+        className={`chests-grid-container ${isDealing ? "dealing" : ""} ${isRevealingAll ? "revealing-all" : ""}`}
+      >
         {Array.from({ length: 9 }).map((_, index) => {
           const isOpened = openedChests[index];
           const symbolKey = symbols[index] || "baobab";
           const symbolMeta = SYMBOL_MAP[symbolKey] || SYMBOL_MAP.baobab;
-          const isWinnerCell = isOpened && winningSymbol === symbolKey && (isFinished || openedCount >= 3);
+          const isWinnerCell =
+            isOpened &&
+            winningSymbol === symbolKey &&
+            (isFinished || openedCount >= 3);
           const isDealingThis = isDealing && index <= dealingIndex;
 
           return (
@@ -288,15 +377,21 @@ export function MysteryChests({
               key={index}
               className={`chest-flip-card ${isOpened ? "flipped" : ""} ${isWinnerCell ? "winner-cell" : ""} ${isDealingThis ? "dealing-in" : ""} ${!gameStarted || isDealing ? "locked-card" : ""}`}
               onClick={() => openChest(index)}
-              style={isDealing ? { animationDelay: `${index * 70}ms` } : undefined}
+              style={
+                isDealing ? { animationDelay: `${index * 70}ms` } : undefined
+              }
             >
               <div className="chest-flip-inner">
-                <div className={`chest-card-front ${!gameStarted || isDealing ? "locked" : ""}`}>
+                <div
+                  className={`chest-card-front ${!gameStarted || isDealing ? "locked" : ""}`}
+                >
                   <span className="chest-box-icon">🎁</span>
                   <span className="chest-box-number">COFFRE #{index + 1}</span>
                 </div>
 
-                <div className={`chest-card-back ${isWinnerCell ? "winner-glow" : ""}`}>
+                <div
+                  className={`chest-card-back ${isWinnerCell ? "winner-glow" : ""}`}
+                >
                   <span className="chest-symbol-icon">{symbolMeta.icon}</span>
                   <span className="chest-symbol-name">{symbolMeta.label}</span>
                   {isWinnerCell && <span className="chest-win-star">★</span>}
@@ -309,10 +404,13 @@ export function MysteryChests({
 
       {/* Final result banner when board complete */}
       {gameStarted && isFinished && (
-        <div className={`chests-final-banner ${winningSymbol ? "win" : "lose"}`}>
+        <div
+          className={`chests-final-banner ${winningSymbol ? "win" : "lose"}`}
+        >
           {winningSymbol ? (
             <>
-              <Trophy size={18} /> Victoire ! {SYMBOL_MAP[winningSymbol]?.label} x3 — {SYMBOL_MAP[winningSymbol]?.prizeText}
+              <Trophy size={18} /> Victoire ! {SYMBOL_MAP[winningSymbol]?.label}{" "}
+              x3 — {SYMBOL_MAP[winningSymbol]?.prizeText}
             </>
           ) : (
             <>😢 Pas de triplet cette fois — retentez votre chance !</>
@@ -365,7 +463,10 @@ export function MysteryChests({
               onClick={revealAll}
               disabled={isRevealingAll || isDealing}
             >
-              <Eye size={16} /> {isRevealingAll ? "RÉVÉLATION EN COURS..." : "Tout révéler d'un coup"}
+              <Eye size={16} />{" "}
+              {isRevealingAll
+                ? "RÉVÉLATION EN COURS..."
+                : "Tout révéler d'un coup"}
             </button>
             <span className="chests-open-count">
               {openedCount} / 9 coffres ouverts

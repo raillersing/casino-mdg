@@ -1,168 +1,129 @@
-import { useTranslation } from "react-i18next";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useGameStore } from "@stores/gameStore";
+import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
 import { Link } from "react-router-dom";
-import { ArrowRight, Search, Users } from "lucide-react";
+import { ArrowRight, Users, Bot, Compass, KeyRound } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
-const games = [
-  {
-    id: "belote",
-    name: "Belote Malagasy",
-    symbol: "♥",
-    kind: "cards",
-    players: "4 joueurs · En équipe",
-    description: "Remportez les plis avec votre partenaire.",
-    color: "rose",
-  },
-  {
-    id: "domino",
-    name: "Domino Double-Six",
-    symbol: "⚅",
-    kind: "board",
-    players: "2 à 4 joueurs",
-    description: "Associez vos dominos et videz votre main.",
-    color: "amber",
-  },
-  {
-    id: "ludo",
-    name: "Ludo Mada",
-    symbol: "⚄",
-    kind: "board",
-    players: "2 à 4 joueurs",
-    description: "Ramenez vos quatre pions à la maison.",
-    color: "green",
-  },
-  {
-    id: "rami",
-    name: "Rami Malagasy",
-    symbol: "♦",
-    kind: "cards",
-    players: "2 à 4 joueurs",
-    description: "Formez des suites et des groupes de cartes.",
-    color: "blue",
-  },
-  {
-    id: "poker",
-    name: "Poker Texas Hold’em",
-    symbol: "♠",
-    kind: "cards",
-    players: "2 à 9 joueurs",
-    description: "Composez votre meilleure main à cinq cartes.",
-    color: "gold",
-  },
-];
-
-export function HomePage({ catalog = false }: { catalog?: boolean }) {
+export function HomePage() {
   const { t } = useTranslation();
-  const [category, setCategory] = useState("all");
-  const [query, setQuery] = useState("");
-  const visible = games.filter(
-    (game) =>
-      (category === "all" || category === game.kind) &&
-      game.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
-  );
+  const token = useGameStore((state) => state.accessToken);
+  const [resumable, setResumable] = useState<
+    Array<{ id: string; table_code: string; game_type: string; name: string }>
+  >([]);
+  useEffect(() => {
+    setResumable([]);
+    if (!token) return;
+    const controller = new AbortController();
+    fetch("/api/v1/games/resumable/", {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then(async (r) => {
+        if (!r.ok) throw Error();
+        return r.json();
+      })
+      .then((data) => setResumable(data.results))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [token]);
+  const actions = [
+    { key: "online", icon: Compass, to: "/lobby" },
+    { key: "friends", icon: Users, to: "/lobby?action=create" },
+    { key: "practice", icon: Bot, to: "/games?intent=practice" },
+  ];
   return (
-    <div className="discovery-page">
-      <header className="discovery-heading">
-        <span className="eyebrow">MDG GAME CLUB</span>
-        <h1>
-          {catalog ? t("discovery.catalogTitle") : t("discovery.homeTitle")}
-        </h1>
-        <p>{t("discovery.intro")}</p>
-      </header>
-      <section aria-labelledby="catalog-title">
-        <div className="discovery-section-head">
-          <h2 id="catalog-title">
-            {catalog ? t("discovery.allGames") : t("discovery.choose")}
-          </h2>
-          <span>{t("discovery.count")}</span>
-        </div>
-        {catalog && (
-          <div className="discovery-tools">
-            <label className="discovery-search">
-              <Search size={18} />
-              <input
-                aria-label={t("discovery.search")}
-                placeholder={t("discovery.search")}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
-            <div
-              className="discovery-filters"
-              aria-label={t("discovery.categories")}
-            >
-              {[
-                ["all", t("discovery.all")],
-                ["cards", t("discovery.cards")],
-                ["board", t("discovery.board")],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  aria-pressed={category === value}
-                  onClick={() => setCategory(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="discovery-grid">
-          {visible.map((game) => (
+    <div className="club-home">
+      <section className="club-home-hero" aria-labelledby="home-title">
+        <img
+          src="/images/games/belote-cover.webp"
+          alt=""
+          width="960"
+          height="640"
+        />
+        <div className="club-home-hero-copy">
+          <span className="eyebrow">MDG GAME CLUB</span>
+          <h1 id="home-title">{t("welcome.title")}</h1>
+          <p>{t("welcome.intro")}</p>
+          <div className="club-home-actions">
+            <Link className="button button-gold" to="/games">
+              {t("welcome.choose")} <ArrowRight size={18} />
+            </Link>
             <Link
-              to={`/play/${game.id}`}
-              key={game.id}
-              className={`discovery-card discovery-${game.color}`}
+              className="button button-secondary"
+              to="/lobby?action=join-private"
             >
-              <div className="discovery-art" aria-hidden="true">
-                <img
-                  src={`/images/games/${game.id}-cover.webp`}
-                  alt=""
-                  loading={game.id === "belote" ? "eager" : "lazy"}
-                  decoding="async"
-                  width={960}
-                  height={640}
-                />
-              </div>
-              <div className="discovery-card-copy">
-                <span className="discovery-players">{game.players}</span>
-                <h3>{game.name}</h3>
-                <p>{game.description}</p>
-                <span className="discovery-card-action">
-                  {t("discovery.chooseGame")} <ArrowRight size={17} />
+              <KeyRound size={17} />
+              {t("welcome.join")}
+            </Link>
+          </div>
+        </div>
+      </section>
+      {resumable.length > 0 && (
+        <section aria-label={t("welcome.resume")}>
+          <h2>{t("welcome.resume")}</h2>
+          {resumable.map((table) => (
+            <Link
+              className="button button-gold"
+              key={table.id}
+              to={`/game/${table.game_type}/${table.table_code}`}
+            >
+              {table.name} <ArrowRight size={16} />
+            </Link>
+          ))}
+        </section>
+      )}
+      <LiveStatsTicker />
+      <section aria-labelledby="home-intents">
+        <h2 id="home-intents">{t("welcome.how")}</h2>
+        <div className="club-home-intents">
+          {actions.map(({ key, icon: Icon, to }) => (
+            <Link to={to} key={key}>
+              <Icon size={25} />
+              <h3>{t(`welcome.${key}`)}</h3>
+              <p>{t(`welcome.${key}Desc`)}</p>
+              <ArrowRight size={18} />
+            </Link>
+          ))}
+        </div>
+      </section>
+      <section aria-labelledby="home-discover">
+        <div className="discovery-section-head">
+          <h2 id="home-discover">{t("welcome.discover")}</h2>
+          <Link to="/games" className="text-link">
+            {t("discovery.allGames")} <ArrowRight size={16} />
+          </Link>
+        </div>
+        <div className="club-home-featured">
+          {[
+            ["ludo", "Ludo Mada"],
+            ["domino", "Domino Double-Six"],
+          ].map(([id, name]) => (
+            <Link to={`/play/${id}`} key={id}>
+              <img
+                src={`/images/games/${id}-cover.webp`}
+                alt=""
+                width="960"
+                height="640"
+                loading="lazy"
+              />
+              <div>
+                <h3>{name}</h3>
+                <span>
+                  {t("welcome.discoverGame")} <ArrowRight size={16} />
                 </span>
               </div>
             </Link>
           ))}
         </div>
-        {visible.length === 0 && (
-          <div className="empty-note" role="status">
-            <p>{t("discovery.none")}</p>
-            <button
-              className="button button-secondary"
-              onClick={() => {
-                setQuery("");
-                setCategory("all");
-              }}
-            >
-              {t("discovery.reset")}
-            </button>
-          </div>
-        )}
       </section>
-      <aside className="discovery-online" aria-label="Jouer à plusieurs">
-        <div>
-          <Users size={24} />
-          <div>
-            <h2>{t("discovery.onlineTitle")}</h2>
-            <p>{t("discovery.onlineDesc")}</p>
-          </div>
-        </div>
-        <Link to="/lobby" className="button button-secondary">
-          {t("discovery.online")} <ArrowRight size={17} />
+      <aside className="club-home-help" aria-label={t("welcome.helpTitle")}>
+        <h2>{t("welcome.helpTitle")}</h2>
+        <p>{t("welcome.help")}</p>
+        <Link to="/support" className="text-link">
+          {t("welcome.support")} <ArrowRight size={16} />
         </Link>
       </aside>
-      <p className="discovery-help">{t("discovery.help")}</p>
     </div>
   );
 }

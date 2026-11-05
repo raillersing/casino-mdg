@@ -85,11 +85,23 @@ export const useGameStore = create<GameState>((set, get) => ({
   setGuestMode: (name, balance = 10000) => {
     const payload = { name, balance, xp: 0, level: 1 };
     localStorage.setItem(guestKey, JSON.stringify(payload));
-    set({ isGuest: true, guestName: name, guestBalance: balance, guestXP: 0, guestLevel: 1 });
+    set({
+      isGuest: true,
+      guestName: name,
+      guestBalance: balance,
+      guestXP: 0,
+      guestLevel: 1,
+    });
   },
   clearGuestMode: () => {
     localStorage.removeItem(guestKey);
-    set({ isGuest: false, guestName: null, guestBalance: 10000, guestXP: 0, guestLevel: 1 });
+    set({
+      isGuest: false,
+      guestName: null,
+      guestBalance: 10000,
+      guestXP: 0,
+      guestLevel: 1,
+    });
   },
   addGuestXP: (amount) => {
     const state = get();

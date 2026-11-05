@@ -54,9 +54,18 @@ export function getWalletBalance(accessToken: string) {
 
 export function getWalletTransactions(accessToken: string, currency?: string) {
   const query = currency ? `?currency=${currency}` : "";
-  return get<{ results: WalletTransaction[]; count: number }>(`transactions/${query}`, accessToken);
+  return get<{ results: WalletTransaction[]; count: number }>(
+    `transactions/${query}`,
+    accessToken,
+  );
 }
 
-export function getWalletTransaction(accessToken: string, transactionId: string) {
-  return get<WalletTransactionDetail>(`transactions/${transactionId}/`, accessToken);
+export function getWalletTransaction(
+  accessToken: string,
+  transactionId: string,
+) {
+  return get<WalletTransactionDetail>(
+    `transactions/${transactionId}/`,
+    accessToken,
+  );
 }

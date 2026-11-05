@@ -48,7 +48,14 @@ def send_sms_otp(phone: str, code: str) -> bool:
                 return True
             else:
                 logger.warning(
-                    f"[SMS Gateway: Twilio] Failed to deliver to {phone}: {response.status_code} - {response.text}"
+                    (
+                        "[SMS Gateway: Twilio] Failed to deliver to "
+                        f"{phone}"
+                        ": "
+                        f"{response.status_code}"
+                        " - "
+                        f"{response.text}"
+                    )
                 )
         except Exception as exc:
             logger.error(
@@ -74,7 +81,14 @@ def send_sms_otp(phone: str, code: str) -> bool:
                 return True
             else:
                 logger.warning(
-                    f"[SMS Gateway: Webhook] Failed to deliver to {phone}: {response.status_code} - {response.text}"
+                    (
+                        "[SMS Gateway: Webhook] Failed to deliver to "
+                        f"{phone}"
+                        ": "
+                        f"{response.status_code}"
+                        " - "
+                        f"{response.text}"
+                    )
                 )
         except Exception as exc:
             logger.error(

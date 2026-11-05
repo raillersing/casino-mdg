@@ -120,13 +120,16 @@ export function TestGamesPage() {
   >([]);
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [selectedDraw, setSelectedDraw] = useState<string | null>(null);
-  const [drawSelections, setDrawSelections] = useState<Record<string, number[]>>({});
+  const [drawSelections, setDrawSelections] = useState<
+    Record<string, number[]>
+  >({});
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState("");
   const [error, setError] = useState("");
   const [lastPlay, setLastPlay] = useState<InstantPlay | null>(null);
   const [bigWinPlay, setBigWinPlay] = useState<InstantPlay | null>(null);
-  const [selectedGameSlug, setSelectedGameSlug] = useState<string>("slots-mada");
+  const [selectedGameSlug, setSelectedGameSlug] =
+    useState<string>("slots-mada");
 
   const navigate = useNavigate();
 
@@ -143,38 +146,43 @@ export function TestGamesPage() {
     }
   };
 
-  const load = useCallback(async (background = false) => {
-    if (!accessToken) {
-      setLoading(false);
-      return;
-    }
-    if (!background) setLoading(true);
-    setError("");
-    try {
-      const [catalog, drawList, activity, wallet] = await Promise.all([
-        getTestGames(accessToken),
-        getTestDraws(accessToken),
-        getTestActivity(accessToken),
-        getWalletBalance(accessToken),
-      ]);
-      setGames(catalog.results.length > 0 ? catalog.results : DEFAULT_GAMES);
-      setDraws(drawList.results.length > 0 ? drawList.results : DEFAULT_DRAWS);
-      setPlays(activity.plays);
-      setEntries(activity.entries);
-      setBalance(wallet);
-    } catch (reason) {
-      if (reason instanceof Error && reason.message === "AUTH_REQUIRED") {
-        useGameStore.getState().logout();
-        setError(t("testGames.sessionExpired"));
-      } else {
-        setError(
-          reason instanceof Error ? reason.message : t("testGames.loadError"),
-        );
+  const load = useCallback(
+    async (background = false) => {
+      if (!accessToken) {
+        setLoading(false);
+        return;
       }
-    } finally {
-      if (!background) setLoading(false);
-    }
-  }, [accessToken, t]);
+      if (!background) setLoading(true);
+      setError("");
+      try {
+        const [catalog, drawList, activity, wallet] = await Promise.all([
+          getTestGames(accessToken),
+          getTestDraws(accessToken),
+          getTestActivity(accessToken),
+          getWalletBalance(accessToken),
+        ]);
+        setGames(catalog.results.length > 0 ? catalog.results : DEFAULT_GAMES);
+        setDraws(
+          drawList.results.length > 0 ? drawList.results : DEFAULT_DRAWS,
+        );
+        setPlays(activity.plays);
+        setEntries(activity.entries);
+        setBalance(wallet);
+      } catch (reason) {
+        if (reason instanceof Error && reason.message === "AUTH_REQUIRED") {
+          useGameStore.getState().logout();
+          setError(t("testGames.sessionExpired"));
+        } else {
+          setError(
+            reason instanceof Error ? reason.message : t("testGames.loadError"),
+          );
+        }
+      } finally {
+        if (!background) setLoading(false);
+      }
+    },
+    [accessToken, t],
+  );
 
   useEffect(() => {
     void load();
@@ -189,7 +197,9 @@ export function TestGamesPage() {
     setParams({ tab: next });
   };
 
-  const playInstantAsync = async (game: InstantGame): Promise<InstantPlay | null> => {
+  const playInstantAsync = async (
+    game: InstantGame,
+  ): Promise<InstantPlay | null> => {
     setAction(game.slug);
     setError("");
     const token = await ensureToken();
@@ -210,7 +220,9 @@ export function TestGamesPage() {
       // Also optimistically update plays/balance without waiting for load
       setPlays((prev) => [play, ...prev].slice(0, 30));
       if (play.prize > 0 || play.cost > 0) {
-        void getWalletBalance(token).then(setBalance).catch(() => {});
+        void getWalletBalance(token)
+          .then(setBalance)
+          .catch(() => {});
       }
       return play;
     } catch (reason) {
@@ -308,7 +320,8 @@ export function TestGamesPage() {
         prize={bigWinPlay?.prize || 0}
         label={bigWinPlay?.result_label || "Gain Exceptionnel !"}
         gameName={
-          games.find((g) => g.slug === bigWinPlay?.game_slug)?.name || "Casino MDG"
+          games.find((g) => g.slug === bigWinPlay?.game_slug)?.name ||
+          "Casino MDG"
         }
       />
 
@@ -324,7 +337,9 @@ export function TestGamesPage() {
             <em>& Tirages Provably Fair.</em>
           </h1>
           <p>
-            Vivez l'adrénaline des machines à sous, de la roue de la fortune et des coffres aux trésors dans un environnement auditable et transparent.
+            Vivez l'adrénaline des machines à sous, de la roue de la fortune et
+            des coffres aux trésors dans un environnement auditable et
+            transparent.
           </p>
           <div className="test-games-hero-actions">
             <button
@@ -344,7 +359,8 @@ export function TestGamesPage() {
         <div className="test-games-balance">
           <span>Solde de simulation</span>
           <strong>
-            {balance?.balance.toLocaleString("fr-FR") || "10 000"} <small>SIM</small>
+            {balance?.balance.toLocaleString("fr-FR") || "10 000"}{" "}
+            <small>SIM</small>
           </strong>
           <span className="test-games-status">
             <i /> Sans risque monétaire · Sandbox certifié
@@ -356,7 +372,8 @@ export function TestGamesPage() {
       <div className="test-games-notice">
         <ShieldCheck size={17} />
         <span>
-          <strong>Équité prouvée (Provably Fair) :</strong> Le serveur calcule chaque tirage de façon cryptographique et transparente.
+          <strong>Équité prouvée (Provably Fair) :</strong> Le serveur calcule
+          chaque tirage de façon cryptographique et transparente.
         </span>
         <button className="text-link" onClick={() => changeTab("fairness")}>
           Vérifier les preuves <ChevronRight size={14} />
@@ -454,7 +471,8 @@ function InstantSection({
   action: string;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
-  const currentGame = games.find((g) => g.slug === selectedGameSlug) || games[0];
+  const currentGame =
+    games.find((g) => g.slug === selectedGameSlug) || games[0];
 
   return (
     <section className="test-games-section">
@@ -463,7 +481,8 @@ function InstantSection({
           <span className="eyebrow gold">EXPÉRIENCE CASINO INTERACTIVE</span>
           <h2>Espace Jeux de Hasard</h2>
           <p className="section-lede">
-            Sélectionnez une machine ou un mini-jeu pour lancer votre partie interactive.
+            Sélectionnez une machine ou un mini-jeu pour lancer votre partie
+            interactive.
           </p>
         </div>
         <span className="test-games-count">
@@ -472,16 +491,33 @@ function InstantSection({
       </div>
 
       {/* Game Switcher Pills */}
-      <div className="casino-game-switcher" style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
+      <div
+        className="casino-game-switcher"
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "20px",
+          flexWrap: "wrap",
+        }}
+      >
         {games.map((g) => (
           <button
             key={g.slug}
             type="button"
             className={`button ${selectedGameSlug === g.slug ? "button-gold" : "button-outline"}`}
             onClick={() => onSelectGame(g.slug)}
-            style={{ borderRadius: "20px", padding: "8px 18px", fontSize: "0.9rem", fontWeight: 700 }}
+            style={{
+              borderRadius: "20px",
+              padding: "8px 18px",
+              fontSize: "0.9rem",
+              fontWeight: 700,
+            }}
           >
-            {g.game_type === "slots" ? "🎰 " : g.game_type === "wheel" ? "🎡 " : "🎁 "}
+            {g.game_type === "slots"
+              ? "🎰 "
+              : g.game_type === "wheel"
+                ? "🎡 "
+                : "🎁 "}
             {g.name}
           </button>
         ))}
@@ -528,7 +564,11 @@ function InstantSection({
           >
             <div className="test-game-card-top">
               <span className="test-game-icon">
-                {game.game_type === "slots" ? "🎰" : game.game_type === "scratch" ? "🎁" : "🎡"}
+                {game.game_type === "slots"
+                  ? "🎰"
+                  : game.game_type === "scratch"
+                    ? "🎁"
+                    : "🎡"}
               </span>
               <span className="test-game-tag">
                 <i /> Jouer en direct
@@ -547,7 +587,8 @@ function InstantSection({
                 <Clock3 size={13} /> {t("testGames.quick")}
               </span>
               <span>
-                <Trophy size={13} /> +{game.max_prize.toLocaleString("fr-FR")} SIM
+                <Trophy size={13} /> +{game.max_prize.toLocaleString("fr-FR")}{" "}
+                SIM
               </span>
             </div>
             <button
@@ -560,7 +601,11 @@ function InstantSection({
               aria-pressed={selectedGameSlug === game.slug}
             >
               <Sparkles size={15} />
-              {selectedGameSlug === game.slug ? "Sélectionné" : game.cost ? `Configurer · ${game.cost} SIM` : "Configurer (Gratuit)"}
+              {selectedGameSlug === game.slug
+                ? "Sélectionné"
+                : game.cost
+                  ? `Configurer · ${game.cost} SIM`
+                  : "Configurer (Gratuit)"}
             </button>
           </article>
         ))}
@@ -579,7 +624,11 @@ function ResultCard({
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
-    <section className="test-result-card" aria-live="polite" style={{ marginTop: "24px" }}>
+    <section
+      className="test-result-card"
+      aria-live="polite"
+      style={{ marginTop: "24px" }}
+    >
       <div className="test-result-icon">
         <Check size={22} />
       </div>
@@ -644,14 +693,18 @@ function DrawSection({
           const requiredCount = draw.draw_type === "three_digits" ? 3 : 5;
           const maxNumber = draw.draw_type === "three_digits" ? 9 : 35;
           const ready = userNumbers.length === requiredCount;
-          const userEntriesCount = entries.filter((e) => e.draw_slug === draw.slug).length;
+          const userEntriesCount = entries.filter(
+            (e) => e.draw_slug === draw.slug,
+          ).length;
 
           return (
             <article className="test-draw-card" key={draw.slug}>
               <div className="test-draw-card-header">
                 <div>
                   <span className="test-draw-type">
-                    {draw.draw_type === "three_digits" ? "Tirage 3 Chiffres" : "Grand Jackpot"}
+                    {draw.draw_type === "three_digits"
+                      ? "Tirage 3 Chiffres"
+                      : "Grand Jackpot"}
                   </span>
                   <h3>{draw.name}</h3>
                 </div>
@@ -666,7 +719,9 @@ function DrawSection({
                 </div>
                 <div>
                   <span>Clôture</span>
-                  <strong>{new Date(draw.closes_at).toLocaleDateString("fr-FR")}</strong>
+                  <strong>
+                    {new Date(draw.closes_at).toLocaleDateString("fr-FR")}
+                  </strong>
                 </div>
                 <div>
                   <span>Vos tickets</span>
@@ -678,19 +733,21 @@ function DrawSection({
                 <div className="draw-selector-box">
                   <h4>Choisissez {requiredCount} numéros :</h4>
                   <div className="draw-number-picker">
-                    {Array.from({ length: maxNumber }, (_, i) => i + 1).map((num) => {
-                      const active = userNumbers.includes(num);
-                      return (
-                        <button
-                          key={num}
-                          type="button"
-                          className={`draw-ball ${active ? "active" : ""}`}
-                          onClick={() => toggleNumber(draw, num)}
-                        >
-                          {num}
-                        </button>
-                      );
-                    })}
+                    {Array.from({ length: maxNumber }, (_, i) => i + 1).map(
+                      (num) => {
+                        const active = userNumbers.includes(num);
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            className={`draw-ball ${active ? "active" : ""}`}
+                            onClick={() => toggleNumber(draw, num)}
+                          >
+                            {num}
+                          </button>
+                        );
+                      },
+                    )}
                   </div>
                   <div className="draw-picker-actions">
                     <button
@@ -765,7 +822,8 @@ function ActivitySection({
           <span className="eyebrow gold">HISTORIQUE DES SESSIONS</span>
           <h2>Votre Activité de Jeu</h2>
           <p className="section-lede">
-            Retrouvez tous vos tirages, participations instantanées et gains enregistrés.
+            Retrouvez tous vos tirages, participations instantanées et gains
+            enregistrés.
           </p>
         </div>
       </div>
@@ -773,17 +831,25 @@ function ActivitySection({
         <div className="activity-block">
           <h3>🎰 Jeux Instantanés & Machines</h3>
           {plays.length === 0 ? (
-            <p className="empty-note">Aucune partie instantanée jouée pour le moment.</p>
+            <p className="empty-note">
+              Aucune partie instantanée jouée pour le moment.
+            </p>
           ) : (
             <div className="plays-list">
               {plays.map((play) => (
                 <div className="play-row" key={play.play_id}>
                   <div>
                     <strong>{play.result_label}</strong>
-                    <small>{new Date(play.created_at).toLocaleString("fr-FR")}</small>
+                    <small>
+                      {new Date(play.created_at).toLocaleString("fr-FR")}
+                    </small>
                   </div>
-                  <div className={`play-prize ${play.prize > 0 ? "win" : "loss"}`}>
-                    {play.prize > 0 ? `+${play.prize.toLocaleString("fr-FR")} SIM` : "0 SIM"}
+                  <div
+                    className={`play-prize ${play.prize > 0 ? "win" : "loss"}`}
+                  >
+                    {play.prize > 0
+                      ? `+${play.prize.toLocaleString("fr-FR")} SIM`
+                      : "0 SIM"}
                   </div>
                 </div>
               ))}
@@ -802,11 +868,15 @@ function ActivitySection({
                     <strong>{entry.draw_name}</strong>
                     <div className="entry-balls">
                       {entry.numbers.map((n) => (
-                        <span key={n} className="mini-ball">{n}</span>
+                        <span key={n} className="mini-ball">
+                          {n}
+                        </span>
                       ))}
                     </div>
                   </div>
-                  <small>{new Date(entry.created_at).toLocaleString("fr-FR")}</small>
+                  <small>
+                    {new Date(entry.created_at).toLocaleString("fr-FR")}
+                  </small>
                 </div>
               ))}
             </div>
@@ -825,30 +895,69 @@ function FairnessSection() {
           <span className="eyebrow gold">TRANSPARENCE & AUDIT</span>
           <h2>Équité Mathématique & Provably Fair</h2>
           <p className="section-lede">
-            Comment nous garantissons que chaque tirage est 100% honnête, imprévisible et infalsifiable.
+            Comment nous garantissons que chaque tirage est 100% honnête,
+            imprévisible et infalsifiable.
           </p>
         </div>
       </div>
-      <div className="fairness-content-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "18px" }}>
-        <div className="fairness-card" style={{ background: "#111726", padding: "20px", borderRadius: "16px", border: "1px solid #232e47" }}>
+      <div
+        className="fairness-content-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: "18px",
+        }}
+      >
+        <div
+          className="fairness-card"
+          style={{
+            background: "#111726",
+            padding: "20px",
+            borderRadius: "16px",
+            border: "1px solid #232e47",
+          }}
+        >
           <Sparkles size={24} className="gold-icon" />
           <h3 style={{ margin: "12px 0 6px" }}>Génération Cryptographique</h3>
           <p style={{ fontSize: "0.88rem", color: "var(--muted)" }}>
-            Chaque résultat utilise la bibliothèque <code>secrets</code> basée sur l'entropie du système d'exploitation, assurant des probabilités rigoureusement conformes aux mathématiques du jeu.
+            Chaque résultat utilise la bibliothèque <code>secrets</code> basée
+            sur l'entropie du système d'exploitation, assurant des probabilités
+            rigoureusement conformes aux mathématiques du jeu.
           </p>
         </div>
-        <div className="fairness-card" style={{ background: "#111726", padding: "20px", borderRadius: "16px", border: "1px solid #232e47" }}>
+        <div
+          className="fairness-card"
+          style={{
+            background: "#111726",
+            padding: "20px",
+            borderRadius: "16px",
+            border: "1px solid #232e47",
+          }}
+        >
           <ShieldCheck size={24} className="gold-icon" />
           <h3 style={{ margin: "12px 0 6px" }}>Engagement SHA-256</h3>
           <p style={{ fontSize: "0.88rem", color: "var(--muted)" }}>
-            Chaque tour génère une empreinte SHA-256 cryptographique immuable liée à votre identifiant et à la clé d'idempotence de la requête.
+            Chaque tour génère une empreinte SHA-256 cryptographique immuable
+            liée à votre identifiant et à la clé d'idempotence de la requête.
           </p>
         </div>
-        <div className="fairness-card" style={{ background: "#111726", padding: "20px", borderRadius: "16px", border: "1px solid #232e47" }}>
+        <div
+          className="fairness-card"
+          style={{
+            background: "#111726",
+            padding: "20px",
+            borderRadius: "16px",
+            border: "1px solid #232e47",
+          }}
+        >
           <Trophy size={24} className="gold-icon" />
-          <h3 style={{ margin: "12px 0 6px" }}>Comptabilité Ledger Double-Entrée</h3>
+          <h3 style={{ margin: "12px 0 6px" }}>
+            Comptabilité Ledger Double-Entrée
+          </h3>
           <p style={{ fontSize: "0.88rem", color: "var(--muted)" }}>
-            Tous les débits de participation et tous les crédits de gains sont instantanément et définitivement scellés dans le grand livre de transactions.
+            Tous les débits de participation et tous les crédits de gains sont
+            instantanément et définitivement scellés dans le grand livre de
+            transactions.
           </p>
         </div>
       </div>

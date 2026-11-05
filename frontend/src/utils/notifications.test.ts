@@ -57,10 +57,15 @@ describe("webNotifications utility", () => {
       requestPermission: vi.fn(),
     });
 
-    const sent = webNotifications.send("♠ C'est votre tour !", { body: "À vous de jouer" });
-    expect(sent).toBe(true);
-    expect(mockConstructor).toHaveBeenCalledWith("♠ C'est votre tour !", expect.objectContaining({
+    const sent = webNotifications.send("♠ C'est votre tour !", {
       body: "À vous de jouer",
-    }));
+    });
+    expect(sent).toBe(true);
+    expect(mockConstructor).toHaveBeenCalledWith(
+      "♠ C'est votre tour !",
+      expect.objectContaining({
+        body: "À vous de jouer",
+      }),
+    );
   });
 });

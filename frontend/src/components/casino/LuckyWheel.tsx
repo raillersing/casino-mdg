@@ -1,5 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Trophy, RefreshCw, CheckCircle2, Zap, Volume2, VolumeX } from "lucide-react";
+import {
+  Sparkles,
+  Trophy,
+  RefreshCw,
+  CheckCircle2,
+  Zap,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { casinoAudio } from "@utils/casinoAudio";
 import { type InstantPlay } from "@services/testGames";
 
@@ -10,17 +18,69 @@ interface LuckyWheelProps {
 }
 
 const WHEEL_SEGMENTS = [
-  { label: "Pause (0 SIM)", prize: 0, color: "#1e293b", text: "#94a3b8", icon: "⏸️" },
-  { label: "+50 SIM", prize: 50, color: "#2563eb", text: "#ffffff", icon: "💎" },
-  { label: "+100 SIM", prize: 100, color: "#d97706", text: "#ffffff", icon: "🪙" },
-  { label: "+50 SIM", prize: 50, color: "#0d9488", text: "#ffffff", icon: "💎" },
-  { label: "Pause (0 SIM)", prize: 0, color: "#0f172a", text: "#64748b", icon: "⏸️" },
-  { label: "+250 SIM", prize: 250, color: "#7c3aed", text: "#ffffff", icon: "👑" },
-  { label: "+50 SIM", prize: 50, color: "#16a34a", text: "#ffffff", icon: "💎" },
-  { label: "JACKPOT 500", prize: 500, color: "#dc2626", text: "#ffffff", icon: "🏆" },
+  {
+    label: "Pause (0 SIM)",
+    prize: 0,
+    color: "#1e293b",
+    text: "#94a3b8",
+    icon: "⏸️",
+  },
+  {
+    label: "+50 SIM",
+    prize: 50,
+    color: "#2563eb",
+    text: "#ffffff",
+    icon: "💎",
+  },
+  {
+    label: "+100 SIM",
+    prize: 100,
+    color: "#d97706",
+    text: "#ffffff",
+    icon: "🪙",
+  },
+  {
+    label: "+50 SIM",
+    prize: 50,
+    color: "#0d9488",
+    text: "#ffffff",
+    icon: "💎",
+  },
+  {
+    label: "Pause (0 SIM)",
+    prize: 0,
+    color: "#0f172a",
+    text: "#64748b",
+    icon: "⏸️",
+  },
+  {
+    label: "+250 SIM",
+    prize: 250,
+    color: "#7c3aed",
+    text: "#ffffff",
+    icon: "👑",
+  },
+  {
+    label: "+50 SIM",
+    prize: 50,
+    color: "#16a34a",
+    text: "#ffffff",
+    icon: "💎",
+  },
+  {
+    label: "JACKPOT 500",
+    prize: 500,
+    color: "#dc2626",
+    text: "#ffffff",
+    icon: "🏆",
+  },
 ];
 
-export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps) {
+export function LuckyWheel({
+  onSpin,
+  disabled = false,
+  onWin,
+}: LuckyWheelProps) {
   const [spinning, setSpinning] = useState(false);
   const [settling, setSettling] = useState(false);
   const [turboMode, setTurboMode] = useState(false);
@@ -64,9 +124,12 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
 
     // Chaser LED animation — speed depends on turbo
     if (ledIntervalRef.current) clearInterval(ledIntervalRef.current);
-    ledIntervalRef.current = window.setInterval(() => {
-      setActiveLedIndex((prev) => (prev + 1) % 24);
-    }, turboMode ? 35 : 60);
+    ledIntervalRef.current = window.setInterval(
+      () => {
+        setActiveLedIndex((prev) => (prev + 1) % 24);
+      },
+      turboMode ? 35 : 60,
+    );
 
     // Keep reference for animation even if daily limit (null)
     let result: import("@services/testGames").InstantPlay | null = null;
@@ -87,7 +150,9 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
     // If daily limit, force target to a Pause segment (0 or 4) so wheel still spins fully
     let effectiveTargetIndex: number | null = null;
     if (isDailyLimit) {
-      const pauseIndices = WHEEL_SEGMENTS.map((s, i) => (s.prize === 0 ? i : -1)).filter((i) => i !== -1);
+      const pauseIndices = WHEEL_SEGMENTS.map((s, i) =>
+        s.prize === 0 ? i : -1,
+      ).filter((i) => i !== -1);
       effectiveTargetIndex =
         pauseIndices[Math.floor(Math.random() * pauseIndices.length)] ?? 0;
     }
@@ -97,12 +162,15 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
     if (isDailyLimit) {
       finalTargetIndex = effectiveTargetIndex ?? 0;
     } else if (result) {
-      const eligibleIndices = WHEEL_SEGMENTS.map((s, i) => (s.prize === result.prize ? i : -1)).filter(
-        (i) => i !== -1,
-      );
+      const eligibleIndices = WHEEL_SEGMENTS.map((s, i) =>
+        s.prize === result.prize ? i : -1,
+      ).filter((i) => i !== -1);
       if (eligibleIndices.length === 0) finalTargetIndex = 0;
-      else if (eligibleIndices.length === 1) finalTargetIndex = eligibleIndices[0];
-      else finalTargetIndex = eligibleIndices[Math.floor(Math.random() * eligibleIndices.length)];
+      else if (eligibleIndices.length === 1)
+        finalTargetIndex = eligibleIndices[0];
+      else
+        finalTargetIndex =
+          eligibleIndices[Math.floor(Math.random() * eligibleIndices.length)];
     } else {
       // No result and not daily limit (should not happen) — fallback to Pause
       finalTargetIndex = 0;
@@ -119,7 +187,7 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
     const spinsCount = turboMode ? 3 : 8;
     const extraRotations = spinsCount * 360;
     const startMod = ((startAngle % 360) + 360) % 360;
-    const delta = ((normalizedTarget - startMod) % 360 + 360) % 360;
+    const delta = (((normalizedTarget - startMod) % 360) + 360) % 360;
     const endAngle = startAngle + extraRotations + delta;
 
     const startTime = performance.now();
@@ -145,7 +213,10 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
         setNeedleFlick(true);
         casinoAudio.playWheelTick();
         if (needleTimeoutRef.current) clearTimeout(needleTimeoutRef.current);
-        needleTimeoutRef.current = window.setTimeout(() => setNeedleFlick(false), 55);
+        needleTimeoutRef.current = window.setTimeout(
+          () => setNeedleFlick(false),
+          55,
+        );
       }
 
       if (progress < 1) {
@@ -219,7 +290,8 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
                 key={idx}
                 className={`wheel-chaser-dot ${
                   spinning
-                    ? idx === activeLedIndex || (idx + 12) % 24 === activeLedIndex
+                    ? idx === activeLedIndex ||
+                      (idx + 12) % 24 === activeLedIndex
                       ? "lit"
                       : "dim"
                     : idx % 2 === 0
@@ -234,7 +306,11 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
           </div>
 
           <div className="wheel-stage">
-            <div className={`wheel-ticker-needle ${needleFlick ? "tick-bump" : ""}`}>▼</div>
+            <div
+              className={`wheel-ticker-needle ${needleFlick ? "tick-bump" : ""}`}
+            >
+              ▼
+            </div>
 
             <div
               className={`wheel-disc ${settling ? "wheel-settling" : ""} ${spinning ? "spinning" : ""}`}
@@ -263,7 +339,12 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
 
                   return (
                     <g key={i}>
-                      <path d={path} fill={seg.color} stroke="#d4af37" strokeWidth="2.5" />
+                      <path
+                        d={path}
+                        fill={seg.color}
+                        stroke="#d4af37"
+                        strokeWidth="2.5"
+                      />
                       <text
                         x={textX}
                         y={textY}
@@ -279,9 +360,17 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
                     </g>
                   );
                 })}
-                <circle cx="150" cy="150" r="147" fill="none" stroke="#d4af37" strokeWidth="6" />
+                <circle
+                  cx="150"
+                  cy="150"
+                  r="147"
+                  fill="none"
+                  stroke="#d4af37"
+                  strokeWidth="6"
+                />
                 {WHEEL_SEGMENTS.map((_, i) => {
-                  const angle = (i * (360 / WHEEL_SEGMENTS.length) - 90) * (Math.PI / 180);
+                  const angle =
+                    (i * (360 / WHEEL_SEGMENTS.length) - 90) * (Math.PI / 180);
                   const pinX = 150 + 145 * Math.cos(angle);
                   const pinY = 150 + 145 * Math.sin(angle);
                   return (
@@ -310,7 +399,8 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
             <div className={`wheel-win-alert ${isWin ? "win" : "lose"}`}>
               <CheckCircle2 size={18} className="gold-icon" />
               <span>
-                Résultat : <strong>{wonSegment}</strong> {isWin ? "🎉" : "— retentez demain !"}
+                Résultat : <strong>{wonSegment}</strong>{" "}
+                {isWin ? "🎉" : "— retentez demain !"}
               </span>
             </div>
           )}
@@ -345,7 +435,11 @@ export function LuckyWheel({ onSpin, disabled = false, onWin }: LuckyWheelProps)
               ) : (
                 <Sparkles size={18} />
               )}
-              <span>{spinning || settling ? "ROTATION EN SUSPENSE..." : "TOURNER LA ROUE (GRATUIT)"}</span>
+              <span>
+                {spinning || settling
+                  ? "ROTATION EN SUSPENSE..."
+                  : "TOURNER LA ROUE (GRATUIT)"}
+              </span>
             </button>
           </div>
         </div>

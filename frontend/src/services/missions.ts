@@ -21,9 +21,12 @@ export type DailyMissionsPayload = {
   streak: DailyStreakInfo;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api/v1";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api/v1";
 
-export async function fetchDailyMissions(accessToken: string): Promise<DailyMissionsPayload> {
+export async function fetchDailyMissions(
+  accessToken: string,
+): Promise<DailyMissionsPayload> {
   const res = await fetch(`${API_BASE}/games/missions/`, {
     headers: {
       "Content-Type": "application/json",
@@ -39,7 +42,12 @@ export async function fetchDailyMissions(accessToken: string): Promise<DailyMiss
 export async function claimMissionOrStreak(
   accessToken: string,
   key: string,
-): Promise<{ claimed: boolean; reward?: number; day?: number; duplicate?: boolean }> {
+): Promise<{
+  claimed: boolean;
+  reward?: number;
+  day?: number;
+  duplicate?: boolean;
+}> {
   const res = await fetch(`${API_BASE}/games/missions/`, {
     method: "POST",
     headers: {
@@ -56,4 +64,3 @@ export async function claimMissionOrStreak(
 
 export const getDailyMissions = fetchDailyMissions;
 export const claimDailyMission = claimMissionOrStreak;
-

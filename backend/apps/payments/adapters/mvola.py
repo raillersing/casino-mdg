@@ -103,7 +103,12 @@ class MVolaAdapter(BaseMobileMoneyAdapter):
             success=True,
             provider_reference=ref_id,
             status="processing",
-            message=f"Simulation MVola: Validez le paiement de {intent.amount} Ar sur votre numéro {formatted_phone}.",
+            message=(
+                (
+                    f"Simulation MVola: Validez le paiement de {intent.amount}"
+                    f" Ar sur votre numéro {formatted_phone}."
+                )
+            ),
             raw_response={
                 "simulation": True,
                 "operator": "MVola (Telma)",
@@ -119,7 +124,12 @@ class MVolaAdapter(BaseMobileMoneyAdapter):
             success=True,
             provider_reference=ref_id,
             status="processing",
-            message=f"Retrait de {intent.amount} Ar vers le compte MVola {formatted_phone} en cours de traitement.",
+            message=(
+                (
+                    f"Retrait de {intent.amount} Ar vers le compte MVola "
+                    f"{formatted_phone} en cours de traitement."
+                )
+            ),
             raw_response={
                 "simulation": True,
                 "operator": "MVola",

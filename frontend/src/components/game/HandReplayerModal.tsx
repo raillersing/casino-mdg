@@ -43,13 +43,18 @@ export function HandReplayerModal({
   const [stepIndex, setStepIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
-  const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
+  const [verificationResult, setVerificationResult] = useState<boolean | null>(
+    null,
+  );
   const [copiedHash, setCopiedHash] = useState<boolean>(false);
 
   // Sync selected hand
   useEffect(() => {
     if (hands.length > 0) {
-      const idx = Math.max(0, Math.min(hands.length - 1, initialHandIndex || hands.length - 1));
+      const idx = Math.max(
+        0,
+        Math.min(hands.length - 1, initialHandIndex || hands.length - 1),
+      );
       setSelectedHandIndex(idx);
       setStepIndex(0);
       setVerificationResult(null);
@@ -60,10 +65,26 @@ export function HandReplayerModal({
 
   // Stages of a Poker hand
   const stages = [
-    { label: "Préflop", cardCount: 0, desc: "Distribution des cartes fermées et premier tour d'enchères" },
-    { label: "Flop", cardCount: 3, desc: "Ouverture des 3 premières cartes communes" },
-    { label: "Turn", cardCount: 4, desc: "Révélation de la 4ème carte commune" },
-    { label: "River", cardCount: 5, desc: "Dernière carte commune et showdown final" },
+    {
+      label: "Préflop",
+      cardCount: 0,
+      desc: "Distribution des cartes fermées et premier tour d'enchères",
+    },
+    {
+      label: "Flop",
+      cardCount: 3,
+      desc: "Ouverture des 3 premières cartes communes",
+    },
+    {
+      label: "Turn",
+      cardCount: 4,
+      desc: "Révélation de la 4ème carte commune",
+    },
+    {
+      label: "River",
+      cardCount: 5,
+      desc: "Dernière carte commune et showdown final",
+    },
   ];
 
   // Auto-play interval
@@ -84,7 +105,13 @@ export function HandReplayerModal({
   if (!isOpen) return null;
 
   const currentStage = stages[stepIndex] || stages[0];
-  const allCards = currentHand?.communityCards || ["A♠", "K♥", "Q♦", "J♣", "10♠"];
+  const allCards = currentHand?.communityCards || [
+    "A♠",
+    "K♥",
+    "Q♦",
+    "J♣",
+    "10♠",
+  ];
 
   const handleVerifyFairness = async () => {
     if (!currentHand) return;
@@ -93,9 +120,16 @@ export function HandReplayerModal({
       const serverSeed = currentHand.serverSeed || "s_seed_9f82d1c098e";
       const clientSeed = currentHand.clientSeed || "c_seed_mg_player";
       const deckSig = currentHand.deckSignature || allCards.join(",");
-      const expectedHash = currentHand.commitmentHash || "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+      const expectedHash =
+        currentHand.commitmentHash ||
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-      const valid = await verifyProvablyFairCommitment(serverSeed, clientSeed, deckSig, expectedHash);
+      const valid = await verifyProvablyFairCommitment(
+        serverSeed,
+        clientSeed,
+        deckSig,
+        expectedHash,
+      );
       setVerificationResult(valid);
     } catch {
       setVerificationResult(true); // Fallback demonstration
@@ -142,10 +176,23 @@ export function HandReplayerModal({
               <History size={22} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--gold)" }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "1.2rem",
+                  fontWeight: 700,
+                  color: "var(--gold)",
+                }}
+              >
                 Replayer de Main &amp; Fair-Play
               </h3>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--muted)" }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.82rem",
+                  color: "var(--muted)",
+                }}
+              >
                 Revue détaillée coup par coup et certification d'équité
               </p>
             </div>
@@ -161,8 +208,15 @@ export function HandReplayerModal({
         </div>
 
         {hands.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "30px 10px", color: "var(--muted)" }}>
-            Aucune main enregistrée pour le moment. Jouez une main pour la revoir ici.
+          <div
+            style={{
+              textAlign: "center",
+              padding: "30px 10px",
+              color: "var(--muted)",
+            }}
+          >
+            Aucune main enregistrée pour le moment. Jouez une main pour la
+            revoir ici.
           </div>
         ) : (
           <div>
@@ -188,7 +242,10 @@ export function HandReplayerModal({
                   style={{
                     padding: "6px 14px",
                     borderRadius: "8px",
-                    background: selectedHandIndex === i ? "var(--gold)" : "rgba(255, 255, 255, 0.05)",
+                    background:
+                      selectedHandIndex === i
+                        ? "var(--gold)"
+                        : "rgba(255, 255, 255, 0.05)",
                     color: selectedHandIndex === i ? "#0a0d12" : "var(--soft)",
                     fontWeight: 700,
                     fontSize: "0.82rem",
@@ -211,7 +268,8 @@ export function HandReplayerModal({
             {/* Aire de Replay visuelle de la table */}
             <div
               style={{
-                background: "radial-gradient(ellipse at center, #1b382b 0%, #0d2017 75%, #07120d 100%)",
+                background:
+                  "radial-gradient(ellipse at center, #1b382b 0%, #0d2017 75%, #07120d 100%)",
                 borderRadius: "14px",
                 padding: "24px 16px",
                 border: "2px solid rgba(211, 176, 107, 0.25)",
@@ -257,15 +315,23 @@ export function HandReplayerModal({
                         width: "52px",
                         height: "72px",
                         borderRadius: "6px",
-                        background: isRevealed ? "#fff" : "linear-gradient(135deg, #781d1d 0%, #450f0f 100%)",
-                        color: isRevealed ? (card.includes("♥") || card.includes("♦") ? "#d32f2f" : "#111") : "#ffc107",
+                        background: isRevealed
+                          ? "#fff"
+                          : "linear-gradient(135deg, #781d1d 0%, #450f0f 100%)",
+                        color: isRevealed
+                          ? card.includes("♥") || card.includes("♦")
+                            ? "#d32f2f"
+                            : "#111"
+                          : "#ffc107",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         fontWeight: 800,
                         fontSize: "1.15rem",
                         boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-                        border: isRevealed ? "1px solid #ccc" : "1px solid rgba(255, 193, 7, 0.4)",
+                        border: isRevealed
+                          ? "1px solid #ccc"
+                          : "1px solid rgba(255, 193, 7, 0.4)",
                         transition: "all 0.3s ease",
                       }}
                     >
@@ -295,8 +361,15 @@ export function HandReplayerModal({
                   }}
                 >
                   <Award size={20} style={{ color: "var(--gold)" }} />
-                  <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--gold)" }}>
-                    Pot remporté : {currentHand.pot} Ar par {currentHand.winners.join(", ") || "Joueur"}
+                  <span
+                    style={{
+                      fontSize: "0.9rem",
+                      fontWeight: 700,
+                      color: "var(--gold)",
+                    }}
+                  >
+                    Pot remporté : {currentHand.pot} Ar par{" "}
+                    {currentHand.winners.join(", ") || "Joueur"}
                   </span>
                 </div>
               )}
@@ -338,7 +411,10 @@ export function HandReplayerModal({
                       fontSize: "0.78rem",
                       fontWeight: 600,
                       cursor: "pointer",
-                      background: stepIndex === idx ? "var(--gold)" : "rgba(255, 255, 255, 0.08)",
+                      background:
+                        stepIndex === idx
+                          ? "var(--gold)"
+                          : "rgba(255, 255, 255, 0.08)",
                       color: stepIndex === idx ? "#000" : "var(--soft)",
                     }}
                   >
@@ -347,7 +423,9 @@ export function HandReplayerModal({
                 ))}
               </div>
 
-              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <div
+                style={{ display: "flex", gap: "6px", alignItems: "center" }}
+              >
                 <button
                   type="button"
                   className="icon-button"
@@ -360,7 +438,11 @@ export function HandReplayerModal({
                 <button
                   type="button"
                   className="icon-button"
-                  onClick={() => setStepIndex((prev) => Math.min(stages.length - 1, prev + 1))}
+                  onClick={() =>
+                    setStepIndex((prev) =>
+                      Math.min(stages.length - 1, prev + 1),
+                    )
+                  }
                   disabled={stepIndex === stages.length - 1}
                   style={{ opacity: stepIndex === stages.length - 1 ? 0.3 : 1 }}
                   title="Étape suivante"
@@ -387,9 +469,17 @@ export function HandReplayerModal({
                   marginBottom: "8px",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
                   <ShieldCheck size={18} style={{ color: "#4caf50" }} />
-                  <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#81c784" }}>
+                  <span
+                    style={{
+                      fontSize: "0.9rem",
+                      fontWeight: 700,
+                      color: "#81c784",
+                    }}
+                  >
                     Garantie d'Équité Provably Fair (SHA-256)
                   </span>
                 </div>
@@ -412,9 +502,17 @@ export function HandReplayerModal({
                 </button>
               </div>
 
-              <p style={{ margin: "0 0 10px 0", fontSize: "0.75rem", color: "var(--muted)" }}>
-                Le paquet de cartes est scellé par une empreinte SHA-256 avant le début de la distribution.
-                La clé secrète est révélée en fin de coup pour prouver mathématiquement qu'aucune carte n'a été manipulée.
+              <p
+                style={{
+                  margin: "0 0 10px 0",
+                  fontSize: "0.75rem",
+                  color: "var(--muted)",
+                }}
+              >
+                Le paquet de cartes est scellé par une empreinte SHA-256 avant
+                le début de la distribution. La clé secrète est révélée en fin
+                de coup pour prouver mathématiquement qu'aucune carte n'a été
+                manipulée.
               </p>
 
               {/* Empreinte cryptographique */}
@@ -432,16 +530,39 @@ export function HandReplayerModal({
                   marginBottom: "6px",
                 }}
               >
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "85%" }}>
-                  Hash : {currentHand?.commitmentHash || "6a10f82d1c098e94582bcfe098234ea723145..."}
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: "85%",
+                  }}
+                >
+                  Hash :{" "}
+                  {currentHand?.commitmentHash ||
+                    "6a10f82d1c098e94582bcfe098234ea723145..."}
                 </span>
                 <button
                   type="button"
-                  onClick={() => handleCopyHash(currentHand?.commitmentHash || "6a10f82d1c098e94582bcfe098234ea723145")}
-                  style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--soft)" }}
+                  onClick={() =>
+                    handleCopyHash(
+                      currentHand?.commitmentHash ||
+                        "6a10f82d1c098e94582bcfe098234ea723145",
+                    )
+                  }
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--soft)",
+                  }}
                   title="Copier l'empreinte"
                 >
-                  {copiedHash ? <CheckCircle2 size={13} style={{ color: "#4caf50" }} /> : <Copy size={13} />}
+                  {copiedHash ? (
+                    <CheckCircle2 size={13} style={{ color: "#4caf50" }} />
+                  ) : (
+                    <Copy size={13} />
+                  )}
                 </button>
               </div>
 
@@ -453,7 +574,9 @@ export function HandReplayerModal({
                     gap: "8px",
                     padding: "8px 12px",
                     borderRadius: "6px",
-                    background: verificationResult ? "rgba(76, 175, 80, 0.15)" : "rgba(244, 67, 54, 0.15)",
+                    background: verificationResult
+                      ? "rgba(76, 175, 80, 0.15)"
+                      : "rgba(244, 67, 54, 0.15)",
                     border: `1px solid ${verificationResult ? "#4caf50" : "#f44336"}`,
                     color: verificationResult ? "#a5d6a7" : "#ef9a9a",
                     fontSize: "0.82rem",

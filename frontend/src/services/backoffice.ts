@@ -610,7 +610,10 @@ export function getResponsibleGamingExclusions(token: string) {
     headers: { Authorization: `Bearer ${token}` },
   }).then(async (res) => {
     const payload = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(payload.detail || "Impossible de charger les exclusions.");
+    if (!res.ok)
+      throw new Error(
+        payload.detail || "Impossible de charger les exclusions.",
+      );
     return payload as { results: RGExclusionItem[]; count: number };
   });
 }

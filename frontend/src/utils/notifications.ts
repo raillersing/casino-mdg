@@ -5,7 +5,8 @@ function getGlobalNotification(): typeof Notification | undefined {
     return window.Notification;
   }
   if (typeof globalThis !== "undefined" && "Notification" in globalThis) {
-    return (globalThis as unknown as { Notification: typeof Notification }).Notification;
+    return (globalThis as unknown as { Notification: typeof Notification })
+      .Notification;
   }
   return undefined;
 }
@@ -54,7 +55,11 @@ export const webNotifications = {
 
     try {
       // If service worker registration is active, prefer showNotification for PWA
-      if (typeof navigator !== "undefined" && "serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      if (
+        typeof navigator !== "undefined" &&
+        "serviceWorker" in navigator &&
+        navigator.serviceWorker.controller
+      ) {
         navigator.serviceWorker.ready
           .then((reg) => {
             void reg.showNotification(title, {

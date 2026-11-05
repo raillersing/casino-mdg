@@ -310,7 +310,8 @@
     "secondTour": "Fidihana faharoa",
     "chooseTrump": "Safidio ny atout",
     "announceBelote": "Ampahafantaro ny Belote",
-    "reconnecting": "Mampifandray indray..."
+    "reconnecting": "Mampifandray indray...",
+    "closeResults": "Hanidy ny valiny"
   },
   "testGames": {
     "breadcrumb": "Lalao kisendrasendra",
@@ -398,7 +399,7 @@
     "backHome": "Hiverina amin'ny pejy fandraisana",
     "chooseMode": "Fidio ny fomba",
     "howToPlay": "Ahoana ny filalaovana",
-    "quickMatch": "Lalao haingana",
+    "quickMatch": "Hitady mpilalao",
     "quickMatchDesc": "Mitaiza olona haingana amin'ny alalan'ny matchmaking.",
     "practice": "Fanazaran-tena",
     "practiceDesc": "Milalaova amin'ny bot tsy misy savorovoro.",
@@ -592,5 +593,24 @@
     "help": "Vao manomboka? Misafidiana lalao dia fidio ny fanazaran-tena mba hahafantarana azy.",
     "lobbyTitle": "Misafidiana latabatra",
     "open": "Misokatra"
+  },
+  "welcome": {
+    "title": "Andao hiara-hilalao?",
+    "intro": "Ireo lalao malagasy tianao, miaraka amin’ny namanao na mpilalao vaovao.",
+    "choose": "Hisafidy lalao",
+    "join": "Manana kaody manokana aho",
+    "how": "Ahoana no tianao hilalaovana?",
+    "online": "Hitady latabatra",
+    "onlineDesc": "Jereo ny toerana malalaka ary safidio ny lalaonao.",
+    "friends": "Hilalao amin’ny namako",
+    "friendsDesc": "Mamoròna latabatra manokana ary zarao ny fanasana.",
+    "practice": "Hanao fanazaran-tena",
+    "practiceDesc": "Misafidiana lalao hianarana miaraka amin’ny robot.",
+    "discover": "Lalao hiarahana mahita",
+    "discoverGame": "Hijery ity lalao ity",
+    "helpTitle": "Vao manomboka?",
+    "help": "Misafidiana lalao, fantaro ny fitsipika, dia manaova fanazaran-tena na asao ny namanao.",
+    "support": "Mila fanampiana?",
+    "resume": "Hanohy lalao"
   }
 }

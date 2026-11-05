@@ -11,7 +11,8 @@ class CasinoSoundEngine {
     if (!this.ctx) {
       const AudioCtx =
         window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
       }
@@ -76,8 +77,14 @@ class CasinoSoundEngine {
   stopAnticipation() {
     if (this.anticipationOsc && this.anticipationGain && this.ctx) {
       const now = this.ctx.currentTime;
-      this.anticipationGain.gain.setValueAtTime(this.anticipationGain.gain.value, now);
-      this.anticipationGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+      this.anticipationGain.gain.setValueAtTime(
+        this.anticipationGain.gain.value,
+        now,
+      );
+      this.anticipationGain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        now + 0.1,
+      );
       setTimeout(() => {
         try {
           this.anticipationOsc?.stop();
@@ -167,19 +174,21 @@ class CasinoSoundEngine {
     if (!ctx) return;
     const now = ctx.currentTime;
     const baseFreq = 440 + lineIndex * 70;
-    [baseFreq, baseFreq * 1.25, baseFreq * 1.5, baseFreq * 2].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.001, now + i * 0.06);
-      gain.gain.linearRampToValueAtTime(0.14, now + i * 0.06 + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.06 + 0.35);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + i * 0.06);
-      osc.stop(now + i * 0.06 + 0.35);
-    });
+    [baseFreq, baseFreq * 1.25, baseFreq * 1.5, baseFreq * 2].forEach(
+      (freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.001, now + i * 0.06);
+        gain.gain.linearRampToValueAtTime(0.14, now + i * 0.06 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.06 + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.06);
+        osc.stop(now + i * 0.06 + 0.35);
+      },
+    );
   }
 
   playCoinWin() {
@@ -205,7 +214,9 @@ class CasinoSoundEngine {
     const ctx = this.getContext();
     if (!ctx) return;
     const now = ctx.currentTime;
-    const notes = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093.0, 2637.0];
+    const notes = [
+      523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093.0, 2637.0,
+    ];
     notes.forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();

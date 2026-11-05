@@ -1,6 +1,3 @@
-import mimetypes
-import os
-
 from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404
 from rest_framework import permissions, status

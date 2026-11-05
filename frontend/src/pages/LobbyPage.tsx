@@ -149,10 +149,20 @@ export function LobbyPage() {
         ? selected
         : "all",
     );
+    const action = searchParams.get("action");
+    if (!accessToken && (action === "join-private" || action === "create")) {
+      navigate(
+        `/auth?next=${encodeURIComponent(`/lobby?${searchParams.toString()}`)}`,
+        { replace: true },
+      );
+      return;
+    }
+    if (searchParams.get("action") === "join-private" && accessToken)
+      setShowJoinPrivate(true);
     if (searchParams.get("action") === "matchmaking") setMobileTab("quick");
     if (searchParams.get("action") === "create" && accessToken)
       setShowCreateTable(true);
-  }, [urlGameType, queryFilter, searchParams, accessToken]);
+  }, [urlGameType, queryFilter, searchParams, accessToken, navigate]);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [registeringTourney, setRegisteringTourney] = useState<string | null>(
@@ -211,7 +221,9 @@ export function LobbyPage() {
   const refreshData = useCallback(() => {
     setLoading(true);
     setError("");
-    getLiveStats().then(setLiveStats).catch(() => undefined);
+    getLiveStats()
+      .then(setLiveStats)
+      .catch(() => undefined);
     if (filter === "tournaments") {
       getTournaments(accessToken || "")
         .then((res) => setTournaments(res.results || []))
@@ -1533,9 +1545,9 @@ export function LobbyPage() {
       {/* Modal Riche de Création de Table */}
       <CreateTableModal
         initialGameType={
-          (["belote", "domino", "ludo", "rami", "poker"].includes(filter)
+          ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
             ? (filter as "belote" | "domino" | "ludo" | "rami" | "poker")
-            : "belote")
+            : "belote"
         }
         isOpen={showCreateTable}
         onClose={() => setShowCreateTable(false)}

@@ -56,10 +56,14 @@ export function ClubsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [managedClub, setManagedClub] = useState<Club | null>(null);
-  const [activeTab, setActiveTab] = useState<"members" | "chat" | "certification">("members");
+  const [activeTab, setActiveTab] = useState<
+    "members" | "chat" | "certification"
+  >("members");
   const [members, setMembers] = useState<ClubMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
-  const [clubChatMessages, setClubChatMessages] = useState<ClubChatMessage[]>([]);
+  const [clubChatMessages, setClubChatMessages] = useState<ClubChatMessage[]>(
+    [],
+  );
   const [clubChatLoading, setClubChatLoading] = useState(false);
   const [clubChatInput, setClubChatInput] = useState("");
   const [certifying, setCertifying] = useState(false);
@@ -120,7 +124,9 @@ export function ClubsPage() {
               }),
           );
           setClubEvents(
-            Object.fromEntries(entries.map((entry) => [entry.id, entry.events])),
+            Object.fromEntries(
+              entries.map((entry) => [entry.id, entry.events]),
+            ),
           );
           setClubLeaderboards(
             Object.fromEntries(
@@ -245,7 +251,9 @@ export function ClubsPage() {
       setCertInfo(updated);
       if (updated.detail) setCertSuccessMsg(updated.detail);
       if (updated.club) {
-        setClubs((prev) => prev.map((c) => (c.id === clubId ? updated.club! : c)));
+        setClubs((prev) =>
+          prev.map((c) => (c.id === clubId ? updated.club! : c)),
+        );
         setManagedClub(updated.club);
       }
     } catch (reason) {
@@ -258,7 +266,10 @@ export function ClubsPage() {
   const shareWhatsApp = (club: Club) => {
     const code = club.code || `MDG-${club.id.slice(0, 4).toUpperCase()}`;
     const text = `Salama! Manasa anao hiditra ao amin'ny club "${club.name}" ao amin'ny Casino MDG. Code club: ${code} 👉 ${window.location.origin}/clubs`;
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+    window.open(
+      `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`,
+      "_blank",
+    );
   };
 
   const copyClubCode = (club: Club) => {
@@ -378,13 +389,23 @@ export function ClubsPage() {
       {!accessToken && (
         <div
           className="guest-banner"
-          style={{ margin: "0 0 16px", borderRadius: "10px", padding: "12px 16px" }}
+          style={{
+            margin: "0 0 16px",
+            borderRadius: "10px",
+            padding: "12px 16px",
+          }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Sparkles size={16} style={{ color: "var(--gold)" }} />
-            <span>Découvrez les cercles de joueurs officiels ou fondez votre club privé.</span>
+            <span>
+              Découvrez les cercles de joueurs officiels ou fondez votre club
+              privé.
+            </span>
           </div>
-          <Link to="/auth?next=/clubs" className="button button-small button-gold">
+          <Link
+            to="/auth?next=/clubs"
+            className="button button-small button-gold"
+          >
             {t("nav.login")}
           </Link>
         </div>
@@ -397,15 +418,28 @@ export function ClubsPage() {
       )}
 
       {/* Sélecteur de mode : Salons de Clubs vs Ligue & Classement Général */}
-      <div style={{ display: "flex", gap: "8px", margin: "16px 0 20px", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          margin: "16px 0 20px",
+          flexWrap: "wrap",
+        }}
+      >
         <button
           type="button"
           onClick={() => setViewMode("clubs")}
           style={{
             padding: "8px 18px",
             borderRadius: "10px",
-            border: viewMode === "clubs" ? "1px solid var(--gold)" : "1px solid rgba(255, 255, 255, 0.1)",
-            background: viewMode === "clubs" ? "rgba(211, 176, 107, 0.15)" : "rgba(255, 255, 255, 0.04)",
+            border:
+              viewMode === "clubs"
+                ? "1px solid var(--gold)"
+                : "1px solid rgba(255, 255, 255, 0.1)",
+            background:
+              viewMode === "clubs"
+                ? "rgba(211, 176, 107, 0.15)"
+                : "rgba(255, 255, 255, 0.04)",
             color: viewMode === "clubs" ? "var(--gold)" : "var(--soft)",
             fontWeight: 700,
             fontSize: "0.9rem",
@@ -427,8 +461,14 @@ export function ClubsPage() {
           style={{
             padding: "8px 18px",
             borderRadius: "10px",
-            border: viewMode === "league" ? "1px solid var(--gold)" : "1px solid rgba(255, 255, 255, 0.1)",
-            background: viewMode === "league" ? "rgba(211, 176, 107, 0.15)" : "rgba(255, 255, 255, 0.04)",
+            border:
+              viewMode === "league"
+                ? "1px solid var(--gold)"
+                : "1px solid rgba(255, 255, 255, 0.1)",
+            background:
+              viewMode === "league"
+                ? "rgba(211, 176, 107, 0.15)"
+                : "rgba(255, 255, 255, 0.04)",
             color: viewMode === "league" ? "var(--gold)" : "var(--soft)",
             fontWeight: 700,
             fontSize: "0.9rem",
@@ -444,11 +484,18 @@ export function ClubsPage() {
       </div>
 
       {viewMode === "league" ? (
-        <section className="club-league-section" style={{ marginBottom: "24px" }}>
+        <section
+          className="club-league-section"
+          style={{ marginBottom: "24px" }}
+        >
           {leagueLoading && league.length === 0 ? (
-            <div className="empty-note">Chargement du classement de la Ligue...</div>
+            <div className="empty-note">
+              Chargement du classement de la Ligue...
+            </div>
           ) : league.length === 0 ? (
-            <div className="empty-note">Aucun club classé dans la ligue pour le moment.</div>
+            <div className="empty-note">
+              Aucun club classé dans la ligue pour le moment.
+            </div>
           ) : (
             <div>
               {/* Podium Top 3 */}
@@ -463,7 +510,11 @@ export function ClubsPage() {
                 {league.slice(0, 3).map((c, idx) => {
                   const isFirst = idx === 0;
                   const isSecond = idx === 1;
-                  const medalColor = isFirst ? "var(--gold)" : isSecond ? "#b0bec5" : "#bcaaa4";
+                  const medalColor = isFirst
+                    ? "var(--gold)"
+                    : isSecond
+                      ? "#b0bec5"
+                      : "#bcaaa4";
                   const medalBg = isFirst
                     ? "rgba(211, 176, 107, 0.15)"
                     : isSecond
@@ -477,7 +528,9 @@ export function ClubsPage() {
                         padding: "18px 16px",
                         background: "rgba(255, 255, 255, 0.03)",
                         border: `1px solid ${isFirst ? "var(--gold)" : "rgba(255, 255, 255, 0.1)"}`,
-                        boxShadow: isFirst ? "0 0 20px rgba(211, 176, 107, 0.18)" : undefined,
+                        boxShadow: isFirst
+                          ? "0 0 20px rgba(211, 176, 107, 0.18)"
+                          : undefined,
                         textAlign: "center",
                       }}
                     >
@@ -496,11 +549,25 @@ export function ClubsPage() {
                       >
                         {isFirst ? <Crown size={24} /> : <Medal size={22} />}
                       </div>
-                      <div style={{ fontSize: "0.82rem", fontWeight: 700, color: medalColor }}>
+                      <div
+                        style={{
+                          fontSize: "0.82rem",
+                          fontWeight: 700,
+                          color: medalColor,
+                        }}
+                      >
                         Rang #{c.rank} · {c.tier}
                       </div>
-                      <h3 style={{ margin: "4px 0", fontSize: "1.1rem" }}>{c.name}</h3>
-                      <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "8px" }}>
+                      <h3 style={{ margin: "4px 0", fontSize: "1.1rem" }}>
+                        {c.name}
+                      </h3>
+                      <div
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "var(--muted)",
+                          marginBottom: "8px",
+                        }}
+                      >
                         {c.city || "Madagascar"} · {c.member_count} membres
                       </div>
                       <div
@@ -560,12 +627,19 @@ export function ClubsPage() {
                       alignItems: "center",
                     }}
                   >
-                    <span style={{ fontWeight: 700, color: c.rank <= 3 ? "var(--gold)" : "var(--muted)" }}>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: c.rank <= 3 ? "var(--gold)" : "var(--muted)",
+                      }}
+                    >
                       #{c.rank}
                     </span>
                     <div>
                       <strong style={{ display: "block" }}>{c.name}</strong>
-                      <small style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
+                      <small
+                        style={{ color: "var(--muted)", fontSize: "0.75rem" }}
+                      >
                         {c.code} · {c.city || "Madagascar"}
                       </small>
                     </div>
@@ -584,11 +658,23 @@ export function ClubsPage() {
                           <ShieldCheck size={13} /> Certifié
                         </span>
                       ) : (
-                        <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>Standard</span>
+                        <span
+                          style={{ color: "var(--muted)", fontSize: "0.78rem" }}
+                        >
+                          Standard
+                        </span>
                       )}
                     </div>
-                    <span style={{ color: "var(--soft)" }}>{c.tables_count} active(s)</span>
-                    <span style={{ textAlign: "right", fontWeight: 700, color: "var(--gold)" }}>
+                    <span style={{ color: "var(--soft)" }}>
+                      {c.tables_count} active(s)
+                    </span>
+                    <span
+                      style={{
+                        textAlign: "right",
+                        fontWeight: 700,
+                        color: "var(--gold)",
+                      }}
+                    >
                       {c.total_points} pts
                     </span>
                   </div>
@@ -608,11 +694,18 @@ export function ClubsPage() {
       ) : (
         <div className="clubs-grid">
           {clubs.map((club) => {
-            const clubCode = club.code || `MDG-${club.id.slice(0, 4).toUpperCase()}`;
+            const clubCode =
+              club.code || `MDG-${club.id.slice(0, 4).toUpperCase()}`;
             return (
               <article className="club-card" key={club.id}>
                 <div className="club-card-top">
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
                     <span className="club-mark">
                       <UsersRound size={20} />
                     </span>
@@ -632,11 +725,14 @@ export function ClubsPage() {
                           fontWeight: 600,
                         }}
                       >
-                        <ShieldCheck size={13} strokeWidth={2.4} /> {t("clubs.certified")}
+                        <ShieldCheck size={13} strokeWidth={2.4} />{" "}
+                        {t("clubs.certified")}
                       </span>
                     )}
                   </div>
-                  {club.visibility === "invite" && <Lock size={15} style={{ color: "var(--muted)" }} />}
+                  {club.visibility === "invite" && (
+                    <Lock size={15} style={{ color: "var(--muted)" }} />
+                  )}
                 </div>
 
                 <h2>{club.name}</h2>
@@ -663,8 +759,11 @@ export function ClubsPage() {
                     fontSize: "11px",
                   }}
                 >
-                  <span style={{ color: "var(--muted)", fontFamily: "var(--mono)" }}>
-                    Code: <strong style={{ color: "var(--gold)" }}>{clubCode}</strong>
+                  <span
+                    style={{ color: "var(--muted)", fontFamily: "var(--mono)" }}
+                  >
+                    Code:{" "}
+                    <strong style={{ color: "var(--gold)" }}>{clubCode}</strong>
                   </span>
                   <div style={{ display: "flex", gap: "6px" }}>
                     <button
@@ -690,7 +789,15 @@ export function ClubsPage() {
                   </div>
                 </div>
                 {copiedCode === clubCode && (
-                  <small style={{ color: "var(--gold)", fontSize: "10px", textAlign: "right", marginTop: "-8px", marginBottom: "8px" }}>
+                  <small
+                    style={{
+                      color: "var(--gold)",
+                      fontSize: "10px",
+                      textAlign: "right",
+                      marginTop: "-8px",
+                      marginBottom: "8px",
+                    }}
+                  >
                     Code copié !
                   </small>
                 )}
@@ -769,21 +876,23 @@ export function ClubsPage() {
                 )}
 
                 {/* Classement */}
-                {club.joined && (clubLeaderboards[club.id] || []).length > 0 && (
-                  <div className="club-leaderboard">
-                    <span className="eyebrow">{t("clubs.leaderboard")}</span>
-                    {(clubLeaderboards[club.id] || [])
-                      .slice(0, 3)
-                      .map((entry) => (
-                        <div className="club-ranking-row" key={entry.user_id}>
-                          <span>
-                            <strong>#{entry.rank}</strong> {entry.display_name}
-                          </span>
-                          <small>{entry.points} pts</small>
-                        </div>
-                      ))}
-                  </div>
-                )}
+                {club.joined &&
+                  (clubLeaderboards[club.id] || []).length > 0 && (
+                    <div className="club-leaderboard">
+                      <span className="eyebrow">{t("clubs.leaderboard")}</span>
+                      {(clubLeaderboards[club.id] || [])
+                        .slice(0, 3)
+                        .map((entry) => (
+                          <div className="club-ranking-row" key={entry.user_id}>
+                            <span>
+                              <strong>#{entry.rank}</strong>{" "}
+                              {entry.display_name}
+                            </span>
+                            <small>{entry.points} pts</small>
+                          </div>
+                        ))}
+                    </div>
+                  )}
               </article>
             );
           })}
@@ -795,7 +904,9 @@ export function ClubsPage() {
         <section className="club-members-panel" style={{ marginTop: "24px" }}>
           <div className="section-heading compact">
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
                 <span className="eyebrow">{t("clubs.eyebrow")}</span>
                 {managedClub.is_certified && (
                   <span
@@ -908,7 +1019,8 @@ export function ClubsPage() {
                 ) : clubChatMessages.length ? (
                   clubChatMessages.map((m) => (
                     <p key={m.id} style={{ margin: "4px 0", fontSize: "12px" }}>
-                      <b style={{ color: "var(--gold)" }}>{m.author} :</b> {m.body}
+                      <b style={{ color: "var(--gold)" }}>{m.author} :</b>{" "}
+                      {m.body}
                     </p>
                   ))
                 ) : (
@@ -945,7 +1057,9 @@ export function ClubsPage() {
                       flexShrink: 0,
                       whiteSpace: "nowrap",
                     }}
-                    onClick={() => void sendClubChatMessage(managedClub.id, phrase)}
+                    onClick={() =>
+                      void sendClubChatMessage(managedClub.id, phrase)
+                    }
                   >
                     {phrase}
                   </button>
@@ -953,13 +1067,17 @@ export function ClubsPage() {
               </div>
 
               {/* Saisie */}
-              <div className="chat-input" style={{ border: "1px solid var(--line)", borderRadius: "8px" }}>
+              <div
+                className="chat-input"
+                style={{ border: "1px solid var(--line)", borderRadius: "8px" }}
+              >
                 <input
                   placeholder="Ecrire un message au club..."
                   value={clubChatInput}
                   onChange={(e) => setClubChatInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") void sendClubChatMessage(managedClub.id);
+                    if (e.key === "Enter")
+                      void sendClubChatMessage(managedClub.id);
                   }}
                 />
                 <button
@@ -983,7 +1101,14 @@ export function ClubsPage() {
                 padding: "20px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginBottom: "8px",
+                }}
+              >
                 <div
                   style={{
                     width: "36px",
@@ -1001,8 +1126,15 @@ export function ClubsPage() {
                   <h3 style={{ margin: 0, fontSize: "16px", color: "#fff" }}>
                     Certification Officielle Casino MDG
                   </h3>
-                  <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--muted)" }}>
-                    Gage de confiance, d'intégrité et de prestige pour votre communauté
+                  <p
+                    style={{
+                      margin: "2px 0 0",
+                      fontSize: "12px",
+                      color: "var(--muted)",
+                    }}
+                  >
+                    Gage de confiance, d'intégrité et de prestige pour votre
+                    communauté
                   </p>
                 </div>
               </div>
@@ -1034,32 +1166,89 @@ export function ClubsPage() {
                     margin: "14px 0",
                     padding: "16px",
                     borderRadius: "8px",
-                    background: "linear-gradient(135deg, rgba(211, 176, 107, 0.15) 0%, rgba(17, 22, 30, 0.9) 100%)",
+                    background:
+                      "linear-gradient(135deg, rgba(211, 176, 107, 0.15) 0%, rgba(17, 22, 30, 0.9) 100%)",
                     border: "1px solid rgba(211, 176, 107, 0.4)",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      marginBottom: "10px",
+                    }}
+                  >
                     <ShieldCheck size={20} style={{ color: "var(--gold)" }} />
                     <strong style={{ color: "var(--gold)", fontSize: "14px" }}>
                       Félicitations ! Votre club est Certifié Officiel MDG
                     </strong>
                   </div>
-                  <p style={{ fontSize: "12px", color: "var(--soft)", margin: "0 0 12px", lineHeight: 1.5 }}>
-                    Votre club bénéficie des privilèges certifiés maximaux : capacité décuplée à 250 membres,
-                    priorité dans le Lobby et le répertoire, et écusson officiel visible sur toutes vos tables.
+                  <p
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--soft)",
+                      margin: "0 0 12px",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Votre club bénéficie des privilèges certifiés maximaux :
+                    capacité décuplée à 250 membres, priorité dans le Lobby et
+                    le répertoire, et écusson officiel visible sur toutes vos
+                    tables.
                   </p>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "8px", fontSize: "11.5px" }}>
-                    <span style={{ color: "var(--soft)", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <CheckCircle2 size={14} style={{ color: "#4ade80" }} /> Limite 250 membres active
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(180px, 1fr))",
+                      gap: "8px",
+                      fontSize: "11.5px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: "var(--soft)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <CheckCircle2 size={14} style={{ color: "#4ade80" }} />{" "}
+                      Limite 250 membres active
                     </span>
-                    <span style={{ color: "var(--soft)", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <CheckCircle2 size={14} style={{ color: "#4ade80" }} /> Écusson vérifié sur vos tables
+                    <span
+                      style={{
+                        color: "var(--soft)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <CheckCircle2 size={14} style={{ color: "#4ade80" }} />{" "}
+                      Écusson vérifié sur vos tables
                     </span>
-                    <span style={{ color: "var(--soft)", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <CheckCircle2 size={14} style={{ color: "#4ade80" }} /> Visibilité prioritaire Lobby
+                    <span
+                      style={{
+                        color: "var(--soft)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <CheckCircle2 size={14} style={{ color: "#4ade80" }} />{" "}
+                      Visibilité prioritaire Lobby
                     </span>
-                    <span style={{ color: "var(--soft)", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <CheckCircle2 size={14} style={{ color: "#4ade80" }} /> Tournois officiels inter-clubs
+                    <span
+                      style={{
+                        color: "var(--soft)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <CheckCircle2 size={14} style={{ color: "#4ade80" }} />{" "}
+                      Tournois officiels inter-clubs
                     </span>
                   </div>
                 </div>
@@ -1074,26 +1263,61 @@ export function ClubsPage() {
                     border: "1px solid rgba(211, 176, 107, 0.3)",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--gold)", marginBottom: "6px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      color: "var(--gold)",
+                      marginBottom: "6px",
+                    }}
+                  >
                     <Sparkles size={16} />
-                    <strong style={{ fontSize: "13px" }}>Dossier soumis & en cours d'examen</strong>
+                    <strong style={{ fontSize: "13px" }}>
+                      Dossier soumis & en cours d'examen
+                    </strong>
                   </div>
-                  <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
-                    Votre demande de certification a bien été transmise à notre équipe de conformité.
-                    L'évaluation des critères et de l'intégrité de jeu est généralement effectuée sous 24 à 48 heures.
+                  <p
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--muted)",
+                      margin: 0,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Votre demande de certification a bien été transmise à notre
+                    équipe de conformité. L'évaluation des critères et de
+                    l'intégrité de jeu est généralement effectuée sous 24 à 48
+                    heures.
                   </p>
                 </div>
               ) : (
                 /* Statut 3 : Éligibilité & Checklist des critères */
                 <div style={{ marginTop: "16px" }}>
-                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#fff", marginBottom: "10px" }}>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "#fff",
+                      marginBottom: "10px",
+                    }}
+                  >
                     Critères d'Éligibilité à la Certification :
                   </div>
 
                   {certLoading ? (
-                    <p style={{ fontSize: "12px", color: "var(--muted)" }}>Vérification des critères en cours...</p>
+                    <p style={{ fontSize: "12px", color: "var(--muted)" }}>
+                      Vérification des critères en cours...
+                    </p>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                        marginBottom: "16px",
+                      }}
+                    >
                       {/* Critère 1 : KYC Fondateur */}
                       <div
                         style={{
@@ -1107,15 +1331,33 @@ export function ClubsPage() {
                         }}
                       >
                         <div>
-                          <div style={{ fontSize: "12.5px", fontWeight: 500, color: "#fff" }}>
+                          <div
+                            style={{
+                              fontSize: "12.5px",
+                              fontWeight: 500,
+                              color: "#fff",
+                            }}
+                          >
                             1. Identité du Fondateur (KYC)
                           </div>
-                          <div style={{ fontSize: "11px", color: "var(--muted)" }}>
-                            Le compte fondateur doit être vérifié (Niveau 1 minimum)
+                          <div
+                            style={{ fontSize: "11px", color: "var(--muted)" }}
+                          >
+                            Le compte fondateur doit être vérifié (Niveau 1
+                            minimum)
                           </div>
                         </div>
                         {certInfo?.criteria.founder_kyc_approved ? (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#4ade80", fontSize: "12px", fontWeight: 600 }}>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              color: "#4ade80",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                            }}
+                          >
                             <CheckCircle2 size={15} /> Vérifié
                           </span>
                         ) : (
@@ -1134,7 +1376,8 @@ export function ClubsPage() {
                               border: "1px solid rgba(211, 176, 107, 0.3)",
                             }}
                           >
-                            <AlertCircle size={13} /> Valider KYC <ExternalLink size={11} />
+                            <AlertCircle size={13} /> Valider KYC{" "}
+                            <ExternalLink size={11} />
                           </Link>
                         )}
                       </div>
@@ -1148,26 +1391,65 @@ export function ClubsPage() {
                           border: "1px solid var(--line)",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: "6px",
+                          }}
+                        >
                           <div>
-                            <div style={{ fontSize: "12.5px", fontWeight: 500, color: "#fff" }}>
+                            <div
+                              style={{
+                                fontSize: "12.5px",
+                                fontWeight: 500,
+                                color: "#fff",
+                              }}
+                            >
                               2. Quorum de Membres Actifs
                             </div>
-                            <div style={{ fontSize: "11px", color: "var(--muted)" }}>
-                              Le club doit compter au moins 5 membres enregistrés
+                            <div
+                              style={{
+                                fontSize: "11px",
+                                color: "var(--muted)",
+                              }}
+                            >
+                              Le club doit compter au moins 5 membres
+                              enregistrés
                             </div>
                           </div>
-                          <span style={{ fontSize: "12px", fontWeight: 600, color: certInfo?.criteria.members_satisfied ? "#4ade80" : "var(--gold)" }}>
-                            {certInfo?.criteria.member_count ?? managedClub.member_count} / 5 membres
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              color: certInfo?.criteria.members_satisfied
+                                ? "#4ade80"
+                                : "var(--gold)",
+                            }}
+                          >
+                            {certInfo?.criteria.member_count ??
+                              managedClub.member_count}{" "}
+                            / 5 membres
                           </span>
                         </div>
                         {/* Mini progress bar */}
-                        <div style={{ width: "100%", height: "5px", background: "rgba(255,255,255,0.08)", borderRadius: "99px", overflow: "hidden" }}>
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "5px",
+                            background: "rgba(255,255,255,0.08)",
+                            borderRadius: "99px",
+                            overflow: "hidden",
+                          }}
+                        >
                           <div
                             style={{
-                              width: `${Math.min(100, (((certInfo?.criteria.member_count ?? managedClub.member_count) / 5) * 100))}%`,
+                              width: `${Math.min(100, ((certInfo?.criteria.member_count ?? managedClub.member_count) / 5) * 100)}%`,
                               height: "100%",
-                              background: certInfo?.criteria.members_satisfied ? "#4ade80" : "var(--gold)",
+                              background: certInfo?.criteria.members_satisfied
+                                ? "#4ade80"
+                                : "var(--gold)",
                               transition: "width 0.3s ease",
                             }}
                           />
@@ -1187,16 +1469,38 @@ export function ClubsPage() {
                         }}
                       >
                         <div>
-                          <div style={{ fontSize: "12.5px", fontWeight: 500, color: "#fff" }}>
+                          <div
+                            style={{
+                              fontSize: "12.5px",
+                              fontWeight: 500,
+                              color: "#fff",
+                            }}
+                          >
                             3. Activité de Tables
                           </div>
-                          <div style={{ fontSize: "11px", color: "var(--muted)" }}>
+                          <div
+                            style={{ fontSize: "11px", color: "var(--muted)" }}
+                          >
                             Avoir créé au moins 1 table de jeu sous le club
                           </div>
                         </div>
-                        <span style={{ fontSize: "12px", fontWeight: 600, color: certInfo?.criteria.tables_satisfied ? "#4ade80" : "var(--gold)" }}>
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            color: certInfo?.criteria.tables_satisfied
+                              ? "#4ade80"
+                              : "var(--gold)",
+                          }}
+                        >
                           {certInfo?.criteria.tables_satisfied ? (
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                              }}
+                            >
                               <CheckCircle2 size={15} /> Confirmé
                             </span>
                           ) : (
@@ -1208,12 +1512,21 @@ export function ClubsPage() {
                   )}
 
                   {/* Bouton de soumission */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <button
                       type="button"
                       className="button button-gold"
                       disabled={certifying}
-                      onClick={() => void handleRequestCertification(managedClub.id)}
+                      onClick={() =>
+                        void handleRequestCertification(managedClub.id)
+                      }
                       style={{ fontSize: "13px" }}
                     >
                       <ShieldCheck size={16} />

@@ -10844,8 +10844,295 @@ h3 {
 }
 
 /* Illustrated game storefront covers. Keep titles in accessible HTML. */
-.discovery-card .discovery-art { height: auto; aspect-ratio: 3 / 2; background: #161b24; }
-.discovery-card .discovery-art::before { display: none; }
-.discovery-art img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 240ms ease; }
-.discovery-card:hover .discovery-art img { transform: scale(1.035); }
-@media (prefers-reduced-motion: reduce) { .discovery-art img { transition: none; } }
+.discovery-card .discovery-art {
+  height: auto;
+  aspect-ratio: 3 / 2;
+  background: #161b24;
+}
+.discovery-card .discovery-art::before {
+  display: none;
+}
+.discovery-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 240ms ease;
+}
+.discovery-card:hover .discovery-art img {
+  transform: scale(1.035);
+}
+@media (prefers-reduced-motion: reduce) {
+  .discovery-art img {
+    transition: none;
+  }
+}
+.club-home {
+  display: grid;
+  gap: 36px;
+  max-width: 1200px;
+  margin: auto;
+}
+.club-home h2 {
+  font-size: 22px;
+  margin: 0 0 18px;
+}
+.club-home-hero {
+  min-height: 390px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #171923;
+  display: flex;
+  align-items: center;
+}
+.club-home-hero > img {
+  position: absolute;
+  width: 65%;
+  height: 100%;
+  right: 0;
+  object-fit: cover;
+}
+.club-home-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    #10151d 23%,
+    #10151de8 43%,
+    #10151d15 100%
+  );
+}
+.club-home-hero-copy {
+  position: relative;
+  z-index: 1;
+  padding: 40px;
+  max-width: 650px;
+}
+.club-home h1 {
+  font-size: clamp(32px, 4vw, 54px);
+  line-height: 1.08;
+  margin: 18px 0;
+}
+.club-home-hero p {
+  max-width: 430px;
+  color: #d2d6df;
+  line-height: 1.7;
+}
+.club-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+.club-home-intents {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.club-home-intents > a {
+  display: block;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 24px;
+  color: var(--text);
+  text-decoration: none;
+}
+.club-home-intents h3 {
+  font-size: 18px;
+  margin: 16px 0 10px;
+}
+.club-home-intents p,
+.club-home-help p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.club-home-intents > a > svg {
+  color: var(--gold);
+}
+.club-home-featured {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.club-home-featured > a {
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+}
+.club-home-featured img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+.club-home-featured > a > div {
+  padding: 18px;
+}
+.club-home-featured h3 {
+  margin: 0 0 12px;
+}
+.club-home-featured span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+.club-home-help {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.club-home a:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 4px;
+}
+@media (max-width: 650px) {
+  .club-home {
+    gap: 28px;
+  }
+  .club-home-hero {
+    min-height: 430px;
+    align-items: flex-end;
+  }
+  .club-home-hero > img {
+    width: 100%;
+    height: 100%;
+  }
+  .club-home-hero::after {
+    background: linear-gradient(
+      0deg,
+      #10151d 3%,
+      #10151de8 45%,
+      #10151d22 100%
+    );
+  }
+  .club-home-hero-copy {
+    padding: 24px;
+  }
+  .club-home-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .club-home-intents {
+    grid-template-columns: 1fr;
+  }
+  .club-home-intents > a {
+    padding: 20px;
+  }
+  .club-home-featured {
+    gap: 12px;
+  }
+  .club-home-featured img {
+    height: 120px;
+  }
+  .club-home-featured > a > div {
+    padding: 14px;
+  }
+  .club-home-featured h3 {
+    font-size: 16px;
+  }
+}
+.unique-player-stats {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.unique-player-stats label {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.unique-player-stats select {
+  min-height: 44px;
+  padding: 8px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.unique-player-stats small {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.live-activity {
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.live-activity-totals,
+.live-activity-games {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.live-activity-totals strong {
+  color: var(--gold);
+  font-size: 20px;
+}
+.live-activity small {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
+}
+.live-activity-games {
+  margin-top: 14px;
+  gap: 8px;
+}
+.live-activity-games button {
+  padding: 10px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.unique-player-summary {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  padding: 0 10px;
+}
+.modal-card form label {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 14px 0;
+}
+.modal-card form select,
+.modal-card form input:not([type="checkbox"]) {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+/* Compact, aligned activity labels under each game cover. */
+.game-activity-summary {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.discovery-game > .game-activity-summary {
+  margin: 8px 6px 2px;
+  font-size: 12px;
+}
+.discovery-game > .unique-player-summary {
+  margin: 2px 6px 4px;
+  font-size: 12px;
+  line-height: 1.5;
+}

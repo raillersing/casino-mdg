@@ -7,7 +7,6 @@ from datetime import timedelta
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
@@ -20,6 +19,7 @@ from apps.clubs.models import ClubMembership
 from apps.wallet.services import credit_simulation_reward, settle_game_win
 
 from .chance_simulation import MAX_ROUNDS, simulate_draw, simulate_instant
+from .live_activity import engine_activity
 from .matchmaking import active_presence, cancel_ticket, queue_player
 from .models import (
     BotSimulationParticipant,
@@ -38,7 +38,8 @@ from .models import (
     generate_table_access_code,
 )
 from .modes import DEMO_AI, SIMULATION_SOLO
-from .services import generate_admission_token, join_table, seed_demo_tables
+from .services import generate_admission_token, join_table
+from .table_rules import CAPABILITIES, validate_table_settings
 from .test_games import create_draw_entry, draw_now, ensure_test_catalog, play_instant
 
 MATCHMAKING_TIMEOUT_SECONDS = 20
@@ -103,6 +104,7 @@ def table_payload(table, request):
         "stake_amount": getattr(table, "stake_amount", 0) or 0,
         "turn_duration": getattr(table, "turn_duration", 15) or 15,
         "rules_config": getattr(table, "rules_config", {}) or {},
+        "rules_version": table.rules_version,
         "access_code": table.access_code if table.is_private else None,
         "player_count": table.seats.count(),
         "max_players": table.max_players,
@@ -463,7 +465,6 @@ class TableListCreateView(APIView):
         )
 
     def get(self, request):
-        seed_demo_tables()
         visibility = Q(is_private=False)
         if request.user.is_authenticated:
             visibility |= (
@@ -493,47 +494,29 @@ class TableListCreateView(APIView):
         if game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
 
-        raw_players = request.data.get("max_players")
-        if game_type == "belote":
-            max_players = 4
-        elif game_type in ("domino", "ludo", "rami"):
-            try:
-                max_players = min(max(int(raw_players or 4), 2), 4)
-            except (TypeError, ValueError):
-                max_players = 4
-        elif game_type == "poker":
-            try:
-                p_val = int(raw_players or 6)
-                max_players = p_val if p_val in (2, 6, 9) else 6
-            except (TypeError, ValueError):
-                max_players = 6
-        else:
-            try:
-                max_players = min(max(int(raw_players or 4), 2), 9)
-            except (TypeError, ValueError):
-                return Response(
-                    {"detail": "Le nombre de joueurs est invalide."}, status=400
-                )
-
         try:
-            stake_amount = max(int(request.data.get("stake_amount", 0)), 0)
-        except (TypeError, ValueError):
-            stake_amount = 0
+            raw_players = request.data.get(
+                "max_players", CAPABILITIES[game_type]["players"][-1]
+            )
 
-        try:
-            turn_duration = min(max(int(request.data.get("turn_duration", 15)), 5), 120)
-        except (TypeError, ValueError):
-            turn_duration = 15
+            def integer(value):
+                if isinstance(value, bool) or not isinstance(value, (int, str)):
+                    raise ValueError("Un entier est requis pour ce réglage.")
+                return int(value)
 
-        rules_config = request.data.get("rules_config")
-        if not isinstance(rules_config, dict):
-            rules_config = {}
-
-        stakes_label = (
-            f"{stake_amount:,} Ar".replace(",", " ")
-            if stake_amount > 0
-            else str(request.data.get("stakes", "Gratuit"))[:40]
-        )
+            max_players = integer(raw_players)
+            turn_duration = integer(request.data.get("turn_duration", 30))
+            stake_amount = integer(request.data.get("stake_amount", 0))
+            rules_config = validate_table_settings(
+                game_type,
+                max_players,
+                turn_duration,
+                request.data.get("rules_config", {}),
+                stake_amount,
+            )
+        except (TypeError, ValueError) as exc:
+            return Response({"detail": str(exc)}, status=400)
+        stakes_label = "Jetons de jeu" if game_type == "poker" else "Gratuit"
 
         club = None
         club_id = request.data.get("club_id")
@@ -556,7 +539,10 @@ class TableListCreateView(APIView):
                 )
             club = club.club
 
-        is_private = bool(request.data.get("is_private", False)) or club is not None
+        raw_private = request.data.get("is_private", False)
+        if not isinstance(raw_private, bool):
+            return Response({"detail": "Visibilité invalide."}, status=400)
+        is_private = raw_private or club is not None
         access_code = None
         if is_private:
             access_code = generate_table_access_code()
@@ -573,9 +559,10 @@ class TableListCreateView(APIView):
             is_private=is_private,
             access_code=access_code,
             rules_config=rules_config,
+            rules_version=1,
             club=club,
             created_by=request.user,
-            table_code=f"{game_type}-{str(GameTable.objects.count() + 1).zfill(3)}",
+            table_code=f"{game_type}-{uuid.uuid4().hex[:16]}",
         )
         join_table(table, request.user)
         return Response(table_payload(table, request), status=status.HTTP_201_CREATED)
@@ -604,11 +591,15 @@ class TableJoinView(APIView):
                 and not (
                     table.created_by_id == request.user.pk
                     or table.seats.filter(user=request.user).exists()
-                    or (table.access_code and table.access_code.upper() == provided_code)
+                    or (
+                        table.access_code and table.access_code.upper() == provided_code
+                    )
                 )
             ):
                 return Response(
-                    {"detail": "Code d'accès invalide ou manquant pour cette salle privée."},
+                    {
+                        "detail": "Code d'accès invalide ou manquant pour cette salle privée."
+                    },
                     status=403,
                 )
             seat, created = join_table(table, request.user)
@@ -656,7 +647,9 @@ class TableAdmissionView(APIView):
                 and not (
                     table.created_by_id == request.user.pk
                     or table.seats.filter(user=request.user).exists()
-                    or (table.access_code and table.access_code.upper() == provided_code)
+                    or (
+                        table.access_code and table.access_code.upper() == provided_code
+                    )
                 )
             ):
                 return Response(
@@ -694,14 +687,17 @@ class TableJoinByCodeView(APIView):
             )
         table = (
             GameTable.objects.filter(
-                Q(access_code__iexact=raw_code) | Q(table_code__iexact=raw_code)
+                Q(access_code__iexact=raw_code)
+                | Q(is_private=False, table_code__iexact=raw_code)
             )
             .exclude(status="finished")
             .first()
         )
         if not table:
             return Response(
-                {"detail": "Aucune table trouvée avec ce code ou la partie est terminée."},
+                {
+                    "detail": "Aucune table trouvée avec ce code ou la partie est terminée."
+                },
                 status=404,
             )
         if (
@@ -738,90 +734,81 @@ class LiveStatsView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        if request.user.is_authenticated:
-            ping_game = request.query_params.get("ping_game")
-            valid_game = (
-                ping_game if ping_game in dict(GameTable.GAME_TYPES) else None
+        try:
+            live = engine_activity()
+        except (requests.RequestException, ValueError):
+            return Response(
+                {"detail": "Activité moteur indisponible.", "available": False},
+                status=503,
             )
-            PlayerPresence.objects.update_or_create(
-                user=request.user,
-                defaults={
-                    "game_type": valid_game,
-                    "status": "online",
-                    "last_seen_at": timezone.now(),
-                },
-            )
-
-        cache_key = "casino_mdg_live_lobby_stats"
-        cached = cache.get(cache_key)
-        if cached:
-            return Response(cached)
-
         now = timezone.now()
-        cutoff_60s = now - timedelta(seconds=60)
-
-        online_presence_users = set(
-            PlayerPresence.objects.filter(last_seen_at__gte=cutoff_60s).values_list(
-                "user_id", flat=True
-            )
+        recent = PlayerPresence.objects.filter(
+            last_seen_at__gte=now - timedelta(seconds=60)
         )
-        seated_users = set(
-            TableSeat.objects.filter(
-                table__status__in=["open", "running"]
-            ).values_list("user_id", flat=True)
-        )
-        all_online_users = online_presence_users | seated_users
-        total_online = len(all_online_users)
-
-        active_tables_qs = GameTable.objects.filter(status__in=["open", "running"])
-        total_running = active_tables_qs.filter(status="running").count()
-        total_open = active_tables_qs.filter(status="open").count()
-
-        game_names = {
-            "belote": "Belote Malagasy",
-            "domino": "Domino Double-Six",
-            "ludo": "Ludo Mada",
-            "rami": "Rami Malagasy",
-            "poker": "Poker Texas Hold'em",
+        humans = {
+            str(identity) for identity in recent.values_list("user_id", flat=True)
         }
-
-        games_data = {}
-        for g_type, g_label in GameTable.GAME_TYPES:
-            g_presence = set(
-                PlayerPresence.objects.filter(
-                    last_seen_at__gte=cutoff_60s, game_type=g_type
-                ).values_list("user_id", flat=True)
+        in_game = set()
+        human_table_ids = {
+            str(pk)
+            for pk in GameTable.objects.filter(mode="HUMAN_MATCH").values_list(
+                "pk", flat=True
             )
-            g_seated = set(
-                TableSeat.objects.filter(
-                    table__game_type=g_type, table__status__in=["open", "running"]
-                ).values_list("user_id", flat=True)
-            )
-            g_online = len(g_presence | g_seated)
-            g_running = active_tables_qs.filter(
-                game_type=g_type, status="running"
+        }
+        public = GameTable.objects.filter(
+            is_private=False, mode="HUMAN_MATCH", created_by__isnull=False
+        ).exclude(status="finished")
+        public_ids = {str(table.pk) for table in public}
+        for identifier, table in live.items():
+            humans.update(table.get("humans", []))
+            if table.get("started") and identifier in human_table_ids:
+                in_game.update(table.get("humans", []))
+        games = {}
+        for game, name in GameTable.GAME_TYPES:
+            playing = set()
+            running = 0
+            for identifier, table in live.items():
+                if (
+                    identifier not in human_table_ids
+                    or table.get("game") != game
+                    or not table.get("started")
+                ):
+                    continue
+                playing.update(table.get("humans", []))
+                if identifier in public_ids:
+                    running += 1
+            opened = public.filter(
+                game_type=game,
+                status="open",
+                pk__in=[
+                    identifier
+                    for identifier, entry in live.items()
+                    if entry.get("humans") and not entry.get("started")
+                ],
             ).count()
-            g_open = active_tables_qs.filter(game_type=g_type, status="open").count()
-
-            games_data[g_type] = {
-                "name": game_names.get(g_type, g_label),
-                "online_players": g_online,
-                "running_tables": g_running,
-                "open_tables": g_open,
-                "total_tables": g_running + g_open,
+            games[game] = {
+                "name": name,
+                "online_players": len(playing),
+                "in_game_players": len(playing),
+                "running_tables": running,
+                "open_tables": opened,
+                "total_tables": running + opened,
             }
-
-        payload = {
-            "total_online_players": total_online,
-            "total_running_tables": total_running,
-            "total_open_tables": total_open,
-            "total_active_tables": total_running + total_open,
-            "games": games_data,
-            "updated_at": now.isoformat(),
-        }
-
-        cache.set(cache_key, payload, timeout=5)
-        return Response(payload)
+        return Response(
+            {
+                "available": True,
+                "running_tables_verified": True,
+                "total_online_players": len(humans),
+                "total_in_game_players": len(in_game),
+                "total_running_tables": sum(
+                    g["running_tables"] for g in games.values()
+                ),
+                "total_open_tables": sum(g["open_tables"] for g in games.values()),
+                "total_active_tables": sum(g["total_tables"] for g in games.values()),
+                "games": games,
+                "updated_at": now.isoformat(),
+            }
+        )
 
 
 def matchmaking_payload(ticket):
@@ -910,7 +897,12 @@ class MatchmakingQueueView(APIView):
         if game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
         target_size = request.data.get("max_players") or request.data.get("target_size")
-        ticket, created = queue_player(request.user, game_type, target_size=target_size)
+        try:
+            ticket, created = queue_player(
+                request.user, game_type, target_size=target_size
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
         return Response(
             {"ticket": matchmaking_payload(ticket), "created": created},
             status=201 if created else 200,
@@ -1711,4 +1703,41 @@ class TournamentRegisterView(APIView):
                 "tournament": tournament_payload(tournament, request.user),
             },
             status=201,
+        )
+
+
+class TableCapabilitiesView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response(
+            {
+                "version": 1,
+                "turn_durations": [10, 15, 30, 60, 90, 120],
+                "games": CAPABILITIES,
+            }
+        )
+
+
+class ResumableTablesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            live = engine_activity()
+        except (requests.RequestException, ValueError):
+            return Response({"detail": "Reprise indisponible."}, status=503)
+        tables = (
+            GameTable.objects.filter(seats__user=request.user, mode="HUMAN_MATCH")
+            .exclude(status="finished")
+            .distinct()
+        )
+        return Response(
+            {
+                "results": [
+                    table_payload(table, request)
+                    for table in tables
+                    if str(table.pk) in live and live[str(table.pk)].get("started")
+                ]
+            }
         )

@@ -65,3 +65,6 @@ graphify-out/
 *.pem
 *.key
 credentials.json
+
+# Durable engine activity spool (mounted separately in deployments)
+activity-outbox/

@@ -18,16 +18,15 @@ import {
   type WalletTransaction,
   type WalletTransactionDetail,
 } from "@services/wallet";
-import {
-  getPaymentIntents,
-  type PaymentIntent,
-} from "@services/payments";
+import { getPaymentIntents, type PaymentIntent } from "@services/payments";
 import { DepositModal } from "@components/wallet/DepositModal";
 import { WithdrawalModal } from "@components/wallet/WithdrawalModal";
 
 export function WalletPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<"overview" | "history" | "intents">("overview");
+  const [tab, setTab] = useState<"overview" | "history" | "intents">(
+    "overview",
+  );
   const [currencyFilter, setCurrencyFilter] = useState<string>("");
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -95,7 +94,10 @@ export function WalletPage() {
         <div>
           <span className="eyebrow">{t("wallet.title")}</span>
           <h1>{t("wallet.title")}</h1>
-          <p>Gérez vos jetons de jeu et votre solde en Ariary réel via Mobile Money.</p>
+          <p>
+            Gérez vos jetons de jeu et votre solde en Ariary réel via Mobile
+            Money.
+          </p>
         </div>
         <div className="wallet-header-actions">
           <button
@@ -121,7 +123,10 @@ export function WalletPage() {
           {/* Cartes de soldes */}
           <div className="wallet-balance-grid">
             {/* Solde Ariary Réel */}
-            <div className="balance-card" style={{ border: "1px solid rgba(211, 176, 107, 0.4)" }}>
+            <div
+              className="balance-card"
+              style={{ border: "1px solid rgba(211, 176, 107, 0.4)" }}
+            >
               <div className="balance-top">
                 <span>Solde Réel (Ariary)</span>
                 <Smartphone size={18} color="var(--gold)" />
@@ -136,9 +141,13 @@ export function WalletPage() {
               </strong>
               <div className="balance-footer">
                 <span>
-                  {balance?.mga_held_balance ? `Bloqué : ${balance.mga_held_balance.toLocaleString("fr-FR")} Ar` : "Disponible immédiatement"}
+                  {balance?.mga_held_balance
+                    ? `Bloqué : ${balance.mga_held_balance.toLocaleString("fr-FR")} Ar`
+                    : "Disponible immédiatement"}
                 </span>
-                <span className="balance-up" style={{ color: "var(--gold)" }}>MGA</span>
+                <span className="balance-up" style={{ color: "var(--gold)" }}>
+                  MGA
+                </span>
               </div>
             </div>
 
@@ -225,7 +234,14 @@ export function WalletPage() {
 
           {tab === "history" && (
             <>
-              <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  marginBottom: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
                 <button
                   type="button"
                   className={`button button-sm ${currencyFilter === "" ? "button-primary" : "button-secondary"}`}
@@ -287,22 +303,38 @@ export function WalletPage() {
                     className="activity-row"
                     style={{ cursor: "default" }}
                   >
-                    <span className={`activity-icon ${item.direction === "deposit" ? "positive" : ""}`}>
-                      {item.direction === "deposit" ? <ArrowDownLeft /> : <ArrowUpRight />}
+                    <span
+                      className={`activity-icon ${item.direction === "deposit" ? "positive" : ""}`}
+                    >
+                      {item.direction === "deposit" ? (
+                        <ArrowDownLeft />
+                      ) : (
+                        <ArrowUpRight />
+                      )}
                     </span>
                     <div style={{ flex: 1 }}>
                       <strong>
-                        {item.direction_display || item.direction} {item.provider_display || item.provider.toUpperCase()}
+                        {item.direction_display || item.direction}{" "}
+                        {item.provider_display || item.provider.toUpperCase()}
                       </strong>
-                      <small style={{ display: "block", color: "var(--muted)" }}>
+                      <small
+                        style={{ display: "block", color: "var(--muted)" }}
+                      >
                         {item.phone_number ? `${item.phone_number} · ` : ""}
                         {new Date(item.created_at).toLocaleString("fr-FR")}
-                        {item.provider_reference ? ` · Réf : ${item.provider_reference}` : ""}
+                        {item.provider_reference
+                          ? ` · Réf : ${item.provider_reference}`
+                          : ""}
                       </small>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <b className={item.direction === "deposit" ? "positive-text" : ""}>
-                        {item.direction === "deposit" ? "+" : "−"} {item.amount.toLocaleString("fr-FR")} {item.currency}
+                      <b
+                        className={
+                          item.direction === "deposit" ? "positive-text" : ""
+                        }
+                      >
+                        {item.direction === "deposit" ? "+" : "−"}{" "}
+                        {item.amount.toLocaleString("fr-FR")} {item.currency}
                       </b>
                       <span
                         style={{
@@ -312,9 +344,10 @@ export function WalletPage() {
                           color:
                             item.status === "completed"
                               ? "var(--green)"
-                              : item.status === "failed" || item.status === "cancelled"
-                              ? "var(--red)"
-                              : "var(--gold)",
+                              : item.status === "failed" ||
+                                  item.status === "cancelled"
+                                ? "var(--red)"
+                                : "var(--gold)",
                         }}
                       >
                         {item.status_display || item.status}
@@ -323,7 +356,9 @@ export function WalletPage() {
                   </div>
                 ))
               ) : (
-                <div className="empty-wallet">Aucune transaction Mobile Money.</div>
+                <div className="empty-wallet">
+                  Aucune transaction Mobile Money.
+                </div>
               )}
             </div>
           )}
@@ -336,7 +371,8 @@ export function WalletPage() {
             </span>
             <h3>Opérations instantanées</h3>
             <p>
-              Rechargez votre compte de jeu et retirez vos gains directement sur votre numéro Telma, Orange ou Airtel.
+              Rechargez votre compte de jeu et retirez vos gains directement sur
+              votre numéro Telma, Orange ou Airtel.
             </p>
             <div className="payment-methods">
               <span>MVola</span>
@@ -356,7 +392,10 @@ export function WalletPage() {
             <WalletCards size={18} />
             <div>
               <strong>Grand livre audité & sécurisé</strong>
-              <span>Toutes les écritures comptables respectent le principe de partie double.</span>
+              <span>
+                Toutes les écritures comptables respectent le principe de partie
+                double.
+              </span>
             </div>
           </div>
         </aside>
@@ -402,7 +441,8 @@ function ActivityRow({
         </small>
       </span>
       <b className={positive ? "positive-text" : ""}>
-        {positive ? "+" : "−"} {transaction.amount.toLocaleString("fr-FR")} {transaction.currency}
+        {positive ? "+" : "−"} {transaction.amount.toLocaleString("fr-FR")}{" "}
+        {transaction.currency}
       </b>
     </button>
   );

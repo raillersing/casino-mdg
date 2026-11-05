@@ -39,27 +39,66 @@ const COLOR_CONFIG = [
 // Indices 0..51 correspond exactly to internal engine track indices
 const TRACK_GRID_COORDS: [number, number][] = [
   // Red arm top row (moving right towards center)
-  [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], // 0 (Red start), 1, 2, 3, 4
+  [1, 6],
+  [2, 6],
+  [3, 6],
+  [4, 6],
+  [5, 6], // 0 (Red start), 1, 2, 3, 4
   // Turning up into top arm
-  [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0], // 5, 6, 7, 8, 9, 10
+  [6, 5],
+  [6, 4],
+  [6, 3],
+  [6, 2],
+  [6, 1],
+  [6, 0], // 5, 6, 7, 8, 9, 10
   // Top apex
   [7, 0], // 11
   // Top arm moving down
-  [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], // 12, 13 (Green start), 14, 15, 16, 17
+  [8, 0],
+  [8, 1],
+  [8, 2],
+  [8, 3],
+  [8, 4],
+  [8, 5], // 12, 13 (Green start), 14, 15, 16, 17
   // Turning right into right arm
-  [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [14, 6], // 18, 19, 20, 21, 22, 23
+  [9, 6],
+  [10, 6],
+  [11, 6],
+  [12, 6],
+  [13, 6],
+  [14, 6], // 18, 19, 20, 21, 22, 23
   // Right apex
   [14, 7], // 24
   // Right arm moving left
-  [14, 8], [13, 8], [12, 8], [11, 8], [10, 8], [9, 8], // 25, 26 (Yellow start), 27, 28, 29, 30
+  [14, 8],
+  [13, 8],
+  [12, 8],
+  [11, 8],
+  [10, 8],
+  [9, 8], // 25, 26 (Yellow start), 27, 28, 29, 30
   // Turning down into bottom arm
-  [8, 9], [8, 10], [8, 11], [8, 12], [8, 13], [8, 14], // 31, 32, 33, 34, 35, 36
+  [8, 9],
+  [8, 10],
+  [8, 11],
+  [8, 12],
+  [8, 13],
+  [8, 14], // 31, 32, 33, 34, 35, 36
   // Bottom apex
   [7, 14], // 37
   // Bottom arm moving up
-  [6, 14], [6, 13], [6, 12], [6, 11], [6, 10], [6, 9], // 38, 39 (Blue start), 40, 41, 42, 43
+  [6, 14],
+  [6, 13],
+  [6, 12],
+  [6, 11],
+  [6, 10],
+  [6, 9], // 38, 39 (Blue start), 40, 41, 42, 43
   // Turning left into left arm
-  [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8], // 44, 45, 46, 47, 48, 49
+  [5, 8],
+  [4, 8],
+  [3, 8],
+  [2, 8],
+  [1, 8],
+  [0, 8], // 44, 45, 46, 47, 48, 49
   // Left apex (turn-off to Red home path)
   [0, 7], // 50
   // Left arm returning to Red start
@@ -69,13 +108,37 @@ const TRACK_GRID_COORDS: [number, number][] = [
 // 5 Home Path squares per color (steps 0..4 towards center triangle)
 const HOME_PATH_GRID_COORDS: [number, number][][] = [
   // 0: Red (cols 1..5, row 7)
-  [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],
+  [
+    [1, 7],
+    [2, 7],
+    [3, 7],
+    [4, 7],
+    [5, 7],
+  ],
   // 1: Green (col 7, rows 1..5)
-  [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]],
+  [
+    [7, 1],
+    [7, 2],
+    [7, 3],
+    [7, 4],
+    [7, 5],
+  ],
   // 2: Yellow (cols 13..9, row 7)
-  [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7]],
+  [
+    [13, 7],
+    [12, 7],
+    [11, 7],
+    [10, 7],
+    [9, 7],
+  ],
   // 3: Blue (col 7, rows 13..9)
-  [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9]],
+  [
+    [7, 13],
+    [7, 12],
+    [7, 11],
+    [7, 10],
+    [7, 9],
+  ],
 ];
 
 // Center victory triangle coordinates for each color
@@ -99,7 +162,9 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   onMovePawn,
 }) => {
   const [rollingAnim, setRollingAnim] = React.useState(false);
-  const [displayRoll, setDisplayRoll] = React.useState<number>(lastRoll > 0 ? lastRoll : 1);
+  const [displayRoll, setDisplayRoll] = React.useState<number>(
+    lastRoll > 0 ? lastRoll : 1,
+  );
   const prevRollRef = React.useRef(lastRoll);
 
   // When lastRoll changes from server and > 0, trigger tumbling dice animation
@@ -143,21 +208,23 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   const getPawnPixelPosition = (
     playerColor: number,
     pawn: LudoPawn,
-    allPlayers: LudoPlayer[]
+    allPlayers: LudoPlayer[],
   ): { cx: number; cy: number } => {
     let baseCx = 150;
     let baseCy = 150;
 
     if (pawn.state === "base") {
       const yardOffsets = [
-        [40, 40], [80, 40],
-        [40, 80], [80, 80]
+        [40, 40],
+        [80, 40],
+        [40, 80],
+        [80, 80],
       ];
       const baseCornerOffsets = [
-        [0, 0],     // 0: Red (top-left)
-        [180, 0],   // 1: Green (top-right)
+        [0, 0], // 0: Red (top-left)
+        [180, 0], // 1: Green (top-right)
         [180, 180], // 2: Yellow (bottom-right)
-        [0, 180]    // 3: Blue (bottom-left)
+        [0, 180], // 3: Blue (bottom-left)
       ][playerColor] || [0, 0];
       const off = yardOffsets[pawn.id] || yardOffsets[0];
       baseCx = baseCornerOffsets[0] + off[0];
@@ -181,7 +248,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
       baseCx = grid[0] * 20 + 10;
       baseCy = grid[1] * 20 + 10;
     } else if (pawn.state === "home_path") {
-      const colorPaths = HOME_PATH_GRID_COORDS[playerColor] || HOME_PATH_GRID_COORDS[0];
+      const colorPaths =
+        HOME_PATH_GRID_COORDS[playerColor] || HOME_PATH_GRID_COORDS[0];
       if (pawn.position >= 0 && pawn.position < colorPaths.length) {
         const grid = colorPaths[pawn.position];
         baseCx = grid[0] * 20 + 10;
@@ -226,14 +294,44 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
   const renderDice = () => {
     const pips: Record<number, number[][]> = {
       1: [[1, 1]],
-      2: [[0, 0], [2, 2]],
-      3: [[0, 0], [1, 1], [2, 2]],
-      4: [[0, 0], [0, 2], [2, 0], [2, 2]],
-      5: [[0, 0], [0, 2], [1, 1], [2, 0], [2, 2]],
-      6: [[0, 0], [0, 2], [1, 0], [1, 2], [2, 0], [2, 2]],
+      2: [
+        [0, 0],
+        [2, 2],
+      ],
+      3: [
+        [0, 0],
+        [1, 1],
+        [2, 2],
+      ],
+      4: [
+        [0, 0],
+        [0, 2],
+        [2, 0],
+        [2, 2],
+      ],
+      5: [
+        [0, 0],
+        [0, 2],
+        [1, 1],
+        [2, 0],
+        [2, 2],
+      ],
+      6: [
+        [0, 0],
+        [0, 2],
+        [1, 0],
+        [1, 2],
+        [2, 0],
+        [2, 2],
+      ],
     };
 
-    const val = displayRoll >= 1 && displayRoll <= 6 ? displayRoll : (lastRoll > 0 ? lastRoll : 1);
+    const val =
+      displayRoll >= 1 && displayRoll <= 6
+        ? displayRoll
+        : lastRoll > 0
+          ? lastRoll
+          : 1;
     const activePips = pips[val] || pips[1];
     const canClickDice = isMyTurn && canRoll && !rollingAnim;
 
@@ -268,7 +366,7 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 )}
               </div>
             );
-          })
+          }),
         )}
       </div>
     );
@@ -310,7 +408,6 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
         >
           {/* Background grid */}
           <rect x="0" y="0" width="300" height="300" fill="#fdfbf7" />
-
           {/* 4 Colored Yards */}
           {/* Red Yard (Top Left: 0..120 x 0..120) */}
           <rect x="0" y="0" width="120" height="120" fill="#ef4444" />
@@ -324,48 +421,168 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           {/* Blue Yard (Bottom Left: 0..120 x 180..300) */}
           <rect x="0" y="180" width="120" height="120" fill="#3b82f6" />
           <rect x="16" y="196" width="88" height="88" rx="12" fill="#ffffff" />
-
           {/* Central Home Victory Area (120..180 x 120..180) */}
-          <polygon points="120,120 180,120 150,150" fill="#10b981" /> {/* Green Top */}
-          <polygon points="180,120 180,180 150,150" fill="#f59e0b" /> {/* Yellow Right */}
-          <polygon points="120,180 180,180 150,150" fill="#3b82f6" /> {/* Blue Bottom */}
-          <polygon points="120,120 120,180 150,150" fill="#ef4444" /> {/* Red Left */}
+          <polygon points="120,120 180,120 150,150" fill="#10b981" />{" "}
+          {/* Green Top */}
+          <polygon points="180,120 180,180 150,150" fill="#f59e0b" />{" "}
+          {/* Yellow Right */}
+          <polygon points="120,180 180,180 150,150" fill="#3b82f6" />{" "}
+          {/* Blue Bottom */}
+          <polygon points="120,120 120,180 150,150" fill="#ef4444" />{" "}
+          {/* Red Left */}
           {/* Center Trophy Medallion */}
-          <circle cx="150" cy="150" r="14" fill="#ffd700" stroke="#b45309" strokeWidth="1.5" />
-          <text x="150" y="154.5" fontSize="12" textAnchor="middle" fill="#78350f" fontWeight="bold">★</text>
-
+          <circle
+            cx="150"
+            cy="150"
+            r="14"
+            fill="#ffd700"
+            stroke="#b45309"
+            strokeWidth="1.5"
+          />
+          <text
+            x="150"
+            y="154.5"
+            fontSize="12"
+            textAnchor="middle"
+            fill="#78350f"
+            fontWeight="bold"
+          >
+            ★
+          </text>
           {/* Colored Home Path Columns */}
           {/* Red Home Path (Cols 1 to 5, Row 7) */}
           {[1, 2, 3, 4, 5].map((col) => (
-            <rect key={`red-hp-${col}`} x={col * 20} y={140} width="20" height="20" fill="#ef4444" stroke="#ffffff" strokeWidth="0.8" />
+            <rect
+              key={`red-hp-${col}`}
+              x={col * 20}
+              y={140}
+              width="20"
+              height="20"
+              fill="#ef4444"
+              stroke="#ffffff"
+              strokeWidth="0.8"
+            />
           ))}
           {/* Green Home Path (Rows 1 to 5, Col 7) */}
           {[1, 2, 3, 4, 5].map((row) => (
-            <rect key={`green-hp-${row}`} x={140} y={row * 20} width="20" height="20" fill="#10b981" stroke="#ffffff" strokeWidth="0.8" />
+            <rect
+              key={`green-hp-${row}`}
+              x={140}
+              y={row * 20}
+              width="20"
+              height="20"
+              fill="#10b981"
+              stroke="#ffffff"
+              strokeWidth="0.8"
+            />
           ))}
           {/* Yellow Home Path (Cols 9 to 13, Row 7) */}
           {[9, 10, 11, 12, 13].map((col) => (
-            <rect key={`yellow-hp-${col}`} x={col * 20} y={140} width="20" height="20" fill="#f59e0b" stroke="#ffffff" strokeWidth="0.8" />
+            <rect
+              key={`yellow-hp-${col}`}
+              x={col * 20}
+              y={140}
+              width="20"
+              height="20"
+              fill="#f59e0b"
+              stroke="#ffffff"
+              strokeWidth="0.8"
+            />
           ))}
           {/* Blue Home Path (Rows 9 to 13, Col 7) */}
           {[9, 10, 11, 12, 13].map((row) => (
-            <rect key={`blue-hp-${row}`} x={140} y={row * 20} width="20" height="20" fill="#3b82f6" stroke="#ffffff" strokeWidth="0.8" />
+            <rect
+              key={`blue-hp-${row}`}
+              x={140}
+              y={row * 20}
+              width="20"
+              height="20"
+              fill="#3b82f6"
+              stroke="#ffffff"
+              strokeWidth="0.8"
+            />
           ))}
-
           {/* Start squares with star indicators */}
           {/* Red Start (Col 1, Row 6) */}
-          <rect x={20} y={120} width="20" height="20" fill="#ef4444" stroke="#fff" strokeWidth="0.8" />
-          <text x={30} y={135} fontSize="11" textAnchor="middle" fill="#fff" fontWeight="bold">★</text>
+          <rect
+            x={20}
+            y={120}
+            width="20"
+            height="20"
+            fill="#ef4444"
+            stroke="#fff"
+            strokeWidth="0.8"
+          />
+          <text
+            x={30}
+            y={135}
+            fontSize="11"
+            textAnchor="middle"
+            fill="#fff"
+            fontWeight="bold"
+          >
+            ★
+          </text>
           {/* Green Start (Col 8, Row 1) */}
-          <rect x={160} y={20} width="20" height="20" fill="#10b981" stroke="#fff" strokeWidth="0.8" />
-          <text x={170} y={35} fontSize="11" textAnchor="middle" fill="#fff" fontWeight="bold">★</text>
+          <rect
+            x={160}
+            y={20}
+            width="20"
+            height="20"
+            fill="#10b981"
+            stroke="#fff"
+            strokeWidth="0.8"
+          />
+          <text
+            x={170}
+            y={35}
+            fontSize="11"
+            textAnchor="middle"
+            fill="#fff"
+            fontWeight="bold"
+          >
+            ★
+          </text>
           {/* Yellow Start (Col 13, Row 8) */}
-          <rect x={260} y={160} width="20" height="20" fill="#f59e0b" stroke="#fff" strokeWidth="0.8" />
-          <text x={270} y={175} fontSize="11" textAnchor="middle" fill="#fff" fontWeight="bold">★</text>
+          <rect
+            x={260}
+            y={160}
+            width="20"
+            height="20"
+            fill="#f59e0b"
+            stroke="#fff"
+            strokeWidth="0.8"
+          />
+          <text
+            x={270}
+            y={175}
+            fontSize="11"
+            textAnchor="middle"
+            fill="#fff"
+            fontWeight="bold"
+          >
+            ★
+          </text>
           {/* Blue Start (Col 6, Row 13) */}
-          <rect x={120} y={260} width="20" height="20" fill="#3b82f6" stroke="#fff" strokeWidth="0.8" />
-          <text x={130} y={275} fontSize="11" textAnchor="middle" fill="#fff" fontWeight="bold">★</text>
-
+          <rect
+            x={120}
+            y={260}
+            width="20"
+            height="20"
+            fill="#3b82f6"
+            stroke="#fff"
+            strokeWidth="0.8"
+          />
+          <text
+            x={130}
+            y={275}
+            fontSize="11"
+            textAnchor="middle"
+            fill="#fff"
+            fontWeight="bold"
+          >
+            ★
+          </text>
           {/* Grid lines on track */}
           <g stroke="#e2e8f0" strokeWidth="0.6" fill="none">
             {/* Top track lines */}
@@ -397,17 +614,24 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               </React.Fragment>
             ))}
           </g>
-
           {/* Yard circular pawn slots (4 per camp) */}
           {[
-            { cx: 40, cy: 40, color: "#ef4444" }, { cx: 80, cy: 40, color: "#ef4444" },
-            { cx: 40, cy: 80, color: "#ef4444" }, { cx: 80, cy: 80, color: "#ef4444" },
-            { cx: 220, cy: 40, color: "#10b981" }, { cx: 260, cy: 40, color: "#10b981" },
-            { cx: 220, cy: 80, color: "#10b981" }, { cx: 260, cy: 80, color: "#10b981" },
-            { cx: 220, cy: 220, color: "#f59e0b" }, { cx: 260, cy: 220, color: "#f59e0b" },
-            { cx: 220, cy: 260, color: "#f59e0b" }, { cx: 260, cy: 260, color: "#f59e0b" },
-            { cx: 40, cy: 220, color: "#3b82f6" }, { cx: 80, cy: 220, color: "#3b82f6" },
-            { cx: 40, cy: 260, color: "#3b82f6" }, { cx: 80, cy: 260, color: "#3b82f6" },
+            { cx: 40, cy: 40, color: "#ef4444" },
+            { cx: 80, cy: 40, color: "#ef4444" },
+            { cx: 40, cy: 80, color: "#ef4444" },
+            { cx: 80, cy: 80, color: "#ef4444" },
+            { cx: 220, cy: 40, color: "#10b981" },
+            { cx: 260, cy: 40, color: "#10b981" },
+            { cx: 220, cy: 80, color: "#10b981" },
+            { cx: 260, cy: 80, color: "#10b981" },
+            { cx: 220, cy: 220, color: "#f59e0b" },
+            { cx: 260, cy: 220, color: "#f59e0b" },
+            { cx: 220, cy: 260, color: "#f59e0b" },
+            { cx: 260, cy: 260, color: "#f59e0b" },
+            { cx: 40, cy: 220, color: "#3b82f6" },
+            { cx: 80, cy: 220, color: "#3b82f6" },
+            { cx: 40, cy: 260, color: "#3b82f6" },
+            { cx: 80, cy: 260, color: "#3b82f6" },
           ].map((slot, sIdx) => (
             <circle
               key={`slot-${sIdx}`}
@@ -420,15 +644,19 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               strokeWidth="1.5"
             />
           ))}
-
           {/* Render ALL Pawns on Board (Base, Track, Home Path & Central Home) */}
           {players.map((player) => {
             const camp = COLOR_CONFIG[player.color] || COLOR_CONFIG[0];
             const isMe = player.color === myColorIndex;
 
             return (player.pawns || []).map((pawn) => {
-              const isSelectable = isMe && isMyTurn && canMove && validMoves.includes(pawn.id);
-              const { cx, cy } = getPawnPixelPosition(player.color, pawn, players);
+              const isSelectable =
+                isMe && isMyTurn && canMove && validMoves.includes(pawn.id);
+              const { cx, cy } = getPawnPixelPosition(
+                player.color,
+                pawn,
+                players,
+              );
 
               return (
                 <g
@@ -445,13 +673,36 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                   }}
                 >
                   {/* Pawn shadow */}
-                  <ellipse cx={cx} cy={cy + 4} rx="9" ry="4" fill="rgba(0,0,0,0.3)" />
+                  <ellipse
+                    cx={cx}
+                    cy={cy + 4}
+                    rx="9"
+                    ry="4"
+                    fill="rgba(0,0,0,0.3)"
+                  />
 
                   {/* Pulsing indicator ring for selectable movable pawn */}
                   {isSelectable && (
-                    <circle cx={cx} cy={cy} r="14" fill="none" stroke="#22c55e" strokeWidth="2.5">
-                      <animate attributeName="r" values="11;16;11" dur="1.1s" repeatCount="indefinite" />
-                      <animate attributeName="opacity" values="1;0.4;1" dur="1.1s" repeatCount="indefinite" />
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r="14"
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth="2.5"
+                    >
+                      <animate
+                        attributeName="r"
+                        values="11;16;11"
+                        dur="1.1s"
+                        repeatCount="indefinite"
+                      />
+                      <animate
+                        attributeName="opacity"
+                        values="1;0.4;1"
+                        dur="1.1s"
+                        repeatCount="indefinite"
+                      />
                     </circle>
                   )}
 
@@ -492,7 +743,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           display: "flex",
           alignItems: "center",
           gap: "14px",
-          background: "linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%)",
+          background:
+            "linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%)",
           padding: "10px 16px",
           borderRadius: "16px",
           border: "1.5px solid rgba(255, 215, 0, 0.35)",
@@ -504,15 +756,25 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
       >
         {renderDice()}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px", flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ffd54f" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ffd54f" }}
+          >
             {lastRoll === 6
               ? "🎲 Six obtenu ! (Rejouez)"
               : lastRoll > 0
-              ? `Dé : ${lastRoll}`
-              : isMyTurn
-              ? "À vous de lancer !"
-              : "Prêt à jouer"}
+                ? `Dé : ${lastRoll}`
+                : isMyTurn
+                  ? "À vous de lancer !"
+                  : "Prêt à jouer"}
           </div>
 
           {isMyTurn && canRoll && (
@@ -533,8 +795,23 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           )}
 
           {isMyTurn && canMove && validMoves.length > 0 && (
-            <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: "0.75rem", color: "#86efac", fontWeight: 700 }}>Pion :</span>
+            <div
+              style={{
+                display: "flex",
+                gap: "6px",
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#86efac",
+                  fontWeight: 700,
+                }}
+              >
+                Pion :
+              </span>
               {validMoves.map((pId) => (
                 <button
                   key={`mv-btn-${pId}`}
@@ -559,8 +836,19 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           )}
 
           {!isMyTurn && (
-            <div style={{ fontSize: "0.78rem", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              Tour du camp {COLOR_CONFIG[currentTurnIndex]?.name || `Joueur ${currentTurnIndex + 1}`}…
+            <div
+              style={{
+                fontSize: "0.78rem",
+                color: "var(--muted)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              Tour du camp{" "}
+              {COLOR_CONFIG[currentTurnIndex]?.name ||
+                `Joueur ${currentTurnIndex + 1}`}
+              …
             </div>
           )}
         </div>

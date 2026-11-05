@@ -11,7 +11,7 @@ RUN go mod download
 
 # Build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o game-engine .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o game-engine .
 
 # Final stage
 FROM alpine:latest

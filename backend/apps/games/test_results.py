@@ -411,7 +411,8 @@ class GameResultTests(TestCase):
         self.assertEqual(replay_resp.status_code, 200)
         self.assertEqual(replay_resp.data["settled_count"], 0)
 
-        # 4. Client-side retry via /api/v1/games/results/ succeeds idempotently without double credit
+        # 4. Client-side retry via /api/v1/games/results/ succeeds
+        # idempotently without double credit
         client.force_authenticate(user1)
         client_retry = client.post(
             "/api/v1/games/results/",

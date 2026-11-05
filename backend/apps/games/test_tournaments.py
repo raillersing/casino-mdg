@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.games.models import Tournament, TournamentParticipant
+from apps.games.models import Tournament
 
 
 class TournamentApiTests(TestCase):

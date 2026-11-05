@@ -7,7 +7,7 @@ for (const width of [1440, 390, 320]) {
     await page.route("**/api/v1/games/tables/**", (route) =>
       route.fulfill({ json: { results: [] } }),
     );
-    await page.goto("/");
+    await page.goto("/games");
     await expect(page.locator(".discovery-card")).toHaveCount(5);
     for (const cover of await page.locator(".discovery-art img").all()) {
       await cover.scrollIntoViewIfNeeded();
@@ -25,7 +25,7 @@ for (const width of [1440, 390, 320]) {
         .evaluate((el) => el.getBoundingClientRect().bottom),
     ).toBeLessThan(900);
     await page.screenshot({
-      path: `../reports/discovery-home-${width}.png`,
+      path: `../reports/discovery-games-${width}.png`,
       fullPage: true,
     });
     await page.locator(".discovery-card").first().click();

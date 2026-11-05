@@ -52,7 +52,8 @@ class WalletTransactionsView(APIView):
         queryset = queryset.order_by("-created_at")
 
         total = queryset.count()
-        transactions = queryset[offset : offset + limit]
+        end = offset + limit
+        transactions = queryset[offset:end]
         return Response(
             {
                 "count": total,

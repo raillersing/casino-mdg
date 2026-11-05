@@ -2,7 +2,6 @@ import os
 from datetime import datetime, timezone
 
 import jwt
-from django.conf import settings
 from django.db import transaction
 
 from .models import GameTable, TableSeat
@@ -26,9 +25,27 @@ def generate_admission_token(
         "mode": table.mode,
         "game_type": table.game_type,
         "type": "admission",
+        "turn_duration": table.turn_duration,
+        "table_settings": {
+            "version": table.rules_version,
+            "max_players": table.max_players,
+            "turn_duration": table.turn_duration,
+            "belote_target": (
+                table.rules_config.get("target_score", 501)
+                if table.game_type == "belote"
+                else 0
+            ),
+            "poker_small_blind": (
+                table.rules_config.get("small_blind", 50)
+                if table.game_type == "poker"
+                else 0
+            ),
+        },
         "iat": int(now.timestamp()),
         "exp": int(now.timestamp()) + lifetime_seconds,
     }
+    if table.rules_version == 0:
+        payload.pop("table_settings", None)
     secret = os.getenv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes")
     return jwt.encode(payload, secret, algorithm="HS256")
 

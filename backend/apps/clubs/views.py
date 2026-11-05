@@ -217,11 +217,17 @@ class ClubCertificationRequestView(APIView):
             club.save(
                 update_fields=["is_certified", "certification_status", "member_limit"]
             )
-            message = "Félicitations ! Votre club remplit tous les critères et a été certifié avec succès."
+            message = (
+                "Félicitations ! Votre club remplit tous les "
+                "critères et a été certifié avec succès."
+            )
         else:
             club.certification_status = "pending"
             club.save(update_fields=["certification_status"])
-            message = "Votre dossier de certification a été soumis et est en cours d'examen par notre équipe."
+            message = (
+                "Votre dossier de certification a été soumis et "
+                "est en cours d'examen par notre équipe."
+            )
 
         return Response(
             {

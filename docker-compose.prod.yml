@@ -253,6 +253,7 @@ services:
       backend:
         condition: service_healthy
     environment:
+      ACTIVITY_OUTBOX_DIR: /var/lib/casino-activity
       GAME_ENGINE_ADDR: :8080
       BACKEND_INTERNAL_URL: http://backend:8000
       REDIS_URL: redis://redis:6379/0
@@ -271,6 +272,9 @@ services:
       nofile:
         soft: 65536
         hard: 65536
+
+    volumes:
+      - engine-activity:/var/lib/casino-activity
 
   # ───────────────────────────────────────────
   # Frontend React & Reverse Proxy Nginx
@@ -305,6 +309,7 @@ networks:
     driver: bridge
 
 volumes:
+  engine-activity:
   postgres_prod_data:
   redis_prod_data:
   rabbitmq_prod_data:

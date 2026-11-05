@@ -7,7 +7,12 @@ interface BotCountSelectorProps {
   disabled?: boolean;
 }
 
-export function BotCountSelector({ gameType, value, onChange, disabled }: BotCountSelectorProps) {
+export function BotCountSelector({
+  gameType,
+  value,
+  onChange,
+  disabled,
+}: BotCountSelectorProps) {
   const max = gameType === "poker" ? 8 : 3;
   const min = 1;
   const totalPlayers = value + 1;

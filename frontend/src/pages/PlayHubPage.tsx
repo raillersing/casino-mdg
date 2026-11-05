@@ -1,5 +1,12 @@
+import { GameActivitySummary } from "@components/game/GameActivitySummary";
+import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -103,6 +110,7 @@ const GAME_META: Record<
 
 export function PlayHubPage() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { gameType = "poker" } = useParams();
   const meta = GAME_META[gameType] || GAME_META.poker;
@@ -308,6 +316,8 @@ export function PlayHubPage() {
         </div>
       </section>
 
+      <GameActivitySummary gameType={gameType} />
+      <UniquePlayerStats gameType={gameType} />
       {/* Guest prompt */}
       {showGuestName && (
         <div className="guest-name-modal" role="dialog" aria-modal="true">
@@ -353,6 +363,9 @@ export function PlayHubPage() {
         <p role="alert" className="empty-note">
           {launchError}
         </p>
+      )}
+      {searchParams.get("intent") === "practice" && (
+        <p role="status">{t("hub.practiceDesc")}</p>
       )}
       {/* Mode Grid */}
       <section className="hub-modes">

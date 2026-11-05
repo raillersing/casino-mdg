@@ -1,7 +1,4 @@
-from datetime import timedelta
-
 from django.test import TestCase
-from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -147,7 +144,7 @@ class ResponsibleGamingTests(TestCase):
         self.assertIn("auto-exclusion", dep_res.data["detail"].lower())
 
     def test_backoffice_responsible_gaming_list(self):
-        profile = ResponsibleGamingProfile.objects.create(
+        ResponsibleGamingProfile.objects.create(
             user=self.user,
             is_permanently_excluded=True,
             self_exclusion_reason="Demande volontaire",

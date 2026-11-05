@@ -3,7 +3,6 @@ package domino
 import (
 	"fmt"
 	"math/rand"
-	"time"
 )
 
 type Tile struct {
@@ -23,16 +22,16 @@ type Player struct {
 }
 
 type Game struct {
-	Players  []*Player    `json:"players"`
-	Board    []PlayedTile `json:"board"`
-	LeftEnd  int          `json:"left_end"`
-	RightEnd int          `json:"right_end"`
-	Boneyard []Tile       `json:"boneyard"` // Talon
-	Current  int          `json:"current"`
-	Finished bool         `json:"finished"`
-	Winner   string       `json:"winner"`
-	Blocked  bool         `json:"blocked"`
-	ConsecutivePasses int `json:"consecutive_passes"`
+	Players           []*Player    `json:"players"`
+	Board             []PlayedTile `json:"board"`
+	LeftEnd           int          `json:"left_end"`
+	RightEnd          int          `json:"right_end"`
+	Boneyard          []Tile       `json:"boneyard"` // Talon
+	Current           int          `json:"current"`
+	Finished          bool         `json:"finished"`
+	Winner            string       `json:"winner"`
+	Blocked           bool         `json:"blocked"`
+	ConsecutivePasses int          `json:"consecutive_passes"`
 }
 
 func makeDominoSet() []Tile {
@@ -125,7 +124,7 @@ func (g *Game) PlayTile(playerID string, tile Tile, side string) error {
 
 	if len(g.Board) == 0 {
 		// First tile played
-		g.Board = append(g.Board, PlayedTile{Left: tile.Left, Right: tile.Right})
+		g.Board = append(g.Board, PlayedTile(tile))
 		g.LeftEnd = tile.Left
 		g.RightEnd = tile.Right
 	} else {
@@ -152,7 +151,7 @@ func (g *Game) PlayTile(playerID string, tile Tile, side string) error {
 			}
 		} else {
 			if tile.Left == g.RightEnd {
-				g.Board = append(g.Board, PlayedTile{Left: tile.Left, Right: tile.Right})
+				g.Board = append(g.Board, PlayedTile(tile))
 				g.RightEnd = tile.Right
 			} else if tile.Right == g.RightEnd {
 				g.Board = append(g.Board, PlayedTile{Left: tile.Right, Right: tile.Left})
@@ -285,8 +284,4 @@ func (g *Game) DecideBotAction(playerID string) (action string, tile Tile, side 
 	}
 
 	return "pass", Tile{}, ""
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }

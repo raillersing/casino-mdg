@@ -53,7 +53,10 @@ class RequestOTPView(APIView):
         if recent:
             return Response(
                 {
-                    "detail": "Veuillez patienter quelques instants avant de demander un nouveau code."
+                    "detail": (
+                        "Veuillez patienter quelques instants avant de "
+                        "demander un nouveau code."
+                    )
                 },
                 status=429,
             )

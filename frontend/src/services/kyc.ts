@@ -59,7 +59,7 @@ export async function getKYCStatus(accessToken: string): Promise<KYCStatus> {
 export async function submitKYCRequest(
   accessToken: string,
   requestedLevel: string,
-  note = ""
+  note = "",
 ): Promise<KYCRequestData> {
   const response = await fetch("/api/v1/kyc/status/", {
     method: "POST",
@@ -80,7 +80,7 @@ export async function uploadKYCDocument(
   accessToken: string,
   documentType: string,
   file: File,
-  requestedLevel?: string
+  requestedLevel?: string,
 ): Promise<{ document: KYCDocument; request: KYCRequestData }> {
   const formData = new FormData();
   formData.append("file", file);
@@ -105,7 +105,7 @@ export async function uploadKYCDocument(
 
 export async function getBackofficeKYCRequests(
   accessToken: string,
-  statusFilter?: string
+  statusFilter?: string,
 ): Promise<{ results: KYCRequestData[]; count: number }> {
   const url = statusFilter
     ? `/api/v1/backoffice/kyc/?status=${encodeURIComponent(statusFilter)}`
@@ -115,7 +115,9 @@ export async function getBackofficeKYCRequests(
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.detail || "Impossible de charger les demandes KYC.");
+    throw new Error(
+      payload.detail || "Impossible de charger les demandes KYC.",
+    );
   }
   return payload as { results: KYCRequestData[]; count: number };
 }
@@ -124,7 +126,7 @@ export async function reviewBackofficeKYCRequest(
   accessToken: string,
   requestId: number,
   action: "approve" | "reject" | "request_resubmission",
-  notes = ""
+  notes = "",
 ): Promise<KYCRequestData> {
   const response = await fetch(`/api/v1/backoffice/kyc/${requestId}/review/`, {
     method: "POST",

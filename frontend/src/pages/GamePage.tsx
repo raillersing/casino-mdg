@@ -801,6 +801,10 @@ export function GamePage() {
     [gameState?.winners],
   );
   const isPokerShowdown = isPoker && gameState?.phase === "showdown";
+  const [showdownDismissed, setShowdownDismissed] = useState(false);
+  useEffect(() => {
+    if (!isPokerShowdown) setShowdownDismissed(false);
+  }, [isPokerShowdown]);
   const isUncontestedWin =
     isPokerShowdown && gameState?.finish_reason === "uncontested";
   const isSessionFinished = isPoker && gameState?.session_finished === true;
@@ -2246,9 +2250,17 @@ export function GamePage() {
           <span>Mains {handsPlayed}</span>
         </div>
       )}
-      {isPokerShowdown && (
+      {isPokerShowdown && !showdownDismissed && (
         <div className="showdown-overlay">
           <div className="showdown-overlay-inner">
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => setShowdownDismissed(true)}
+              aria-label={t("game.closeResults")}
+            >
+              <X size={20} />
+            </button>
             <div className="showdown-title">
               {isUncontestedWin ? t("game.winner") : t("game.showdown")}
             </div>
@@ -2270,15 +2282,20 @@ export function GamePage() {
 
             {/* Tous les joueurs encore en lice */}
             <div className="showdown-players">
-              {statePlayers
+              {(statePlayers.length > 0 ? statePlayers : tablePlayers)
                 .filter((p) => !p.folded)
                 .map((player) => {
                   const pid = String(player.id || "");
                   const isWinner = pokerWinners.includes(pid);
                   const rank = showdownRanks[pid] || "";
                   const payout = payouts[pid] || 0;
-                  const playerCards = Array.isArray(player.cards)
-                    ? (player.cards as Array<{ rank: number; suit: number }>)
+                  const revealed = (
+                    gameState?.revealed_cards as
+                      Record<string, unknown> | undefined
+                  )?.[pid];
+                  const rawCards = player.cards || revealed;
+                  const playerCards = Array.isArray(rawCards)
+                    ? (rawCards as Array<{ rank: number; suit: number }>)
                     : [];
                   const pName = nameForPlayer(pid);
                   return (

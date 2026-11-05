@@ -85,7 +85,9 @@ export function BackofficePage() {
   >([]);
   const [pilotActions, setPilotActions] = useState<PilotAction[]>([]);
   const [kycRequests, setKycRequests] = useState<KYCRequestData[]>([]);
-  const [kycReviewNotes, setKycReviewNotes] = useState<Record<number, string>>({});
+  const [kycReviewNotes, setKycReviewNotes] = useState<Record<number, string>>(
+    {},
+  );
   const [kycReviewMsg, setKycReviewMsg] = useState("");
   const [rgExclusions, setRgExclusions] = useState<RGExclusionItem[]>([]);
   const [incidentUpdateError, setIncidentUpdateError] = useState("");
@@ -119,7 +121,9 @@ export function BackofficePage() {
         return;
       }
       if (user && !user.isStaff) {
-        setError("Accès refusé : espace réservé uniquement au staff Back-office.");
+        setError(
+          "Accès refusé : espace réservé uniquement au staff Back-office.",
+        );
         return;
       }
       setRefreshing(true);
@@ -208,7 +212,9 @@ export function BackofficePage() {
       );
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "Impossible de modifier le flag.",
+        reason instanceof Error
+          ? reason.message
+          : "Impossible de modifier le flag.",
       );
     }
   };
@@ -418,625 +424,683 @@ export function BackofficePage() {
         onSelectTab={setActiveTab}
       />
       {(activeTab === "all" || activeTab === "ops") && (
-      <div className="wallet-layout">
-        <section className="activity-card">
-          <div className="chat-head">Cohorte pilote · suivi d’activation</div>
-          {participants.length ? (
-            participants.map((participant) => (
-              <div className="activity-row" key={participant.id}>
-                <div>
-                  <strong>{participant.display_name}</strong>
-                  <span>{participant.email}</span>
-                  <small>
-                    Activation {participant.progress.activated ? "✓" : "—"} ·
-                    Partie {participant.progress.played ? "✓" : "—"} · Finie{" "}
-                    {participant.progress.completed ? "✓" : "—"}
-                  </small>
-                </div>
-                <select
-                  aria-label={`Statut de ${participant.display_name}`}
-                  value={participant.status}
-                  onChange={(event) =>
-                    void updateParticipantStatus(
-                      participant.id,
-                      event.target.value as PilotParticipant["status"],
-                    )
-                  }
-                >
-                  <option value="invited">Invité</option>
-                  <option value="active">Actif</option>
-                  <option value="completed">Terminé</option>
-                  <option value="withdrawn">Retiré</option>
-                </select>
-              </div>
-            ))
-          ) : (
-            <div className="empty-wallet">Aucun participant enregistré.</div>
-          )}
-        </section>
-        <section className="activity-card">
-          <div className="chat-head">
-            Modération chat · 100 derniers messages
-          </div>
-          {moderationMessages.length ? (
-            moderationMessages.map((message) => (
-              <div className="activity-row" key={message.id}>
-                <div>
-                  <strong>
-                    {message.author} · table {message.table_id}
-                  </strong>
-                  <span>{message.body}</span>
-                </div>
-                <button
-                  className="button button-ghost"
-                  onClick={() => void toggleModeration(message)}
-                >
-                  {message.hidden ? "Restaurer" : "Masquer"}
-                </button>
-              </div>
-            ))
-          ) : (
-            <div className="empty-wallet">Aucun message à modérer.</div>
-          )}
-        </section>
-        <section className="activity-card">
-          <div className="chat-head">Actions correctives · bilan pilote</div>
-          {pilotActions.length ? (
-            pilotActions.map((action) => (
-              <div className="activity-row" key={action.id}>
-                <div>
-                  <strong>{action.title}</strong>
-                  <span>
-                    {action.source} ·{" "}
-                    {action.incident_id
-                      ? `incident #${action.incident_id}`
-                      : "sans incident"}
-                  </span>
-                  <small>{action.description || "Sans description"}</small>
-                </div>
-                <select
-                  aria-label={`Statut de l’action ${action.title}`}
-                  value={action.status}
-                  onChange={(event) =>
-                    void updateActionStatus(
-                      action.id,
-                      event.target.value as PilotAction["status"],
-                    )
-                  }
-                >
-                  <option value="todo">À faire</option>
-                  <option value="in_progress">En cours</option>
-                  <option value="done">Terminé</option>
-                </select>
-              </div>
-            ))
-          ) : (
-            <div className="empty-wallet">
-              Aucune action corrective enregistrée.
-            </div>
-          )}
-        </section>
-        <section className="activity-card">
-          <div className="chat-head">Sessions pilote · 30 derniers jours</div>
-          {sessions.length ? (
-            sessions.slice(0, 8).map((session) => (
-              <div
-                className="activity-row"
-                key={`${session.user_id}-${session.session_id}`}
-              >
-                <div>
-                  <strong>{session.display_name}</strong>
-                  <span>
-                    {session.game_types.join(", ") || "Jeu non précisé"} ·{" "}
-                    {session.modes.join(", ") || "Mode non précisé"}
-                  </span>
-                  <small>
-                    {session.events} événements ·{" "}
-                    {session.completed
-                      ? "partie terminée"
-                      : "partie non terminée"}
-                    {session.errors ? " · erreur détectée" : ""}
-                  </small>
-                </div>
-                <small>
-                  {new Date(session.last_event_at).toLocaleDateString("fr-FR")}
-                </small>
-              </div>
-            ))
-          ) : (
-            <div className="empty-wallet">Aucune session de participant.</div>
-          )}
-        </section>
-        <section className="activity-card">
-          <div className="chat-head">Incidents pilote · reproduction</div>
-          {incidents.length ? (
-            incidents.slice(0, 8).map((incident) => (
-              <div className="activity-row" key={incident.id}>
-                <div>
-                  <strong>{incident.subject}</strong>
-                  <span>
-                    {incident.player} ·{" "}
-                    {incident.game_type || "jeu non précisé"} ·{" "}
-                    {incident.status}
-                  </span>
-                  <small>
-                    Table {incident.table_id || "—"} · session{" "}
-                    {incident.session_id || "—"} ·{" "}
-                    {incident.app_version || "version inconnue"}
-                  </small>
+        <div className="wallet-layout">
+          <section className="activity-card">
+            <div className="chat-head">Cohorte pilote · suivi d’activation</div>
+            {participants.length ? (
+              participants.map((participant) => (
+                <div className="activity-row" key={participant.id}>
+                  <div>
+                    <strong>{participant.display_name}</strong>
+                    <span>{participant.email}</span>
+                    <small>
+                      Activation {participant.progress.activated ? "✓" : "—"} ·
+                      Partie {participant.progress.played ? "✓" : "—"} · Finie{" "}
+                      {participant.progress.completed ? "✓" : "—"}
+                    </small>
+                  </div>
                   <select
-                    aria-label={`Statut de ${incident.subject}`}
-                    value={incident.status}
+                    aria-label={`Statut de ${participant.display_name}`}
+                    value={participant.status}
                     onChange={(event) =>
-                      void updateIncidentStatus(incident.id, event.target.value)
+                      void updateParticipantStatus(
+                        participant.id,
+                        event.target.value as PilotParticipant["status"],
+                      )
                     }
                   >
-                    <option value="open">Ouvert</option>
-                    <option value="in_progress">En cours</option>
-                    <option value="closed">Fermé</option>
+                    <option value="invited">Invité</option>
+                    <option value="active">Actif</option>
+                    <option value="completed">Terminé</option>
+                    <option value="withdrawn">Retiré</option>
                   </select>
                 </div>
-                <small>
-                  {new Date(incident.created_at).toLocaleDateString("fr-FR")}
-                </small>
-              </div>
-            ))
-          ) : (
-            <div className="empty-wallet">Aucun incident signalé.</div>
-          )}
-          {incidentUpdateError && (
-            <small className="form-error">{incidentUpdateError}</small>
-          )}
-        </section>
-        <section className="activity-card">
-          <div className="chat-head">Décision pilote · fenêtre 7 jours</div>
-          {pilotGate ? (
-            <>
-              <div className="activity-row">
-                <div>
-                  <strong>Cohorte pilote uniquement</strong>
-                  <span>Données de participants inscrits</span>
-                </div>
-                <b>{pilotGate.participants}</b>
-              </div>
-              <div className="activity-row">
-                <div>
-                  <strong>
-                    {pilotGate.status === "go_provisional"
-                      ? "GO provisoire"
-                      : pilotGate.status === "blocked"
-                        ? "Bloqué"
-                        : "À surveiller"}
-                  </strong>
-                  <span>Décision assistée par les preuves disponibles</span>
-                </div>
-                <b>
-                  {
-                    pilotGate.criteria.filter((item) => item.status === "pass")
-                      .length
-                  }
-                  /{pilotGate.criteria.length}
-                </b>
-              </div>
-              {pilotGate.criteria.map((criterion) => (
-                <div className="activity-row" key={criterion.key}>
+              ))
+            ) : (
+              <div className="empty-wallet">Aucun participant enregistré.</div>
+            )}
+          </section>
+          <section className="activity-card">
+            <div className="chat-head">
+              Modération chat · 100 derniers messages
+            </div>
+            {moderationMessages.length ? (
+              moderationMessages.map((message) => (
+                <div className="activity-row" key={message.id}>
                   <div>
-                    <strong>{criterion.label}</strong>
+                    <strong>
+                      {message.author} · table {message.table_id}
+                    </strong>
+                    <span>{message.body}</span>
+                  </div>
+                  <button
+                    className="button button-ghost"
+                    onClick={() => void toggleModeration(message)}
+                  >
+                    {message.hidden ? "Restaurer" : "Masquer"}
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="empty-wallet">Aucun message à modérer.</div>
+            )}
+          </section>
+          <section className="activity-card">
+            <div className="chat-head">Actions correctives · bilan pilote</div>
+            {pilotActions.length ? (
+              pilotActions.map((action) => (
+                <div className="activity-row" key={action.id}>
+                  <div>
+                    <strong>{action.title}</strong>
                     <span>
-                      Objectif : {criterion.target} {criterion.unit}
+                      {action.source} ·{" "}
+                      {action.incident_id
+                        ? `incident #${action.incident_id}`
+                        : "sans incident"}
                     </span>
+                    <small>{action.description || "Sans description"}</small>
+                  </div>
+                  <select
+                    aria-label={`Statut de l’action ${action.title}`}
+                    value={action.status}
+                    onChange={(event) =>
+                      void updateActionStatus(
+                        action.id,
+                        event.target.value as PilotAction["status"],
+                      )
+                    }
+                  >
+                    <option value="todo">À faire</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="done">Terminé</option>
+                  </select>
+                </div>
+              ))
+            ) : (
+              <div className="empty-wallet">
+                Aucune action corrective enregistrée.
+              </div>
+            )}
+          </section>
+          <section className="activity-card">
+            <div className="chat-head">Sessions pilote · 30 derniers jours</div>
+            {sessions.length ? (
+              sessions.slice(0, 8).map((session) => (
+                <div
+                  className="activity-row"
+                  key={`${session.user_id}-${session.session_id}`}
+                >
+                  <div>
+                    <strong>{session.display_name}</strong>
+                    <span>
+                      {session.game_types.join(", ") || "Jeu non précisé"} ·{" "}
+                      {session.modes.join(", ") || "Mode non précisé"}
+                    </span>
+                    <small>
+                      {session.events} événements ·{" "}
+                      {session.completed
+                        ? "partie terminée"
+                        : "partie non terminée"}
+                      {session.errors ? " · erreur détectée" : ""}
+                    </small>
+                  </div>
+                  <small>
+                    {new Date(session.last_event_at).toLocaleDateString(
+                      "fr-FR",
+                    )}
+                  </small>
+                </div>
+              ))
+            ) : (
+              <div className="empty-wallet">Aucune session de participant.</div>
+            )}
+          </section>
+          <section className="activity-card">
+            <div className="chat-head">Incidents pilote · reproduction</div>
+            {incidents.length ? (
+              incidents.slice(0, 8).map((incident) => (
+                <div className="activity-row" key={incident.id}>
+                  <div>
+                    <strong>{incident.subject}</strong>
+                    <span>
+                      {incident.player} ·{" "}
+                      {incident.game_type || "jeu non précisé"} ·{" "}
+                      {incident.status}
+                    </span>
+                    <small>
+                      Table {incident.table_id || "—"} · session{" "}
+                      {incident.session_id || "—"} ·{" "}
+                      {incident.app_version || "version inconnue"}
+                    </small>
+                    <select
+                      aria-label={`Statut de ${incident.subject}`}
+                      value={incident.status}
+                      onChange={(event) =>
+                        void updateIncidentStatus(
+                          incident.id,
+                          event.target.value,
+                        )
+                      }
+                    >
+                      <option value="open">Ouvert</option>
+                      <option value="in_progress">En cours</option>
+                      <option value="closed">Fermé</option>
+                    </select>
+                  </div>
+                  <small>
+                    {new Date(incident.created_at).toLocaleDateString("fr-FR")}
+                  </small>
+                </div>
+              ))
+            ) : (
+              <div className="empty-wallet">Aucun incident signalé.</div>
+            )}
+            {incidentUpdateError && (
+              <small className="form-error">{incidentUpdateError}</small>
+            )}
+          </section>
+          <section className="activity-card">
+            <div className="chat-head">Décision pilote · fenêtre 7 jours</div>
+            {pilotGate ? (
+              <>
+                <div className="activity-row">
+                  <div>
+                    <strong>Cohorte pilote uniquement</strong>
+                    <span>Données de participants inscrits</span>
+                  </div>
+                  <b>{pilotGate.participants}</b>
+                </div>
+                <div className="activity-row">
+                  <div>
+                    <strong>
+                      {pilotGate.status === "go_provisional"
+                        ? "GO provisoire"
+                        : pilotGate.status === "blocked"
+                          ? "Bloqué"
+                          : "À surveiller"}
+                    </strong>
+                    <span>Décision assistée par les preuves disponibles</span>
                   </div>
                   <b>
-                    {criterion.observed ?? "—"} · {criterion.status}
+                    {
+                      pilotGate.criteria.filter(
+                        (item) => item.status === "pass",
+                      ).length
+                    }
+                    /{pilotGate.criteria.length}
                   </b>
                 </div>
-              ))}
-            </>
-          ) : (
-            <div className="empty-wallet">Chargement des critères.</div>
-          )}
-        </section>
-        <section className="activity-card">
-          <div className="chat-head">Activation · 7 derniers jours</div>
-          {productSummary ? (
-            [
-              "activation_viewed",
-              "test_game_played",
-              "human_match_found",
-              "demo_started",
-            ].map((name) => (
-              <div className="activity-row" key={name}>
-                <div>
-                  <strong>{name}</strong>
-                  <span>Événements reçus</span>
+                {pilotGate.criteria.map((criterion) => (
+                  <div className="activity-row" key={criterion.key}>
+                    <div>
+                      <strong>{criterion.label}</strong>
+                      <span>
+                        Objectif : {criterion.target} {criterion.unit}
+                      </span>
+                    </div>
+                    <b>
+                      {criterion.observed ?? "—"} · {criterion.status}
+                    </b>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="empty-wallet">Chargement des critères.</div>
+            )}
+          </section>
+          <section className="activity-card">
+            <div className="chat-head">Activation · 7 derniers jours</div>
+            {productSummary ? (
+              [
+                "activation_viewed",
+                "test_game_played",
+                "human_match_found",
+                "demo_started",
+              ].map((name) => (
+                <div className="activity-row" key={name}>
+                  <div>
+                    <strong>{name}</strong>
+                    <span>Événements reçus</span>
+                  </div>
+                  <b>{productSummary.events[name] ?? 0}</b>
                 </div>
-                <b>{productSummary.events[name] ?? 0}</b>
-              </div>
-            ))
-          ) : (
-            <div className="empty-wallet">Chargement des métriques.</div>
-          )}
-        </section>
-        <section className="activity-card" style={{ gridColumn: "1 / -1" }}>
-          <div
-            className="chat-head"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span>Conformité & Vérification KYC (Pièces Justificatives)</span>
-            <span style={{ fontSize: "12px", color: "var(--gold)" }}>
-              {kycRequests.filter((r) => r.status === "pending").length} en attente
-            </span>
-          </div>
-
-          {kycReviewMsg && (
-            <div className="alert-box success" style={{ margin: "12px" }}>
-              <CheckCircle2 size={16} />
-              <span>{kycReviewMsg}</span>
+              ))
+            ) : (
+              <div className="empty-wallet">Chargement des métriques.</div>
+            )}
+          </section>
+          <section className="activity-card" style={{ gridColumn: "1 / -1" }}>
+            <div
+              className="chat-head"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span>Conformité & Vérification KYC (Pièces Justificatives)</span>
+              <span style={{ fontSize: "12px", color: "var(--gold)" }}>
+                {kycRequests.filter((r) => r.status === "pending").length} en
+                attente
+              </span>
             </div>
-          )}
 
-          {kycRequests.length ? (
-            <div style={{ display: "grid", gap: "16px", padding: "12px" }}>
-              {kycRequests.map((req) => (
-                <div
-                  key={req.id}
-                  style={{
-                    padding: "16px",
-                    borderRadius: "8px",
-                    background: "var(--panel-2)",
-                    border: "1px solid var(--line)",
-                  }}
-                >
+            {kycReviewMsg && (
+              <div className="alert-box success" style={{ margin: "12px" }}>
+                <CheckCircle2 size={16} />
+                <span>{kycReviewMsg}</span>
+              </div>
+            )}
+
+            {kycRequests.length ? (
+              <div style={{ display: "grid", gap: "16px", padding: "12px" }}>
+                {kycRequests.map((req) => (
                   <div
+                    key={req.id}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      flexWrap: "wrap",
-                      gap: "8px",
+                      padding: "16px",
+                      borderRadius: "8px",
+                      background: "var(--panel-2)",
+                      border: "1px solid var(--line)",
                     }}
                   >
-                    <div>
-                      <strong style={{ fontSize: "15px", display: "block" }}>
-                        Demande #{req.id} · {req.user?.display_name || "Joueur"} (
-                        {req.user?.phone || "—"})
-                      </strong>
-                      <small style={{ color: "var(--muted)", fontSize: "12px" }}>
-                        Niveau actuel :{" "}
-                        <b style={{ color: "var(--text)" }}>
-                          {req.user?.current_level || "discovered"}
-                        </b>{" "}
-                        ➔ Demandé :{" "}
-                        <b style={{ color: "var(--gold)" }}>
-                          {req.level_display}
-                        </b>{" "}
-                        · Soumis le{" "}
-                        {new Date(req.created_at).toLocaleString("fr-FR")}
-                      </small>
-                      {req.note && (
-                        <p
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        flexWrap: "wrap",
+                        gap: "8px",
+                      }}
+                    >
+                      <div>
+                        <strong style={{ fontSize: "15px", display: "block" }}>
+                          Demande #{req.id} ·{" "}
+                          {req.user?.display_name || "Joueur"} (
+                          {req.user?.phone || "—"})
+                        </strong>
+                        <small
+                          style={{ color: "var(--muted)", fontSize: "12px" }}
+                        >
+                          Niveau actuel :{" "}
+                          <b style={{ color: "var(--text)" }}>
+                            {req.user?.current_level || "discovered"}
+                          </b>{" "}
+                          ➔ Demandé :{" "}
+                          <b style={{ color: "var(--gold)" }}>
+                            {req.level_display}
+                          </b>{" "}
+                          · Soumis le{" "}
+                          {new Date(req.created_at).toLocaleString("fr-FR")}
+                        </small>
+                        {req.note && (
+                          <p
+                            style={{
+                              margin: "6px 0 0",
+                              fontSize: "12px",
+                              fontStyle: "italic",
+                              color: "var(--soft)",
+                            }}
+                          >
+                            Note joueur : « {req.note} »
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <span
+                          className={`kyc-badge ${req.status}`}
                           style={{
-                            margin: "6px 0 0",
+                            padding: "4px 10px",
+                            borderRadius: "6px",
                             fontSize: "12px",
-                            fontStyle: "italic",
-                            color: "var(--soft)",
+                            fontWeight: 600,
+                            background:
+                              req.status === "approved"
+                                ? "rgba(105, 214, 160, 0.2)"
+                                : req.status === "rejected"
+                                  ? "rgba(232, 120, 120, 0.2)"
+                                  : "rgba(211, 176, 107, 0.2)",
+                            color:
+                              req.status === "approved"
+                                ? "var(--green)"
+                                : req.status === "rejected"
+                                  ? "var(--red)"
+                                  : "var(--gold)",
                           }}
                         >
-                          Note joueur : « {req.note} »
-                        </p>
+                          {req.status_display}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Documents soumis */}
+                    <div
+                      style={{
+                        marginTop: "14px",
+                        paddingTop: "12px",
+                        borderTop: "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        Documents joints ({req.documents.length}) :
+                      </span>
+                      {req.documents.length > 0 ? (
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              "repeat(auto-fill, minmax(220px, 1fr))",
+                            gap: "10px",
+                            marginTop: "8px",
+                          }}
+                        >
+                          {req.documents.map((doc) => (
+                            <div
+                              key={doc.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "8px 12px",
+                                borderRadius: "6px",
+                                background: "var(--panel)",
+                                border: "1px solid var(--line)",
+                                fontSize: "12px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <FileText size={16} color="var(--gold)" />
+                                <span
+                                  style={{
+                                    whiteSpace: "nowrap",
+                                    textOverflow: "ellipsis",
+                                    overflow: "hidden",
+                                  }}
+                                  title={doc.file_name}
+                                >
+                                  {doc.document_type_display}
+                                </span>
+                              </div>
+                              <a
+                                href={doc.download_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="button button-sm button-secondary"
+                                style={{
+                                  padding: "4px 8px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  fontSize: "11px",
+                                }}
+                              >
+                                <Download size={12} /> Voir
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            fontSize: "12px",
+                            color: "var(--muted)",
+                            marginTop: "4px",
+                          }}
+                        >
+                          Aucun fichier joint à cette demande.
+                        </div>
                       )}
                     </div>
-                    <div>
-                      <span
-                        className={`kyc-badge ${req.status}`}
+
+                    {/* Zone de décision Staff */}
+                    {req.status === "pending" ||
+                    req.status === "resubmission_requested" ? (
+                      <div
                         style={{
-                          padding: "4px 10px",
-                          borderRadius: "6px",
-                          fontSize: "12px",
+                          marginTop: "14px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <input
+                          type="text"
+                          placeholder="Notes / Motif de validation ou rejet..."
+                          value={kycReviewNotes[req.id] || ""}
+                          onChange={(e) =>
+                            setKycReviewNotes({
+                              ...kycReviewNotes,
+                              [req.id]: e.target.value,
+                            })
+                          }
+                          style={{
+                            flex: 1,
+                            minWidth: "220px",
+                            padding: "8px 12px",
+                            borderRadius: "6px",
+                            background: "var(--panel)",
+                            border: "1px solid var(--line)",
+                            color: "var(--text)",
+                            fontSize: "12px",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="button button-primary button-sm"
+                          onClick={() => handleReviewKYC(req.id, "approve")}
+                          style={{
+                            background: "var(--green)",
+                            color: "#000",
+                            border: "none",
+                          }}
+                        >
+                          Approuver
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-secondary button-sm"
+                          onClick={() =>
+                            handleReviewKYC(req.id, "request_resubmission")
+                          }
+                        >
+                          Complément
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-outline button-sm"
+                          onClick={() => handleReviewKYC(req.id, "reject")}
+                          style={{
+                            color: "var(--red)",
+                            borderColor: "var(--red)",
+                          }}
+                        >
+                          Rejeter
+                        </button>
+                      </div>
+                    ) : (
+                      req.reviewer_notes && (
+                        <div
+                          style={{
+                            marginTop: "10px",
+                            fontSize: "12px",
+                            color: "var(--muted)",
+                          }}
+                        >
+                          Note de révision : « {req.reviewer_notes} »
+                        </div>
+                      )
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-wallet">
+                Aucune demande KYC enregistrée.
+              </div>
+            )}
+          </section>
+
+          <section className="activity-card">
+            <div
+              className="chat-head"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <HeartHandshake size={18} color="var(--gold)" />
+                <span>
+                  Jeu Responsable · Pauses & Auto-exclusions actives (
+                  {rgExclusions.length})
+                </span>
+              </div>
+            </div>
+            {rgExclusions.length ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  marginTop: "10px",
+                }}
+              >
+                {rgExclusions.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: "8px",
+                      background: "var(--panel-2)",
+                      border: "1px solid var(--line)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <div>
+                        <strong>
+                          {item.user.display_name || item.user.phone}
+                        </strong>{" "}
+                        <small style={{ color: "var(--muted)" }}>
+                          ({item.user.phone})
+                        </small>
+                      </div>
+                      <span
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          fontSize: "11px",
                           fontWeight: 600,
                           background:
-                            req.status === "approved"
-                              ? "rgba(105, 214, 160, 0.2)"
-                              : req.status === "rejected"
+                            item.is_permanently_excluded ||
+                            item.is_active_self_exclusion
                               ? "rgba(232, 120, 120, 0.2)"
                               : "rgba(211, 176, 107, 0.2)",
                           color:
-                            req.status === "approved"
-                              ? "var(--green)"
-                              : req.status === "rejected"
+                            item.is_permanently_excluded ||
+                            item.is_active_self_exclusion
                               ? "var(--red)"
                               : "var(--gold)",
                         }}
                       >
-                        {req.status_display}
+                        {item.is_permanently_excluded
+                          ? "Auto-exclusion définitive"
+                          : item.is_active_self_exclusion
+                            ? `Auto-exclusion (fin : ${new Date(item.self_exclusion_until!).toLocaleDateString("fr-FR")})`
+                            : `Pause temporaire (fin : ${new Date(item.cooling_off_until!).toLocaleString("fr-FR")})`}
                       </span>
                     </div>
-                  </div>
-
-                  {/* Documents soumis */}
-                  <div
-                    style={{
-                      marginTop: "14px",
-                      paddingTop: "12px",
-                      borderTop: "1px solid rgba(255,255,255,0.06)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: "var(--muted)",
-                      }}
-                    >
-                      Documents joints ({req.documents.length}) :
-                    </span>
-                    {req.documents.length > 0 ? (
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns:
-                            "repeat(auto-fill, minmax(220px, 1fr))",
-                          gap: "10px",
-                          marginTop: "8px",
-                        }}
-                      >
-                        {req.documents.map((doc) => (
-                          <div
-                            key={doc.id}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              padding: "8px 12px",
-                              borderRadius: "6px",
-                              background: "var(--panel)",
-                              border: "1px solid var(--line)",
-                              fontSize: "12px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                overflow: "hidden",
-                              }}
-                            >
-                              <FileText size={16} color="var(--gold)" />
-                              <span
-                                style={{
-                                  whiteSpace: "nowrap",
-                                  textOverflow: "ellipsis",
-                                  overflow: "hidden",
-                                }}
-                                title={doc.file_name}
-                              >
-                                {doc.document_type_display}
-                              </span>
-                            </div>
-                            <a
-                              href={doc.download_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="button button-sm button-secondary"
-                              style={{
-                                padding: "4px 8px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "4px",
-                                fontSize: "11px",
-                              }}
-                            >
-                              <Download size={12} /> Voir
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          fontSize: "12px",
-                          color: "var(--muted)",
-                          marginTop: "4px",
-                        }}
-                      >
-                        Aucun fichier joint à cette demande.
+                    {item.reason && (
+                      <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+                        Motif : « {item.reason} »
                       </div>
                     )}
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-wallet">
+                Aucun joueur sous auto-exclusion ou pause active.
+              </div>
+            )}
+          </section>
 
-                  {/* Zone de décision Staff */}
-                  {req.status === "pending" ||
-                  req.status === "resubmission_requested" ? (
-                    <div
-                      style={{
-                        marginTop: "14px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        flexWrap: "wrap",
-                      }}
+          <section className="activity-card">
+            <div className="chat-head">Feature flags</div>
+            {flags.length ? (
+              flags.map((flag) => (
+                <div className="activity-row" key={flag.key}>
+                  <div>
+                    <strong>{flag.key}</strong>
+                    <span>{flag.reason || "Sans raison"}</span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <b>{flag.enabled ? "ON" : "OFF"}</b>
+                    <button
+                      type="button"
+                      className="button button-sm button-ghost"
+                      onClick={() => void handleToggleFlag(flag)}
                     >
-                      <input
-                        type="text"
-                        placeholder="Notes / Motif de validation ou rejet..."
-                        value={kycReviewNotes[req.id] || ""}
-                        onChange={(e) =>
-                          setKycReviewNotes({
-                            ...kycReviewNotes,
-                            [req.id]: e.target.value,
-                          })
-                        }
-                        style={{
-                          flex: 1,
-                          minWidth: "220px",
-                          padding: "8px 12px",
-                          borderRadius: "6px",
-                          background: "var(--panel)",
-                          border: "1px solid var(--line)",
-                          color: "var(--text)",
-                          fontSize: "12px",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="button button-primary button-sm"
-                        onClick={() => handleReviewKYC(req.id, "approve")}
-                        style={{
-                          background: "var(--green)",
-                          color: "#000",
-                          border: "none",
-                        }}
-                      >
-                        Approuver
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-secondary button-sm"
-                        onClick={() =>
-                          handleReviewKYC(req.id, "request_resubmission")
-                        }
-                      >
-                        Complément
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-outline button-sm"
-                        onClick={() => handleReviewKYC(req.id, "reject")}
-                        style={{
-                          color: "var(--red)",
-                          borderColor: "var(--red)",
-                        }}
-                      >
-                        Rejeter
-                      </button>
-                    </div>
-                  ) : (
-                    req.reviewer_notes && (
-                      <div
-                        style={{
-                          marginTop: "10px",
-                          fontSize: "12px",
-                          color: "var(--muted)",
-                        }}
-                      >
-                        Note de révision : « {req.reviewer_notes} »
-                      </div>
-                    )
-                  )}
+                      Basculer
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-wallet">Aucune demande KYC enregistrée.</div>
-          )}
-        </section>
-
-        <section className="activity-card">
-          <div className="chat-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <HeartHandshake size={18} color="var(--gold)" />
-              <span>Jeu Responsable · Pauses & Auto-exclusions actives ({rgExclusions.length})</span>
-            </div>
-          </div>
-          {rgExclusions.length ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "10px" }}>
-              {rgExclusions.map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    padding: "12px 14px",
-                    borderRadius: "8px",
-                    background: "var(--panel-2)",
-                    border: "1px solid var(--line)",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                    <div>
-                      <strong>{item.user.display_name || item.user.phone}</strong>{" "}
-                      <small style={{ color: "var(--muted)" }}>({item.user.phone})</small>
-                    </div>
-                    <span
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: "4px",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        background: item.is_permanently_excluded || item.is_active_self_exclusion ? "rgba(232, 120, 120, 0.2)" : "rgba(211, 176, 107, 0.2)",
-                        color: item.is_permanently_excluded || item.is_active_self_exclusion ? "var(--red)" : "var(--gold)",
-                      }}
-                    >
-                      {item.is_permanently_excluded
-                        ? "Auto-exclusion définitive"
-                        : item.is_active_self_exclusion
-                        ? `Auto-exclusion (fin : ${new Date(item.self_exclusion_until!).toLocaleDateString("fr-FR")})`
-                        : `Pause temporaire (fin : ${new Date(item.cooling_off_until!).toLocaleString("fr-FR")})`}
+              ))
+            ) : (
+              <div className="empty-wallet">Aucun flag configuré.</div>
+            )}
+          </section>
+          <section className="activity-card">
+            <div className="chat-head">Derniers événements d’audit</div>
+            {events.length ? (
+              events.slice(0, 10).map((event) => (
+                <div className="activity-row" key={event.id}>
+                  <div>
+                    <strong>{event.action}</strong>
+                    <span>
+                      {event.actor || "Système"} · {event.target_type}
                     </span>
                   </div>
-                  {item.reason && (
-                    <div style={{ fontSize: "12px", color: "var(--muted)" }}>
-                      Motif : « {item.reason} »
-                    </div>
-                  )}
+                  <small>
+                    {new Date(event.created_at).toLocaleDateString("fr-FR")}
+                  </small>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-wallet">Aucun joueur sous auto-exclusion ou pause active.</div>
-          )}
-        </section>
-
-        <section className="activity-card">
-          <div className="chat-head">Feature flags</div>
-          {flags.length ? (
-            flags.map((flag) => (
-              <div className="activity-row" key={flag.key}>
-                <div>
-                  <strong>{flag.key}</strong>
-                  <span>{flag.reason || "Sans raison"}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <b>{flag.enabled ? "ON" : "OFF"}</b>
-                  <button
-                    type="button"
-                    className="button button-sm button-ghost"
-                    onClick={() => void handleToggleFlag(flag)}
-                  >
-                    Basculer
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="empty-wallet">Aucun flag configuré.</div>
-          )}
-        </section>
-        <section className="activity-card">
-          <div className="chat-head">Derniers événements d’audit</div>
-          {events.length ? (
-            events.slice(0, 10).map((event) => (
-              <div className="activity-row" key={event.id}>
-                <div>
-                  <strong>{event.action}</strong>
-                  <span>
-                    {event.actor || "Système"} · {event.target_type}
-                  </span>
-                </div>
-                <small>
-                  {new Date(event.created_at).toLocaleDateString("fr-FR")}
-                </small>
-              </div>
-            ))
-          ) : (
-            <div className="empty-wallet">Aucun événement.</div>
-          )}
-        </section>
-      </div>
+              ))
+            ) : (
+              <div className="empty-wallet">Aucun événement.</div>
+            )}
+          </section>
+        </div>
       )}
     </div>
   );

@@ -56,7 +56,9 @@ export function ProfilePage() {
   const [rank, setRank] = useState<number | null>(null);
   const [kyc, setKyc] = useState<KYCStatus | null>(null);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
-  const [rgProfile, setRgProfile] = useState<ResponsibleGamingProfile | null>(null);
+  const [rgProfile, setRgProfile] = useState<ResponsibleGamingProfile | null>(
+    null,
+  );
   const [isRgModalOpen, setIsRgModalOpen] = useState(false);
   const [missions, setMissions] = useState<DailyMission[]>([]);
   const [missionError, setMissionError] = useState("");
@@ -153,7 +155,13 @@ export function ProfilePage() {
             <span className="online-dot" /> {t("profile.online")}
           </p>
         </div>
-        <button type="button" className="button button-outline edit-button" disabled aria-disabled="true" title="Bientôt disponible">
+        <button
+          type="button"
+          className="button button-outline edit-button"
+          disabled
+          aria-disabled="true"
+          title="Bientôt disponible"
+        >
           <Edit3 size={15} /> {t("profile.edit")}
         </button>
       </div>
@@ -253,7 +261,8 @@ export function ProfilePage() {
             <div>
               <span className="eyebrow">{t("profile.compliance")}</span>
               <h2>
-                {t("profile.kycLevel")} <small>{kyc?.level.toUpperCase() || "…"}</small>
+                {t("profile.kycLevel")}{" "}
+                <small>{kyc?.level.toUpperCase() || "…"}</small>
               </h2>
             </div>
             <ShieldCheck size={19} />
@@ -272,7 +281,14 @@ export function ProfilePage() {
               tabIndex={0}
             >
               <span className="setting-icon">
-                <ShieldCheck size={17} color={kyc?.level === "verified" || kyc?.level === "vip" ? "var(--green)" : "var(--gold)"} />
+                <ShieldCheck
+                  size={17}
+                  color={
+                    kyc?.level === "verified" || kyc?.level === "vip"
+                      ? "var(--green)"
+                      : "var(--gold)"
+                  }
+                />
               </span>
               <div>
                 <strong>
@@ -284,8 +300,8 @@ export function ProfilePage() {
                   {kyc?.request?.status === "pending"
                     ? "Demande en cours d'examen par le service conformité."
                     : kyc?.request?.status === "approved"
-                    ? `Niveau vérifié · Plafond : ${kyc.limits_mga.deposit.toLocaleString("fr-FR")} Ar`
-                    : `Plafond actuel : ${kyc ? kyc.limits_mga.deposit.toLocaleString("fr-FR") : "…"} Ar · Téléverser mes documents`}
+                      ? `Niveau vérifié · Plafond : ${kyc.limits_mga.deposit.toLocaleString("fr-FR")} Ar`
+                      : `Plafond actuel : ${kyc ? kyc.limits_mga.deposit.toLocaleString("fr-FR") : "…"} Ar · Téléverser mes documents`}
                 </span>
               </div>
               <ChevronRight size={17} />
@@ -303,7 +319,10 @@ export function ProfilePage() {
               tabIndex={0}
             >
               <span className="setting-icon">
-                <HeartHandshake size={17} color={rgProfile?.is_blocked ? "var(--red)" : "var(--gold)"} />
+                <HeartHandshake
+                  size={17}
+                  color={rgProfile?.is_blocked ? "var(--red)" : "var(--gold)"}
+                />
               </span>
               <div>
                 <strong>Jeu Responsable & Limites</strong>
@@ -311,8 +330,8 @@ export function ProfilePage() {
                   {rgProfile?.is_blocked
                     ? "Compte actuellement en pause ou auto-exclu"
                     : rgProfile?.daily_deposit_limit
-                    ? `Plafond journalier : ${rgProfile.daily_deposit_limit.toLocaleString("fr-FR")} Ar · Modifier`
-                    : "Plafonds personnels, pause temporaire & auto-exclusion"}
+                      ? `Plafond journalier : ${rgProfile.daily_deposit_limit.toLocaleString("fr-FR")} Ar · Modifier`
+                      : "Plafonds personnels, pause temporaire & auto-exclusion"}
                 </span>
               </div>
               <ChevronRight size={17} />

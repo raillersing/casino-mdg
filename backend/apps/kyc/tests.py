@@ -1,5 +1,3 @@
-import io
-
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -49,7 +47,15 @@ class KYCTests(TestCase):
         self.client.force_authenticate(self.user)
 
         # Fichier PNG valide (1x1 px PNG header minimal)
-        valid_png_content = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+        valid_png_content = (
+            b"\x89PNG\r\n\x1a\n\x00\x00"
+            b"\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f"
+            b"\x15c4\x00\x00\x00\nIDA"
+            b"Tx\x9cc\x00\x01\x00\x00\x05\x00"
+            b"\x01\r\n-\xb4\x00\x00\x00\x00I"
+            b"END\xaeB`\x82"
+        )
         file = SimpleUploadedFile(
             "cin_recto.png", valid_png_content, content_type="image/png"
         )
@@ -86,7 +92,15 @@ class KYCTests(TestCase):
 
     def test_document_download_security(self):
         self.client.force_authenticate(self.user)
-        valid_png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+        valid_png = (
+            b"\x89PNG\r\n\x1a\n\x00\x00"
+            b"\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f"
+            b"\x15c4\x00\x00\x00\nIDA"
+            b"Tx\x9cc\x00\x01\x00\x00\x05\x00"
+            b"\x01\r\n-\xb4\x00\x00\x00\x00I"
+            b"END\xaeB`\x82"
+        )
         file = SimpleUploadedFile("cin_recto.png", valid_png, content_type="image/png")
         upload_res = self.client.post(
             "/api/v1/kyc/documents/upload/",

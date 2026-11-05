@@ -105,7 +105,14 @@ class AirtelMoneyAdapter(BaseMobileMoneyAdapter):
             success=True,
             provider_reference=ref_id,
             status="processing",
-            message=f"Simulation Airtel Money: Confirmez le paiement de {intent.amount} Ar sur votre numéro {formatted_phone}.",
+            message=(
+                "Simulation Airtel Money: Confirmez le "
+                "paiement de "
+                f"{intent.amount}"
+                " Ar sur votre numéro "
+                f"{formatted_phone}"
+                "."
+            ),
             raw_response={
                 "simulation": True,
                 "operator": "Airtel Money",
@@ -121,7 +128,13 @@ class AirtelMoneyAdapter(BaseMobileMoneyAdapter):
             success=True,
             provider_reference=ref_id,
             status="processing",
-            message=f"Retrait de {intent.amount} Ar vers le compte Airtel Money ({formatted_phone}) en cours de transfert.",
+            message=(
+                "Retrait de "
+                f"{intent.amount}"
+                " Ar vers le compte Airtel Money ("
+                f"{formatted_phone}"
+                ") en cours de transfert."
+            ),
             raw_response={
                 "simulation": True,
                 "operator": "Airtel Money",

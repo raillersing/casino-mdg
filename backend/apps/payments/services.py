@@ -1,5 +1,3 @@
-import uuid
-
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -67,7 +65,18 @@ def initiate_payment_intent(
             else user.kyc_level
         )
         raise ValidationError(
-            f"Le montant de {amount:,} Ar dépasse le plafond de {direction} autorisé pour votre niveau ({tier_label} : max {max_allowed:,} Ar). Veuillez mettre à niveau vos documents KYC."
+            (
+                "Le montant de "
+                f"{amount:,}"
+                " Ar dépasse le plafond de "
+                f"{direction}"
+                " autorisé pour votre niveau ("
+                f"{tier_label}"
+                " : max "
+                f"{max_allowed:,}"
+                " Ar). Veuillez mettre à niveau vos documents "
+                "KYC."
+            )
         )
 
     # 1b. Vérification des règles de Jeu Responsable (Auto-exclusion, pause, plafonds personnels)
@@ -92,7 +101,12 @@ def initiate_payment_intent(
         )[0]
         if player_acc.balance < amount:
             raise ValidationError(
-                f"Solde en Ariary insuffisant pour effectuer ce retrait. Solde disponible : {player_acc.balance:,} Ar."
+                (
+                    "Solde en Ariary insuffisant pour effectuer "
+                    "ce retrait. Solde disponible : "
+                    f"{player_acc.balance:,}"
+                    " Ar."
+                )
             )
         # Verrouiller le montant
         player_acc.balance -= amount
@@ -188,7 +202,13 @@ def settle_payment_intent(
                 source_account=platform_acc,
                 destination_account=player_acc,
                 idempotency_key=txn_key,
-                description=f"Dépôt Mobile Money {intent.get_provider_display()} ({intent.amount:,} Ar)",
+                description=(
+                    "Dépôt Mobile Money "
+                    f"{intent.get_provider_display()}"
+                    " ("
+                    f"{intent.amount:,}"
+                    " Ar)"
+                ),
                 metadata={
                     "payment_intent_id": str(intent.id),
                     "provider": intent.provider,
@@ -223,7 +243,13 @@ def settle_payment_intent(
                 user=user,
                 category="wallet",
                 title="Dépôt confirmé",
-                message=f"Votre compte a été crédité de {intent.amount:,} Ar via {intent.get_provider_display()}.",
+                message=(
+                    "Votre compte a été crédité de "
+                    f"{intent.amount:,}"
+                    " Ar via "
+                    f"{intent.get_provider_display()}"
+                    "."
+                ),
             )
         else:
             intent.status = "failed"
@@ -250,7 +276,13 @@ def settle_payment_intent(
                 source_account=player_acc,
                 destination_account=platform_acc,
                 idempotency_key=txn_key,
-                description=f"Retrait Mobile Money {intent.get_provider_display()} ({intent.amount:,} Ar)",
+                description=(
+                    "Retrait Mobile Money "
+                    f"{intent.get_provider_display()}"
+                    " ("
+                    f"{intent.amount:,}"
+                    " Ar)"
+                ),
                 metadata={
                     "payment_intent_id": str(intent.id),
                     "provider": intent.provider,
@@ -284,7 +316,13 @@ def settle_payment_intent(
                 user=user,
                 category="wallet",
                 title="Retrait effectué",
-                message=f"Votre retrait de {intent.amount:,} Ar vers {intent.phone_number} a été validé avec succès.",
+                message=(
+                    "Votre retrait de "
+                    f"{intent.amount:,}"
+                    " Ar vers "
+                    f"{intent.phone_number}"
+                    " a été validé avec succès."
+                ),
             )
         else:
             # Rembourser les fonds réservés vers le solde disponible
@@ -300,7 +338,11 @@ def settle_payment_intent(
                 user=user,
                 category="wallet",
                 title="Échec du retrait",
-                message=f"Le retrait de {intent.amount:,} Ar a échoué. Votre solde a été recrédité.",
+                message=(
+                    "Le retrait de "
+                    f"{intent.amount:,}"
+                    " Ar a échoué. Votre solde a été recrédité."
+                ),
             )
 
     record_audit(

@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "@components/ui/Layout";
+import { GamesPage } from "@pages/GamesPage";
 import { HomePage } from "@pages/HomePage";
 import { LobbyPage } from "@pages/LobbyPage";
 import { GamePage } from "@pages/GamePage";
@@ -17,7 +18,7 @@ function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/games" element={<HomePage catalog />} />
+        <Route path="/games" element={<GamesPage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/lobby/:gameType" element={<LobbyPage />} />
