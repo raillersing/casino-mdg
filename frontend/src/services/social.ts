@@ -168,10 +168,7 @@ export function startDirectConversation(
   });
 }
 
-export function getDirectMessages(
-  conversationId: string,
-  accessToken: string,
-) {
+export function getDirectMessages(conversationId: string, accessToken: string) {
   return request<{ results: DirectMessageItem[] }>(
     `conversations/${conversationId}/messages/`,
     accessToken,

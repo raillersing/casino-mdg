@@ -55,8 +55,12 @@ export function UniquePlayerStats({
                   : "Historique à venir"
                 : `${data.games[gameType]?.unique_players_7d ?? 0} ${mg ? "mpilalao samihafa · 7 andro" : "joueurs uniques · 7 jours"}`}
           {data?.coverage_started_at &&
-            Date.now() - Date.parse(data.coverage_started_at) < 7 * 86400000 && (
-              <span className="unique-partial-badge"> · {mg ? "mbola tsy feno" : "historique partiel"}</span>
+            Date.now() - Date.parse(data.coverage_started_at) <
+              7 * 86400000 && (
+              <span className="unique-partial-badge">
+                {" "}
+                · {mg ? "mbola tsy feno" : "historique partiel"}
+              </span>
             )}
         </span>
       </p>
@@ -71,14 +75,22 @@ export function UniquePlayerStats({
         <div className="unique-stats-heading">
           <Activity size={20} className="unique-stats-icon" />
           <div>
-            <h3>{mg ? "Mpilalao samihafa (Audience Steam)" : "Audience & Joueurs uniques"}</h3>
+            <h3>
+              {mg
+                ? "Mpilalao samihafa (Audience Steam)"
+                : "Audience & Joueurs uniques"}
+            </h3>
             <span className="unique-stats-subtext">
-              {mg ? "Fandraisana anjara voamarina" : "Fréquentation multijoueur humaine certifiée"}
+              {mg
+                ? "Fandraisana anjara voamarina"
+                : "Fréquentation multijoueur humaine certifiée"}
             </span>
           </div>
         </div>
         <label className="unique-stats-period-select">
-          <span className="period-label-text">{mg ? "Vanim-potoana" : "Période"}</span>
+          <span className="period-label-text">
+            {mg ? "Vanim-potoana" : "Période"}
+          </span>
           <select
             aria-label={mg ? "Vanim-potoana" : "Période"}
             value={days}
@@ -87,7 +99,11 @@ export function UniquePlayerStats({
           >
             {[1, 7, 30, 365].map((day) => (
               <option key={day} value={day}>
-                {day === 1 ? (mg ? "24 ora (1 andro)" : "24 heures (1 j)") : `${day} ${mg ? "andro" : "jours"}`}
+                {day === 1
+                  ? mg
+                    ? "24 ora (1 andro)"
+                    : "24 heures (1 j)"
+                  : `${day} ${mg ? "andro" : "jours"}`}
               </option>
             ))}
           </select>
@@ -98,7 +114,9 @@ export function UniquePlayerStats({
         <p role="status" className="unique-status-text">
           {error ? (
             <span className="status-err">
-              {mg ? "Tsy misy antontanisa azo alaina" : "Statistiques indisponibles"}
+              {mg
+                ? "Tsy misy antontanisa azo alaina"
+                : "Statistiques indisponibles"}
             </span>
           ) : !data ? (
             <span className="status-loading">
@@ -106,7 +124,9 @@ export function UniquePlayerStats({
             </span>
           ) : data.coverage_started_at === null ? (
             <span className="status-empty">
-              {mg ? "Tsy mbola misy tantara voarakitra" : "Historique pas encore disponible"}
+              {mg
+                ? "Tsy mbola misy tantara voarakitra"
+                : "Historique pas encore disponible"}
             </span>
           ) : (
             <span className="status-val-wrap">
@@ -120,9 +140,11 @@ export function UniquePlayerStats({
         </p>
 
         {data?.coverage_started_at &&
-          Date.now() - Date.parse(data.coverage_started_at) < days * 86400000 && (
+          Date.now() - Date.parse(data.coverage_started_at) <
+            days * 86400000 && (
             <p className="unique-partial-warning">
-              ℹ️ {mg
+              ℹ️{" "}
+              {mg
                 ? "Mbola tsy feno ny tantara amin’ity vanim-potoana ity (Historique partiel)."
                 : "Historique partiel pour cette période (collecte récente)."}
             </p>
@@ -134,7 +156,9 @@ export function UniquePlayerStats({
           <ShieldCheck size={14} className="verified-icon" />
           <small>
             {mg ? "Voarakitra nanomboka" : "Historique observé depuis le"}{" "}
-            {new Date(data.coverage_started_at).toLocaleDateString(i18n.language)}{" "}
+            {new Date(data.coverage_started_at).toLocaleDateString(
+              i18n.language,
+            )}{" "}
             ·{" "}
             {mg
               ? "Hetsika filalaovana voamarina"

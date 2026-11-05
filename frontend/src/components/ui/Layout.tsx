@@ -227,8 +227,12 @@ export function Layout({ children }: { children: ReactNode }) {
                   type="button"
                   className="icon-button social-hub-btn"
                   onClick={() => setShowSocialModal(true)}
-                  title={language === "MG" ? "Namana sy hafatra" : "Amis & Messages"}
-                  aria-label={language === "MG" ? "Namana sy hafatra" : "Amis & Messages"}
+                  title={
+                    language === "MG" ? "Namana sy hafatra" : "Amis & Messages"
+                  }
+                  aria-label={
+                    language === "MG" ? "Namana sy hafatra" : "Amis & Messages"
+                  }
                   style={{
                     color: "#83aeea",
                     background: "rgba(131, 174, 234, 0.12)",
