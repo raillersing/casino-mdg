@@ -770,7 +770,9 @@ export function LiveCommandCenter({
                         height: "100%",
                         width: `${game.completion_rate_pct ?? 100}%`,
                         background:
-                          game.errors_count > 0 ? "var(--gold)" : "var(--green)",
+                          game.errors_count > 0
+                            ? "var(--gold)"
+                            : "var(--green)",
                       }}
                     />
                   </div>
@@ -863,12 +865,8 @@ export function LiveCommandCenter({
                     justifyContent: "space-between",
                   }}
                 >
-                  <span>
-                    Misé : {ig.total_handle_sim.toLocaleString()} SIM
-                  </span>
-                  <span>
-                    Payé : {ig.total_payout_sim.toLocaleString()} SIM
-                  </span>
+                  <span>Misé : {ig.total_handle_sim.toLocaleString()} SIM</span>
+                  <span>Payé : {ig.total_payout_sim.toLocaleString()} SIM</span>
                   <span style={{ color: "var(--green)" }}>
                     GGR : {ig.ggr_sim.toLocaleString()} SIM
                   </span>
@@ -1708,7 +1706,9 @@ export function LiveCommandCenter({
                         {ev.latency_ms} ms
                       </span>
                     )}
-                    <small style={{ color: "var(--muted)", fontSize: "10.5px" }}>
+                    <small
+                      style={{ color: "var(--muted)", fontSize: "10.5px" }}
+                    >
                       {new Date(ev.created_at).toLocaleTimeString("fr-FR")}
                     </small>
                   </div>

@@ -86,7 +86,14 @@ class OrangeMoneyAdapter(BaseMobileMoneyAdapter):
             provider_reference=ref_id,
             checkout_url=f"https://sandbox.orange.mg/pay/{ref_id}",
             status="processing",
-            message=f"Simulation Orange Money: Confirmez le paiement de {intent.amount} Ar (#144#) sur {formatted_phone}.",
+            message=(
+                "Simulation Orange Money: Confirmez le "
+                "paiement de "
+                f"{intent.amount}"
+                " Ar (#144#) sur "
+                f"{formatted_phone}"
+                "."
+            ),
             raw_response={
                 "simulation": True,
                 "operator": "Orange Money",
@@ -102,7 +109,13 @@ class OrangeMoneyAdapter(BaseMobileMoneyAdapter):
             success=True,
             provider_reference=ref_id,
             status="processing",
-            message=f"Retrait de {intent.amount} Ar vers Orange Money ({formatted_phone}) en cours de transfert.",
+            message=(
+                "Retrait de "
+                f"{intent.amount}"
+                " Ar vers Orange Money ("
+                f"{formatted_phone}"
+                ") en cours de transfert."
+            ),
             raw_response={
                 "simulation": True,
                 "operator": "Orange Money",

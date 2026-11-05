@@ -1,10 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Bot,
-  Zap,
-  ChevronRight,
-} from "lucide-react";
+import { Bot, Zap, ChevronRight } from "lucide-react";
 import { BottomSheet } from "@components/ui/BottomSheet";
 import { useGameStore } from "@stores/gameStore";
 import { startBotSimulation } from "@services/games";
@@ -32,7 +28,8 @@ const GAMES: GameDef[] = [
     icon: "♥",
     accent: "#ef4444",
     players: "4 joueurs (2 vs 2)",
-    summary: "Le jeu d'équipe culte de Madagascar. Annonces, atouts, belote-rebelote et 162 points par donne.",
+    summary:
+      "Le jeu d'équipe culte de Madagascar. Annonces, atouts, belote-rebelote et 162 points par donne.",
     tags: ["Partenaire", "Atout", "162 pts"],
   },
   {
@@ -42,7 +39,8 @@ const GAMES: GameDef[] = [
     icon: "🁓",
     accent: "#f59e0b",
     players: "2 à 4 joueurs",
-    summary: "Posez vos tuiles ivoire sur table en palissandre, piochez au talon et bloquez vos rivaux.",
+    summary:
+      "Posez vos tuiles ivoire sur table en palissandre, piochez au talon et bloquez vos rivaux.",
     tags: ["Double-Six", "Talon 3D", "Pose directe"],
   },
   {
@@ -52,7 +50,8 @@ const GAMES: GameDef[] = [
     icon: "🎲",
     accent: "#10b981",
     players: "2 à 4 joueurs",
-    summary: "Lancez le dé 3D, sortez vos 4 pions sur un 6 et amenez-les au centre le premier.",
+    summary:
+      "Lancez le dé 3D, sortez vos 4 pions sur un 6 et amenez-les au centre le premier.",
     tags: ["Dés 3D", "Pions 4 couleurs", "Capture"],
   },
   {
@@ -62,7 +61,8 @@ const GAMES: GameDef[] = [
     icon: "♦",
     accent: "#3b82f6",
     players: "2 à 4 joueurs",
-    summary: "Tierces et brelans à 13 cartes. Défaussez avec stratégie pour poser toutes vos cartes.",
+    summary:
+      "Tierces et brelans à 13 cartes. Défaussez avec stratégie pour poser toutes vos cartes.",
     tags: ["13 Cartes", "Tierces & Brelans", "Défausse"],
   },
   {
@@ -72,7 +72,8 @@ const GAMES: GameDef[] = [
     icon: "♠",
     accent: "#d3b06b",
     players: "2 à 9 joueurs",
-    summary: "No-Limit Hold'em officiel. 2 cartes fermées, 5 communes, relances, bluffs et showdowns.",
+    summary:
+      "No-Limit Hold'em officiel. 2 cartes fermées, 5 communes, relances, bluffs et showdowns.",
     tags: ["No-Limit", "Blinds", "Tournois"],
   },
 ];
@@ -89,7 +90,8 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
   defaultGameId = "belote",
 }) => {
   const navigate = useNavigate();
-  const [selectedGameId, setSelectedGameId] = useState<GameDef["id"]>(defaultGameId);
+  const [selectedGameId, setSelectedGameId] =
+    useState<GameDef["id"]>(defaultGameId);
   const [startingDemo, setStartingDemo] = useState(false);
   const [error, setError] = useState("");
 
@@ -153,7 +155,8 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
       return;
     }
 
-    const botCount = botCounts[selectedGameId] ?? (selectedGameId === "rami" ? 1 : 3);
+    const botCount =
+      botCounts[selectedGameId] ?? (selectedGameId === "rami" ? 1 : 3);
     const idempotencyKey = `drawer-${selectedGameId}-${Date.now()}`;
 
     try {
@@ -162,7 +165,7 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
         selectedGameId,
         "balanced",
         idempotencyKey,
-        botCount
+        botCount,
       );
       void trackEvent("bot_simulation_started", {
         mode: "demo",
@@ -172,11 +175,17 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
       onClose();
       navigate(
         `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}${
-          session.admission_token ? `&admission_token=${session.admission_token}` : ""
-        }`
+          session.admission_token
+            ? `&admission_token=${session.admission_token}`
+            : ""
+        }`,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur de lancement de la simulation.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Erreur de lancement de la simulation.",
+      );
     } finally {
       setStartingDemo(false);
     }
@@ -196,7 +205,14 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
       subtitle="Choisissez un jeu et lancez une partie en 1-clic"
       maxHeight="90vh"
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px", paddingBottom: "24px" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          paddingBottom: "24px",
+        }}
+      >
         {/* Horizontal Game Selector Pills */}
         <div
           style={{
@@ -240,7 +256,9 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
                   boxShadow: isSelected ? `0 0 12px ${game.accent}30` : "none",
                 }}
               >
-                <span style={{ color: game.accent, fontSize: "16px" }}>{game.icon}</span>
+                <span style={{ color: game.accent, fontSize: "16px" }}>
+                  {game.icon}
+                </span>
                 <span>{game.name.split(" ")[0]}</span>
               </button>
             );
@@ -251,7 +269,8 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
         <div
           style={{
             borderRadius: "16px",
-            background: "linear-gradient(135deg, rgba(25, 30, 42, 0.95) 0%, rgba(15, 18, 26, 0.95) 100%)",
+            background:
+              "linear-gradient(135deg, rgba(25, 30, 42, 0.95) 0%, rgba(15, 18, 26, 0.95) 100%)",
             border: `1.5px solid ${selectedGame.accent}45`,
             padding: "16px",
             display: "flex",
@@ -260,7 +279,13 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
             boxShadow: `0 8px 24px rgba(0,0,0,0.4), 0 0 16px ${selectedGame.accent}15`,
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <div
                 style={{
@@ -279,10 +304,23 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
                 {selectedGame.icon}
               </div>
               <div>
-                <h4 style={{ margin: 0, fontSize: "16px", color: "#fff", fontWeight: 800 }}>
+                <h4
+                  style={{
+                    margin: 0,
+                    fontSize: "16px",
+                    color: "#fff",
+                    fontWeight: 800,
+                  }}
+                >
                   {selectedGame.name}
                 </h4>
-                <span style={{ fontSize: "11.5px", color: selectedGame.accent, fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: "11.5px",
+                    color: selectedGame.accent,
+                    fontWeight: 600,
+                  }}
+                >
                   {selectedGame.badge} · {selectedGame.players}
                 </span>
               </div>
@@ -301,12 +339,27 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
                 fontWeight: 600,
               }}
             >
-              <i style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+              <i
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#10b981",
+                  display: "inline-block",
+                }}
+              />
               En direct
             </span>
           </div>
 
-          <p style={{ margin: 0, fontSize: "12.5px", color: "#cbd5e1", lineHeight: 1.45 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "12.5px",
+              color: "#cbd5e1",
+              lineHeight: 1.45,
+            }}
+          >
             {selectedGame.summary}
           </p>
 
@@ -329,7 +382,10 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
           </div>
 
           {error && (
-            <div className="error-banner" style={{ margin: 0, padding: "8px 12px", fontSize: "12px" }}>
+            <div
+              className="error-banner"
+              style={{ margin: 0, padding: "8px 12px", fontSize: "12px" }}
+            >
               {error}
             </div>
           )}
@@ -338,14 +394,23 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
           <div style={{ marginTop: "4px" }}>
             <BotCountSelector
               gameType={selectedGameId}
-              value={botCounts[selectedGameId] ?? (selectedGameId === "rami" ? 1 : 3)}
+              value={
+                botCounts[selectedGameId] ?? (selectedGameId === "rami" ? 1 : 3)
+              }
               onChange={(val) => setBotCount(selectedGameId, val)}
               disabled={startingDemo}
             />
           </div>
 
           {/* 2 Big Primary Actions */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "10px",
+              marginTop: "4px",
+            }}
+          >
             <button
               type="button"
               className="button button-gold"
@@ -387,7 +452,16 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
 
         {/* Quick Discovery Cards for remaining games */}
         <div>
-          <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "var(--muted)",
+              marginBottom: "8px",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+            }}
+          >
             Autres Jeux Disponibles
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -410,13 +484,25 @@ export const GameDiscoveryDrawer: React.FC<GameDiscoveryDrawerProps> = ({
                   transition: "background 0.15s ease",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "18px", color: other.accent }}>{other.icon}</span>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                >
+                  <span style={{ fontSize: "18px", color: other.accent }}>
+                    {other.icon}
+                  </span>
                   <div>
-                    <strong style={{ fontSize: "13px", color: "#fff", display: "block" }}>
+                    <strong
+                      style={{
+                        fontSize: "13px",
+                        color: "#fff",
+                        display: "block",
+                      }}
+                    >
                       {other.name}
                     </strong>
-                    <small style={{ fontSize: "11px", color: "var(--muted)" }}>{other.players}</small>
+                    <small style={{ fontSize: "11px", color: "var(--muted)" }}>
+                      {other.players}
+                    </small>
                   </div>
                 </div>
                 <ChevronRight size={16} style={{ color: "var(--muted)" }} />

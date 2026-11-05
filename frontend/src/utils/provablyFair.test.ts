@@ -15,7 +15,11 @@ describe("Provably Fair SHA-256 Engine", () => {
   });
 
   it("builds canonical commitment string with mdg prefix", () => {
-    const commitment = buildCommitmentString("server123", "client456", "A♠,K♥,Q♦");
+    const commitment = buildCommitmentString(
+      "server123",
+      "client456",
+      "A♠,K♥,Q♦",
+    );
     expect(commitment).toBe("mdg:server123:client456:A♠,K♥,Q♦");
   });
 
@@ -24,7 +28,11 @@ describe("Provably Fair SHA-256 Engine", () => {
     const clientSeed = "client_public_seed_441";
     const deckSignature = "A♠,K♥,Q♦,J♣,10♠";
 
-    const payload = buildCommitmentString(serverSeed, clientSeed, deckSignature);
+    const payload = buildCommitmentString(
+      serverSeed,
+      clientSeed,
+      deckSignature,
+    );
     const validHash = await computeSha256(payload);
 
     const isValid = await verifyProvablyFairCommitment(

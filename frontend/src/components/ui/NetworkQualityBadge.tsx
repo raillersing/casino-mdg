@@ -78,7 +78,11 @@ export function NetworkQualityBadge({
     <>
       <div
         className={`network-badge-wrap ${className}`}
-        style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
+        style={{
+          position: "relative",
+          display: "inline-flex",
+          alignItems: "center",
+        }}
       >
         <button
           type="button"
@@ -102,7 +106,11 @@ export function NetworkQualityBadge({
             transition: "all 0.15s ease",
           }}
         >
-          <IconComponent size={12} strokeWidth={2.4} style={{ color: qualityColor }} />
+          <IconComponent
+            size={12}
+            strokeWidth={2.4}
+            style={{ color: qualityColor }}
+          />
           {activeLatency !== null ? (
             <span>{activeLatency} ms</span>
           ) : isOnline ? (
@@ -115,7 +123,11 @@ export function NetworkQualityBadge({
 
       {/* Modal / Volet Diagnostic Réseau Haute-Fidélité */}
       {showModal && (
-        <div className="modal-backdrop" role="presentation" onClick={() => setShowModal(false)}>
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={() => setShowModal(false)}
+        >
           <div
             className="modal-card"
             role="dialog"
@@ -134,9 +146,14 @@ export function NetworkQualityBadge({
                 borderBottom: "1px solid var(--line)",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
                 <Activity size={18} style={{ color: "var(--gold)" }} />
-                <h3 id="net-diag-title" style={{ margin: 0, fontSize: "15px", color: "#fff" }}>
+                <h3
+                  id="net-diag-title"
+                  style={{ margin: 0, fontSize: "15px", color: "#fff" }}
+                >
                   Diagnostic Réseau & Télémétrie
                 </h3>
               </div>
@@ -163,7 +180,9 @@ export function NetworkQualityBadge({
                 marginBottom: "14px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
                 <span
                   style={{
                     width: "9px",
@@ -174,13 +193,22 @@ export function NetworkQualityBadge({
                   }}
                 />
                 <div>
-                  <strong style={{ fontSize: "13px", color: qualityColor }}>{qualityLabel}</strong>
+                  <strong style={{ fontSize: "13px", color: qualityColor }}>
+                    {qualityLabel}
+                  </strong>
                   <div style={{ fontSize: "11px", color: "var(--muted)" }}>
                     Serveur Edge Antananarivo · WSS
                   </div>
                 </div>
               </div>
-              <span style={{ fontSize: "16px", fontWeight: 700, color: qualityColor, fontFamily: "var(--mono)" }}>
+              <span
+                style={{
+                  fontSize: "16px",
+                  fontWeight: 700,
+                  color: qualityColor,
+                  fontFamily: "var(--mono)",
+                }}
+              >
                 {activeLatency !== null ? `${activeLatency} ms` : "—"}
               </span>
             </div>
@@ -202,10 +230,22 @@ export function NetworkQualityBadge({
                   padding: "8px 10px",
                 }}
               >
-                <span style={{ fontSize: "10.5px", color: "var(--muted)", display: "block" }}>
+                <span
+                  style={{
+                    fontSize: "10.5px",
+                    color: "var(--muted)",
+                    display: "block",
+                  }}
+                >
                   Gigue (Jitter)
                 </span>
-                <strong style={{ fontSize: "13px", color: "#fff", fontFamily: "var(--mono)" }}>
+                <strong
+                  style={{
+                    fontSize: "13px",
+                    color: "#fff",
+                    fontFamily: "var(--mono)",
+                  }}
+                >
                   ±{jitter} ms
                 </strong>
               </div>
@@ -218,11 +258,18 @@ export function NetworkQualityBadge({
                   padding: "8px 10px",
                 }}
               >
-                <span style={{ fontSize: "10.5px", color: "var(--muted)", display: "block" }}>
+                <span
+                  style={{
+                    fontSize: "10.5px",
+                    color: "var(--muted)",
+                    display: "block",
+                  }}
+                >
                   Connexion
                 </span>
                 <strong style={{ fontSize: "13px", color: "var(--gold)" }}>
-                  {effectiveType.toUpperCase()} {downlink ? `(${downlink} Mb/s)` : ""}
+                  {effectiveType.toUpperCase()}{" "}
+                  {downlink ? `(${downlink} Mb/s)` : ""}
                 </strong>
               </div>
 
@@ -234,7 +281,13 @@ export function NetworkQualityBadge({
                   padding: "8px 10px",
                 }}
               >
-                <span style={{ fontSize: "10.5px", color: "var(--muted)", display: "block" }}>
+                <span
+                  style={{
+                    fontSize: "10.5px",
+                    color: "var(--muted)",
+                    display: "block",
+                  }}
+                >
                   Protocole
                 </span>
                 <strong style={{ fontSize: "13px", color: "#4ade80" }}>
@@ -250,7 +303,13 @@ export function NetworkQualityBadge({
                   padding: "8px 10px",
                 }}
               >
-                <span style={{ fontSize: "10.5px", color: "var(--muted)", display: "block" }}>
+                <span
+                  style={{
+                    fontSize: "10.5px",
+                    color: "var(--muted)",
+                    display: "block",
+                  }}
+                >
                   Reconnexion
                 </span>
                 <strong style={{ fontSize: "13px", color: "#fff" }}>
@@ -275,10 +334,19 @@ export function NetworkQualityBadge({
                 marginBottom: "16px",
               }}
             >
-              <Shield size={16} style={{ color: "var(--gold)", flexShrink: 0, marginTop: "2px" }} />
+              <Shield
+                size={16}
+                style={{
+                  color: "var(--gold)",
+                  flexShrink: 0,
+                  marginTop: "2px",
+                }}
+              />
               <span>
-                <strong>Protection Déconnexion :</strong> En cas de micro-coupure 3G/4G,
-                votre siège et vos jetons sont maintenus réservés pendant 30 secondes pour vous permettre de reprendre votre coup.
+                <strong>Protection Déconnexion :</strong> En cas de
+                micro-coupure 3G/4G, votre siège et vos jetons sont maintenus
+                réservés pendant 30 secondes pour vous permettre de reprendre
+                votre coup.
               </span>
             </div>
 
@@ -292,7 +360,9 @@ export function NetworkQualityBadge({
                 style={{ flex: 1, justifyContent: "center", fontSize: "12px" }}
               >
                 <RefreshCw size={14} className={isTesting ? "spin" : ""} />
-                {isTesting ? "Mesure du ping..." : "Tester la connexion maintenant"}
+                {isTesting
+                  ? "Mesure du ping..."
+                  : "Tester la connexion maintenant"}
               </button>
               <button
                 type="button"

@@ -32,10 +32,15 @@ export type Tournament = {
   prizes: TournamentPrize[];
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api/v1";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api/v1";
 
-export async function getTournaments(accessToken: string = ""): Promise<{ results: Tournament[] }> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+export async function getTournaments(
+  accessToken: string = "",
+): Promise<{ results: Tournament[] }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   const res = await fetch(`${API_BASE}/games/tournaments/`, { headers });
   if (!res.ok) throw new Error("Impossible de charger les tournois.");
@@ -46,9 +51,13 @@ export async function getTournamentDetail(
   tournamentId: string,
   accessToken: string = "",
 ): Promise<{ tournament: Tournament; participants: TournamentParticipant[] }> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-  const res = await fetch(`${API_BASE}/games/tournaments/${tournamentId}/`, { headers });
+  const res = await fetch(`${API_BASE}/games/tournaments/${tournamentId}/`, {
+    headers,
+  });
   if (!res.ok) throw new Error("Impossible de charger les détails du tournoi.");
   return res.json();
 }
@@ -57,13 +66,16 @@ export async function registerTournament(
   accessToken: string,
   tournamentId: string,
 ): Promise<{ status: string; tournament: Tournament }> {
-  const res = await fetch(`${API_BASE}/games/tournaments/${tournamentId}/register/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
+  const res = await fetch(
+    `${API_BASE}/games/tournaments/${tournamentId}/register/`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
     },
-  });
+  );
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.detail || "Échec de l'inscription au tournoi.");

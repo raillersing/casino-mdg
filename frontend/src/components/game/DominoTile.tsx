@@ -59,7 +59,9 @@ function renderPips(value: number, size: "small" | "medium" | "large") {
             background: d.show
               ? "radial-gradient(circle at 35% 35%, #222, #000)"
               : "transparent",
-            boxShadow: d.show ? "inset 0 1px 1px rgba(0,0,0,0.8), 0 0.5px 0.5px rgba(255,255,255,0.4)" : "none",
+            boxShadow: d.show
+              ? "inset 0 1px 1px rgba(0,0,0,0.8), 0 0.5px 0.5px rgba(255,255,255,0.4)"
+              : "none",
           }}
         />
       ))}
@@ -87,7 +89,8 @@ export const DominoTile: React.FC<DominoTileProps> = ({
   const width = isHoriz ? baseH : baseW;
   const height = isHoriz ? baseW : baseH;
 
-  const boneGradient = "linear-gradient(135deg, #ffffff 0%, #f4efe6 45%, #e8decb 100%)";
+  const boneGradient =
+    "linear-gradient(135deg, #ffffff 0%, #f4efe6 45%, #e8decb 100%)";
   const hiddenBack = "linear-gradient(135deg, #2b1d0c 0%, #170f06 100%)";
 
   return (
@@ -132,7 +135,14 @@ export const DominoTile: React.FC<DominoTileProps> = ({
       ) : (
         <>
           {/* Half 1 */}
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             {renderPips(left, size)}
           </div>
 
@@ -155,14 +165,22 @@ export const DominoTile: React.FC<DominoTileProps> = ({
                 width: size === "small" ? "3px" : "5px",
                 height: size === "small" ? "3px" : "5px",
                 borderRadius: "50%",
-                background: "radial-gradient(circle at 35% 35%, #ffd700, #b8860b)",
+                background:
+                  "radial-gradient(circle at 35% 35%, #ffd700, #b8860b)",
                 boxShadow: "0 0.5px 1px rgba(0,0,0,0.6)",
               }}
             />
           </div>
 
           {/* Half 2 */}
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             {renderPips(right, size)}
           </div>
         </>

@@ -404,7 +404,7 @@ func (m *Manager) NextBotTurn(tableID string) (BotTurn, bool) {
 		}
 		gamePlayer := game.Players[game.Current]
 		seat, exists := table.Players[gamePlayer.ID]
-		profile := "balanced"
+		var profile string
 		if exists && seat.IsBot {
 			profile = seat.BotProfile
 			if profile == "" {
@@ -699,10 +699,6 @@ func botPositionCategory(game *poker.Hand, playerID string) string {
 	return "early"
 }
 
-func botIsOnTilt(table *Table, playerID string) bool {
-	return table.BotTilt[playerID] > 0
-}
-
 func botTiltFactor(table *Table, playerID string) float64 {
 	if table.BotTilt[playerID] > 0 {
 		return 0.75
@@ -743,10 +739,7 @@ func botShouldBluff(profile, position, phase string, board []poker.Card, table *
 			baseProb += 0.05
 		}
 	}
-	// Tilt increases bluffing
-	if botIsOnTilt(table, "") {
-		// We need the actual playerID here; handled in caller
-	}
+	// Tilt adjustments using the actual player ID are handled by the caller.
 	return safeRandFloat64() < baseProb
 }
 
@@ -806,13 +799,6 @@ func botBetSize(profile string, game *poker.Hand, base int64, strength int) int6
 
 func minInt64(a, b int64) int64 {
 	if a < b {
-		return a
-	}
-	return b
-}
-
-func maxInt64(a, b int64) int64 {
-	if a > b {
 		return a
 	}
 	return b

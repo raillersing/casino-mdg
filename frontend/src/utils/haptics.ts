@@ -7,7 +7,8 @@ const STORAGE_KEY = "casino_haptics_enabled";
 
 function getStorage(): Storage | null {
   try {
-    if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+    if (typeof window !== "undefined" && window.localStorage)
+      return window.localStorage;
     if (typeof localStorage !== "undefined") return localStorage;
   } catch {
     return null;
@@ -50,7 +51,10 @@ export const haptics = {
   trigger(pattern: number | number[]): boolean {
     if (!this.isEnabled()) return false;
     try {
-      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.vibrate === "function"
+      ) {
         return Boolean(navigator.vibrate(pattern));
       }
       return false;

@@ -459,18 +459,6 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 	s.startBotTurns(msg.TableID)
 }
 
-func allPlayersAreBots(players map[string]*room.Player) bool {
-	if len(players) == 0 {
-		return false
-	}
-	for _, player := range players {
-		if !player.IsBot {
-			return false
-		}
-	}
-	return true
-}
-
 type botRun struct {
 	cancel context.CancelFunc
 	mu     sync.Mutex
@@ -771,17 +759,11 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 			deadline = actionDeadline
 		}
 		passed := make([]bool, len(game.Passed))
-		for i, p := range game.Passed {
-			passed[i] = p
-		}
+		copy(passed, game.Passed[:])
 		beloteAnnounced := make([]bool, len(game.BeloteAnnounced))
-		for i, b := range game.BeloteAnnounced {
-			beloteAnnounced[i] = b
-		}
+		copy(beloteAnnounced, game.BeloteAnnounced[:])
 		rebeloteDeclared := make([]bool, len(game.RebeloteDeclared))
-		for i, b := range game.RebeloteDeclared {
-			rebeloteDeclared[i] = b
-		}
+		copy(rebeloteDeclared, game.RebeloteDeclared[:])
 		return map[string]interface{}{
 			"players":           players,
 			"phase":             game.Phase,

@@ -2289,7 +2289,10 @@ export function GamePage() {
                   const isWinner = pokerWinners.includes(pid);
                   const rank = showdownRanks[pid] || "";
                   const payout = payouts[pid] || 0;
-                  const revealed = (gameState?.revealed_cards as Record<string, unknown> | undefined)?.[pid];
+                  const revealed = (
+                    gameState?.revealed_cards as
+                      Record<string, unknown> | undefined
+                  )?.[pid];
                   const rawCards = player.cards || revealed;
                   const playerCards = Array.isArray(rawCards)
                     ? (rawCards as Array<{ rank: number; suit: number }>)

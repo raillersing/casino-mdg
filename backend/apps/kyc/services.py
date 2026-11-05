@@ -1,6 +1,6 @@
 import hashlib
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
@@ -37,13 +37,17 @@ def validate_file_security(uploaded_file: UploadedFile) -> Tuple[str, str, int]:
     """
     if uploaded_file.size > MAX_FILE_SIZE:
         raise ValidationError(
-            f"Le fichier dépasse la taille maximale autorisée (5 Mo). Taille: {uploaded_file.size} octets."
+            (
+                "Le fichier dépasse la taille maximale "
+                "autorisée (5 Mo). Taille: "
+                f"{uploaded_file.size}"
+                " octets."
+            )
         )
 
     ext = os.path.splitext(uploaded_file.name)[1].lower()
 
     # Lire l'en-tête pour valider les magic bytes
-    initial_pos = uploaded_file.tell() if hasattr(uploaded_file, "tell") else 0
     header = uploaded_file.read(32)
     uploaded_file.seek(0)
 
@@ -59,7 +63,10 @@ def validate_file_security(uploaded_file: UploadedFile) -> Tuple[str, str, int]:
 
     if not detected_mime:
         raise ValidationError(
-            "Format de fichier non reconnu ou non autorisé. Formats acceptés : JPEG, PNG, WEBP, PDF."
+            (
+                "Format de fichier non reconnu ou non autorisé. "
+                "Formats acceptés : JPEG, PNG, WEBP, PDF."
+            )
         )
 
     if ext not in ALLOWED_MIME_TYPES.get(detected_mime, []):
@@ -84,7 +91,12 @@ def attach_document_to_request(
     valid_types = dict(KYCDocument.DOCUMENT_TYPES)
     if document_type not in valid_types:
         raise ValidationError(
-            f"Type de document '{document_type}' invalide. Types autorisés : {list(valid_types.keys())}"
+            (
+                "Type de document '"
+                f"{document_type}"
+                "' invalide. Types autorisés : "
+                f"{list(valid_types.keys())}"
+            )
         )
 
     if kyc_request.status not in ["pending", "resubmission_requested"]:

@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
@@ -85,7 +85,11 @@ def check_deposit_allowed(user, deposit_amount: int) -> None:
             {"amount": deposit_amount},
         )
         raise ValidationError(
-            f"Votre compte est auto-exclu jusqu'au {profile.self_exclusion_until.strftime('%d/%m/%Y à %H:%M')}."
+            (
+                "Votre compte est auto-exclu jusqu'au "
+                f"{profile.self_exclusion_until.strftime('%d/%m/%Y à %H:%M')}"
+                "."
+            )
         )
 
     if profile.is_active_cooling_off():
@@ -93,7 +97,12 @@ def check_deposit_allowed(user, deposit_amount: int) -> None:
             user, "rg.deposit_blocked_cooling_off", profile, {"amount": deposit_amount}
         )
         raise ValidationError(
-            f"Votre compte est en pause de jeu temporaire jusqu'au {profile.cooling_off_until.strftime('%d/%m/%Y à %H:%M')}."
+            (
+                "Votre compte est en pause de jeu temporaire "
+                "jusqu'au "
+                f"{profile.cooling_off_until.strftime('%d/%m/%Y à %H:%M')}"
+                "."
+            )
         )
 
     usage = get_deposit_usage(user)
@@ -103,7 +112,14 @@ def check_deposit_allowed(user, deposit_amount: int) -> None:
     ):
         diff = profile.daily_deposit_limit - usage["daily"]
         raise ValidationError(
-            f"Ce dépôt dépasse votre limite journalière personnelle ({profile.daily_deposit_limit:,} Ar). Montant restant aujourd'hui : {max(0, diff):,} Ar."
+            (
+                "Ce dépôt dépasse votre limite journalière "
+                "personnelle ("
+                f"{profile.daily_deposit_limit:,}"
+                " Ar). Montant restant aujourd'hui : "
+                f"{max(0, diff):,}"
+                " Ar."
+            )
         )
 
     if profile.weekly_deposit_limit and (
@@ -111,7 +127,14 @@ def check_deposit_allowed(user, deposit_amount: int) -> None:
     ):
         diff = profile.weekly_deposit_limit - usage["weekly"]
         raise ValidationError(
-            f"Ce dépôt dépasse votre limite hebdomadaire personnelle ({profile.weekly_deposit_limit:,} Ar). Montant restant cette semaine : {max(0, diff):,} Ar."
+            (
+                "Ce dépôt dépasse votre limite hebdomadaire "
+                "personnelle ("
+                f"{profile.weekly_deposit_limit:,}"
+                " Ar). Montant restant cette semaine : "
+                f"{max(0, diff):,}"
+                " Ar."
+            )
         )
 
     if profile.monthly_deposit_limit and (
@@ -119,7 +142,14 @@ def check_deposit_allowed(user, deposit_amount: int) -> None:
     ):
         diff = profile.monthly_deposit_limit - usage["monthly"]
         raise ValidationError(
-            f"Ce dépôt dépasse votre limite mensuelle personnelle ({profile.monthly_deposit_limit:,} Ar). Montant restant ce mois-ci : {max(0, diff):,} Ar."
+            (
+                "Ce dépôt dépasse votre limite mensuelle "
+                "personnelle ("
+                f"{profile.monthly_deposit_limit:,}"
+                " Ar). Montant restant ce mois-ci : "
+                f"{max(0, diff):,}"
+                " Ar."
+            )
         )
 
 
@@ -132,12 +162,22 @@ def check_gameplay_allowed(user) -> None:
 
     if profile.is_active_self_exclusion():
         raise ValidationError(
-            f"Accès refusé : auto-exclusion active jusqu'au {profile.self_exclusion_until.strftime('%d/%m/%Y à %H:%M')}."
+            (
+                "Accès refusé : auto-exclusion active "
+                "jusqu'au "
+                f"{profile.self_exclusion_until.strftime('%d/%m/%Y à %H:%M')}"
+                "."
+            )
         )
 
     if profile.is_active_cooling_off():
         raise ValidationError(
-            f"Accès refusé : pause temporaire en cours jusqu'au {profile.cooling_off_until.strftime('%d/%m/%Y à %H:%M')}."
+            (
+                "Accès refusé : pause temporaire en cours "
+                "jusqu'au "
+                f"{profile.cooling_off_until.strftime('%d/%m/%Y à %H:%M')}"
+                "."
+            )
         )
 
 
@@ -184,7 +224,14 @@ def apply_cooling_off(
         user=user,
         category="security",
         title="Pause de jeu activée",
-        message=f"Votre pause de {duration_hours}h est active jusqu'au {profile.cooling_off_until.strftime('%d/%m/%Y à %H:%M')}. Aucun dépôt ni jeu payant ne sera autorisé durant cette période.",
+        message=(
+            "Votre pause de "
+            f"{duration_hours}"
+            "h est active jusqu'au "
+            f"{profile.cooling_off_until.strftime('%d/%m/%Y à %H:%M')}"
+            ". Aucun dépôt ni jeu payant ne sera autorisé "
+            "durant cette période."
+        ),
     )
     return profile
 
@@ -236,7 +283,11 @@ def apply_self_exclusion(
         message=(
             "Votre auto-exclusion a été prise en compte avec succès."
             if permanent
-            else f"Votre auto-exclusion est active jusqu'au {profile.self_exclusion_until.strftime('%d/%m/%Y')}."
+            else (
+                "Votre auto-exclusion est active jusqu'au "
+                f"{profile.self_exclusion_until.strftime('%d/%m/%Y')}"
+                "."
+            )
         ),
     )
     return profile

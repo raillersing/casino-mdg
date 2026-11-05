@@ -21,21 +21,23 @@ export type ResponsibleGamingProfile = {
 };
 
 export async function getResponsibleGamingStatus(
-  accessToken: string
+  accessToken: string,
 ): Promise<ResponsibleGamingProfile> {
   const response = await fetch("/api/v1/responsible-gaming/status/", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.detail || "Impossible de charger le profil de Jeu Responsable.");
+    throw new Error(
+      payload.detail || "Impossible de charger le profil de Jeu Responsable.",
+    );
   }
   return payload as ResponsibleGamingProfile;
 }
 
 export async function updateResponsibleGamingLimits(
   accessToken: string,
-  limits: Partial<ResponsibleGamingProfile>
+  limits: Partial<ResponsibleGamingProfile>,
 ): Promise<{ message: string; profile: ResponsibleGamingProfile }> {
   const response = await fetch("/api/v1/responsible-gaming/limits/", {
     method: "POST",
@@ -55,7 +57,7 @@ export async function updateResponsibleGamingLimits(
 export async function activateCoolingOff(
   accessToken: string,
   durationHours: number,
-  reason = ""
+  reason = "",
 ): Promise<{ message: string; profile: ResponsibleGamingProfile }> {
   const response = await fetch("/api/v1/responsible-gaming/cooling-off/", {
     method: "POST",
@@ -74,7 +76,7 @@ export async function activateCoolingOff(
 
 export async function activateSelfExclusion(
   accessToken: string,
-  options: { months?: number; permanent?: boolean; reason?: string }
+  options: { months?: number; permanent?: boolean; reason?: string },
 ): Promise<{ message: string; profile: ResponsibleGamingProfile }> {
   const response = await fetch("/api/v1/responsible-gaming/self-exclude/", {
     method: "POST",

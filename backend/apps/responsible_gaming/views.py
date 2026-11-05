@@ -4,7 +4,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import ResponsibleGamingAudit, ResponsibleGamingProfile
+from .models import ResponsibleGamingProfile
 from .services import (
     apply_cooling_off,
     apply_self_exclusion,
@@ -114,7 +114,10 @@ class ResponsibleGamingSelfExclusionView(APIView):
         if not permanent and not months:
             return Response(
                 {
-                    "detail": "Veuillez spécifier une durée en mois ou confirmer l'exclusion définitive."
+                    "detail": (
+                        "Veuillez spécifier une durée en mois ou confirmer "
+                        "l'exclusion définitive."
+                    )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )

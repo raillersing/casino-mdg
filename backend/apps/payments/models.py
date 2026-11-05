@@ -65,4 +65,18 @@ class PaymentIntent(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"PaymentIntent #{self.pk} {self.direction} {self.amount} {self.currency} ({self.provider}: {self.status})"
+        return (
+            "PaymentIntent #"
+            f"{self.pk}"
+            " "
+            f"{self.direction}"
+            " "
+            f"{self.amount}"
+            " "
+            f"{self.currency}"
+            " ("
+            f"{self.provider}"
+            ": "
+            f"{self.status}"
+            ")"
+        )

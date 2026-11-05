@@ -22,10 +22,34 @@ interface SlotMachineProps {
 }
 
 const SLOT_SYMBOLS = [
-  { id: "seven", label: "7️⃣ Sept d'Or", icon: "7️⃣", multiplier: 50, tier: "jackpot" },
-  { id: "diamond", label: "💎 Diamant Royal", icon: "💎", multiplier: 25, tier: "high" },
-  { id: "baobab", label: "🌴 Baobab MDG", icon: "🌴", multiplier: 10, tier: "high" },
-  { id: "bell", label: "🔔 Cloche d'Or", icon: "🔔", multiplier: 5, tier: "mid" },
+  {
+    id: "seven",
+    label: "7️⃣ Sept d'Or",
+    icon: "7️⃣",
+    multiplier: 50,
+    tier: "jackpot",
+  },
+  {
+    id: "diamond",
+    label: "💎 Diamant Royal",
+    icon: "💎",
+    multiplier: 25,
+    tier: "high",
+  },
+  {
+    id: "baobab",
+    label: "🌴 Baobab MDG",
+    icon: "🌴",
+    multiplier: 10,
+    tier: "high",
+  },
+  {
+    id: "bell",
+    label: "🔔 Cloche d'Or",
+    icon: "🔔",
+    multiplier: 5,
+    tier: "mid",
+  },
   { id: "cherry", label: "🍒 Cerise", icon: "🍒", multiplier: 2, tier: "low" },
   { id: "lemon", label: "🍋 Citron", icon: "🍋", multiplier: 1, tier: "low" },
 ];
@@ -58,11 +82,9 @@ export function SlotMachine({
 
   // Each reel stores top row symbol offset (0..REEL_STRIP.length - 3)
   const [reelOffsets, setReelOffsets] = useState<number[]>([0, 0, 0]);
-  const [reelStates, setReelStates] = useState<("idle" | "spinning" | "anticipation" | "stopped")[]>([
-    "idle",
-    "idle",
-    "idle",
-  ]);
+  const [reelStates, setReelStates] = useState<
+    ("idle" | "spinning" | "anticipation" | "stopped")[]
+  >(["idle", "idle", "idle"]);
 
   const [isAnticipation, setIsAnticipation] = useState(false);
   const [winningPaylines, setWinningPaylines] = useState<number[]>([]);
@@ -170,12 +192,21 @@ export function SlotMachine({
       // Anticipation logic: any pair triggers suspense, high tier longer
       const isPairMatch = centerIds[0] === centerIds[1];
       const isHighPair =
-        isPairMatch && (centerIds[0] === "seven" || centerIds[0] === "diamond" || centerIds[0] === "baobab");
+        isPairMatch &&
+        (centerIds[0] === "seven" ||
+          centerIds[0] === "diamond" ||
+          centerIds[0] === "baobab");
       const shouldAnticipate = isPairMatch && !turboMode;
 
       const t1 = turboMode ? 400 : 1200;
       const t2 = turboMode ? 800 : 2200;
-      const t3 = turboMode ? 1200 : isHighPair ? 4600 : isPairMatch ? 3800 : 3400;
+      const t3 = turboMode
+        ? 1200
+        : isHighPair
+          ? 4600
+          : isPairMatch
+            ? 3800
+            : 3400;
 
       // Reel 1 Stop
       const id1 = window.setTimeout(() => {
@@ -251,7 +282,8 @@ export function SlotMachine({
               const next = prev - 1;
               if (next > 0) {
                 const autoId = window.setTimeout(() => {
-                  if (autoPlayRef.current && !spinningRef.current) void handlePullSpin();
+                  if (autoPlayRef.current && !spinningRef.current)
+                    void handlePullSpin();
                 }, 900);
                 timeoutRefs.current.push(autoId);
               } else {
@@ -275,7 +307,15 @@ export function SlotMachine({
       setIsAutoPlaying(false);
       autoPlayRef.current = false;
     }
-  }, [disabled, onSpin, turboMode, cost, onWin, clearAllTimeouts, clearIntervals]);
+  }, [
+    disabled,
+    onSpin,
+    turboMode,
+    cost,
+    onWin,
+    clearAllTimeouts,
+    clearIntervals,
+  ]);
 
   const startAutoPlay = (count: number) => {
     if (spinningRef.current || disabled) return;
@@ -301,7 +341,9 @@ export function SlotMachine({
   }, [clearAllTimeouts, clearIntervals]);
 
   return (
-    <div className={`slot-machine-wrapper ${isAnticipation ? "anticipation-mode" : ""}`}>
+    <div
+      className={`slot-machine-wrapper ${isAnticipation ? "anticipation-mode" : ""}`}
+    >
       {/* Anticipation Tension Vignette */}
       {isAnticipation && (
         <div className="anticipation-flame-overlay">
@@ -358,7 +400,11 @@ export function SlotMachine({
           ))}
           {/* Inactive paylines shown muted */}
           {[2, 3, 4, 5].map((lineNum) => (
-            <span key={lineNum} className="payline-badge muted" title="Ligne inactive — seule la ligne centrale est évaluée">
+            <span
+              key={lineNum}
+              className="payline-badge muted"
+              title="Ligne inactive — seule la ligne centrale est évaluée"
+            >
               {lineNum}
             </span>
           ))}
@@ -380,7 +426,8 @@ export function SlotMachine({
               const state = reelStates[reelIdx];
               const offsetIndex = reelOffsets[reelIdx];
               const targetY = -offsetIndex * ROW_HEIGHT;
-              const isAnticipatingThis = reelIdx === 2 && state === "anticipation";
+              const isAnticipatingThis =
+                reelIdx === 2 && state === "anticipation";
 
               return (
                 <div
@@ -407,7 +454,9 @@ export function SlotMachine({
                     {REEL_STRIP.map((sym, sIdx) => {
                       const isCenterRow = sIdx === offsetIndex + 1;
                       const isWinningSymbol =
-                        isCenterRow && winningPaylines.includes(1) && lastWinAmount > 0;
+                        isCenterRow &&
+                        winningPaylines.includes(1) &&
+                        lastWinAmount > 0;
 
                       return (
                         <div
@@ -437,7 +486,11 @@ export function SlotMachine({
             </span>
           ))}
           {[2, 3, 4, 5].map((lineNum) => (
-            <span key={lineNum} className="payline-badge muted" title="Ligne inactive">
+            <span
+              key={lineNum}
+              className="payline-badge muted"
+              title="Ligne inactive"
+            >
               {lineNum}
             </span>
           ))}
@@ -464,8 +517,12 @@ export function SlotMachine({
           </div>
           <div className="slot-info-box win-box">
             <span className="slot-info-title">DERNIER GAIN</span>
-            <strong className={`slot-info-value ${lastWinAmount > 0 ? "gold" : ""}`}>
-              {lastWinAmount > 0 ? `+${lastWinAmount.toLocaleString("fr-FR")} SIM` : "0 SIM"}
+            <strong
+              className={`slot-info-value ${lastWinAmount > 0 ? "gold" : ""}`}
+            >
+              {lastWinAmount > 0
+                ? `+${lastWinAmount.toLocaleString("fr-FR")} SIM`
+                : "0 SIM"}
             </strong>
           </div>
         </div>
@@ -473,14 +530,17 @@ export function SlotMachine({
         <div className="slot-status-message">
           {isAnticipation ? (
             <span className="slot-msg-anticipation">
-              <Flame size={16} className="flame-icon" /> ROULEAU 3 EN SUSPENSE...
+              <Flame size={16} className="flame-icon" /> ROULEAU 3 EN
+              SUSPENSE...
             </span>
           ) : spinning ? (
             <span className="slot-msg-spin">
               <RefreshCw className="spin" size={16} /> Rouleaux en action...
             </span>
           ) : lastWinText ? (
-            <span className={`slot-msg-win ${winningPaylines.length > 0 ? "win-active" : ""}`}>
+            <span
+              className={`slot-msg-win ${winningPaylines.length > 0 ? "win-active" : ""}`}
+            >
               {winningPaylines.length > 0 ? "✨ " : ""}
               {lastWinText}
             </span>
@@ -553,7 +613,9 @@ export function SlotMachine({
           onClick={() => setShowPaytable((v) => !v)}
         >
           <HelpCircle size={15} />
-          {showPaytable ? "Masquer les gains" : "Table des gains · Ligne centrale"}
+          {showPaytable
+            ? "Masquer les gains"
+            : "Table des gains · Ligne centrale"}
         </button>
       </div>
 
@@ -561,7 +623,8 @@ export function SlotMachine({
         <div className="slot-paytable-modal">
           <h4>🏆 Tableau des Gains — Ligne Centrale</h4>
           <p className="paytable-hint">
-            Seule la ligne centrale (3 symboles alignés) est évaluée. Les lignes 2–5 sont décoratives dans cette version.
+            Seule la ligne centrale (3 symboles alignés) est évaluée. Les lignes
+            2–5 sont décoratives dans cette version.
           </p>
           <div className="slot-paytable-grid">
             {SLOT_SYMBOLS.map((s) => (

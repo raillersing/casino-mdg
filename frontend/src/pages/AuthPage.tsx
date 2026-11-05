@@ -105,7 +105,12 @@ export function AuthPage() {
               <Check size={26} />
             </div>
             <h1>{t("authUi.welcome", "Bienvenue au Club !")}</h1>
-            <p>{t("authUi.redirect", "Connexion réussie. Redirection vers vos tables...")}</p>
+            <p>
+              {t(
+                "authUi.redirect",
+                "Connexion réussie. Redirection vers vos tables...",
+              )}
+            </p>
           </div>
         ) : (
           <>
@@ -133,12 +138,14 @@ export function AuthPage() {
               {step === "phone"
                 ? "Entrez votre numéro malgache (Telma, Orange, Airtel). Un code de sécurité à 6 chiffres vous sera attribué pour sécuriser vos jetons."
                 : smsSent
-                ? `Un code à 6 chiffres a été envoyé par SMS au numéro indiqué.`
-                : `Vérification sécurisée pour votre numéro.`}
+                  ? `Un code à 6 chiffres a été envoyé par SMS au numéro indiqué.`
+                  : `Vérification sécurisée pour votre numéro.`}
             </p>
             {step === "phone" ? (
               <>
-                <label className="field-label">{t("auth.phone", "Numéro de téléphone portable")}</label>
+                <label className="field-label">
+                  {t("auth.phone", "Numéro de téléphone portable")}
+                </label>
                 <div className="phone-field">
                   <span>+261</span>
                   <input
@@ -151,7 +158,14 @@ export function AuthPage() {
                     placeholder="34 00 000 00"
                   />
                 </div>
-                <span style={{ fontSize: "11px", color: "var(--muted)", margin: "-4px 0 12px", display: "block" }}>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--muted)",
+                    margin: "-4px 0 12px",
+                    display: "block",
+                  }}
+                >
                   Formats acceptés : 034..., 038..., 032..., 037..., 033...
                 </span>
                 <button
@@ -164,14 +178,36 @@ export function AuthPage() {
                     <Loader2 className="spin" size={17} />
                   ) : (
                     <>
-                      {t("authUi.receiveCode", "Recevoir mon code")} <ArrowRight size={17} />
+                      {t("authUi.receiveCode", "Recevoir mon code")}{" "}
+                      <ArrowRight size={17} />
                     </>
                   )}
                 </button>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "16px 0 12px", color: "var(--muted)", fontSize: "0.78rem" }}>
-                  <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.1)" }} />
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    margin: "16px 0 12px",
+                    color: "var(--muted)",
+                    fontSize: "0.78rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      flex: 1,
+                      height: "1px",
+                      background: "rgba(255,255,255,0.1)",
+                    }}
+                  />
                   <span>OU SANS COMPTE</span>
-                  <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.1)" }} />
+                  <div
+                    style={{
+                      flex: 1,
+                      height: "1px",
+                      background: "rgba(255,255,255,0.1)",
+                    }}
+                  />
                 </div>
                 <button
                   type="button"
@@ -184,11 +220,17 @@ export function AuthPage() {
                       setSession(auth.access, auth.refresh);
                       setGuestMode(auth.user.display_name, auth.wallet.balance);
                       setStep("done");
-                      window.setTimeout(() => navigate(searchParams.get("next") || "/"), 600);
+                      window.setTimeout(
+                        () => navigate(searchParams.get("next") || "/"),
+                        600,
+                      );
                     } catch {
                       setGuestMode("Invité", 10000);
                       setStep("done");
-                      window.setTimeout(() => navigate(searchParams.get("next") || "/"), 600);
+                      window.setTimeout(
+                        () => navigate(searchParams.get("next") || "/"),
+                        600,
+                      );
                     } finally {
                       setLoading(false);
                     }
@@ -202,7 +244,10 @@ export function AuthPage() {
             ) : (
               <>
                 <label className="field-label">
-                  {t("authUi.receivedCode", "Code de vérification (6 chiffres)")}
+                  {t(
+                    "authUi.receivedCode",
+                    "Code de vérification (6 chiffres)",
+                  )}
                 </label>
                 <input
                   aria-label={t("authUi.receivedCode", "Code de vérification")}
@@ -216,7 +261,9 @@ export function AuthPage() {
                   }
                   placeholder="000 000"
                 />
-                <label className="field-label">{t("authUi.nickname", "Votre pseudo à la table (optionnel)")}</label>
+                <label className="field-label">
+                  {t("authUi.nickname", "Votre pseudo à la table (optionnel)")}
+                </label>
                 <input
                   aria-label={t("authUi.nickname", "Pseudo")}
                   className="auth-name-field"
@@ -237,17 +284,47 @@ export function AuthPage() {
                       textAlign: "center",
                     }}
                   >
-                    <span style={{ fontSize: "11px", color: "var(--gold)", display: "block", marginBottom: "4px", fontWeight: 600 }}>
-                      <Sparkles size={13} style={{ display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
-                      {smsSent ? "SMS envoyé ! Code de confirmation direct :" : "Code de vérification disponible :"}
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "var(--gold)",
+                        display: "block",
+                        marginBottom: "4px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Sparkles
+                        size={13}
+                        style={{
+                          display: "inline-block",
+                          verticalAlign: "middle",
+                          marginRight: "4px",
+                        }}
+                      />
+                      {smsSent
+                        ? "SMS envoyé ! Code de confirmation direct :"
+                        : "Code de vérification disponible :"}
                     </span>
-                    <strong style={{ fontSize: "22px", letterSpacing: "4px", color: "#fff", fontFamily: "var(--mono)", display: "block", margin: "4px 0" }}>
+                    <strong
+                      style={{
+                        fontSize: "22px",
+                        letterSpacing: "4px",
+                        color: "#fff",
+                        fontFamily: "var(--mono)",
+                        display: "block",
+                        margin: "4px 0",
+                      }}
+                    >
                       {devCode}
                     </strong>
                     <button
                       type="button"
                       className="button button-small button-gold"
-                      style={{ marginTop: "6px", width: "100%", fontSize: "11.5px" }}
+                      style={{
+                        marginTop: "6px",
+                        width: "100%",
+                        fontSize: "11.5px",
+                      }}
                       onClick={() => setCode(devCode)}
                     >
                       <CheckCircle2 size={13} /> Remplir automatiquement le code
@@ -265,27 +342,50 @@ export function AuthPage() {
                     <Loader2 className="spin" size={17} />
                   ) : (
                     <>
-                      {t("authUi.enterClub", "Valider et entrer au Club")} <ArrowRight size={17} />
+                      {t("authUi.enterClub", "Valider et entrer au Club")}{" "}
+                      <ArrowRight size={17} />
                     </>
                   )}
                 </button>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginTop: "12px",
+                  }}
+                >
                   <button
                     type="button"
                     className="auth-resend"
                     disabled={resendCooldown > 0 || loading}
                     onClick={() => void handleRequest()}
-                    style={{ background: "none", border: 0, color: resendCooldown > 0 ? "var(--muted)" : "var(--gold)", cursor: resendCooldown > 0 ? "default" : "pointer", fontSize: "12px" }}
+                    style={{
+                      background: "none",
+                      border: 0,
+                      color:
+                        resendCooldown > 0 ? "var(--muted)" : "var(--gold)",
+                      cursor: resendCooldown > 0 ? "default" : "pointer",
+                      fontSize: "12px",
+                    }}
                   >
-                    {resendCooldown > 0 ? `Renvoyer le code (${resendCooldown}s)` : "Renvoyer un nouveau code"}
+                    {resendCooldown > 0
+                      ? `Renvoyer le code (${resendCooldown}s)`
+                      : "Renvoyer un nouveau code"}
                   </button>
 
                   <button
                     type="button"
                     className="auth-resend"
                     onClick={() => setStep("phone")}
-                    style={{ background: "none", border: 0, color: "var(--muted)", cursor: "pointer", fontSize: "12px" }}
+                    style={{
+                      background: "none",
+                      border: 0,
+                      color: "var(--muted)",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                    }}
                   >
                     {t("authUi.changePhone", "Changer de numéro")}
                   </button>
@@ -295,13 +395,19 @@ export function AuthPage() {
             {error && <p className="auth-error">{error}</p>}
             <div className="auth-trust">
               <ShieldCheck size={16} />
-              <span>{t("authUi.protected", "Connexion chiffrée SSL & Protection des données")}</span>
+              <span>
+                {t(
+                  "authUi.protected",
+                  "Connexion chiffrée SSL & Protection des données",
+                )}
+              </span>
             </div>
           </>
         )}
       </div>
       <p className="auth-footer">
-        {t("authUi.termsPrefix", "En continuant, vous acceptez les")} <Link to="/terms">{t("authUi.terms", "Conditions Générales")}</Link>.
+        {t("authUi.termsPrefix", "En continuant, vous acceptez les")}{" "}
+        <Link to="/terms">{t("authUi.terms", "Conditions Générales")}</Link>.
       </p>
     </div>
   );

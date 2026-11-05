@@ -9,7 +9,10 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { createPaymentIntent, type PaymentIntentResponse } from "@services/payments";
+import {
+  createPaymentIntent,
+  type PaymentIntentResponse,
+} from "@services/payments";
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -53,7 +56,8 @@ function formatMdgPhone(input: string): string {
   const digits = input.replace(/\D/g, "").slice(0, 10);
   if (digits.length <= 3) return digits;
   if (digits.length <= 5) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
-  if (digits.length <= 8) return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
+  if (digits.length <= 8)
+    return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
   return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 10)}`;
 }
 
@@ -66,8 +70,12 @@ export function DepositModal({
   defaultPhone = "",
   onDepositSuccess,
 }: DepositModalProps) {
-  const [operator, setOperator] = useState<"mvola" | "orange" | "airtel">("mvola");
-  const [phone, setPhone] = useState(formatMdgPhone(defaultPhone.replace("+261", "0")));
+  const [operator, setOperator] = useState<"mvola" | "orange" | "airtel">(
+    "mvola",
+  );
+  const [phone, setPhone] = useState(
+    formatMdgPhone(defaultPhone.replace("+261", "0")),
+  );
   const [amount, setAmount] = useState<number>(5000);
   const [customAmount, setCustomAmount] = useState<string>("5000");
   const [loading, setLoading] = useState(false);
@@ -109,7 +117,9 @@ export function DepositModal({
       return;
     }
     if (!phone || phone.length < 9) {
-      setError("Veuillez saisir un numéro de téléphone valide (ex: 034 00 000 00).");
+      setError(
+        "Veuillez saisir un numéro de téléphone valide (ex: 034 00 000 00).",
+      );
       return;
     }
     if (amount < 1000) {
@@ -130,12 +140,16 @@ export function DepositModal({
         amount,
         phone.replace(/\s+/g, ""),
         idempotencyKey,
-        true // sandbox/simulation
+        true, // sandbox/simulation
       );
       setResult(res);
       onDepositSuccess();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Échec de l'initialisation du paiement.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Échec de l'initialisation du paiement.",
+      );
     } finally {
       setLoading(false);
     }
@@ -155,13 +169,21 @@ export function DepositModal({
             <span className="eyebrow gold">Recharge Mobile Money</span>
             <h2>Dépôt instantané en Ariary</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Fermer">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Fermer"
+          >
             <X size={18} />
           </button>
         </div>
 
         {result ? (
-          <div className="deposit-success-screen" style={{ padding: "20px 0", textAlign: "center" }}>
+          <div
+            className="deposit-success-screen"
+            style={{ padding: "20px 0", textAlign: "center" }}
+          >
             <div
               style={{
                 width: "56px",
@@ -178,7 +200,14 @@ export function DepositModal({
             </div>
 
             <h3>Demande de paiement transmise !</h3>
-            <p style={{ color: "var(--muted)", fontSize: "13px", maxWidth: "420px", margin: "8px auto 16px" }}>
+            <p
+              style={{
+                color: "var(--muted)",
+                fontSize: "13px",
+                maxWidth: "420px",
+                margin: "8px auto 16px",
+              }}
+            >
               {result.message ||
                 `Une notification Push USSD a été envoyée vers votre numéro ${phone}. Confirmez avec votre code secret.`}
             </p>
@@ -194,15 +223,35 @@ export function DepositModal({
                 border: "1px solid var(--line)",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "6px",
+                }}
+              >
                 <span style={{ color: "var(--muted)" }}>Opérateur :</span>
                 <strong>{activeOp.name}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "6px",
+                }}
+              >
                 <span style={{ color: "var(--muted)" }}>Montant :</span>
-                <strong style={{ color: "var(--gold)" }}>{amount.toLocaleString("fr-FR")} Ar</strong>
+                <strong style={{ color: "var(--gold)" }}>
+                  {amount.toLocaleString("fr-FR")} Ar
+                </strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "6px",
+                }}
+              >
                 <span style={{ color: "var(--muted)" }}>Numéro :</span>
                 <strong>{phone}</strong>
               </div>
@@ -212,14 +261,29 @@ export function DepositModal({
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "20px" }}>
-              <button type="button" className="button button-primary" onClick={onClose}>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                justifyContent: "center",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={onClose}
+              >
                 Terminé
               </button>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="deposit-form" style={{ marginTop: "12px" }}>
+          <form
+            onSubmit={handleSubmit}
+            className="deposit-form"
+            style={{ marginTop: "12px" }}
+          >
             {error && (
               <div className="alert-box error" style={{ marginBottom: "16px" }}>
                 <AlertCircle size={18} />
@@ -229,10 +293,24 @@ export function DepositModal({
 
             {/* Choix de l'opérateur */}
             <div style={{ marginBottom: "16px" }}>
-              <label className="input-label" style={{ display: "block", marginBottom: "8px", fontSize: "12px", color: "var(--muted)" }}>
+              <label
+                className="input-label"
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                }}
+              >
                 1. Choisissez votre opérateur Mobile Money
               </label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: "8px",
+                }}
+              >
                 {OPERATORS.map((op) => {
                   const isSelected = operator === op.id;
                   return (
@@ -244,17 +322,33 @@ export function DepositModal({
                         padding: "12px 8px",
                         borderRadius: "8px",
                         background: isSelected ? op.bg : "var(--panel)",
-                        border: isSelected ? `2px solid ${op.color}` : "1px solid var(--line)",
+                        border: isSelected
+                          ? `2px solid ${op.color}`
+                          : "1px solid var(--line)",
                         textAlign: "center",
                         cursor: "pointer",
                         transition: "all 0.2s ease",
                       }}
                     >
-                      <Smartphone size={20} color={op.color} style={{ margin: "0 auto 4px" }} />
-                      <strong style={{ display: "block", fontSize: "13px", color: isSelected ? op.color : "var(--text)" }}>
+                      <Smartphone
+                        size={20}
+                        color={op.color}
+                        style={{ margin: "0 auto 4px" }}
+                      />
+                      <strong
+                        style={{
+                          display: "block",
+                          fontSize: "13px",
+                          color: isSelected ? op.color : "var(--text)",
+                        }}
+                      >
                         {op.name}
                       </strong>
-                      <small style={{ fontSize: "10px", color: "var(--muted)" }}>{op.ussd}</small>
+                      <small
+                        style={{ fontSize: "10px", color: "var(--muted)" }}
+                      >
+                        {op.ussd}
+                      </small>
                     </button>
                   );
                 })}
@@ -263,7 +357,15 @@ export function DepositModal({
 
             {/* Numéro de téléphone */}
             <div style={{ marginBottom: "16px" }}>
-              <label className="input-label" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "var(--muted)" }}>
+              <label
+                className="input-label"
+                style={{
+                  display: "block",
+                  marginBottom: "6px",
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                }}
+              >
                 2. Numéro de compte ({activeOp.name})
               </label>
               <div style={{ position: "relative" }}>
@@ -298,10 +400,25 @@ export function DepositModal({
 
             {/* Montant */}
             <div style={{ marginBottom: "18px" }}>
-              <label className="input-label" style={{ display: "block", marginBottom: "8px", fontSize: "12px", color: "var(--muted)" }}>
+              <label
+                className="input-label"
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                }}
+              >
                 3. Montant à créditer (Ariary)
               </label>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", marginBottom: "10px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: "8px",
+                  marginBottom: "10px",
+                }}
+              >
                 {PRESET_AMOUNTS.map((val) => (
                   <button
                     key={val}
@@ -310,8 +427,14 @@ export function DepositModal({
                     style={{
                       padding: "8px",
                       borderRadius: "6px",
-                      background: amount === val ? "rgba(211, 176, 107, 0.18)" : "var(--panel)",
-                      border: amount === val ? "1px solid var(--gold)" : "1px solid var(--line)",
+                      background:
+                        amount === val
+                          ? "rgba(211, 176, 107, 0.18)"
+                          : "var(--panel)",
+                      border:
+                        amount === val
+                          ? "1px solid var(--gold)"
+                          : "1px solid var(--line)",
                       color: amount === val ? "var(--gold)" : "var(--text)",
                       fontSize: "13px",
                       fontWeight: 600,
@@ -357,12 +480,24 @@ export function DepositModal({
             >
               <Lock size={14} color="var(--gold)" />
               <span>
-                Transaction chiffrée par HMAC SHA-256 avec validation USSD directe opérateur ({activeOp.ussd}).
+                Transaction chiffrée par HMAC SHA-256 avec validation USSD
+                directe opérateur ({activeOp.ussd}).
               </span>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button type="button" className="button button-outline" onClick={onClose} disabled={loading}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+              }}
+            >
+              <button
+                type="button"
+                className="button button-outline"
+                onClick={onClose}
+                disabled={loading}
+              >
                 Annuler
               </button>
               <button

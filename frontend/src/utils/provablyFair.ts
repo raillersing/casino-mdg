@@ -35,7 +35,11 @@ export async function computeSha256(text: string): Promise<string> {
 /**
  * Build the payload string hashed for deck commitment
  */
-export function buildCommitmentString(serverSeed: string, clientSeed: string, deckSignature: string): string {
+export function buildCommitmentString(
+  serverSeed: string,
+  clientSeed: string,
+  deckSignature: string,
+): string {
   return `mdg:${serverSeed}:${clientSeed}:${deckSignature}`;
 }
 

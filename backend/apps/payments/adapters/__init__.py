@@ -17,3 +17,14 @@ def get_adapter(provider: str, sandbox: bool = True) -> BaseMobileMoneyAdapter:
     if not adapter_cls:
         raise ValueError(f"Opérateur Mobile Money non reconnu : {provider}")
     return adapter_cls(sandbox=sandbox)
+
+
+__all__ = [
+    "ADAPTERS",
+    "get_adapter",
+    "BaseMobileMoneyAdapter",
+    "PaymentInitiationResult",
+    "AirtelMoneyAdapter",
+    "MVolaAdapter",
+    "OrangeMoneyAdapter",
+]

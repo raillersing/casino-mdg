@@ -6,7 +6,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Sum
 from django.utils import timezone
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
@@ -365,7 +365,8 @@ class LiveDashboardView(APIView):
     """
     Dashboard de commandement Backoffice ("Live Ops & Télémétrie Mondiale").
     Accessible uniquement au personnel habilité (`IsAdminUser` / `user.is_staff`).
-    Inspiré par Evolution Gaming Backoffice, SoftSwiss/Stake Live Ops, Datadog Gaming NOC et Playtech IMS.
+    Inspiré par Evolution Gaming Backoffice, SoftSwiss/Stake Live Ops,
+    Datadog Gaming NOC et Playtech IMS.
     """
 
     permission_classes = [IsAdminUser]

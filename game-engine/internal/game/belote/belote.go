@@ -413,14 +413,6 @@ func hasSuit(hand []Card, suit int) bool {
 	}
 	return false
 }
-func hasCard(hand []Card, target Card) bool {
-	for _, card := range hand {
-		if card == target {
-			return true
-		}
-	}
-	return false
-}
 func cardStrength(card Card, trump bool) int {
 	if trump {
 		switch card.Rank {

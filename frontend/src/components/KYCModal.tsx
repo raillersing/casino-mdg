@@ -42,7 +42,8 @@ const DOCUMENT_CATEGORIES = [
   {
     code: "proof_of_residence",
     label: "Certificat de résidence",
-    description: "Délivré par le Fokontany ou facture Jirama de moins de 3 mois",
+    description:
+      "Délivré par le Fokontany ou facture Jirama de moins de 3 mois",
     icon: FileCheck,
   },
   {
@@ -61,7 +62,7 @@ export function KYCModal({
   onStatusUpdated,
 }: KYCModalProps) {
   const [selectedLevel, setSelectedLevel] = useState<"verified" | "vip">(
-    kycStatus?.level === "verified" ? "vip" : "verified"
+    kycStatus?.level === "verified" ? "vip" : "verified",
   );
   const [uploadingType, setUploadingType] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -72,12 +73,12 @@ export function KYCModal({
   const currentRequest = kycStatus?.request;
   const attachedDocs = currentRequest?.documents || [];
   const docsMap = new Map<string, KYCDocument>(
-    attachedDocs.map((doc) => [doc.document_type, doc])
+    attachedDocs.map((doc) => [doc.document_type, doc]),
   );
 
   const handleFileUpload = async (
     documentType: string,
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = e.target.files?.[0];
     if (!file || !token) return;
@@ -99,7 +100,7 @@ export function KYCModal({
       setError(
         err instanceof Error
           ? err.message
-          : "Erreur lors du téléversement du document."
+          : "Erreur lors du téléversement du document.",
       );
     } finally {
       setUploadingType(null);
@@ -118,7 +119,7 @@ export function KYCModal({
       setError(
         err instanceof Error
           ? err.message
-          : "Impossible de soumettre la demande."
+          : "Impossible de soumettre la demande.",
       );
     }
   };
@@ -303,10 +304,19 @@ export function KYCModal({
                       padding: "12px 14px",
                       borderRadius: "8px",
                       background: "var(--panel)",
-                      border: doc ? "1px solid rgba(105, 214, 160, 0.3)" : "1px solid var(--line)",
+                      border: doc
+                        ? "1px solid rgba(105, 214, 160, 0.3)"
+                        : "1px solid var(--line)",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        flex: 1,
+                      }}
+                    >
                       <div
                         style={{
                           width: "36px",
@@ -325,8 +335,16 @@ export function KYCModal({
                         )}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <strong style={{ fontSize: "13px" }}>{cat.label}</strong>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
+                          <strong style={{ fontSize: "13px" }}>
+                            {cat.label}
+                          </strong>
                           {isRequired && (
                             <span
                               style={{
@@ -341,10 +359,17 @@ export function KYCModal({
                             </span>
                           )}
                         </div>
-                        <p style={{ margin: "2px 0 0", fontSize: "11px", color: "var(--muted)" }}>
+                        <p
+                          style={{
+                            margin: "2px 0 0",
+                            fontSize: "11px",
+                            color: "var(--muted)",
+                          }}
+                        >
                           {doc ? (
                             <span style={{ color: "var(--green)" }}>
-                              ✓ Fichier : {doc.file_name} ({(doc.file_size / 1024).toFixed(0)} Ko)
+                              ✓ Fichier : {doc.file_name} (
+                              {(doc.file_size / 1024).toFixed(0)} Ko)
                             </span>
                           ) : (
                             cat.description
@@ -413,8 +438,9 @@ export function KYCModal({
           >
             <Lock size={14} color="var(--gold)" />
             <span>
-              Vos documents sont chiffrés et stockés sur un serveur sécurisé MinIO/S3 immuable,
-              strictement réservé à la conformité financière anti-fraude.
+              Vos documents sont chiffrés et stockés sur un serveur sécurisé
+              MinIO/S3 immuable, strictement réservé à la conformité financière
+              anti-fraude.
             </span>
           </div>
         </div>
@@ -430,7 +456,11 @@ export function KYCModal({
             borderTop: "1px solid var(--line)",
           }}
         >
-          <button type="button" className="button button-outline" onClick={onClose}>
+          <button
+            type="button"
+            className="button button-outline"
+            onClick={onClose}
+          >
             Fermer
           </button>
           <button

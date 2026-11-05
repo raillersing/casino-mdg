@@ -34,7 +34,7 @@ export function createPaymentIntent(
   amount: number,
   phone_number: string,
   idempotencyKey: string,
-  sandbox = true
+  sandbox = true,
 ) {
   return fetch("/api/v1/payments/intents/", {
     method: "POST",
@@ -53,7 +53,9 @@ export function createPaymentIntent(
   }).then(async (response) => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload.detail || "Impossible d'initier la transaction Mobile Money.");
+      throw new Error(
+        payload.detail || "Impossible d'initier la transaction Mobile Money.",
+      );
     }
     return payload as PaymentIntentResponse;
   });
@@ -65,7 +67,9 @@ export function getPaymentIntents(accessToken: string) {
   }).then(async (response) => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload.detail || "Impossible de charger les transactions.");
+      throw new Error(
+        payload.detail || "Impossible de charger les transactions.",
+      );
     }
     return payload as { results: PaymentIntent[] };
   });

@@ -3,7 +3,6 @@ package ludo
 import (
 	"fmt"
 	"math/rand"
-	"time"
 )
 
 // Track length for standard Ludo board is 52 common squares
@@ -31,10 +30,10 @@ type Pawn struct {
 }
 
 type Player struct {
-	ID    string    `json:"id"`
-	Color int       `json:"color"` // 0: Red, 1: Green, 2: Yellow, 3: Blue
-	Pawns [4]Pawn   `json:"pawns"`
-	Score int       `json:"score"` // Number of pawns that reached home
+	ID    string  `json:"id"`
+	Color int     `json:"color"` // 0: Red, 1: Green, 2: Yellow, 3: Blue
+	Pawns [4]Pawn `json:"pawns"`
+	Score int     `json:"score"` // Number of pawns that reached home
 }
 
 type Game struct {
@@ -291,8 +290,4 @@ func (g *Game) DecideBotAction(playerID string) (action string, pawnID int) {
 		return "move_pawn", g.ValidMoves[0]
 	}
 	return "", -1
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }

@@ -78,7 +78,7 @@ async function request<T>(
 ) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options?.headers as Record<string, string> || {}),
+    ...((options?.headers as Record<string, string>) || {}),
   };
   if (accessToken) {
     headers["Authorization"] = `Bearer ${accessToken}`;
@@ -185,10 +185,17 @@ export function completeClubEvent(accessToken: string, eventId: string) {
 }
 
 export function getClubChat(accessToken: string, clubId: string) {
-  return request<{ results: ClubChatMessage[] }>(accessToken, `${clubId}/chat/`);
+  return request<{ results: ClubChatMessage[] }>(
+    accessToken,
+    `${clubId}/chat/`,
+  );
 }
 
-export function sendClubMessage(accessToken: string, clubId: string, body: string) {
+export function sendClubMessage(
+  accessToken: string,
+  clubId: string,
+  body: string,
+) {
   return request<ClubChatMessage>(accessToken, `${clubId}/chat/`, {
     method: "POST",
     body: JSON.stringify({ body }),
@@ -211,4 +218,3 @@ export type ClubLeagueEntry = {
 export function getClubLeague(accessToken: string = "") {
   return request<{ league: ClubLeagueEntry[] }>(accessToken, "league/");
 }
-

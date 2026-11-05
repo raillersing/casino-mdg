@@ -9,7 +9,10 @@ import {
   Smartphone,
   X,
 } from "lucide-react";
-import { createPaymentIntent, type PaymentIntentResponse } from "@services/payments";
+import {
+  createPaymentIntent,
+  type PaymentIntentResponse,
+} from "@services/payments";
 
 interface WithdrawalModalProps {
   isOpen: boolean;
@@ -51,7 +54,8 @@ function formatMdgPhone(input: string): string {
   const digits = input.replace(/\D/g, "").slice(0, 10);
   if (digits.length <= 3) return digits;
   if (digits.length <= 5) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
-  if (digits.length <= 8) return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
+  if (digits.length <= 8)
+    return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5)}`;
   return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 10)}`;
 }
 
@@ -63,11 +67,17 @@ export function WithdrawalModal({
   defaultPhone = "",
   onWithdrawalSuccess,
 }: WithdrawalModalProps) {
-  const [operator, setOperator] = useState<"mvola" | "orange" | "airtel">("mvola");
-  const [phone, setPhone] = useState(formatMdgPhone(defaultPhone.replace("+261", "0")));
-  const [amount, setAmount] = useState<number>(availableBalance > 5000 ? 5000 : availableBalance);
+  const [operator, setOperator] = useState<"mvola" | "orange" | "airtel">(
+    "mvola",
+  );
+  const [phone, setPhone] = useState(
+    formatMdgPhone(defaultPhone.replace("+261", "0")),
+  );
+  const [amount, setAmount] = useState<number>(
+    availableBalance > 5000 ? 5000 : availableBalance,
+  );
   const [customAmount, setCustomAmount] = useState<string>(
-    availableBalance > 5000 ? "5000" : availableBalance.toString()
+    availableBalance > 5000 ? "5000" : availableBalance.toString(),
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -111,7 +121,9 @@ export function WithdrawalModal({
       return;
     }
     if (amount > availableBalance) {
-      setError(`Solde insuffisant. Votre solde disponible est de ${availableBalance.toLocaleString("fr-FR")} Ar.`);
+      setError(
+        `Solde insuffisant. Votre solde disponible est de ${availableBalance.toLocaleString("fr-FR")} Ar.`,
+      );
       return;
     }
 
@@ -128,12 +140,16 @@ export function WithdrawalModal({
         amount,
         phone.replace(/\s+/g, ""),
         idempotencyKey,
-        true
+        true,
       );
       setResult(res);
       onWithdrawalSuccess();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Échec de l'initialisation du retrait.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Échec de l'initialisation du retrait.",
+      );
     } finally {
       setLoading(false);
     }
@@ -153,13 +169,21 @@ export function WithdrawalModal({
             <span className="eyebrow gold">Retrait Mobile Money</span>
             <h2>Retirer vos gains en Ariary</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Fermer">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Fermer"
+          >
             <X size={18} />
           </button>
         </div>
 
         {result ? (
-          <div className="withdrawal-success-screen" style={{ padding: "20px 0", textAlign: "center" }}>
+          <div
+            className="withdrawal-success-screen"
+            style={{ padding: "20px 0", textAlign: "center" }}
+          >
             <div
               style={{
                 width: "56px",
@@ -176,7 +200,14 @@ export function WithdrawalModal({
             </div>
 
             <h3>Demande de retrait enregistrée !</h3>
-            <p style={{ color: "var(--muted)", fontSize: "13px", maxWidth: "420px", margin: "8px auto 16px" }}>
+            <p
+              style={{
+                color: "var(--muted)",
+                fontSize: "13px",
+                maxWidth: "420px",
+                margin: "8px auto 16px",
+              }}
+            >
               {result.message ||
                 `Votre demande de retrait de ${amount.toLocaleString("fr-FR")} Ar vers le numéro ${phone} (${activeOp.name}) est en cours de transfert.`}
             </p>
@@ -192,16 +223,38 @@ export function WithdrawalModal({
                 border: "1px solid var(--line)",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "6px",
+                }}
+              >
                 <span style={{ color: "var(--muted)" }}>Opérateur :</span>
                 <strong>{activeOp.name}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "6px",
+                }}
+              >
                 <span style={{ color: "var(--muted)" }}>Montant :</span>
-                <strong style={{ color: "var(--gold)" }}>{amount.toLocaleString("fr-FR")} Ar</strong>
+                <strong style={{ color: "var(--gold)" }}>
+                  {amount.toLocaleString("fr-FR")} Ar
+                </strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                <span style={{ color: "var(--muted)" }}>Numéro de réception :</span>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "6px",
+                }}
+              >
+                <span style={{ color: "var(--muted)" }}>
+                  Numéro de réception :
+                </span>
                 <strong>{phone}</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -210,14 +263,29 @@ export function WithdrawalModal({
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "20px" }}>
-              <button type="button" className="button button-primary" onClick={onClose}>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                justifyContent: "center",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={onClose}
+              >
                 Terminé
               </button>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="withdrawal-form" style={{ marginTop: "12px" }}>
+          <form
+            onSubmit={handleSubmit}
+            className="withdrawal-form"
+            style={{ marginTop: "12px" }}
+          >
             {error && (
               <div className="alert-box error" style={{ marginBottom: "16px" }}>
                 <AlertCircle size={18} />
@@ -239,7 +307,13 @@ export function WithdrawalModal({
               }}
             >
               <div>
-                <span style={{ fontSize: "11px", color: "var(--muted)", display: "block" }}>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--muted)",
+                    display: "block",
+                  }}
+                >
                   Solde réel disponible
                 </span>
                 <strong style={{ fontSize: "16px", color: "var(--gold)" }}>
@@ -260,10 +334,24 @@ export function WithdrawalModal({
 
             {/* Choix de l'opérateur */}
             <div style={{ marginBottom: "16px" }}>
-              <label className="input-label" style={{ display: "block", marginBottom: "8px", fontSize: "12px", color: "var(--muted)" }}>
+              <label
+                className="input-label"
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                }}
+              >
                 1. Opérateur Mobile Money de réception
               </label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: "8px",
+                }}
+              >
                 {OPERATORS.map((op) => {
                   const isSelected = operator === op.id;
                   return (
@@ -275,14 +363,26 @@ export function WithdrawalModal({
                         padding: "12px 8px",
                         borderRadius: "8px",
                         background: isSelected ? op.bg : "var(--panel)",
-                        border: isSelected ? `2px solid ${op.color}` : "1px solid var(--line)",
+                        border: isSelected
+                          ? `2px solid ${op.color}`
+                          : "1px solid var(--line)",
                         textAlign: "center",
                         cursor: "pointer",
                         transition: "all 0.2s ease",
                       }}
                     >
-                      <Smartphone size={20} color={op.color} style={{ margin: "0 auto 4px" }} />
-                      <strong style={{ display: "block", fontSize: "13px", color: isSelected ? op.color : "var(--text)" }}>
+                      <Smartphone
+                        size={20}
+                        color={op.color}
+                        style={{ margin: "0 auto 4px" }}
+                      />
+                      <strong
+                        style={{
+                          display: "block",
+                          fontSize: "13px",
+                          color: isSelected ? op.color : "var(--text)",
+                        }}
+                      >
                         {op.name}
                       </strong>
                     </button>
@@ -293,7 +393,15 @@ export function WithdrawalModal({
 
             {/* Numéro de téléphone */}
             <div style={{ marginBottom: "16px" }}>
-              <label className="input-label" style={{ display: "block", marginBottom: "6px", fontSize: "12px", color: "var(--muted)" }}>
+              <label
+                className="input-label"
+                style={{
+                  display: "block",
+                  marginBottom: "6px",
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                }}
+              >
                 2. Numéro du compte récepteur ({activeOp.name})
               </label>
               <div style={{ position: "relative" }}>
@@ -328,7 +436,15 @@ export function WithdrawalModal({
 
             {/* Montant */}
             <div style={{ marginBottom: "18px" }}>
-              <label className="input-label" style={{ display: "block", marginBottom: "8px", fontSize: "12px", color: "var(--muted)" }}>
+              <label
+                className="input-label"
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                }}
+              >
                 3. Montant du retrait (Ariary)
               </label>
               <input
@@ -365,12 +481,24 @@ export function WithdrawalModal({
             >
               <Lock size={14} color="var(--gold)" />
               <span>
-                Le montant sera bloqué de votre solde et débloqué immédiatement sur votre compte Mobile Money dès confirmation de l'opérateur.
+                Le montant sera bloqué de votre solde et débloqué immédiatement
+                sur votre compte Mobile Money dès confirmation de l'opérateur.
               </span>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button type="button" className="button button-outline" onClick={onClose} disabled={loading}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+              }}
+            >
+              <button
+                type="button"
+                className="button button-outline"
+                onClick={onClose}
+                disabled={loading}
+              >
                 Annuler
               </button>
               <button
