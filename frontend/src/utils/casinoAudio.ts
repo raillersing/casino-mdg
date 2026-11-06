@@ -232,6 +232,117 @@ class CasinoSoundEngine {
       osc.stop(start + 0.55);
     });
   }
+
+  playLudoDiceRoll() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // Rattle of rolling dice (series of 5 tiny woody clicks)
+    [0, 0.04, 0.09, 0.15, 0.22].forEach((offset) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(140 + Math.random() * 180, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(60, now + offset + 0.035);
+      gain.gain.setValueAtTime(0.14, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.035);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.035);
+    });
+  }
+
+  playLudoPawnHop() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    // Playful snappy "tok" hop
+    osc.frequency.setValueAtTime(460, now);
+    osc.frequency.exponentialRampToValueAtTime(240, now + 0.055);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.06);
+  }
+
+  playLudoCapture() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // Impact punch
+    const impactOsc = ctx.createOscillator();
+    const impactGain = ctx.createGain();
+    impactOsc.type = "square";
+    impactOsc.frequency.setValueAtTime(180, now);
+    impactOsc.frequency.exponentialRampToValueAtTime(50, now + 0.12);
+    impactGain.gain.setValueAtTime(0.25, now);
+    impactGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+    impactOsc.connect(impactGain);
+    impactGain.connect(ctx.destination);
+    impactOsc.start(now);
+    impactOsc.stop(now + 0.14);
+
+    // Comic descending slide
+    const slideOsc = ctx.createOscillator();
+    const slideGain = ctx.createGain();
+    slideOsc.type = "sawtooth";
+    slideOsc.frequency.setValueAtTime(580, now + 0.05);
+    slideOsc.frequency.exponentialRampToValueAtTime(120, now + 0.32);
+    slideGain.gain.setValueAtTime(0.15, now + 0.05);
+    slideGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    slideOsc.connect(slideGain);
+    slideGain.connect(ctx.destination);
+    slideOsc.start(now + 0.05);
+    slideOsc.stop(now + 0.35);
+  }
+
+  playLudoSixCelebration() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // Bright celebratory 4-note ascending fanfare (C5, E5, G5, C6)
+    [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      const start = now + idx * 0.065;
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.18, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.3);
+    });
+  }
+
+  playLudoHomeWin() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // Sparkly victory chime
+    [698.46, 880.0, 1046.5, 1318.51].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const start = now + idx * 0.07;
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.16, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.45);
+    });
+  }
 }
 
 export const casinoAudio = new CasinoSoundEngine();
