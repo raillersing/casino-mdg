@@ -530,3 +530,34 @@ class TableApiTests(TestCase):
 
         stale_table.refresh_from_db()
         self.assertEqual(stale_table.status, "open")
+
+    def test_stale_waiting_tables_and_demo_tables_are_excluded_from_lobby(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        # 1. Demo table with demo code is excluded
+        demo = GameTable.objects.create(
+            table_code="baobab-01",
+            name="Baobab Demo",
+            game_type="belote",
+            created_by=self.user,
+        )
+        TableSeat.objects.create(table=demo, user=self.user, seat_index=0)
+
+        # 2. Abandoned waiting table older than 15 minutes is excluded
+        stale_waiting = GameTable.objects.create(
+            table_code="stale-waiting-table",
+            name="Stale Waiting",
+            game_type="belote",
+            created_by=self.user,
+        )
+        TableSeat.objects.create(table=stale_waiting, user=self.user, seat_index=0)
+        GameTable.objects.filter(pk=stale_waiting.pk).update(
+            updated_at=timezone.now() - timedelta(minutes=20)
+        )
+
+        resp = self.client.get("/api/v1/games/tables/")
+        self.assertEqual(resp.status_code, 200)
+        result_ids = [t["id"] for t in resp.data["results"]]
+        self.assertNotIn(str(demo.pk), result_ids)
+        self.assertNotIn(str(stale_waiting.pk), result_ids)

@@ -475,7 +475,10 @@ class TableListCreateView(APIView):
         )
 
     def get(self, request):
-        stale_threshold = timezone.now() - timedelta(minutes=2)
+        now = timezone.now()
+        fresh_empty_threshold = now - timedelta(minutes=2)
+        active_waiting_threshold = now - timedelta(minutes=15)
+        active_running_threshold = now - timedelta(minutes=20)
 
         visibility = Q(is_private=False)
         if request.user.is_authenticated:
@@ -484,11 +487,32 @@ class TableListCreateView(APIView):
                 | Q(seats__user=request.user)
                 | Q(club__memberships__user=request.user)
             )
+
+        active_lifecycle = (
+            Q(num_seats=0, updated_at__gte=fresh_empty_threshold)
+            | Q(
+                status="open",
+                num_seats__gt=0,
+                updated_at__gte=active_waiting_threshold,
+            )
+            | Q(status="running", updated_at__gte=active_running_threshold)
+        )
+
+        DEMO_CODES = [
+            "emerald-01",
+            "baobab-01",
+            "vanilla-01",
+            "ludo-mada-01",
+            "domino-gasikara-01",
+            "ocean-01",
+        ]
+
         tables = (
             GameTable.objects.exclude(status="finished")
+            .exclude(table_code__in=DEMO_CODES)
             .filter(visibility)
             .annotate(num_seats=Count("seats"))
-            .filter(Q(num_seats__gt=0) | Q(updated_at__gte=stale_threshold))
+            .filter(active_lifecycle)
             .distinct()
             .prefetch_related("seats", "bot_simulation__bots")
         )

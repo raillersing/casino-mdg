@@ -22,6 +22,7 @@ import {
   Trophy,
   Timer,
   CheckCircle2,
+  Sliders,
 } from "lucide-react";
 import {
   cancelMatch,
@@ -64,6 +65,51 @@ const GAME_SUITS: Record<
   domino: { icon: "🁓", color: "#f59e0b", label: "Domino Double-Six" },
 };
 
+const QUICK_GAME_SPECS: Record<
+  "belote" | "domino" | "ludo" | "rami" | "poker",
+  {
+    players: string;
+    duration: string;
+    rule: string;
+    preset: {
+      max_players: number;
+      turn_duration: number;
+      rules_config: Record<string, number>;
+    };
+  }
+> = {
+  belote: {
+    players: "4 Joueurs",
+    duration: "30s / tour",
+    rule: "501 pts",
+    preset: { max_players: 4, turn_duration: 30, rules_config: { target_score: 501 } },
+  },
+  domino: {
+    players: "4 Joueurs",
+    duration: "15s Blitz",
+    rule: "Double-Six",
+    preset: { max_players: 4, turn_duration: 15, rules_config: {} },
+  },
+  ludo: {
+    players: "4 Joueurs",
+    duration: "15s Blitz",
+    rule: "Course 4 Pions",
+    preset: { max_players: 4, turn_duration: 15, rules_config: {} },
+  },
+  rami: {
+    players: "2 Joueurs",
+    duration: "30s / tour",
+    rule: "7 Cartes Knock",
+    preset: { max_players: 2, turn_duration: 30, rules_config: {} },
+  },
+  poker: {
+    players: "6 Joueurs",
+    duration: "30s / tour",
+    rule: "Blinds 25/50",
+    preset: { max_players: 6, turn_duration: 30, rules_config: { small_blind: 25 } },
+  },
+};
+
 export function LobbyPage() {
   const { t } = useTranslation();
   const { gameType: urlGameType } = useParams();
@@ -96,6 +142,10 @@ export function LobbyPage() {
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
+  const [createTableGame, setCreateTableGame] = useState<
+    "belote" | "domino" | "ludo" | "rami" | "poker"
+  >("belote");
+  const [quickCreating, setQuickCreating] = useState<string | null>(null);
   const [showJoinPrivate, setShowJoinPrivate] = useState(false);
   const [liveStats, setLiveStats] = useState<LiveStatsResponse | null>(null);
   const [startingSimulation, setStartingSimulation] = useState<string | null>(
@@ -160,8 +210,18 @@ export function LobbyPage() {
     if (searchParams.get("action") === "join-private" && accessToken)
       setShowJoinPrivate(true);
     if (searchParams.get("action") === "matchmaking") setMobileTab("quick");
-    if (searchParams.get("action") === "create" && accessToken)
+    if (searchParams.get("action") === "create" && accessToken) {
+      const gParam = searchParams.get("game_type");
+      if (
+        gParam &&
+        ["belote", "domino", "ludo", "rami", "poker"].includes(gParam)
+      ) {
+        setCreateTableGame(
+          gParam as "belote" | "domino" | "ludo" | "rami" | "poker",
+        );
+      }
       setShowCreateTable(true);
+    }
   }, [urlGameType, queryFilter, searchParams, accessToken, navigate]);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -457,6 +517,63 @@ export function LobbyPage() {
     }
   };
 
+  const quickGamesToShow = useMemo(() => {
+    if (
+      filter &&
+      ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
+    ) {
+      return [filter as "belote" | "domino" | "ludo" | "rami" | "poker"];
+    }
+    return ["belote", "domino", "ludo", "rami", "poker"] as const;
+  }, [filter]);
+
+  const handleQuickCreate = async (
+    gameType: "belote" | "domino" | "ludo" | "rami" | "poker",
+  ) => {
+    let token = accessToken;
+    if (!token) {
+      try {
+        const auth = await createGuestToken(guestName || "Invité Salon");
+        setSession(auth.access, auth.refresh);
+        setGuestMode(auth.user.display_name, auth.wallet.balance);
+        token = auth.access;
+      } catch {
+        navigate("/auth?next=/lobby");
+        return;
+      }
+    }
+    setQuickCreating(gameType);
+    setError("");
+    try {
+      const spec = QUICK_GAME_SPECS[gameType];
+      const randomSuffix = Math.floor(100 + Math.random() * 900);
+      const name = `${GAME_SUITS[gameType].label.split(" ")[0]} #${randomSuffix}`;
+      const payload: CreateTablePayload = {
+        idempotency_key: `quick-${gameType}-${Date.now()}-${randomSuffix}`,
+        name,
+        game_type: gameType,
+        max_players: spec.preset.max_players,
+        turn_duration: spec.preset.turn_duration,
+        rules_config: spec.preset.rules_config,
+        is_private: false,
+        stake_amount: 0,
+      };
+      const table = await createTable(token, payload);
+      haptics.buttonTap();
+      navigate(
+        `/game/${table.game_type}/${table.table_code}?table_id=${table.id}`,
+      );
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de créer la table instantanée.",
+      );
+    } finally {
+      setQuickCreating(null);
+    }
+  };
+
   const counts = useMemo(() => {
     return {
       all: tables.length,
@@ -559,7 +676,14 @@ export function LobbyPage() {
             className="button button-gold button-small"
             onClick={() => {
               if (!accessToken) navigate("/auth?next=/lobby");
-              else setShowCreateTable(true);
+              else {
+                setCreateTableGame(
+                  ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
+                    ? (filter as "belote" | "domino" | "ludo" | "rami" | "poker")
+                    : "belote",
+                );
+                setShowCreateTable(true);
+              }
             }}
           >
             <Plus size={15} /> Créer une table
@@ -891,7 +1015,111 @@ export function LobbyPage() {
         </div>
       </div>
 
-      <h2>{t("discovery.online")}</h2>
+      {/* Raccourcis de Création de Table par Jeu */}
+      {filter !== "tournaments" && (
+        <section className="lobby-quick-create-section">
+          <div className="lobby-quick-create-header">
+            <h3>
+              <Sparkles size={16} />
+              <span>
+                {t(
+                  "discovery.quickShortcuts",
+                  "Raccourcis de création instantanée",
+                )}
+              </span>
+            </h3>
+            <button
+              type="button"
+              className="button button-gold button-small"
+              onClick={() => {
+                if (!accessToken) navigate("/auth?next=/lobby");
+                else {
+                  setCreateTableGame(
+                    ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
+                      ? (filter as "belote" | "domino" | "ludo" | "rami" | "poker")
+                      : "belote",
+                  );
+                  setShowCreateTable(true);
+                }
+              }}
+            >
+              <Plus size={14} /> {t("discovery.createCustom", "Table personnalisée")}
+            </button>
+          </div>
+
+          <div className="lobby-quick-create-grid">
+            {quickGamesToShow.map((gKey) => {
+              const meta = GAME_SUITS[gKey];
+              const isBusy = quickCreating === gKey;
+              const badgeInfo = QUICK_GAME_SPECS[gKey];
+              return (
+                <div key={gKey} className="lobby-quick-card">
+                  <div className="lobby-quick-card-top">
+                    <div
+                      className="lobby-quick-card-suit"
+                      style={{ color: meta.color }}
+                    >
+                      {meta.icon}
+                    </div>
+                    <div className="lobby-quick-card-info">
+                      <h4>{meta.label.split(" ")[0]}</h4>
+                      <span>
+                        {badgeInfo.players} · {badgeInfo.duration} · {badgeInfo.rule}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="lobby-quick-card-actions">
+                    <button
+                      type="button"
+                      className="button button-gold lobby-quick-instant-btn"
+                      onClick={() => void handleQuickCreate(gKey)}
+                      disabled={Boolean(quickCreating)}
+                    >
+                      {isBusy ? (
+                        <Loader2 size={14} className="spin" />
+                      ) : (
+                        <Zap size={14} />
+                      )}
+                      <span>{isBusy ? "Création..." : "Créer & Jouer"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-secondary lobby-quick-tune-btn"
+                      title={`Personnaliser ${meta.label}`}
+                      aria-label={`Personnaliser ${meta.label}`}
+                      onClick={() => {
+                        setCreateTableGame(gKey);
+                        setShowCreateTable(true);
+                      }}
+                    >
+                      <Sliders size={15} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          margin: "24px 0 14px",
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: "17px", fontWeight: 700 }}>
+          {t("discovery.online", "Tables actives en attente de joueurs")}
+        </h2>
+        {filter !== "tournaments" && (
+          <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+            {shown.length} table(s) ouverte(s)
+          </span>
+        )}
+      </div>
       {/* 5. Main Content: Tournaments or Regular Table Cards Grid */}
       {filter === "tournaments" ? (
         <div className="tournaments-lobby-section">
@@ -1544,11 +1772,7 @@ export function LobbyPage() {
 
       {/* Modal Riche de Création de Table */}
       <CreateTableModal
-        initialGameType={
-          ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
-            ? (filter as "belote" | "domino" | "ludo" | "rami" | "poker")
-            : "belote"
-        }
+        initialGameType={createTableGame}
         isOpen={showCreateTable}
         onClose={() => setShowCreateTable(false)}
         onSubmit={async (payload: CreateTablePayload) => {
