@@ -161,6 +161,121 @@ export type LiveDashboardActivityEvent = {
   created_at: string;
 };
 
+export type PeriodMetrics = {
+  tables_created: number;
+  games_played: number;
+  total_stakes_mga: number;
+  total_payouts_mga: number;
+  ggr_mga: number;
+  ggr_margin_pct: number;
+  deposits_volume_mga: number;
+  deposits_count: number;
+  withdrawals_volume_mga: number;
+  withdrawals_count: number;
+  net_cash_flow_mga: number;
+  unique_active_players: number;
+  avg_stake_mga: number;
+};
+
+export type GameAnalyticsItem = {
+  game_type: string;
+  label: string;
+  tables_created: number;
+  active_tables: number;
+  games_played: number;
+  total_stakes_mga: number;
+  total_payouts_mga: number;
+  ggr_mga: number;
+  unique_players: number;
+};
+
+export type LeaderboardWinner = {
+  user_id: number;
+  display_name: string;
+  identifier: string;
+  wins_count: number;
+  total_won_mga: number;
+};
+
+export type LeaderboardBettor = {
+  user_id: number;
+  display_name: string;
+  identifier: string;
+  total_staked_mga: number;
+  bets_count: number;
+  avg_stake_mga: number;
+};
+
+export type BiggestWinItem = {
+  id: string;
+  user_id: number;
+  display_name: string;
+  identifier: string;
+  game_type: string;
+  game_label: string;
+  amount: number;
+  created_at: string;
+};
+
+export type RecentTransactionItem = {
+  id: string;
+  transaction_code: string;
+  type: string;
+  direction: string;
+  amount: number;
+  currency_code: string;
+  status: string;
+  description: string;
+  user_id: number | null;
+  user_display_name: string;
+  user_identifier: string;
+  created_at: string;
+};
+
+export type RecentGameItem = {
+  id: string;
+  game_type: string;
+  game_label: string;
+  player_name: string;
+  outcome: string;
+  amount: number;
+  created_at: string;
+};
+
+export type ExecutiveDashboardData = {
+  selected_period: {
+    period: "day" | "week" | "month" | "year";
+    window_days: number;
+    since: string;
+    until: string;
+  };
+  periods_comparison: {
+    day: PeriodMetrics;
+    week: PeriodMetrics;
+    month: PeriodMetrics;
+    year: PeriodMetrics;
+  };
+  by_game_analytics: GameAnalyticsItem[];
+  financial_overview: {
+    deposits_volume_mga: number;
+    deposits_count: number;
+    withdrawals_volume_mga: number;
+    withdrawals_count: number;
+    pending_withdrawals_volume_mga: number;
+    pending_withdrawals_count: number;
+    bonus_volume_mga: number;
+    bonus_count: number;
+    net_cash_flow_mga: number;
+    recent_transactions: RecentTransactionItem[];
+  };
+  leaderboards: {
+    top_winners: LeaderboardWinner[];
+    top_bettors: LeaderboardBettor[];
+    biggest_wins: BiggestWinItem[];
+  };
+  recent_games_feed: RecentGameItem[];
+};
+
 export type LiveDashboardData = {
   generated_at: string;
   window_days: number;
@@ -307,10 +422,16 @@ export type LiveDashboardData = {
     };
     live_activity_stream: LiveDashboardActivityEvent[];
   };
+  executive_dashboard?: ExecutiveDashboardData;
 };
 
-export function getLiveDashboard(token: string, days = 7) {
-  return get<LiveDashboardData>(`live-dashboard/?days=${days}`, token);
+export function getLiveDashboard(
+  token: string,
+  days = 7,
+  period?: "day" | "week" | "month" | "year",
+) {
+  const query = period ? `period=${period}` : `days=${days}`;
+  return get<LiveDashboardData>(`live-dashboard/?${query}`, token);
 }
 export function getPaymentReconciliation(token: string) {
   return get<{

@@ -662,6 +662,23 @@ class TableListCreateView(APIView):
             table_code=f"{game_type}-{uuid.uuid4().hex[:16]}",
         )
         join_table(table, request.user)
+        try:
+            from apps.analytics.models import ProductEvent
+
+            ProductEvent.objects.create(
+                user=request.user,
+                event_name="table_created",
+                game_type=game_type,
+                mode=HUMAN_MATCH,
+                metadata={
+                    "table_id": str(table.id),
+                    "stake_amount": stake_amount,
+                    "max_players": max_players,
+                    "is_private": is_private,
+                },
+            )
+        except Exception:
+            pass
         return Response(table_payload(table, request), status=status.HTTP_201_CREATED)
 
 

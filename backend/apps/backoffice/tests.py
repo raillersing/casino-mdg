@@ -14,6 +14,7 @@ from apps.games.models import (
 )
 from apps.payments.models import PaymentIntent, WebhookInboxEvent
 from apps.social.models import ChatMessage
+from apps.wallet.models import WalletTransaction
 
 
 class AuditTests(TestCase):
@@ -257,3 +258,113 @@ class AuditTests(TestCase):
         self.assertEqual(len(data["player_flow"]["hourly_traffic_24h"]), 24)
         self.assertTrue(len(data["player_flow"]["conversion_funnel"]) == 6)
         self.assertTrue(len(data["player_flow"]["live_activity_stream"]) >= 1)
+
+        # Pillar 4: Executive & Financial Dashboard
+        self.assertIn("executive_dashboard", data)
+        exec_d = data["executive_dashboard"]
+        self.assertIn("periods_comparison", exec_d)
+        self.assertIn("day", exec_d["periods_comparison"])
+        self.assertIn("week", exec_d["periods_comparison"])
+        self.assertIn("month", exec_d["periods_comparison"])
+        self.assertIn("year", exec_d["periods_comparison"])
+        self.assertTrue(len(exec_d["by_game_analytics"]) >= 4)
+        self.assertIn("financial_overview", exec_d)
+        self.assertIn("leaderboards", exec_d)
+        self.assertIn("recent_games_feed", exec_d)
+
+    def test_executive_dashboard_periods_and_leaderboards(self):
+        staff = User.objects.create_user(
+            email="execstaff@mdg.local",
+            phone="+261340000040",
+            display_name="Exec Staff",
+            is_staff=True,
+        )
+        vip_winner = User.objects.create_user(
+            email="winner@mdg.local",
+            phone="+261340000041",
+            display_name="Champion Belote",
+        )
+        vip_bettor = User.objects.create_user(
+            email="bettor@mdg.local",
+            phone="+261340000042",
+            display_name="Grand Parieur",
+        )
+
+        # Create wallet transactions
+        WalletTransaction.objects.create(
+            transaction_code="TX-DEP-01",
+            user=vip_winner,
+            type="deposit",
+            direction="credit",
+            amount=50000,
+            status="completed",
+        )
+        WalletTransaction.objects.create(
+            transaction_code="TX-BET-01",
+            user=vip_bettor,
+            type="game",
+            direction="debit",
+            amount=15000,
+            status="completed",
+            description="Mise Belote",
+        )
+        WalletTransaction.objects.create(
+            transaction_code="TX-WD-01",
+            user=vip_winner,
+            type="withdrawal",
+            direction="debit",
+            amount=10000,
+            status="pending",
+        )
+
+        # Create game results
+        GameResult.objects.create(
+            game_id="00000000-0000-0000-0000-000000000001",
+            user=vip_winner,
+            game_type="belote",
+            outcome="win",
+            amount=28000,
+        )
+        GameResult.objects.create(
+            game_id="00000000-0000-0000-0000-000000000002",
+            user=vip_winner,
+            game_type="belote",
+            outcome="win",
+            amount=14000,
+        )
+
+        client = APIClient()
+        client.force_authenticate(staff)
+
+        # 1. Test period=day
+        res_day = client.get("/api/v1/backoffice/live-dashboard/?period=day")
+        self.assertEqual(res_day.status_code, 200)
+        exec_day = res_day.data["executive_dashboard"]
+        self.assertEqual(exec_day["selected_period"]["period"], "day")
+        self.assertEqual(exec_day["selected_period"]["window_days"], 1)
+
+        # Leaderboard: top winner should be Champion Belote with 2 wins and 42000 MGA
+        top_winners = exec_day["leaderboards"]["top_winners"]
+        self.assertTrue(len(top_winners) >= 1)
+        self.assertEqual(top_winners[0]["user_id"], vip_winner.id)
+        self.assertEqual(top_winners[0]["wins_count"], 2)
+        self.assertEqual(top_winners[0]["total_won_mga"], 42000)
+
+        # Leaderboard: top bettor should be Grand Parieur with 15000 MGA
+        top_bettors = exec_day["leaderboards"]["top_bettors"]
+        self.assertTrue(len(top_bettors) >= 1)
+        self.assertEqual(top_bettors[0]["user_id"], vip_bettor.id)
+        self.assertEqual(top_bettors[0]["total_staked_mga"], 15000)
+
+        # Financial overview: pending withdrawal should show 10000 MGA
+        fin = exec_day["financial_overview"]
+        self.assertEqual(fin["pending_withdrawals_volume_mga"], 10000)
+        self.assertEqual(fin["pending_withdrawals_count"], 1)
+        self.assertEqual(fin["deposits_volume_mga"], 50000)
+        self.assertTrue(len(fin["recent_transactions"]) >= 3)
+
+        # 2. Test periods: week, month, year
+        for p in ("week", "month", "year"):
+            r = client.get(f"/api/v1/backoffice/live-dashboard/?period={p}")
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.data["executive_dashboard"]["selected_period"]["period"], p)

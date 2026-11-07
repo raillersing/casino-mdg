@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { LiveDashboardData } from "@services/backoffice";
+import { ExecutiveFinanceDashboard } from "./ExecutiveFinanceDashboard";
 
 interface LiveCommandCenterProps {
   data: LiveDashboardData | null;
@@ -28,8 +29,10 @@ interface LiveCommandCenterProps {
   autoRefresh: boolean;
   onToggleAutoRefresh: () => void;
   onManualRefresh: () => void;
-  activeTab: "all" | "games" | "app" | "flow" | "ops";
-  onSelectTab: (tab: "all" | "games" | "app" | "flow" | "ops") => void;
+  activeTab: "all" | "finance" | "games" | "app" | "flow" | "ops";
+  onSelectTab: (tab: "all" | "finance" | "games" | "app" | "flow" | "ops") => void;
+  selectedPeriod?: "day" | "week" | "month" | "year";
+  onChangePeriod?: (period: "day" | "week" | "month" | "year") => void;
 }
 
 export function LiveCommandCenter({
@@ -42,6 +45,8 @@ export function LiveCommandCenter({
   onManualRefresh,
   activeTab,
   onSelectTab,
+  selectedPeriod,
+  onChangePeriod,
 }: LiveCommandCenterProps) {
   const [simulatedCcu, setSimulatedCcu] = useState<number>(10000);
 
@@ -68,6 +73,7 @@ export function LiveCommandCenter({
   const simWsRamMb = Math.round((simulatedCcu * 1024 * 24) / (1024 * 1024));
   const simFileDescriptors = simulatedCcu * 2 + 512;
 
+  const showFinance = activeTab === "all" || activeTab === "finance";
   const showGames = activeTab === "all" || activeTab === "games";
   const showApp = activeTab === "all" || activeTab === "app";
   const showFlow = activeTab === "all" || activeTab === "flow";
@@ -207,29 +213,38 @@ export function LiveCommandCenter({
               }}
             >
               {[
-                { label: "24h", val: 1 },
-                { label: "7 jours", val: 7 },
-                { label: "30 jours", val: 30 },
-              ].map((opt) => (
-                <button
-                  key={opt.val}
-                  type="button"
-                  onClick={() => onChangeWindowDays(opt.val)}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: "12px",
-                    borderRadius: "6px",
-                    border: "none",
-                    cursor: "pointer",
-                    fontWeight: windowDays === opt.val ? 700 : 500,
-                    background:
-                      windowDays === opt.val ? "var(--gold)" : "transparent",
-                    color: windowDays === opt.val ? "#0a0d12" : "var(--soft)",
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
+                { label: "24h (Jour)", val: 1, period: "day" as const },
+                { label: "7 jours (Hebdo)", val: 7, period: "week" as const },
+                { label: "30 jours (Mois)", val: 30, period: "month" as const },
+                { label: "1 an (Annuel)", val: 365, period: "year" as const },
+              ].map((opt) => {
+                const isCurrent = selectedPeriod
+                  ? selectedPeriod === opt.period
+                  : windowDays === opt.val;
+                return (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => {
+                      onChangeWindowDays(opt.val);
+                      if (onChangePeriod) onChangePeriod(opt.period);
+                    }}
+                    style={{
+                      padding: "5px 10px",
+                      fontSize: "12px",
+                      borderRadius: "6px",
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: isCurrent ? 700 : 500,
+                      background: isCurrent ? "var(--gold)" : "transparent",
+                      color: isCurrent ? "#0a0d12" : "var(--soft)",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
 
             <button
@@ -284,6 +299,11 @@ export function LiveCommandCenter({
               id: "all" as const,
               label: "Vue Globale NOC (360°)",
               icon: Layers,
+            },
+            {
+              id: "finance" as const,
+              label: "0. Activité, Mises & Finance 📊",
+              icon: TrendingUp,
             },
             {
               id: "games" as const,
@@ -541,6 +561,31 @@ export function LiveCommandCenter({
             <Gauge size={22} color="var(--gold)" />
           </div>
         </div>
+      )}
+
+      {/* =====================================================================
+          PILIER 0 : DASHBOARD EXÉCUTIF & FINANCIER (ACTIVITÉ, MISES, REVENUS)
+         ===================================================================== */}
+      {showFinance && data && (
+        <ExecutiveFinanceDashboard
+          data={data}
+          selectedPeriod={
+            selectedPeriod ||
+            (windowDays === 1
+              ? "day"
+              : windowDays === 30
+              ? "month"
+              : windowDays === 365
+              ? "year"
+              : "week")
+          }
+          onChangePeriod={(p) => {
+            if (onChangePeriod) onChangePeriod(p);
+            const daysMap = { day: 1, week: 7, month: 30, year: 365 };
+            onChangeWindowDays(daysMap[p]);
+          }}
+          loading={loading}
+        />
       )}
 
       {/* =====================================================================

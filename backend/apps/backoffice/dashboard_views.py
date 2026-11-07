@@ -372,11 +372,33 @@ class LiveDashboardView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        try:
-            window_days = int(request.query_params.get("days", 7))
-        except (TypeError, ValueError):
+        period = request.query_params.get("period", "").lower()
+        if period in ("day", "today", "daily", "24h"):
+            window_days = 1
+            period_label = "day"
+        elif period in ("week", "weekly", "7d"):
             window_days = 7
-        window_days = max(1, min(window_days, 90))
+            period_label = "week"
+        elif period in ("month", "monthly", "30d"):
+            window_days = 30
+            period_label = "month"
+        elif period in ("year", "annual", "yearly", "365d"):
+            window_days = 365
+            period_label = "year"
+        else:
+            try:
+                window_days = int(request.query_params.get("days", 7))
+            except (TypeError, ValueError):
+                window_days = 7
+            window_days = max(1, min(window_days, 365))
+            if window_days == 1:
+                period_label = "day"
+            elif window_days <= 7:
+                period_label = "week"
+            elif window_days <= 31:
+                period_label = "month"
+            else:
+                period_label = "year"
 
         now = timezone.now()
         since = now - timedelta(days=window_days)
@@ -861,6 +883,331 @@ class LiveDashboardView(APIView):
                 }
             )
 
+        # ─── 4. EXECUTIVE & FINANCIAL DASHBOARD (ADMIN STATS COMPLÈTES) ─────
+        def _compute_period_metrics(cutoff):
+            tbl_c = (
+                ProductEvent.objects.filter(
+                    event_name="table_created", created_at__gte=cutoff
+                ).count()
+                + GameTable.objects.filter(created_at__gte=cutoff).count()
+            )
+            gr_sub = GameResult.objects.filter(created_at__gte=cutoff)
+            ip_sub = InstantPlay.objects.filter(created_at__gte=cutoff)
+            de_sub = DrawEntry.objects.filter(created_at__gte=cutoff).select_related(
+                "draw"
+            )
+            games_p = (
+                gr_sub.values("game_id").distinct().count()
+                + ip_sub.count()
+                + de_sub.count()
+            )
+
+            tx_staked = int(
+                WalletTransaction.objects.filter(
+                    type="game", direction="debit", created_at__gte=cutoff
+                ).aggregate(s=Sum("amount"))["s"]
+                or 0
+            )
+            ip_staked = int(ip_sub.aggregate(s=Sum("cost"))["s"] or 0)
+            de_staked = sum(int(e.draw.entry_cost) for e in de_sub)
+            total_stk = tx_staked + ip_staked + de_staked
+            if total_stk == 0:
+                gp_stk = int(
+                    GameParticipant.objects.filter(
+                        round__started_at__gte=cutoff
+                    ).aggregate(s=Sum("bet_amount"))["s"]
+                    or 0
+                )
+                total_stk = gp_stk + ip_staked + de_staked
+
+            tx_pay = int(
+                WalletTransaction.objects.filter(
+                    type="game", direction="credit", created_at__gte=cutoff
+                ).aggregate(s=Sum("amount"))["s"]
+                or 0
+            )
+            ip_pay = int(ip_sub.aggregate(s=Sum("prize"))["s"] or 0)
+            total_pay = tx_pay + ip_pay
+            if total_pay == 0:
+                total_pay = (
+                    int(
+                        gr_sub.filter(outcome="win").aggregate(s=Sum("amount"))["s"]
+                        or 0
+                    )
+                    + ip_pay
+                )
+
+            ggr = total_stk - total_pay
+            ggr_margin = round((ggr / total_stk) * 100, 1) if total_stk > 0 else 0.0
+
+            dep_agg = WalletTransaction.objects.filter(
+                type="deposit", status="completed", created_at__gte=cutoff
+            ).aggregate(vol=Sum("amount"), cnt=Count("id"))
+            dep_v = int(dep_agg["vol"] or 0)
+            dep_c = int(dep_agg["cnt"] or 0)
+
+            wd_agg = WalletTransaction.objects.filter(
+                type="withdrawal", status="completed", created_at__gte=cutoff
+            ).aggregate(vol=Sum("amount"), cnt=Count("id"))
+            wd_v = int(wd_agg["vol"] or 0)
+            wd_c = int(wd_agg["cnt"] or 0)
+
+            active_u = set(
+                WalletTransaction.objects.filter(created_at__gte=cutoff)
+                .exclude(user__isnull=True)
+                .values_list("user_id", flat=True)
+                .distinct()
+            ) | set(
+                gr_sub.exclude(user__isnull=True)
+                .values_list("user_id", flat=True)
+                .distinct()
+            )
+
+            avg_stk = int(round(total_stk / games_p)) if games_p > 0 else 0
+
+            return {
+                "tables_created": tbl_c,
+                "games_played": games_p,
+                "total_stakes_mga": total_stk,
+                "total_payouts_mga": total_pay,
+                "ggr_mga": ggr,
+                "ggr_margin_pct": ggr_margin,
+                "deposits_volume_mga": dep_v,
+                "deposits_count": dep_c,
+                "withdrawals_volume_mga": wd_v,
+                "withdrawals_count": wd_c,
+                "net_cash_flow_mga": dep_v - wd_v,
+                "unique_active_players": len(active_u),
+                "avg_stake_mga": avg_stk,
+            }
+
+        # Matrice comparative 4 périodes : Journée, Semaine, Mois, Année
+        periods_comparison = {
+            "day": _compute_period_metrics(now - timedelta(days=1)),
+            "week": _compute_period_metrics(now - timedelta(days=7)),
+            "month": _compute_period_metrics(now - timedelta(days=30)),
+            "year": _compute_period_metrics(now - timedelta(days=365)),
+        }
+
+        # Ventilation par jeu sur la période sélectionnée
+        by_game_analytics = []
+        for g_k, g_label in GAME_LABELS.items():
+            g_created = (
+                ProductEvent.objects.filter(
+                    event_name="table_created", game_type=g_k, created_at__gte=since
+                ).count()
+                + GameTable.objects.filter(
+                    game_type=g_k, created_at__gte=since
+                ).count()
+            )
+            g_active = tables_qs.filter(
+                game_type=g_k, status__in=["open", "running"]
+            ).count()
+            g_res = results_window.filter(game_type=g_k)
+            g_played = g_res.values("game_id").distinct().count()
+
+            g_stk = int(
+                GameParticipant.objects.filter(
+                    round__session__table__game_type=g_k,
+                    round__started_at__gte=since,
+                ).aggregate(s=Sum("bet_amount"))["s"]
+                or 0
+            )
+            if g_stk == 0:
+                g_stk = int(
+                    WalletTransaction.objects.filter(
+                        type="game",
+                        direction="debit",
+                        created_at__gte=since,
+                        description__icontains=g_k,
+                    ).aggregate(s=Sum("amount"))["s"]
+                    or 0
+                )
+            g_pay = int(
+                g_res.filter(outcome="win").aggregate(s=Sum("amount"))["s"] or 0
+            )
+            if g_pay == 0:
+                g_pay = int(
+                    WalletTransaction.objects.filter(
+                        type="game",
+                        direction="credit",
+                        created_at__gte=since,
+                        description__icontains=g_k,
+                    ).aggregate(s=Sum("amount"))["s"]
+                    or 0
+                )
+            g_players = len(
+                set(g_res.values_list("user_id", flat=True).distinct())
+            )
+
+            by_game_analytics.append(
+                {
+                    "game_type": g_k,
+                    "label": g_label,
+                    "tables_created": g_created,
+                    "active_tables": g_active,
+                    "games_played": g_played,
+                    "total_stakes_mga": g_stk,
+                    "total_payouts_mga": g_pay,
+                    "ggr_mga": g_stk - g_pay,
+                    "unique_players": g_players,
+                }
+            )
+
+        # Leaderboards : Qui a remporté le plus de victoires & de mises
+        top_winners_qs = (
+            GameResult.objects.filter(outcome="win")
+            .values("user_id", "user__display_name", "user__phone", "user__email")
+            .annotate(wins_count=Count("id"), total_won=Sum("amount"))
+            .order_by("-wins_count", "-total_won")[:10]
+        )
+        top_winners = [
+            {
+                "user_id": r["user_id"],
+                "display_name": r["user__display_name"] or "Joueur",
+                "identifier": r["user__phone"]
+                or r["user__email"]
+                or f"ID-{r['user_id']}",
+                "wins_count": r["wins_count"],
+                "total_won_mga": int(r["total_won"] or 0),
+            }
+            for r in top_winners_qs
+        ]
+
+        top_bettors_qs = (
+            WalletTransaction.objects.filter(type="game", direction="debit")
+            .values("user_id", "user__display_name", "user__phone", "user__email")
+            .annotate(total_staked=Sum("amount"), bets_count=Count("id"))
+            .order_by("-total_staked")[:10]
+        )
+        top_bettors = [
+            {
+                "user_id": r["user_id"],
+                "display_name": r["user__display_name"] or "Joueur",
+                "identifier": r["user__phone"]
+                or r["user__email"]
+                or f"ID-{r['user_id']}",
+                "total_staked_mga": int(r["total_staked"] or 0),
+                "bets_count": r["bets_count"],
+                "avg_stake_mga": (
+                    int(round(r["total_staked"] / r["bets_count"]))
+                    if r["bets_count"]
+                    else 0
+                ),
+            }
+            for r in top_bettors_qs
+        ]
+
+        biggest_wins_qs = (
+            GameResult.objects.filter(outcome="win")
+            .select_related("user")
+            .order_by("-amount")[:10]
+        )
+        biggest_wins = [
+            {
+                "id": str(bw.id),
+                "user_id": bw.user_id,
+                "display_name": bw.user.display_name if bw.user else "Joueur",
+                "identifier": (
+                    (bw.user.phone if bw.user else "")
+                    or (bw.user.email if bw.user else "")
+                ),
+                "game_type": bw.game_type,
+                "game_label": GAME_LABELS.get(bw.game_type, bw.game_type),
+                "amount": int(bw.amount),
+                "created_at": bw.created_at.isoformat(),
+            }
+            for bw in biggest_wins_qs
+        ]
+
+        # Transactions financières et retraits en attente
+        pending_wd = WalletTransaction.objects.filter(
+            type="withdrawal", status="pending"
+        ).aggregate(vol=Sum("amount"), cnt=Count("id"))
+        completed_wd = WalletTransaction.objects.filter(
+            type="withdrawal", status="completed", created_at__gte=since
+        ).aggregate(vol=Sum("amount"), cnt=Count("id"))
+        completed_dep = WalletTransaction.objects.filter(
+            type="deposit", status="completed", created_at__gte=since
+        ).aggregate(vol=Sum("amount"), cnt=Count("id"))
+        bonus_agg = WalletTransaction.objects.filter(
+            type="bonus", direction="credit", created_at__gte=since
+        ).aggregate(vol=Sum("amount"), cnt=Count("id"))
+
+        recent_tx_qs = (
+            WalletTransaction.objects.select_related("user")
+            .order_by("-created_at")[:30]
+        )
+        recent_transactions = [
+            {
+                "id": str(tx.id),
+                "transaction_code": tx.transaction_code,
+                "type": tx.type,
+                "direction": tx.direction,
+                "amount": int(tx.amount),
+                "currency_code": tx.currency_code,
+                "status": tx.status,
+                "description": tx.description or f"Transaction {tx.type}",
+                "user_id": tx.user_id,
+                "user_display_name": tx.user.display_name if tx.user else "Système",
+                "user_identifier": (
+                    (tx.user.phone if tx.user else "")
+                    or (tx.user.email if tx.user else "—")
+                ),
+                "created_at": tx.created_at.isoformat(),
+            }
+            for tx in recent_tx_qs
+        ]
+
+        # Flux des dernières parties jouées
+        recent_gr = (
+            GameResult.objects.select_related("user")
+            .order_by("-created_at")[:25]
+        )
+        recent_games_feed = [
+            {
+                "id": str(gr.id),
+                "game_type": gr.game_type,
+                "game_label": GAME_LABELS.get(gr.game_type, gr.game_type),
+                "player_name": gr.user.display_name if gr.user else "Joueur",
+                "outcome": gr.outcome,
+                "amount": int(gr.amount),
+                "created_at": gr.created_at.isoformat(),
+            }
+            for gr in recent_gr
+        ]
+
+        executive_dashboard = {
+            "selected_period": {
+                "period": period_label,
+                "window_days": window_days,
+                "since": since.isoformat(),
+                "until": now.isoformat(),
+            },
+            "periods_comparison": periods_comparison,
+            "by_game_analytics": by_game_analytics,
+            "financial_overview": {
+                "deposits_volume_mga": int(completed_dep["vol"] or 0),
+                "deposits_count": int(completed_dep["cnt"] or 0),
+                "withdrawals_volume_mga": int(completed_wd["vol"] or 0),
+                "withdrawals_count": int(completed_wd["cnt"] or 0),
+                "pending_withdrawals_volume_mga": int(pending_wd["vol"] or 0),
+                "pending_withdrawals_count": int(pending_wd["cnt"] or 0),
+                "bonus_volume_mga": int(bonus_agg["vol"] or 0),
+                "bonus_count": int(bonus_agg["cnt"] or 0),
+                "net_cash_flow_mga": (
+                    int(completed_dep["vol"] or 0) - int(completed_wd["vol"] or 0)
+                ),
+                "recent_transactions": recent_transactions,
+            },
+            "leaderboards": {
+                "top_winners": top_winners,
+                "top_bettors": top_bettors,
+                "biggest_wins": biggest_wins,
+            },
+            "recent_games_feed": recent_games_feed,
+        }
+
         return Response(
             {
                 "generated_at": now.isoformat(),
@@ -974,5 +1321,6 @@ class LiveDashboardView(APIView):
                     },
                     "live_activity_stream": live_activity_stream,
                 },
+                "executive_dashboard": executive_dashboard,
             }
         )

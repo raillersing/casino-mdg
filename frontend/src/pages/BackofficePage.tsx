@@ -46,10 +46,13 @@ export function BackofficePage() {
     null,
   );
   const [windowDays, setWindowDays] = useState<number>(7);
+  const [selectedPeriod, setSelectedPeriod] = useState<
+    "day" | "week" | "month" | "year"
+  >("week");
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<
-    "all" | "games" | "app" | "flow" | "ops"
+    "all" | "finance" | "games" | "app" | "flow" | "ops"
   >("all");
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
@@ -115,7 +118,7 @@ export function BackofficePage() {
     >;
   } | null>(null);
   const loadAllBackofficeData = useCallback(
-    (days: number) => {
+    (days: number, period?: "day" | "week" | "month" | "year") => {
       if (!token) {
         setError("Connexion staff requise.");
         return;
@@ -141,7 +144,7 @@ export function BackofficePage() {
         getPilotActions(token),
         getBackofficeKYCRequests(token),
         getResponsibleGamingExclusions(token),
-        getLiveDashboard(token, days).catch(() => null),
+        getLiveDashboard(token, days, period || selectedPeriod).catch(() => null),
       ])
         .then(
           ([
@@ -184,17 +187,25 @@ export function BackofficePage() {
     [token, user],
   );
 
+  const handlePeriodChange = (period: "day" | "week" | "month" | "year") => {
+    setSelectedPeriod(period);
+    const daysMap = { day: 1, week: 7, month: 30, year: 365 };
+    const days = daysMap[period];
+    setWindowDays(days);
+    loadAllBackofficeData(days, period);
+  };
+
   useEffect(() => {
-    loadAllBackofficeData(windowDays);
-  }, [loadAllBackofficeData, windowDays]);
+    loadAllBackofficeData(windowDays, selectedPeriod);
+  }, [loadAllBackofficeData, selectedPeriod, windowDays]);
 
   useEffect(() => {
     if (!autoRefresh || !token) return;
     const interval = window.setInterval(() => {
-      loadAllBackofficeData(windowDays);
+      loadAllBackofficeData(windowDays, selectedPeriod);
     }, 10000);
     return () => window.clearInterval(interval);
-  }, [autoRefresh, loadAllBackofficeData, token, windowDays]);
+  }, [autoRefresh, loadAllBackofficeData, selectedPeriod, token, windowDays]);
 
   const handleToggleFlag = async (flag: FeatureFlag) => {
     if (!token) return;
@@ -416,12 +427,28 @@ export function BackofficePage() {
         data={liveDashboard}
         loading={refreshing}
         windowDays={windowDays}
-        onChangeWindowDays={setWindowDays}
+        onChangeWindowDays={(days) => {
+          setWindowDays(days);
+          const p =
+            days === 1
+              ? "day"
+              : days === 30
+              ? "month"
+              : days === 365
+              ? "year"
+              : "week";
+          setSelectedPeriod(p);
+          loadAllBackofficeData(days, p);
+        }}
         autoRefresh={autoRefresh}
         onToggleAutoRefresh={() => setAutoRefresh((prev) => !prev)}
-        onManualRefresh={() => loadAllBackofficeData(windowDays)}
+        onManualRefresh={() =>
+          loadAllBackofficeData(windowDays, selectedPeriod)
+        }
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        selectedPeriod={selectedPeriod}
+        onChangePeriod={handlePeriodChange}
       />
       {(activeTab === "all" || activeTab === "ops") && (
         <div className="wallet-layout">

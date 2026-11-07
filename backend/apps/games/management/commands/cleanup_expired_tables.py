@@ -104,15 +104,16 @@ class Command(BaseCommand):
                     )
                 )
 
-            if delete_closed:
-                # Nettoyage optionnel des tables finies sans joueurs
-                deleted_count, _ = (
-                    GameTable.objects.filter(status="finished", seats__isnull=True)
-                    .exclude(table_code__in=demo_codes)
-                    .delete()
-                )
+            # Suppression totale de toutes les tables terminées/fermées
+            # (conforme à l'exigence : 'Les tables expirer doivent être supprimées de l'app totalement')
+            del_count, _ = GameTable.objects.filter(
+                Q(status="finished")
+                | Q(created_by__isnull=True)
+                | Q(table_code__in=demo_codes)
+            ).delete()
+            if del_count > 0:
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"Suppression de {deleted_count} tables terminées et vides."
+                        f"Suppression totale de {del_count} tables expirées/fantômes de la base de données."
                     )
                 )
