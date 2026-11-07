@@ -575,27 +575,42 @@ export function LobbyPage() {
   };
 
   const counts = useMemo(() => {
+    // Ne comptabiliser que les vraies tables humaines actives (non terminées, avec au moins 1 joueur)
+    const validTables = tables.filter(
+      (t) =>
+        t.status !== "finished" &&
+        t.mode !== "DEMO_AI" &&
+        t.mode !== "SIMULATION_SOLO" &&
+        (t.is_private || (t.player_count ?? 0) > 0),
+    );
     return {
-      all: tables.length,
-      belote: tables.filter((t) => t.game_type === "belote").length,
-      domino: tables.filter((t) => t.game_type === "domino").length,
-      ludo: tables.filter((t) => t.game_type === "ludo").length,
-      rami: tables.filter((t) => t.game_type === "rami").length,
-      poker: tables.filter((t) => t.game_type === "poker").length,
+      all: validTables.length,
+      belote: validTables.filter((t) => t.game_type === "belote").length,
+      domino: validTables.filter((t) => t.game_type === "domino").length,
+      ludo: validTables.filter((t) => t.game_type === "ludo").length,
+      rami: validTables.filter((t) => t.game_type === "rami").length,
+      poker: validTables.filter((t) => t.game_type === "poker").length,
       tournaments: tournaments.length,
     };
   }, [tables, tournaments]);
 
   const shown = tables.filter((table) => {
+    // 1. Filtrer impérativement les tables terminées ou expirées
+    if (table.status === "finished") return false;
+
+    // 2. Filtrer les modes bots d'entraînement solo (ne doivent pas être dans les tables multijoueur)
+    if (table.mode === "DEMO_AI" || table.mode === "SIMULATION_SOLO") return false;
+
+    // 3. Une table publique doit avoir au moins 1 joueur actif
+    if (!table.is_private && (table.player_count ?? 0) <= 0) return false;
+
     const matchesQuery = table.name.toLowerCase().includes(query.toLowerCase());
     if (!matchesQuery) return false;
     if (stakeFilter === "all") return true;
     if (stakeFilter === "0") {
       return (
         table.stakes.toLowerCase().includes("gratuit") ||
-        table.stakes.includes("0") ||
-        table.mode === "DEMO_AI" ||
-        table.mode === "SIMULATION_SOLO"
+        table.stakes.includes("0")
       );
     }
     const cleanStake = table.stakes.replace(/\s+/g, "");
@@ -889,42 +904,42 @@ export function LobbyPage() {
             key: "all",
             label: "Toutes les tables",
             icon: "★",
-            count: liveStats?.total_active_tables ?? counts.all,
+            count: counts.all,
             online: liveStats?.total_online_players,
           },
           {
             key: "belote",
             label: "Belote Malagasy",
             icon: "♥",
-            count: liveStats?.games?.belote?.total_tables ?? counts.belote,
+            count: counts.belote,
             online: liveStats?.games?.belote?.online_players,
           },
           {
             key: "domino",
             label: "Domino Double-Six",
             icon: "🁓",
-            count: liveStats?.games?.domino?.total_tables ?? counts.domino,
+            count: counts.domino,
             online: liveStats?.games?.domino?.online_players,
           },
           {
             key: "ludo",
             label: "Ludo Mada",
             icon: "🎲",
-            count: liveStats?.games?.ludo?.total_tables ?? counts.ludo,
+            count: counts.ludo,
             online: liveStats?.games?.ludo?.online_players,
           },
           {
             key: "rami",
             label: "Rami Malagasy",
             icon: "♦",
-            count: liveStats?.games?.rami?.total_tables ?? counts.rami,
+            count: counts.rami,
             online: liveStats?.games?.rami?.online_players,
           },
           {
             key: "poker",
             label: "Poker Texas Hold'em",
             icon: "♠",
-            count: liveStats?.games?.poker?.total_tables ?? counts.poker,
+            count: counts.poker,
             online: liveStats?.games?.poker?.online_players,
           },
           {
@@ -1487,36 +1502,101 @@ export function LobbyPage() {
         <div
           className="empty-note lobby-empty-state"
           style={{
-            padding: "40px 20px",
+            padding: "48px 24px",
             textAlign: "center",
-            borderRadius: "14px",
+            borderRadius: "16px",
+            background: "rgba(255, 255, 255, 0.02)",
+            border: "1px dashed rgba(255, 255, 255, 0.12)",
           }}
         >
-          <p
+          <div
             style={{
-              fontSize: "15px",
-              color: "var(--text)",
-              margin: "0 0 8px",
-              fontWeight: 600,
+              width: "52px",
+              height: "52px",
+              borderRadius: "50%",
+              background: "rgba(211, 176, 107, 0.12)",
+              color: "var(--gold)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 14px",
             }}
           >
-            Aucune table ne correspond à vos filtres actuels.
+            <Compass size={26} />
+          </div>
+          <p
+            style={{
+              fontSize: "16px",
+              color: "#fff",
+              margin: "0 0 8px",
+              fontWeight: 700,
+            }}
+          >
+            {query || stakeFilter !== "all"
+              ? "Aucune table ne correspond à vos filtres actuels."
+              : "Aucune table ouverte pour le moment."}
           </p>
-          <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-            Modifiez vos critères de recherche ou créez votre propre table en un
-            instant !
-          </span>
-          <div style={{ marginTop: "16px" }}>
-            <button
-              type="button"
-              className="button button-gold button-small"
-              onClick={() => {
-                if (!accessToken) navigate("/auth?next=/lobby");
-                else setShowCreateTable(true);
-              }}
-            >
-              <Plus size={15} /> Créer une table
-            </button>
+          <p
+            style={{
+              fontSize: "13.5px",
+              color: "var(--muted)",
+              margin: "0 auto 20px",
+              maxWidth: "460px",
+              lineHeight: 1.5,
+            }}
+          >
+            {query || stakeFilter !== "all"
+              ? "Essayez de modifier votre recherche ou vos critères de mise."
+              : "Les tables s'ouvrent dès qu'un joueur en crée une. Créez votre table en quelques clics ou lancez une recherche matchmaking !"}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}
+          >
+            {query || stakeFilter !== "all" ? (
+              <button
+                type="button"
+                className="button button-secondary button-small"
+                onClick={() => {
+                  setQuery("");
+                  setStakeFilter("all");
+                }}
+              >
+                Réinitialiser les filtres
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="button button-gold button-small"
+                  onClick={() => {
+                    if (!accessToken) navigate("/auth?next=/lobby");
+                    else {
+                      setCreateTableGame(
+                        ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
+                          ? (filter as "belote" | "domino" | "ludo" | "rami" | "poker")
+                          : "belote",
+                      );
+                      setShowCreateTable(true);
+                    }
+                  }}
+                >
+                  <Plus size={15} /> Créer une table
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary button-small"
+                  onClick={() => void findHuman()}
+                >
+                  <Zap size={14} /> Matchmaking {GAME_SUITS[matchmakingGame]?.label.split(" ")[0]}
+                </button>
+              </>
+            )}
           </div>
         </div>
       ) : (

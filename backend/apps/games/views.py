@@ -37,7 +37,7 @@ from .models import (
     TableSeat,
     generate_table_access_code,
 )
-from .modes import DEMO_AI, SIMULATION_SOLO
+from .modes import DEMO_AI, HUMAN_MATCH, SIMULATION_SOLO
 from .services import generate_admission_token, join_table, leave_table
 from .table_rules import CAPABILITIES, validate_table_settings
 from .test_games import create_draw_entry, draw_now, ensure_test_catalog, play_instant
@@ -284,7 +284,15 @@ class BotSimulationCancelView(APIView):
             )
         if session.status in {"queued", "running"}:
             session.status = "cancelled"
-            session.save(update_fields=["status"])
+            session.completed_at = timezone.now()
+            session.save(update_fields=["status", "completed_at"])
+            try:
+                table = session.table
+                table.status = "finished"
+                table.save(update_fields=["status", "updated_at"])
+                table.seats.all().delete()
+            except Exception:
+                pass
         return Response(bot_simulation_payload(session))
 
 
@@ -480,24 +488,6 @@ class TableListCreateView(APIView):
         active_waiting_threshold = now - timedelta(minutes=15)
         active_running_threshold = now - timedelta(minutes=20)
 
-        visibility = Q(is_private=False)
-        if request.user.is_authenticated:
-            visibility |= (
-                Q(created_by=request.user)
-                | Q(seats__user=request.user)
-                | Q(club__memberships__user=request.user)
-            )
-
-        active_lifecycle = (
-            Q(num_seats=0, updated_at__gte=fresh_empty_threshold)
-            | Q(
-                status="open",
-                num_seats__gt=0,
-                updated_at__gte=active_waiting_threshold,
-            )
-            | Q(status="running", updated_at__gte=active_running_threshold)
-        )
-
         DEMO_CODES = [
             "emerald-01",
             "baobab-01",
@@ -507,11 +497,51 @@ class TableListCreateView(APIView):
             "ocean-01",
         ]
 
-        tables = (
+        # Règle stricte : Seules les tables créées par un joueur humain (created_by != None)
+        # en mode multijoueur (mode = HUMAN_MATCH) apparaissent dans le lobby.
+        base_qs = (
             GameTable.objects.exclude(status="finished")
             .exclude(table_code__in=DEMO_CODES)
+            .filter(
+                created_by__isnull=False,
+                mode=HUMAN_MATCH,
+            )
+        )
+
+        # Visibilité :
+        # - Les tables publiques ne sont visibles pour autrui que si un joueur y est assis (num_seats > 0).
+        # - Les tables privées ne sont visibles que par leur créateur, joueurs assis ou membres de club.
+        if request.user.is_authenticated:
+            visibility = (
+                Q(is_private=False, num_seats__gt=0)
+                | Q(created_by=request.user)
+                | Q(seats__user=request.user)
+                | Q(club__memberships__user=request.user)
+            )
+        else:
+            visibility = Q(is_private=False, num_seats__gt=0)
+
+        # Expiration & cycle de vie actif (bonnes pratiques jeux en ligne) :
+        # - Une table vide (0 joueur) n'est tolérée que pour son créateur pendant 2 minutes max.
+        # - Une table en attente (open) expire après 15 min sans activité.
+        # - Une table en cours (running) expire après 20 min sans activité.
+        active_lifecycle = (
+            Q(num_seats=0, updated_at__gte=fresh_empty_threshold)
+            | Q(
+                status="open",
+                num_seats__gt=0,
+                updated_at__gte=active_waiting_threshold,
+            )
+            | Q(
+                status="running",
+                num_seats__gt=0,
+                updated_at__gte=active_running_threshold,
+            )
+        )
+
+        tables = (
+            base_qs.annotate(num_seats=Count("seats"))
             .filter(visibility)
-            .annotate(num_seats=Count("seats"))
             .filter(active_lifecycle)
             .distinct()
             .prefetch_related("seats", "bot_simulation__bots")
@@ -851,7 +881,10 @@ class LiveStatsView(APIView):
             )
         }
         public = GameTable.objects.filter(
-            is_private=False, mode="HUMAN_MATCH", created_by__isnull=False
+            is_private=False,
+            mode="HUMAN_MATCH",
+            created_by__isnull=False,
+            updated_at__gte=now - timedelta(minutes=20),
         ).exclude(status="finished")
         public_ids = {str(table.pk) for table in public}
         for identifier, table in live.items():
