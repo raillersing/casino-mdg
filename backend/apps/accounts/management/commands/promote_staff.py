@@ -28,6 +28,12 @@ class Command(BaseCommand):
             action="store_true",
             help="Liste les utilisateurs actuels et leurs statuts admin",
         )
+        parser.add_argument(
+            "--create",
+            action="store_true",
+            default=True,
+            help="Crée le compte s'il n'existe pas encore",
+        )
 
     def handle(self, *args, **options):
         if options.get("list") or not options.get("identifier"):
@@ -58,9 +64,36 @@ class Command(BaseCommand):
             user = User.objects.filter(phone__icontains=identifier).first()
 
         if not user:
+            # Recherche avec normalisation du numéro malgache (+261...)
+            from apps.accounts.views import normalize_phone
+
+            try:
+                norm = normalize_phone(identifier)
+                user = User.objects.filter(phone=norm).first()
+            except Exception:
+                norm = None
+
+        if not user:
+            # Création automatique du compte s'il n'existe pas encore
+            from apps.accounts.views import normalize_phone
+
+            try:
+                phone_val = normalize_phone(identifier)
+            except Exception:
+                phone_val = identifier
+
+            user = User.objects.create(
+                phone=phone_val,
+                email=f"{phone_val.replace('+', '')}@mdg.local",
+                display_name="Administrateur",
+                is_staff=True,
+                is_superuser=True,
+            )
             self.stdout.write(
-                self.style.ERROR(
-                    f"Aucun utilisateur trouvé pour l'identifiant : '{identifier}'"
+                self.style.SUCCESS(
+                    f"\nNouveau compte créé et promu ADMIN / STAFF avec succès :\n"
+                    f"ID: {user.id} | Téléphone: {user.phone} | Nom: {user.display_name}\n"
+                    f"Vous pouvez vous connecter avec ce numéro sur le site pour accéder au Back-office (/backoffice)."
                 )
             )
             return
