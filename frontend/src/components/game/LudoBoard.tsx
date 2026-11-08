@@ -30,7 +30,7 @@ export interface LudoBoardProps {
   onMovePawn: (pawnId: number) => void;
 }
 
-export const COLOR_CONFIG = [
+const COLOR_CONFIG = [
   {
     name: "Rouge",
     primary: "#ef4444",

@@ -561,3 +561,161 @@ class TableApiTests(TestCase):
         result_ids = [t["id"] for t in resp.data["results"]]
         self.assertNotIn(str(demo.pk), result_ids)
         self.assertNotIn(str(stale_waiting.pk), result_ids)
+
+    def test_table_creation_returns_admission_token_and_reserves_mga_funds(self):
+        from apps.wallet.models import LedgerAccount
+        from apps.games.models import TableBankroll
+
+        # Set up player MGA account with 75,000 Ar
+        mga_acc, _ = LedgerAccount.objects.get_or_create(
+            user=self.user, account_type="player", currency_code="MGA"
+        )
+        mga_acc.balance = 75000
+        mga_acc.held_balance = 0
+        mga_acc.save()
+
+        self.client.force_authenticate(self.user)
+        # Create poker table: minimum 5,000 Ar, buy-in 50,000 Ar (Zynga style choice, no table max cap)
+        resp = self.client.post(
+            "/api/v1/games/tables/",
+            {
+                "name": "Table Royale MGA",
+                "game_type": "poker",
+                "max_players": 6,
+                "stake_amount": 5000,
+                "buy_in": 50000,
+                "is_private": False,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertIn("admission_token", resp.data)
+        self.assertIn("table_id", resp.data)
+        self.assertEqual(resp.data["seat_index"], 0)
+
+        # Check ledger balance: 50,000 held, 25,000 available
+        mga_acc.refresh_from_db()
+        self.assertEqual(mga_acc.balance, 25000)
+        self.assertEqual(mga_acc.held_balance, 50000)
+
+        # Check TableBankroll
+        bankroll = TableBankroll.objects.filter(
+            table_id=resp.data["table_id"], user=self.user
+        ).first()
+        self.assertIsNotNone(bankroll)
+        self.assertEqual(bankroll.reserved_amount, 50000)
+        self.assertEqual(bankroll.current_stack, 50000)
+        self.assertEqual(bankroll.status, "active")
+
+    def test_poker_buy_in_below_minimum_or_exceeding_balance_is_rejected(self):
+        from apps.wallet.models import LedgerAccount
+
+        mga_acc, _ = LedgerAccount.objects.get_or_create(
+            user=self.user, account_type="player", currency_code="MGA"
+        )
+        mga_acc.balance = 20000
+        mga_acc.held_balance = 0
+        mga_acc.save()
+
+        self.client.force_authenticate(self.user)
+        table = GameTable.objects.create(
+            table_code="poker-5k-min",
+            name="Table 5k Min",
+            game_type="poker",
+            stake_amount=5000,
+            max_players=6,
+        )
+
+        # Below minimum (e.g. 2,000 < 5,000)
+        resp_low = self.client.post(
+            f"/api/v1/games/tables/{table.pk}/join/",
+            {"buy_in": 2000},
+            format="json",
+        )
+        self.assertEqual(resp_low.status_code, 409)
+
+        # Exceeding available balance (e.g. 50,000 > 20,000)
+        resp_high = self.client.post(
+            f"/api/v1/games/tables/{table.pk}/join/",
+            {"buy_in": 50000},
+            format="json",
+        )
+        self.assertEqual(resp_high.status_code, 409)
+        self.assertIn("Solde Ariary insuffisant", resp_high.data["detail"])
+
+    def test_poker_top_up_endpoint_reserves_mga_and_updates_pending_top_up(self):
+        from apps.wallet.models import LedgerAccount
+        from apps.games.models import TableBankroll
+
+        mga_acc, _ = LedgerAccount.objects.get_or_create(
+            user=self.user, account_type="player", currency_code="MGA"
+        )
+        mga_acc.balance = 80000
+        mga_acc.held_balance = 0
+        mga_acc.save()
+
+        self.client.force_authenticate(self.user)
+        table = GameTable.objects.create(
+            table_code="poker-rebuy",
+            name="Table Rebuy",
+            game_type="poker",
+            stake_amount=5000,
+            max_players=6,
+        )
+        join_resp = self.client.post(
+            f"/api/v1/games/tables/{table.pk}/join/",
+            {"buy_in": 10000},
+            format="json",
+        )
+        self.assertEqual(join_resp.status_code, 201)
+
+        # Top up with 15,000 Ar
+        topup_resp = self.client.post(
+            f"/api/v1/games/tables/{table.pk}/top-up/",
+            {"amount": 15000},
+            format="json",
+        )
+        self.assertEqual(topup_resp.status_code, 200)
+        self.assertEqual(topup_resp.data["pending_top_up"], 15000)
+
+        # Total held = 10,000 + 15,000 = 25,000; remaining available = 55,000
+        mga_acc.refresh_from_db()
+        self.assertEqual(mga_acc.held_balance, 25000)
+        self.assertEqual(mga_acc.balance, 55000)
+
+    def test_leaving_table_refunds_unspent_mga_bankroll(self):
+        from apps.wallet.models import LedgerAccount
+
+        mga_acc, _ = LedgerAccount.objects.get_or_create(
+            user=self.user, account_type="player", currency_code="MGA"
+        )
+        mga_acc.balance = 50000
+        mga_acc.held_balance = 0
+        mga_acc.save()
+
+        self.client.force_authenticate(self.user)
+        table = GameTable.objects.create(
+            table_code="poker-leave-refund",
+            name="Table Leave",
+            game_type="poker",
+            stake_amount=5000,
+            max_players=6,
+        )
+        self.client.post(
+            f"/api/v1/games/tables/{table.pk}/join/",
+            {"buy_in": 25000},
+            format="json",
+        )
+
+        mga_acc.refresh_from_db()
+        self.assertEqual(mga_acc.balance, 25000)
+        self.assertEqual(mga_acc.held_balance, 25000)
+
+        # Leave table
+        leave_resp = self.client.post(f"/api/v1/games/tables/{table.pk}/leave/")
+        self.assertEqual(leave_resp.status_code, 200)
+
+        # Funds are refunded
+        mga_acc.refresh_from_db()
+        self.assertEqual(mga_acc.balance, 50000)
+        self.assertEqual(mga_acc.held_balance, 0)

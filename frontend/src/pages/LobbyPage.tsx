@@ -6,6 +6,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import {
+  ArrowLeft,
   ArrowUpRight,
   Bot,
   Compass,
@@ -51,7 +52,10 @@ import { createGuestToken } from "@services/auth";
 import { BotCountSelector } from "@components/game/BotCountSelector";
 import { CreateTableModal } from "@components/game/CreateTableModal";
 import { JoinPrivateTableModal } from "@components/game/JoinPrivateTableModal";
+import { PokerBuyInModal } from "@components/game/PokerBuyInModal";
 import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
+import { GameActivitySummary } from "@components/game/GameActivitySummary";
+import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
 import { haptics } from "@utils/haptics";
 
 const GAME_SUITS: Record<
@@ -123,7 +127,9 @@ export function LobbyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [joining, setJoining] = useState<string | null>(null);
+  const [pokerBuyInTable, setPokerBuyInTable] = useState<GameTable | null>(null);
   const accessToken = useGameStore((state) => state.accessToken);
+  const user = useGameStore((state) => state.user);
   const navigate = useNavigate();
 
   const matchmakingGame = (
@@ -291,10 +297,22 @@ export function LobbyPage() {
         .finally(() => setLoading(false));
       return;
     }
-    getTables(filter === "all" ? "Tous" : filter)
+    getTables(filter === "all" ? "Tous" : filter, accessToken || undefined)
       .then((payload) => setTables(payload.results))
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
+  }, [filter, accessToken]);
+
+  useEffect(() => {
+    if (filter === "tournaments") return;
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        getTables(filter === "all" ? "Tous" : filter, accessToken || undefined)
+          .then((payload) => setTables(payload.results))
+          .catch(() => undefined);
+      }
+    }, 5000);
+    return () => clearInterval(interval);
   }, [filter, accessToken]);
 
   useEffect(() => {
@@ -480,7 +498,7 @@ export function LobbyPage() {
     }
   };
 
-  const join = async (table: GameTable) => {
+  const join = async (table: GameTable, buyIn?: number) => {
     let token = accessToken;
     if (!token) {
       try {
@@ -493,9 +511,13 @@ export function LobbyPage() {
         return;
       }
     }
+    if (table.game_type === "poker" && buyIn === undefined) {
+      setPokerBuyInTable(table);
+      return;
+    }
     setJoining(table.id);
     try {
-      const result = await joinTable(table.id, token);
+      const result = await joinTable(table.id, token, undefined, buyIn);
       setTables((current) =>
         current.map((item) => (item.id === table.id ? result.table : item)),
       );
@@ -504,7 +526,7 @@ export function LobbyPage() {
       );
       void trackEvent("table_joined", {
         game_type: result.table.game_type,
-        metadata: { table_code: result.table.table_code },
+        metadata: { table_code: result.table.table_code, buy_in: buyIn },
       });
     } catch (reason) {
       setError(
@@ -634,6 +656,21 @@ export function LobbyPage() {
       {/* 1. Header with Live Status & Action Buttons */}
       <div className="lobby-claude-head">
         <div className="lobby-claude-head-copy">
+          <Link
+            to="/games"
+            className="button button-ghost button-small"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              marginBottom: "8px",
+              color: "var(--text-secondary, #adb9c4)",
+              textDecoration: "none",
+              padding: "4px 8px",
+            }}
+          >
+            <ArrowLeft size={15} /> {t("discovery.allGames") || "Tous les jeux"}
+          </Link>
           <div
             style={{
               display: "inline-flex",
@@ -1034,7 +1071,7 @@ export function LobbyPage() {
       {filter !== "tournaments" && (
         <section className="lobby-quick-create-section">
           <div className="lobby-quick-create-header">
-            <h3>
+            <h2>
               <Sparkles size={16} />
               <span>
                 {t(
@@ -1042,7 +1079,7 @@ export function LobbyPage() {
                   "Raccourcis de création instantanée",
                 )}
               </span>
-            </h3>
+            </h2>
             <button
               type="button"
               className="button button-gold button-small"
@@ -1077,7 +1114,7 @@ export function LobbyPage() {
                       {meta.icon}
                     </div>
                     <div className="lobby-quick-card-info">
-                      <h4>{meta.label.split(" ")[0]}</h4>
+                      <h3>{meta.label.split(" ")[0]}</h3>
                       <span>
                         {badgeInfo.players} · {badgeInfo.duration} · {badgeInfo.rule}
                       </span>
@@ -1860,10 +1897,15 @@ export function LobbyPage() {
             navigate("/auth?next=/lobby");
             throw new Error("AUTH_REQUIRED");
           }
-          const table = await createTable(accessToken, payload);
+          const res = await createTable(accessToken, payload);
           setShowCreateTable(false);
-          navigate(`/game/${table.game_type}/${table.table_code}`);
-          return table;
+          const admissionQuery = res.admission_token
+            ? `?table_id=${res.table_id || res.id}&admission_token=${res.admission_token}`
+            : `?table_id=${res.table_id || res.id}`;
+          const gType = res.game_type || res.table?.game_type || payload.game_type;
+          const tCode = res.table_code || res.table?.table_code || res.table_id || res.id;
+          navigate(`/game/${gType}/${tCode}${admissionQuery}`);
+          return (res.table || res) as GameTable;
         }}
       />
 
@@ -1872,11 +1914,29 @@ export function LobbyPage() {
         isOpen={showJoinPrivate}
         accessToken={accessToken || ""}
         onClose={() => setShowJoinPrivate(false)}
-        onJoined={(table) => {
+        onJoined={(table, admissionToken) => {
           setShowJoinPrivate(false);
-          navigate(`/game/${table.game_type}/${table.table_code}`);
+          const admissionQuery = admissionToken
+            ? `?table_id=${table.id}&admission_token=${admissionToken}`
+            : `?table_id=${table.id}`;
+          navigate(`/game/${table.game_type}/${table.table_code}${admissionQuery}`);
         }}
       />
+
+      {pokerBuyInTable && (
+        <PokerBuyInModal
+          isOpen={Boolean(pokerBuyInTable)}
+          tableName={pokerBuyInTable.name}
+          minStake={pokerBuyInTable.stake_amount || 5000}
+          availableBalance={user?.balance ?? user?.mgaBalance ?? 0}
+          onClose={() => setPokerBuyInTable(null)}
+          onConfirm={(chosenBuyIn) => {
+            const tbl = pokerBuyInTable;
+            setPokerBuyInTable(null);
+            void join(tbl, chosenBuyIn);
+          }}
+        />
+      )}
 
       {error && (
         <div className="empty-note" style={{ color: "var(--red)" }}>
@@ -1898,6 +1958,11 @@ export function LobbyPage() {
           Les tables privées ne sont accessibles qu'avec leur lien d'invitation
           ou code unique.
         </span>
+      </div>
+
+      <div style={{ marginTop: "32px", display: "flex", flexDirection: "column", gap: "16px" }}>
+        <GameActivitySummary gameType={filter} />
+        <UniquePlayerStats gameType={filter} />
       </div>
     </div>
   );

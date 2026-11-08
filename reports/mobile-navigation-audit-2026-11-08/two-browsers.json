@@ -1,0 +1,64 @@
+[
+  {
+    "scenario": "quick-two",
+    "peers": [
+      {
+        "who": 0,
+        "errors": [
+          "unauthorized table creation requires admission ticket",
+          "table not found"
+        ]
+      },
+      {
+        "who": 1,
+        "errors": [],
+        "lastState": {
+          "seated": 1,
+          "playing": 0
+        }
+      }
+    ]
+  },
+  {
+    "scenario": "signed-four",
+    "peers": [
+      {
+        "who": 0,
+        "errors": [],
+        "lastState": {
+          "seated": 2,
+          "playing": 0
+        }
+      },
+      {
+        "who": 1,
+        "errors": [],
+        "lastState": {
+          "seated": 2,
+          "playing": 0
+        }
+      }
+    ]
+  },
+  {
+    "scenario": "signed-two",
+    "peers": [
+      {
+        "who": 0,
+        "errors": [],
+        "lastState": {
+          "seated": 2,
+          "playing": 2
+        }
+      },
+      {
+        "who": 1,
+        "errors": [],
+        "lastState": {
+          "seated": 2,
+          "playing": 2
+        }
+      }
+    ]
+  }
+]

@@ -700,3 +700,74 @@ func TestNotifyS2SSettlementTransmitsPayloadWithSecret(t *testing.T) {
 		t.Fatalf("expected game_type poker, got %v", receivedBody["game_type"])
 	}
 }
+
+func testAdmissionTokenWithBuyIn(subject, tableID string, seatID int, role, secret string, exp int64, buyIn int64) string {
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	claimsJSON := fmt.Sprintf(`{"sub":"%s","table_id":"%s","seat_id":%d,"role":"%s","type":"admission","exp":%d,"buy_in":%d}`,
+		subject, tableID, seatID, role, exp, buyIn)
+	payload := base64.RawURLEncoding.EncodeToString([]byte(claimsJSON))
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(header + "." + payload))
+	return header + "." + payload + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func TestBuyInAndTopUpAction(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", ResultSecret: "result-secret", RedisURL: "", GracePeriod: time.Second, Deterministic: true}
+	manager := room.NewManager(cfg)
+	table := manager.CreateTable("poker")
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+
+	token := testAdmissionTokenWithBuyIn("player-high-roller", table.ID, 0, "player", cfg.JWTSecret, time.Now().Add(time.Minute).Unix(), 50000)
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + token
+	conn, resp, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("dial failed: %v", err)
+	}
+	if resp.StatusCode != 101 {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	defer conn.Close()
+
+	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
+		t.Fatal(err)
+	}
+	var joined Message
+	if err := conn.ReadJSON(&joined); err != nil {
+		t.Fatal(err)
+	}
+	if joined.Type != MsgState {
+		t.Fatalf("expected MsgState, got: %+v", joined)
+	}
+
+	tbl, ok := manager.GetTable(table.ID)
+	if !ok {
+		t.Fatal("table not found in manager")
+	}
+	p := tbl.CopyPlayers()["player-high-roller"]
+	if p == nil {
+		t.Fatal("player not found in table")
+	}
+	if p.Stack != 50000 {
+		t.Fatalf("expected stack 50000, got: %d", p.Stack)
+	}
+
+	// Send top_up action
+	if err := conn.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "top_up", Payload: map[string]interface{}{"amount": 25000}}); err != nil {
+		t.Fatal(err)
+	}
+
+	var topUpAck Message
+	if err := conn.ReadJSON(&topUpAck); err != nil {
+		t.Fatal(err)
+	}
+	if topUpAck.Type != MsgAction || topUpAck.Action != "top_up_reserved" {
+		t.Fatalf("expected top_up_reserved ack, got: %+v", topUpAck)
+	}
+
+	pAfter := tbl.CopyPlayers()["player-high-roller"]
+	if pAfter.PendingTopUp != 25000 {
+		t.Fatalf("expected pending top up 25000, got: %d", pAfter.PendingTopUp)
+	}
+}

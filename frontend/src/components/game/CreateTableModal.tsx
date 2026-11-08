@@ -12,8 +12,10 @@ import {
   Loader2,
   Check,
   ShieldAlert,
+  Coins,
 } from "lucide-react";
 import { CreateTablePayload, GameTable } from "../../services/games";
+import { useGameStore } from "../../stores/gameStore";
 import { haptics } from "../../utils/haptics";
 
 export type Game = "poker" | "belote" | "rami" | "ludo" | "domino";
@@ -142,6 +144,9 @@ export function CreateTableModal({
   const tr = (fr: string, translated: string) => (mg ? translated : fr);
 
   const formRef = useRef<HTMLFormElement>(null);
+  const user = useGameStore((state) => state.user);
+  const availableBalance = user?.balance ?? user?.mgaBalance ?? 0;
+
   const creationKey = useRef("");
 
   const [capabilities, setCapabilities] = useState<Record<string, Capability> | null>(null);
@@ -151,9 +156,22 @@ export function CreateTableModal({
   const [rules, setRules] = useState<Record<string, number>>({});
   const [name, setName] = useState("");
   const [privateRoom, setPrivate] = useState(false);
+  const [stakeAmount, setStakeAmount] = useState<number>(initialGameType === "poker" ? 5000 : 0);
+  const [buyIn, setBuyIn] = useState<number>(initialGameType === "poker" ? Math.min(availableBalance, 50000) : 0);
   const [preset, setPreset] = useState<"standard" | "blitz" | "duo" | "custom">("standard");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, busy, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -161,8 +179,15 @@ export function CreateTableModal({
       setGame(initialGameType);
       const suggestions = FUN_NAMES[initialGameType] || ["Table Casino"];
       setName(suggestions[Math.floor(Math.random() * suggestions.length)]);
+      if (initialGameType === "poker") {
+        setStakeAmount(0);
+        setBuyIn(0);
+      } else {
+        setStakeAmount(0);
+        setBuyIn(0);
+      }
     }
-  }, [isOpen, initialGameType]);
+  }, [isOpen, initialGameType, availableBalance]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -214,6 +239,13 @@ export function CreateTableModal({
     setGame(nextGame);
     const suggestions = FUN_NAMES[nextGame] || ["Table Casino"];
     setName(suggestions[Math.floor(Math.random() * suggestions.length)]);
+    if (nextGame === "poker") {
+      setStakeAmount(0);
+      setBuyIn(0);
+    } else {
+      setStakeAmount(0);
+      setBuyIn(0);
+    }
     const c = capabilities?.[nextGame];
     if (c) {
       setPlayers(c.players[c.players.length - 1]);
@@ -303,6 +335,18 @@ export function CreateTableModal({
             if (!config || busy) return;
             setBusy(true);
             setError("");
+            if (game === "poker") {
+              if (buyIn < (stakeAmount || 5000)) {
+                setError(`Le tapis d'entrée doit être au moins égal au minimum (${(stakeAmount || 5000).toLocaleString()} Ar).`);
+                setBusy(false);
+                return;
+              }
+              if (buyIn > availableBalance) {
+                setError("Le tapis choisi dépasse votre solde disponible.");
+                setBusy(false);
+                return;
+              }
+            }
             try {
               await onSubmit({
                 idempotency_key: creationKey.current,
@@ -310,7 +354,8 @@ export function CreateTableModal({
                 game_type: game,
                 max_players: players,
                 is_private: privateRoom,
-                stake_amount: 0,
+                stake_amount: stakeAmount,
+                buy_in: game === "poker" ? buyIn : undefined,
                 turn_duration: duration,
                 rules_config: rules,
               });
@@ -574,15 +619,111 @@ export function CreateTableModal({
                   );
                 })}
 
-                {/* Informative Stake Note */}
-                <p className="create-rules-hint">
-                  {game === "poker"
-                    ? tr(
-                        "Jetons de jeu uniquement ; aucun débit du portefeuille.",
-                        "Jetona filalaovana ihany ; tsy alaina amin’ny poketra.",
-                      )
-                    : tr("Partie 100% gratuite.", "Lalao maimaim-poana 100%.")}
-                </p>
+                {/* Ariary Minimum Stake & Buy-In */}
+                <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-color, #2a3742)" }}>
+                  <div className="create-option-row">
+                    <div className="create-option-label-wrap">
+                      <Coins size={16} />
+                      <span>{tr("Minimum de participation (Ar)", "Fandraisana anjara kely indrindra (Ar)")}</span>
+                    </div>
+                    <div className="create-pill-selector">
+                      {(game === "poker" ? [0, 5000, 10000, 25000] : [0, 1000, 2000, 5000]).map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          className={`create-option-pill ${stakeAmount === amt ? "active" : ""}`}
+                          onClick={() => {
+                            haptics.lightTick();
+                            setStakeAmount(amt);
+                            if (game === "poker") {
+                              if (amt > 0) {
+                                setBuyIn(Math.max(amt, Math.min(availableBalance, 50000)));
+                              } else {
+                                setBuyIn(0);
+                              }
+                            }
+                          }}
+                        >
+                          {amt === 0 ? "Gratuit" : `${amt >= 1000 ? `${amt / 1000}K` : amt} Ar`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Informative Stake Note */}
+                  <p className="create-rules-hint" style={{ marginTop: "8px" }}>
+                    {stakeAmount === 0
+                      ? tr(
+                          "Jetons de jeu uniquement ; aucun débit du portefeuille.",
+                          "Jetona filalaovana ihany ; tsy alaina amin’ny poketra.",
+                        )
+                      : tr(
+                          "Financement réel en Ariary (MGA) depuis votre portefeuille.",
+                          "Famatsiana vola tena izy Ariary (MGA) avy amin'ny poketra.",
+                        )}
+                  </p>
+
+                  {game === "poker" && stakeAmount > 0 && (
+                    <div style={{ marginTop: "14px" }}>
+                      <label htmlFor="create-creator-buyin" className="create-field-label" style={{ fontSize: "13px" }}>
+                        {tr("Mon tapis à l'entrée (Ar)", "Tapis hidirako (Ar)")}
+                      </label>
+                      <input
+                        id="create-creator-buyin"
+                        type="number"
+                        min={stakeAmount || 5000}
+                        max={availableBalance}
+                        step="1000"
+                        value={buyIn || ""}
+                        onChange={(e) => setBuyIn(Math.max(0, Number(e.target.value)))}
+                        style={{
+                          width: "100%",
+                          padding: "10px 14px",
+                          borderRadius: "8px",
+                          background: "var(--bg-dark, #0b1014)",
+                          border: "1px solid var(--border-color, #2a3742)",
+                          color: "#fff",
+                          fontSize: "16px",
+                          fontWeight: 700,
+                          marginBottom: "8px",
+                        }}
+                      />
+                      <div className="create-pill-selector" style={{ marginBottom: "6px" }}>
+                        {[5000, 10000, 25000, 50000].filter((a) => a >= (stakeAmount || 5000) && a <= availableBalance).map((amt) => (
+                          <button
+                            key={amt}
+                            type="button"
+                            className={`create-option-pill ${buyIn === amt ? "active" : ""}`}
+                            onClick={() => {
+                              haptics.lightTick();
+                              setBuyIn(amt);
+                            }}
+                          >
+                            {amt / 1000}K Ar
+                          </button>
+                        ))}
+                        {availableBalance >= (stakeAmount || 5000) && (
+                          <button
+                            type="button"
+                            className={`create-option-pill ${buyIn === availableBalance ? "active" : ""}`}
+                            onClick={() => {
+                              haptics.lightTick();
+                              setBuyIn(availableBalance);
+                            }}
+                          >
+                            Max ({availableBalance.toLocaleString()} Ar)
+                          </button>
+                        )}
+                      </div>
+                      <small style={{ color: "var(--text-secondary, #adb9c4)", display: "block" }}>
+                        Minimum {(stakeAmount || 5000).toLocaleString()} Ar · sans plafond de table · dans la limite de votre solde ({availableBalance.toLocaleString()} Ar).
+                      </small>
+                      <small style={{ color: "#70d7ad", display: "block", marginTop: "4px" }}>
+                        La partie commence dès 2 joueurs connectés.
+                      </small>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -667,7 +808,15 @@ export function CreateTableModal({
                 <>
                   <Check size={18} />
                   <span>
-                    {tr(`Créer la table (${GAME_METAS[game].name.split(" ")[0]})`, `Hamorona (${GAME_METAS[game].name.split(" ")[0]})`)}
+                    {game === "poker" && buyIn > 0
+                      ? tr(
+                          `Créer et rejoindre avec ${buyIn.toLocaleString()} Ar`,
+                          `Hamorona sy hiditra amin'ny ${buyIn.toLocaleString()} Ar`,
+                        )
+                      : tr(
+                          `Créer la table (${GAME_METAS[game].name.split(" ")[0]})`,
+                          `Hamorona (${GAME_METAS[game].name.split(" ")[0]})`,
+                        )}
                   </span>
                 </>
               )}

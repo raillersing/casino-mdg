@@ -9,6 +9,8 @@ interface User {
   xp: number;
   level: number;
   balance: number;
+  mgaBalance?: number;
+  mgaHeldBalance?: number;
   isStaff?: boolean;
 }
 
@@ -29,6 +31,7 @@ interface GameState {
 
   // Actions
   setUser: (user: User | null) => void;
+  updateBalance: (balance: number, held?: number) => void;
   setAuthenticated: (value: boolean) => void;
   setCurrentTable: (tableId: string | null) => void;
   setCurrentGame: (gameType: string | null) => void;
@@ -72,6 +75,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   guestLevel: savedGuest?.level ?? 1,
 
   setUser: (user) => set({ user }),
+  updateBalance: (balance, held = 0) => {
+    const current = get().user;
+    if (current) {
+      set({
+        user: {
+          ...current,
+          balance,
+          mgaBalance: balance,
+          mgaHeldBalance: held,
+        },
+      });
+    }
+  },
   setAuthenticated: (value) => set({ isAuthenticated: value }),
   setCurrentTable: (tableId) => set({ currentTable: tableId }),
   setCurrentGame: (gameType) => set({ currentGame: gameType }),

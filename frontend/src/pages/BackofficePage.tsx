@@ -184,7 +184,7 @@ export function BackofficePage() {
         .catch((reason: Error) => setError(reason.message))
         .finally(() => setRefreshing(false));
     },
-    [token, user],
+    [selectedPeriod, token, user],
   );
 
   const handlePeriodChange = (period: "day" | "week" | "month" | "year") => {

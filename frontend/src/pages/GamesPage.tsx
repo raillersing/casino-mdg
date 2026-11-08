@@ -2,7 +2,6 @@ import { GameActivitySummary } from "@components/game/GameActivitySummary";
 import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { ArrowRight, Search, Users } from "lucide-react";
 
@@ -56,7 +55,6 @@ const games = [
 
 export function GamesPage() {
   const { t } = useTranslation();
-  const [params] = useSearchParams();
   const [category, setCategory] = useState("all");
   const [query, setQuery] = useState("");
   const visible = games.filter(
@@ -111,7 +109,7 @@ export function GamesPage() {
           {visible.map((game) => (
             <div key={game.id} className="discovery-game">
               <Link
-                to={`/play/${game.id}${params.get("intent") === "practice" ? "?intent=practice" : ""}`}
+                to={`/lobby/${game.id}`}
                 key={game.id}
                 className={`discovery-card discovery-${game.color}`}
               >

@@ -661,7 +661,15 @@ class TableListCreateView(APIView):
             created_by=request.user,
             table_code=f"{game_type}-{uuid.uuid4().hex[:16]}",
         )
-        join_table(table, request.user)
+        creator_buy_in = request.data.get("buy_in")
+        seat, created = join_table(table, request.user, buy_in=creator_buy_in)
+        admission_token = generate_admission_token(
+            request.user,
+            table,
+            seat_index=seat.seat_index,
+            role="player",
+            buy_in=seat.buy_in,
+        )
         try:
             from apps.analytics.models import ProductEvent
 
@@ -673,13 +681,25 @@ class TableListCreateView(APIView):
                 metadata={
                     "table_id": str(table.id),
                     "stake_amount": stake_amount,
+                    "buy_in": seat.buy_in,
                     "max_players": max_players,
                     "is_private": is_private,
                 },
             )
         except Exception:
             pass
-        return Response(table_payload(table, request), status=status.HTTP_201_CREATED)
+        payload = table_payload(table, request)
+        return Response(
+            {
+                **payload,
+                "table": payload,
+                "table_id": str(table.id),
+                "seat_index": seat.seat_index,
+                "admission_token": admission_token,
+                "created": created,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class TableJoinView(APIView):
@@ -716,17 +736,24 @@ class TableJoinView(APIView):
                     },
                     status=403,
                 )
-            seat, created = join_table(table, request.user)
+            join_buy_in = request.data.get("buy_in")
+            seat, created = join_table(table, request.user, buy_in=join_buy_in)
         except GameTable.DoesNotExist:
             return Response({"detail": "Table introuvable."}, status=404)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=409)
         admission_token = generate_admission_token(
-            request.user, table, seat_index=seat.seat_index, role="player"
+            request.user,
+            table,
+            seat_index=seat.seat_index,
+            role="player",
+            buy_in=seat.buy_in,
         )
+        payload = table_payload(table, request)
         return Response(
             {
-                "table": table_payload(table, request),
+                **payload,
+                "table": payload,
                 "table_id": str(table.id),
                 "seat_index": seat.seat_index,
                 "admission_token": admission_token,
@@ -802,7 +829,11 @@ class TableAdmissionView(APIView):
             role = "player" if seat else "spectator"
             seat_index = seat.seat_index if seat else None
             admission_token = generate_admission_token(
-                request.user, table, seat_index=seat_index, role=role
+                request.user,
+                table,
+                seat_index=seat_index,
+                role=role,
+                buy_in=seat.buy_in if seat else 0,
             )
             return Response(
                 {
@@ -852,23 +883,59 @@ class TableJoinByCodeView(APIView):
                 {"detail": "Cette table est réservée aux membres du club."},
                 status=403,
             )
+        join_buy_in = request.data.get("buy_in")
         try:
-            seat, created = join_table(table, request.user)
+            seat, created = join_table(table, request.user, buy_in=join_buy_in)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=409)
 
         admission_token = generate_admission_token(
-            request.user, table, seat_index=seat.seat_index, role="player"
+            request.user,
+            table,
+            seat_index=seat.seat_index,
+            role="player",
+            buy_in=seat.buy_in,
         )
+        payload = table_payload(table, request)
         return Response(
             {
-                "table": table_payload(table, request),
+                **payload,
+                "table": payload,
                 "table_id": str(table.id),
                 "seat_index": seat.seat_index,
                 "admission_token": admission_token,
                 "created": created,
             },
             status=201 if created else 200,
+        )
+
+
+class TableTopUpView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, table_id):
+        try:
+            table = GameTable.objects.get(pk=table_id)
+        except GameTable.DoesNotExist:
+            return Response({"detail": "Table introuvable."}, status=404)
+
+        try:
+            amount = int(request.data.get("amount", 0))
+            from .services import top_up_table
+
+            bankroll, available = top_up_table(table, request.user, amount)
+        except (ValueError, TypeError) as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        return Response(
+            {
+                "success": True,
+                "table_id": str(table.id),
+                "pending_top_up": bankroll.pending_top_up,
+                "current_stack": bankroll.current_stack,
+                "mga_balance": available,
+            },
+            status=200,
         )
 
 

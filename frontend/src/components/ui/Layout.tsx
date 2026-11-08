@@ -18,6 +18,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { sendMatchmakingHeartbeat } from "@services/games";
 import { getCurrentUser, refreshAccessToken } from "@services/auth";
+import { getWalletBalance } from "@services/wallet";
 import { useGameStore } from "@stores/gameStore";
 import { useDeviceMode } from "@hooks/useDeviceMode";
 import { haptics } from "@utils/haptics";
@@ -62,29 +63,41 @@ export function Layout({ children }: { children: ReactNode }) {
   const language = i18n.language.startsWith("mg") ? "MG" : "FR";
 
   useEffect(() => {
-    if (!accessToken || user) return;
-    getCurrentUser(accessToken)
-      .then((current) =>
+    if (!accessToken) return;
+    Promise.all([
+      getCurrentUser(accessToken),
+      getWalletBalance(accessToken).catch(() => null),
+    ])
+      .then(([current, wallet]) => {
+        const mga = wallet?.mga_balance ?? wallet?.balance ?? 0;
         setUser({
           id: current.id,
           displayName: current.display_name,
           email: `${current.phone}@mdg.local`,
+          phone: current.phone,
           xp: current.xp,
           level: current.level,
-          balance: 0,
+          balance: mga,
+          mgaBalance: mga,
+          mgaHeldBalance: wallet?.mga_held_balance ?? 0,
           isStaff: current.is_staff,
-        }),
-      )
-      .catch(() => {
-        if (!refreshToken) {
-          logout();
-          return;
+        });
+      })
+      .catch((err: unknown) => {
+        const status = (err as { response?: { status?: number }; status?: number })?.response?.status ??
+          (err as { response?: { status?: number }; status?: number })?.status;
+        const msg = String((err as { message?: string })?.message || "");
+        if (status === 401 || msg.includes("401")) {
+          if (!refreshToken) {
+            logout();
+            return;
+          }
+          void refreshAccessToken(refreshToken)
+            .then((session) => setSession(session.access, session.refresh))
+            .catch(() => logout());
         }
-        void refreshAccessToken(refreshToken)
-          .then((session) => setSession(session.access, session.refresh))
-          .catch(() => logout());
       });
-  }, [accessToken, logout, refreshToken, setSession, setUser, user]);
+  }, [accessToken, logout, refreshToken, setSession, setUser]);
 
   useEffect(() => {
     if (!accessToken) return;

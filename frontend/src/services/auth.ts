@@ -74,3 +74,26 @@ export function refreshAccessToken(refresh: string) {
 export function createGuestToken(displayName: string) {
   return post<AuthResponse>("guest/", { display_name: displayName });
 }
+
+export function updateCurrentUser(token: string, displayName: string) {
+  return fetch("/api/v1/auth/me/", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ display_name: displayName }),
+  }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(payload.detail || "Impossible de modifier le profil.");
+    return payload as {
+      id: string;
+      display_name: string;
+      phone: string;
+      xp: number;
+      level: number;
+      is_staff: boolean;
+    };
+  });
+}

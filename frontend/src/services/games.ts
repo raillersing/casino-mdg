@@ -54,12 +54,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export function getTables(gameType?: string) {
+export function getTables(gameType?: string, accessToken?: string) {
   const query =
     gameType && gameType !== "Tous"
       ? `?game_type=${gameType.toLowerCase()}`
       : "";
-  return request<{ results: GameTable[] }>(`tables/${query}`);
+  return request<{ results: GameTable[] }>(`tables/${query}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
 }
 
 export type BotSimulation = {
@@ -118,13 +120,20 @@ export type CreateTablePayload = {
   max_players: number;
   is_private: boolean;
   stake_amount?: number;
+  buy_in?: number;
   turn_duration?: number;
   rules_config?: Record<string, unknown>;
   club_id?: string;
 };
 
 export function createTable(accessToken: string, payload: CreateTablePayload) {
-  return request<GameTable>("tables/", {
+  return request<{
+    table: GameTable;
+    table_id: string;
+    seat_index: number;
+    admission_token: string;
+    created: boolean;
+  } & GameTable>("tables/", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -145,7 +154,7 @@ export function getLiveStats(pingGame?: string) {
   });
 }
 
-export function joinTableByCode(accessToken: string, code: string) {
+export function joinTableByCode(accessToken: string, code: string, buyIn?: number) {
   return request<{
     table: GameTable;
     table_id: string;
@@ -158,7 +167,7 @@ export function joinTableByCode(accessToken: string, code: string) {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, buy_in: buyIn }),
   });
 }
 
@@ -230,9 +239,12 @@ export function joinTable(
   tableId: string,
   accessToken: string,
   accessCode?: string,
+  buyIn?: number,
 ) {
   return request<{
     table: GameTable;
+    table_id: string;
+    seat_index: number;
     created: boolean;
     admission_token?: string;
   }>(`tables/${tableId}/join/`, {
@@ -241,7 +253,49 @@ export function joinTable(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
+    body: JSON.stringify({ access_code: accessCode, buy_in: buyIn }),
+  });
+}
+
+export function getTableAdmission(
+  tableId: string,
+  accessToken: string,
+  accessCode?: string,
+) {
+  return request<{
+    admission_token: string;
+    table_id: string;
+    seat_index: number | null;
+    role: string;
+    expires_in: number;
+  }>(`tables/${tableId}/admission/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ access_code: accessCode }),
+  });
+}
+
+export function topUpTable(
+  tableId: string,
+  accessToken: string,
+  amount: number,
+) {
+  return request<{
+    table_id: string;
+    pending_top_up: number;
+    current_stack: number;
+    reserved_amount: number;
+    status: string;
+  }>(`tables/${tableId}/top-up/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ amount }),
   });
 }
 

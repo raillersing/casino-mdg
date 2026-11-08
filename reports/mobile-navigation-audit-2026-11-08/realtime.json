@@ -1,0 +1,148 @@
+[
+  {
+    "game": "ludo",
+    "capacity": 4,
+    "connected": 2,
+    "started": false,
+    "stateKeys": [
+      "current",
+      "players"
+    ],
+    "errors": []
+  },
+  {
+    "game": "ludo",
+    "capacity": 2,
+    "connected": 2,
+    "started": true,
+    "stateKeys": [
+      "action_deadline",
+      "can_move",
+      "can_roll",
+      "current",
+      "current_player_id",
+      "finished",
+      "last_roll",
+      "players",
+      "valid_moves",
+      "winner"
+    ],
+    "errors": [],
+    "rollBroadcast": true
+  },
+  {
+    "game": "domino",
+    "capacity": 2,
+    "connected": 2,
+    "started": true,
+    "stateKeys": [
+      "action_deadline",
+      "blocked",
+      "board",
+      "boneyard_count",
+      "current",
+      "current_player_id",
+      "finished",
+      "left_end",
+      "players",
+      "right_end",
+      "winner"
+    ],
+    "errors": []
+  },
+  {
+    "game": "rami",
+    "capacity": 2,
+    "connected": 2,
+    "started": true,
+    "stateKeys": [
+      "action_deadline",
+      "current",
+      "current_player_id",
+      "discard",
+      "finished",
+      "gin",
+      "knocked_by",
+      "players"
+    ],
+    "errors": []
+  },
+  {
+    "game": "poker",
+    "capacity": 6,
+    "connected": 2,
+    "started": false,
+    "stateKeys": [
+      "current",
+      "players"
+    ],
+    "errors": []
+  },
+  {
+    "game": "poker",
+    "capacity": 2,
+    "connected": 2,
+    "started": true,
+    "stateKeys": [
+      "action_deadline",
+      "allowed_actions",
+      "best_cards",
+      "big_blind",
+      "big_blind_player_id",
+      "button",
+      "button_player_id",
+      "community",
+      "current",
+      "current_player_id",
+      "finish_reason",
+      "hand_outs",
+      "hand_prob",
+      "hand_rank",
+      "hand_ranks",
+      "hand_target",
+      "max_raise_to",
+      "min_raise",
+      "min_raise_to",
+      "payouts",
+      "phase",
+      "players",
+      "pot",
+      "pots",
+      "revealed_cards",
+      "small_blind",
+      "small_blind_player_id",
+      "to_call",
+      "winners"
+    ],
+    "errors": [],
+    "stacks": [
+      9950,
+      9900
+    ]
+  },
+  {
+    "game": "belote",
+    "capacity": 4,
+    "connected": 4,
+    "started": true,
+    "stateKeys": [
+      "action_deadline",
+      "belote_announced",
+      "bidder",
+      "bidding_round",
+      "cumulative_scores",
+      "current",
+      "current_player_id",
+      "lead_suit",
+      "passed",
+      "phase",
+      "players",
+      "proposed_trump",
+      "rebelote_declared",
+      "team_points",
+      "trick",
+      "trump"
+    ],
+    "errors": []
+  }
+]

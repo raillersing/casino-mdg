@@ -5,7 +5,7 @@ interface JoinPrivateTableModalProps {
   isOpen: boolean;
   accessToken: string;
   onClose: () => void;
-  onJoined: (table: GameTable) => void;
+  onJoined: (table: GameTable, admissionToken?: string) => void;
 }
 
 export const JoinPrivateTableModal: React.FC<JoinPrivateTableModalProps> = ({
@@ -32,7 +32,7 @@ export const JoinPrivateTableModal: React.FC<JoinPrivateTableModalProps> = ({
 
     try {
       const response = await joinTableByCode(accessToken, cleanCode);
-      onJoined(response.table);
+      onJoined(response.table, response.admission_token);
       onClose();
     } catch (err: unknown) {
       setError(

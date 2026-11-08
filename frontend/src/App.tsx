@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import { Layout } from "@components/ui/Layout";
 import { GamesPage } from "@pages/GamesPage";
 import { HomePage } from "@pages/HomePage";
@@ -11,7 +11,11 @@ import { NotFoundPage } from "@pages/NotFoundPage";
 import { SupportPage } from "@pages/SupportPage";
 import { BackofficePage } from "@pages/BackofficePage";
 import { ClubsPage } from "@pages/ClubsPage";
-import { PlayHubPage } from "@pages/PlayHubPage";
+
+function PlayRedirect() {
+  const { gameType } = useParams();
+  return <Navigate to={gameType ? `/lobby/${gameType}` : "/lobby"} replace />;
+}
 
 function App() {
   return (
@@ -22,7 +26,7 @@ function App() {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/lobby/:gameType" element={<LobbyPage />} />
-        <Route path="/play/:gameType" element={<PlayHubPage />} />
+        <Route path="/play/:gameType" element={<PlayRedirect />} />
         <Route path="/game/:gameType/:tableId" element={<GamePage />} />
         <Route path="/wallet" element={<WalletPage />} />
         <Route path="/profile" element={<ProfilePage />} />

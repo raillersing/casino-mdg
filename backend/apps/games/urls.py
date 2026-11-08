@@ -22,6 +22,7 @@ from .views import (
     TableJoinView,
     TableLeaveView,
     TableListCreateView,
+    TableTopUpView,
     TestDrawEntryView,
     TestDrawListView,
     TestDrawResultView,
@@ -76,6 +77,11 @@ urlpatterns = [
         "tables/<uuid:table_id>/admission/",
         TableAdmissionView.as_view(),
         name="table-admission",
+    ),
+    path(
+        "tables/<uuid:table_id>/top-up/",
+        TableTopUpView.as_view(),
+        name="table-top-up",
     ),
     path(
         "matchmaking/status/",

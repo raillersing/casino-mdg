@@ -1,0 +1,6 @@
+{
+  "case": "existing-private-room-login-token-without-seat",
+  "dbSeats": 1,
+  "enginePlayers": 2,
+  "errors": []
+}

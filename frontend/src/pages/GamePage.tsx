@@ -39,13 +39,19 @@ import {
   joinTable,
   joinTableByCode,
   leaveTable as leaveTableApi,
+  getTableAdmission,
+  topUpTable,
   recordGameResult,
   startBotSimulation,
+  type GameTable,
 } from "@services/games";
+import { getWalletBalance } from "@services/wallet";
 import { useGameStore } from "@stores/gameStore";
 import { useWebSocket } from "@hooks/useWebSocket";
 import { trackEvent } from "@services/analytics";
 import { TableExitModal } from "@components/game/TableExitModal";
+import { WaitingRoom, type WaitingPlayer } from "@components/game/WaitingRoom";
+import { PokerTopUpModal } from "@components/game/PokerTopUpModal";
 import { getSeatPosition } from "@utils/tableLayout";
 import { TableSettingsModal } from "@components/game/TableSettingsModal";
 import { TableEmoteWheel } from "@components/game/TableEmoteWheel";
@@ -704,7 +710,6 @@ export function GamePage() {
   const [thinkingSeats, setThinkingSeats] = useState<Record<string, boolean>>(
     {},
   );
-  const [showRebuy, setShowRebuy] = useState(false);
   const pots = Array.isArray(gameState?.pots)
     ? (gameState.pots as Array<{ amount?: number; eligible?: string[] }>)
     : [];
@@ -725,6 +730,10 @@ export function GamePage() {
   const setSession = useGameStore((state) => state.setSession);
   const setGuestMode = useGameStore((state) => state.setGuestMode);
   const user = useGameStore((state) => state.user);
+  const updateBalance = useGameStore((state) => state.updateBalance);
+  const [tableMeta, setTableMeta] = useState<GameTable | null>(null);
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [pendingTopUpNotice, setPendingTopUpNotice] = useState<string | null>(null);
   const userId =
     useGameStore((state) => state.user?.id || "") ||
     tokenSubject(accessToken) ||
@@ -734,10 +743,46 @@ export function GamePage() {
   // the socket. Demo sessions already provide their engine table id.
   const engineTableId =
     demoTableId || resolvedTableId || (demoAi ? tableId : "") || "";
-  const statePlayers =
-    gameState && Array.isArray(gameState.players)
+  const statePlayers = useMemo(() => {
+    return gameState && Array.isArray(gameState.players)
       ? (gameState.players as Array<Record<string, unknown>>)
       : [];
+  }, [gameState]);
+  const waitingPlayers: WaitingPlayer[] = useMemo(() => {
+    if (!statePlayers.length) return [];
+    return statePlayers.map((p, idx) => ({
+      id: String(p.id ?? ""),
+      name: String(
+        p.name ??
+          p.display_name ??
+          (p.is_bot ? botNameForSeat(idx) : `Joueur ${idx + 1}`),
+      ),
+      seat: typeof p.seat === "number" ? p.seat : idx,
+      isCreator: Boolean(p.is_creator || p.seat === 0),
+      isBot: Boolean(p.is_bot),
+    }));
+  }, [statePlayers]);
+  const isWaitingRoom = useMemo(() => {
+    if (demoAi || closedTableRef.current || gameConnectionError) return false;
+    if (!gameState) return true;
+    if (gameState.status === "waiting" || gameState.started === false) return true;
+    if (isPoker) {
+      return !gameState.phase || gameState.phase === "";
+    }
+    if (gameType === "belote") {
+      return !gameState.phase || gameState.phase === "";
+    }
+    if (gameType === "ludo") {
+      return gameState.current === -1 && !gameState.last_roll;
+    }
+    if (gameType === "domino") {
+      return gameState.current === -1 && !gameState.board;
+    }
+    if (gameType === "rami") {
+      return gameState.current === -1 && gameState.discard === undefined;
+    }
+    return false;
+  }, [demoAi, gameState, isPoker, gameType]);
   const seatPlayers = statePlayers
     .filter((player) => String(player.id || "") !== userId)
     .slice()
@@ -1621,7 +1666,7 @@ export function GamePage() {
             setGameOver(true);
           }
         }
-        if (payload.type === "state" || payload.type === "sync")
+        if ((payload.type === "state" || payload.type === "sync") && !closedTableRef.current)
           setGameConnectionError("");
       } catch {
         setGameConnectionError(t("game.invalidTableResponse"));
@@ -1805,16 +1850,18 @@ export function GamePage() {
   }, [accessToken, admissionToken, engineTableId, send, sequence]);
 
   useEffect(() => {
-    if (!tableId || demoTableId) return;
-    getTables(gameType)
+    if (!tableId) return;
+    getTables(gameType, accessToken || undefined)
       .then(({ results }) => {
         const match = results.find(
           (table) =>
             table.table_code === tableId ||
             table.id === tableId ||
+            table.id === demoTableId ||
             table.access_code === tableId,
         );
         if (match) {
+          setTableMeta(match);
           resolvedTableIdRef.current = match.id;
           setResolvedTableId(match.id);
           if (accessToken && !demoAi) {
@@ -1822,17 +1869,33 @@ export function GamePage() {
               match.id,
               accessToken,
               match.access_code || undefined,
-            ).then((res) => {
-              if (res?.admission_token) {
-                setAdmissionToken(res.admission_token);
-              }
-            });
+            )
+              .then((res) => {
+                if (res?.table) setTableMeta(res.table);
+                if (res?.admission_token) {
+                  setAdmissionToken(res.admission_token);
+                }
+              })
+              .catch(() => {
+                void getTableAdmission(
+                  match.id,
+                  accessToken,
+                  match.access_code || undefined,
+                )
+                  .then((adm) => {
+                    if (adm?.admission_token) {
+                      setAdmissionToken(adm.admission_token);
+                    }
+                  })
+                  .catch(() => undefined);
+              });
           }
         } else if (accessToken && !demoAi && tableId) {
           // Attempt direct join by code or table ID (for private rooms)
           void joinTableByCode(accessToken, tableId)
             .then((res) => {
               if (res?.table) {
+                setTableMeta(res.table);
                 resolvedTableIdRef.current = res.table.id;
                 setResolvedTableId(res.table.id);
                 if (res.admission_token) {
@@ -1892,12 +1955,6 @@ export function GamePage() {
         }
       });
   }, [accessToken, demoAi, demoTableId, gameType, tableId]);
-
-  // Show rebuy button when short-stacked
-  useEffect(() => {
-    const stack = Number(myPokerPlayer?.stack ?? 0);
-    setShowRebuy(stack > 0 && stack < 2000);
-  }, [myPokerPlayer?.stack]);
 
   useEffect(() => {
     if (!tableId || !accessToken) return;
@@ -2064,6 +2121,28 @@ export function GamePage() {
   };
   sendGameActionRef.current = sendGameAction;
 
+  const handleConfirmTopUp = async (amount: number) => {
+    if (!accessToken || !engineTableId) return;
+    await topUpTable(engineTableId, accessToken, amount);
+    send({
+      type: "action",
+      table_id: engineTableId,
+      action: "top_up",
+      sequence,
+      payload: { amount },
+      timestamp: new Date().toISOString(),
+    });
+    void getWalletBalance(accessToken)
+      .then((w) =>
+        updateBalance(w.mga_balance ?? w.balance, w.mga_held_balance ?? 0),
+      )
+      .catch(() => undefined);
+    setPendingTopUpNotice(
+      `+${amount.toLocaleString()} Ar réservés — ajout après cette main`,
+    );
+    window.setTimeout(() => setPendingTopUpNotice(null), 5000);
+  };
+
   const leaveTable = () => {
     const leaveTableId = resolvedTableIdRef.current || engineTableId;
     if (leaveTableId && !demoAi && !spectator) {
@@ -2086,10 +2165,21 @@ export function GamePage() {
 
       // Libérer le siège et déclencher la fermeture automatique de la table dans Django
       if (accessToken) {
-        void leaveTableApi(leaveTableId, accessToken).catch(() => undefined);
+        void leaveTableApi(leaveTableId, accessToken)
+          .then(() => {
+            void getWalletBalance(accessToken)
+              .then((w) =>
+                updateBalance(w.mga_balance ?? w.balance, w.mga_held_balance ?? 0),
+              )
+              .catch(() => undefined);
+          })
+          .catch(() => undefined);
       }
     }
-    window.setTimeout(() => navigate("/lobby"), 150);
+    window.setTimeout(
+      () => navigate(gameType ? `/lobby/${gameType}` : "/lobby"),
+      150,
+    );
   };
 
   const hasActiveHand = Boolean(
@@ -2098,6 +2188,31 @@ export function GamePage() {
     gameState?.phase !== "showdown" &&
     !pokerWinners.length,
   );
+
+  if (isWaitingRoom) {
+    return (
+      <WaitingRoom
+        tableId={engineTableId || tableId || ""}
+        tableName={tableMeta?.name || `${gameType || "Partie"} entre amis`}
+        tableCode={
+          tableMeta?.access_code || tableMeta?.table_code || tableId || ""
+        }
+        gameType={gameType || "poker"}
+        maxPlayers={
+          tableMeta?.max_players ||
+          (gameType === "belote" ? 4 : gameType === "poker" ? 6 : 4)
+        }
+        currentPlayers={waitingPlayers}
+        currentUserId={userId}
+        stakeAmount={tableMeta?.stake_amount || 0}
+        turnDuration={tableMeta?.turn_duration || 30}
+        isPrivate={tableMeta?.is_private}
+        accessCode={tableMeta?.access_code}
+        connectionError={gameConnectionError}
+        onLeave={leaveTable}
+      />
+    );
+  }
 
   return (
     <div
@@ -2496,6 +2611,26 @@ export function GamePage() {
       )}
       {isPoker && (
         <div className="poker-live-panel">
+          {pendingTopUpNotice && (
+            <div
+              style={{
+                position: "absolute",
+                top: "12px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "rgba(112, 215, 173, 0.95)",
+                color: "#0b1014",
+                padding: "6px 16px",
+                borderRadius: "20px",
+                fontSize: "13px",
+                fontWeight: 700,
+                zIndex: 100,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+              }}
+            >
+              {pendingTopUpNotice}
+            </div>
+          )}
           <div className="poker-turn-banner">
             <span className={thinkingPlayer ? "thinking-dot" : "turn-dot"} />
             <strong>
@@ -2721,17 +2856,38 @@ export function GamePage() {
             <div className="you-avatar">M</div>
             <div>
               <strong>{t("game.you")}</strong>
-              <span>{String(myPokerPlayer?.stack ?? 10000)} jetons</span>
+              <span>
+                {Number(myPokerPlayer?.stack ?? 10000).toLocaleString()} Ar
+                {Number(myPokerPlayer?.pending_top_up ?? 0) > 0 && (
+                  <small
+                    style={{
+                      color: "#70d7ad",
+                      marginLeft: "6px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    (+{Number(myPokerPlayer?.pending_top_up).toLocaleString()} Ar réservés)
+                  </small>
+                )}
+              </span>
             </div>
-            {showRebuy && (
+            {isPoker && !spectator && (
               <button
+                type="button"
                 className="rebuy-btn"
-                onClick={() => {
-                  sendGameAction("rebuy", { amount: 5000 });
-                  setShowRebuy(false);
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "4px 8px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  borderRadius: "6px",
+                  cursor: "pointer",
                 }}
+                onClick={() => setShowTopUpModal(true)}
               >
-                + Recharger
+                + Ajouter des fonds
               </button>
             )}
             {myBet > 0 && <span className="you-bet-chip">{myBet}</span>}
@@ -4790,6 +4946,17 @@ export function GamePage() {
         currentTableId={tableId}
         onInviteFriend={handleInviteFriendToTable}
       />
+
+      {showTopUpModal && (
+        <PokerTopUpModal
+          isOpen={showTopUpModal}
+          onClose={() => setShowTopUpModal(false)}
+          onConfirmTopUp={handleConfirmTopUp}
+          currentStack={Number(myPokerPlayer?.stack ?? 0)}
+          availableBalance={user?.balance ?? user?.mgaBalance ?? 0}
+          pendingTopUp={Number(myPokerPlayer?.pending_top_up ?? 0)}
+        />
+      )}
 
       {finishedInfo && !resultModalDismissed && (
         <div

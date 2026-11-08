@@ -118,14 +118,15 @@ type TableSnapshot struct {
 }
 
 type Player struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	Stack      int64     `json:"stack"`
-	Seat       int       `json:"seat"`
-	IsActive   bool      `json:"is_active"`
-	IsBot      bool      `json:"is_bot"`
-	BotProfile string    `json:"bot_profile,omitempty"`
-	JoinedAt   time.Time `json:"joined_at"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Stack        int64     `json:"stack"`
+	PendingTopUp int64     `json:"pending_top_up,omitempty"`
+	Seat         int       `json:"seat"`
+	IsActive     bool      `json:"is_active"`
+	IsBot        bool      `json:"is_bot"`
+	BotProfile   string    `json:"bot_profile,omitempty"`
+	JoinedAt     time.Time `json:"joined_at"`
 }
 
 type Manager struct {
@@ -306,7 +307,11 @@ func (m *Manager) LeavePlayer(tableID, playerID string) bool {
 }
 
 func (m *Manager) JoinPlayer(tableID, playerID, name string, seat int) (Event, error) {
-	return m.joinPlayer(tableID, playerID, name, seat, false, true)
+	return m.JoinPlayerWithBuyIn(tableID, playerID, name, seat, 0)
+}
+
+func (m *Manager) JoinPlayerWithBuyIn(tableID, playerID, name string, seat int, buyIn int64) (Event, error) {
+	return m.joinPlayerWithProfileAndBuyIn(tableID, playerID, name, seat, false, true, "", buyIn)
 }
 
 // JoinBotPlayer is reserved for the authenticated internal bot connection.
@@ -317,14 +322,18 @@ func (m *Manager) JoinBotPlayer(tableID, playerID, name string, seat int) (Event
 }
 
 func (m *Manager) JoinBotPlayerWithProfile(tableID, playerID, name string, seat int, profile string) (Event, error) {
-	return m.joinPlayerWithProfile(tableID, playerID, name, seat, true, false, profile)
+	return m.joinPlayerWithProfileAndBuyIn(tableID, playerID, name, seat, true, false, profile, 0)
 }
 
 func (m *Manager) joinPlayer(tableID, playerID, name string, seat int, isBot, initialize bool) (Event, error) {
-	return m.joinPlayerWithProfile(tableID, playerID, name, seat, isBot, initialize, "")
+	return m.joinPlayerWithProfileAndBuyIn(tableID, playerID, name, seat, isBot, initialize, "", 0)
 }
 
 func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int, isBot, initialize bool, botProfile string) (Event, error) {
+	return m.joinPlayerWithProfileAndBuyIn(tableID, playerID, name, seat, isBot, initialize, botProfile, 0)
+}
+
+func (m *Manager) joinPlayerWithProfileAndBuyIn(tableID, playerID, name string, seat int, isBot, initialize bool, botProfile string, buyIn int64) (Event, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
 		return Event{}, fmt.Errorf("table not found")
@@ -374,7 +383,20 @@ func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int
 			}
 		}
 	}
-	table.Players[playerID] = &Player{ID: playerID, Name: name, Seat: seat, Stack: 10000, IsActive: true, IsBot: isBot, BotProfile: botProfile, JoinedAt: time.Now()}
+	initialStack := int64(10000)
+	if buyIn > 0 {
+		initialStack = buyIn
+	}
+	table.Players[playerID] = &Player{
+		ID:         playerID,
+		Name:       name,
+		Seat:       seat,
+		Stack:      initialStack,
+		IsActive:   true,
+		IsBot:      isBot,
+		BotProfile: botProfile,
+		JoinedAt:   time.Now(),
+	}
 	if initialize && table.GameType == "poker" && len(table.Players) >= 2 && table.State == nil && (table.Settings == nil || len(table.Players) >= table.Settings.MaxPlayers) {
 		if err := initializePokerHand(table); err != nil {
 			return Event{}, err
@@ -1035,14 +1057,14 @@ func (m *Manager) StartTable(tableID string) error {
 	if table.State != nil {
 		return nil
 	}
-	if table.Settings != nil && len(table.Players) < table.Settings.MaxPlayers {
-		return fmt.Errorf("waiting for players")
-	}
 	if table.GameType == "poker" {
 		if len(table.Players) >= 2 {
 			return initializePokerHand(table)
 		}
 		return fmt.Errorf("poker requires at least 2 players, got %d", len(table.Players))
+	}
+	if table.Settings != nil && len(table.Players) < table.Settings.MaxPlayers {
+		return fmt.Errorf("waiting for players")
 	}
 	if table.GameType == "belote" {
 		if len(table.Players) >= 4 {
@@ -1068,6 +1090,24 @@ func (m *Manager) StartTable(tableID string) error {
 		}
 		return fmt.Errorf("domino requires at least 2 players, got %d", len(table.Players))
 	}
+	return nil
+}
+
+func (m *Manager) QueueTopUp(tableID, playerID string, amount int64) error {
+	if amount <= 0 {
+		return fmt.Errorf("invalid top up amount")
+	}
+	table, ok := m.GetTable(tableID)
+	if !ok {
+		return fmt.Errorf("table not found")
+	}
+	table.mu.Lock()
+	defer table.mu.Unlock()
+	player, ok := table.Players[playerID]
+	if !ok {
+		return fmt.Errorf("player not in table")
+	}
+	player.PendingTopUp += amount
 	return nil
 }
 
@@ -1950,6 +1990,10 @@ func startNextPokerHand(table *Table) error {
 	for _, player := range table.Players {
 		if stack, exists := stacks[player.ID]; exists {
 			player.Stack = stack
+		}
+		if player.PendingTopUp > 0 {
+			player.Stack += player.PendingTopUp
+			player.PendingTopUp = 0
 		}
 		if player.Stack <= 0 {
 			player.IsActive = false

@@ -188,6 +188,28 @@ class MeView(APIView):
             }
         )
 
+    def patch(self, request):
+        user = request.user
+        display_name = str(request.data.get("display_name", "")).strip()
+        if display_name:
+            if len(display_name) > 30:
+                return Response(
+                    {"detail": "Le pseudo ne doit pas dépasser 30 caractères."},
+                    status=400,
+                )
+            user.display_name = display_name
+            user.save(update_fields=["display_name"])
+        return Response(
+            {
+                "id": str(user.pk),
+                "display_name": user.display_name,
+                "phone": user.phone,
+                "xp": user.xp,
+                "level": user.level,
+                "is_staff": user.is_staff,
+            }
+        )
+
 
 class RefreshTokenView(APIView):
     permission_classes = [permissions.AllowAny]

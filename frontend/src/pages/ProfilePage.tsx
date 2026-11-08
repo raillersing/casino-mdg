@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Award,
   Bell,
+  Check,
   ChevronRight,
   Dices,
   Edit3,
@@ -16,6 +17,7 @@ import {
   UserRound,
   UsersRound,
   WalletCards,
+  X,
 } from "lucide-react";
 import { getGameStats, getLeaderboard, type GameStats } from "@services/games";
 import { useGameStore } from "@stores/gameStore";
@@ -28,6 +30,7 @@ import {
 } from "@services/responsibleGaming";
 import { ResponsibleGamingModal } from "@components/ResponsibleGamingModal";
 import { useTranslation } from "react-i18next";
+import { updateCurrentUser } from "@services/auth";
 import {
   claimDailyMission,
   getDailyMissions,
@@ -41,7 +44,9 @@ import {
 
 export function ProfilePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const user = useGameStore((state) => state.user);
+  const setUser = useGameStore((state) => state.setUser);
   const logout = useGameStore((state) => state.logout);
   const accessToken = useGameStore((state) => state.accessToken);
   const { isMobile, toggleMode } = useDeviceMode();
@@ -65,6 +70,46 @@ export function ProfilePage() {
   const [notificationPreferences, setNotificationPreferences] =
     useState<NotificationPreferences | null>(null);
   const [notificationError, setNotificationError] = useState("");
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState("");
+  const [editNameSaving, setEditNameSaving] = useState(false);
+  const [editNameError, setEditNameError] = useState("");
+
+  const handleLogout = () => {
+    logout();
+    navigate("/", { replace: true });
+  };
+
+  const handleStartEditName = () => {
+    setEditNameValue(user?.displayName || "");
+    setEditNameError("");
+    setIsEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = editNameValue.trim();
+    if (!trimmed) {
+      setEditNameError("Le pseudo ne peut pas être vide.");
+      return;
+    }
+    if (!accessToken) return;
+    setEditNameSaving(true);
+    setEditNameError("");
+    try {
+      const updated = await updateCurrentUser(accessToken, trimmed);
+      if (user) {
+        setUser({ ...user, displayName: updated.display_name });
+      }
+      setIsEditingName(false);
+    } catch (err: unknown) {
+      setEditNameError(
+        err instanceof Error ? err.message : "Erreur lors de la mise à jour.",
+      );
+    } finally {
+      setEditNameSaving(false);
+    }
+  };
 
   const reloadKycStatus = () => {
     if (!accessToken) return;
@@ -142,6 +187,42 @@ export function ProfilePage() {
     }
   };
 
+  if (!accessToken && !user) {
+    return (
+      <div
+        className="page-stack"
+        style={{ maxWidth: "540px", margin: "40px auto", textAlign: "center" }}
+      >
+        <div className="activity-card" style={{ padding: "32px 24px" }}>
+          <UserRound
+            size={48}
+            style={{
+              color: "var(--accent-gold, #e1bf79)",
+              margin: "0 auto 16px",
+            }}
+          />
+          <h2>Connexion requise</h2>
+          <p
+            style={{
+              color: "var(--text-secondary, #adb9c4)",
+              margin: "12px 0 24px",
+            }}
+          >
+            Connectez-vous pour consulter vos statistiques, vos transactions et
+            vos badges.
+          </p>
+          <Link
+            to="/auth"
+            className="button button-gold"
+            style={{ display: "inline-flex", minHeight: "44px" }}
+          >
+            Se connecter / Créer un compte
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-stack">
       <div className="profile-head">
@@ -158,9 +239,8 @@ export function ProfilePage() {
         <button
           type="button"
           className="button button-outline edit-button"
-          disabled
-          aria-disabled="true"
-          title="Bientôt disponible"
+          onClick={handleStartEditName}
+          title={t("profile.edit")}
         >
           <Edit3 size={15} /> {t("profile.edit")}
         </button>
@@ -480,15 +560,100 @@ export function ProfilePage() {
                 </small>
               </div>
             </div>
-            <Link to="/lobby" className="text-link">
-              {t("profile.allBadges")} <ChevronRight size={15} />
-            </Link>
+            <span className="text-link" style={{ cursor: "default" }}>
+              {t("profile.allBadges")} ({stats.wins > 0 ? "2" : "1"}/3 débloqués)
+            </span>
           </div>
-          <button className="logout-button" onClick={logout}>
+          <button className="logout-button" onClick={handleLogout}>
             <LogOut size={16} /> {t("profile.logout")}
           </button>
         </aside>
       </div>
+
+      {isEditingName && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card" style={{ maxWidth: "400px" }}>
+            <div className="modal-header">
+              <h3>Modifier votre pseudo</h3>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setIsEditingName(false)}
+                aria-label="Fermer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ marginTop: "16px" }}>
+              <label
+                htmlFor="edit-pseudo-input"
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                }}
+              >
+                Nouveau pseudo
+              </label>
+              <input
+                id="edit-pseudo-input"
+                type="text"
+                maxLength={30}
+                value={editNameValue}
+                onChange={(e) => setEditNameValue(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  background: "var(--bg-dark, #0b1014)",
+                  border: "1px solid var(--border-color, #2a3742)",
+                  color: "#fff",
+                  fontSize: "15px",
+                  marginBottom: "12px",
+                }}
+              />
+              {editNameError && (
+                <div
+                  style={{
+                    color: "#e57373",
+                    fontSize: "13px",
+                    marginBottom: "12px",
+                  }}
+                >
+                  {editNameError}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  className="button button-ghost"
+                  onClick={() => setIsEditingName(false)}
+                  style={{ flex: 1 }}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  className="button button-gold"
+                  onClick={handleSaveName}
+                  disabled={editNameSaving}
+                  style={{
+                    flex: 1,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <Check size={16} />
+                  <span>{editNameSaving ? "Enregistrement..." : "Enregistrer"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <KYCModal
         isOpen={isKycModalOpen}

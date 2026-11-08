@@ -48,12 +48,9 @@ def validate_table_settings(game, players, duration, rules, stake):
         raise ValueError("Nombre de joueurs incompatible avec ce jeu.")
     if isinstance(duration, bool) or duration not in [10, 15, 30, 60, 90, 120]:
         raise ValueError("Durée de tour non prise en charge.")
-    if stake != 0:
+    if not isinstance(stake, int) or isinstance(stake, bool) or stake < 0:
         raise ValueError(
-            (
-                "Les mises monétaires ne sont pas disponibles "
-                "pour ces tables ; utilisez les jetons de jeu."
-            )
+            "Le minimum de participation doit être un montant positif ou nul en Ariary."
         )
     if not isinstance(rules, dict) or set(rules) - set(capabilities["rules"]):
         raise ValueError("Cette variante de règles n’est pas prise en charge.")

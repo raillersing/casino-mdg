@@ -157,6 +157,7 @@ type Client struct {
 	admissionTableID  string
 	admissionSeatID   int
 	admissionRole     string
+	admissionBuyIn    int64
 	turnDuration      int
 	admissionGameType string
 	settings          *room.TableSettings
@@ -243,6 +244,7 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		client.turnDuration = claims.TurnDuration
 		client.admissionGameType = claims.GameType
 		client.settings = claims.Settings
+		client.admissionBuyIn = claims.BuyIn
 	}
 	go s.writePump(client)
 	s.readPump(client)
@@ -447,7 +449,11 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 			if client.admissionSeatID >= 0 {
 				seatIndex = client.admissionSeatID
 			}
-			_, err = s.roomManager.JoinPlayer(msg.TableID, client.playerID, name, seatIndex)
+			if client.admissionBuyIn > 0 {
+				_, err = s.roomManager.JoinPlayerWithBuyIn(msg.TableID, client.playerID, name, seatIndex, client.admissionBuyIn)
+			} else {
+				_, err = s.roomManager.JoinPlayer(msg.TableID, client.playerID, name, seatIndex)
+			}
 		}
 		if err != nil {
 			s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: err.Error(), Timestamp: time.Now()})
@@ -676,7 +682,24 @@ func (s *Server) broadcastBotEmotes(tableID string, winners []string, handRanks 
 
 func publicGameState(state interface{}, playerID string, tablePlayers map[string]*room.Player, actionDeadline time.Time) interface{} {
 	if state == nil {
-		return map[string]interface{}{"players": []map[string]interface{}{}, "current": -1}
+		players := make([]map[string]interface{}, 0, len(tablePlayers))
+		for _, p := range tablePlayers {
+			players = append(players, map[string]interface{}{
+				"id":         p.ID,
+				"name":       p.Name,
+				"seat":       p.Seat,
+				"stack":      p.Stack,
+				"is_bot":     p.IsBot,
+				"is_active":  p.IsActive,
+				"is_creator": p.Seat == 0,
+			})
+		}
+		return map[string]interface{}{
+			"status":  "waiting",
+			"started": false,
+			"players": players,
+			"current": -1,
+		}
 	}
 	switch game := state.(type) {
 	case *poker.Hand:
@@ -740,7 +763,22 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 			if toCall < 0 {
 				toCall = 0
 			}
-			players = append(players, map[string]interface{}{"id": player.ID, "seat": seat, "stack": player.Stack, "bet": player.Bet, "total_bet": player.TotalBet, "to_call": toCall, "cards": cards, "folded": player.Folded, "all_in": player.AllIn})
+			pendingTopUp := int64(0)
+			if tp, exists := tablePlayers[player.ID]; exists {
+				pendingTopUp = tp.PendingTopUp
+			}
+			players = append(players, map[string]interface{}{
+				"id":             player.ID,
+				"seat":           seat,
+				"stack":          player.Stack,
+				"pending_top_up": pendingTopUp,
+				"bet":            player.Bet,
+				"total_bet":      player.TotalBet,
+				"to_call":        toCall,
+				"cards":          cards,
+				"folded":         player.Folded,
+				"all_in":         player.AllIn,
+			})
 		}
 		small, big := game.BlindSeatsForPresentation()
 		minRaise := int64(0)
@@ -1100,6 +1138,35 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 
 	if client.spectator {
 		s.sendMessage(client, &Message{Type: MsgError, TableID: client.tableID, Payload: "spectator is read-only", Timestamp: time.Now()})
+		return
+	}
+
+	if msg.Action == "top_up" || msg.Action == "rebuy" {
+		var amount int64
+		if m, ok := msg.Payload.(map[string]interface{}); ok {
+			if v, exists := m["amount"]; exists {
+				amount = extractInt64(v)
+			}
+		} else {
+			amount = extractInt64(msg.Payload)
+		}
+		if amount <= 0 {
+			s.sendMessage(client, &Message{Type: MsgError, Payload: "invalid top-up amount", Timestamp: time.Now()})
+			return
+		}
+		if err := s.roomManager.QueueTopUp(msg.TableID, client.playerID, amount); err != nil {
+			s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
+			return
+		}
+		s.sendMessage(client, &Message{
+			Type:      MsgAction,
+			TableID:   msg.TableID,
+			PlayerID:  client.playerID,
+			Action:    "top_up_reserved",
+			Payload:   map[string]interface{}{"amount": amount, "status": "reserved"},
+			Timestamp: time.Now(),
+		})
+		s.broadcastState(msg.TableID)
 		return
 	}
 	previousPhase := s.roomManager.PokerPhase(msg.TableID)
@@ -1671,6 +1738,7 @@ type userClaims struct {
 	GameType     string              `json:"game_type"`
 	Settings     *room.TableSettings `json:"table_settings"`
 	TurnDuration int                 `json:"turn_duration"`
+	BuyIn        int64               `json:"buy_in,omitempty"`
 	Sub          string              `json:"sub"`
 	Name         string              `json:"name"`
 	TableID      string              `json:"table_id"`
@@ -1774,4 +1842,26 @@ func signBotToken(claims botTokenClaims, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(encoded))
 	return encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func extractInt64(v interface{}) int64 {
+	switch val := v.(type) {
+	case int64:
+		return val
+	case int:
+		return int64(val)
+	case float64:
+		return int64(val)
+	case float32:
+		return int64(val)
+	case string:
+		var n int64
+		fmt.Sscanf(val, "%d", &n)
+		return n
+	case json.Number:
+		n, _ := val.Int64()
+		return n
+	default:
+		return 0
+	}
 }

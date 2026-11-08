@@ -540,7 +540,7 @@ test("joins a table, sends leave, and returns to the lobby", async ({
   await page
     .getByRole("button", { name: /Quitter la table immédiatement/i })
     .click();
-  await expect(page).toHaveURL(/\/lobby$/, { timeout: 5_000 });
+  await expect(page).toHaveURL(/\/lobby(\/poker)?$/, { timeout: 5_000 });
   await expect
     .poll(
       () =>

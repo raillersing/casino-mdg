@@ -99,7 +99,7 @@ export function HomePage() {
             ["ludo", "Ludo Mada"],
             ["domino", "Domino Double-Six"],
           ].map(([id, name]) => (
-            <Link to={`/play/${id}`} key={id}>
+            <Link to={`/lobby/${id}`} key={id}>
               <img
                 src={`/images/games/${id}-cover.webp`}
                 alt=""

@@ -29,7 +29,7 @@ for (const width of [1440, 390, 320]) {
       fullPage: true,
     });
     await page.locator(".discovery-card").first().click();
-    await expect(page).toHaveURL(/\/play\/belote$/);
+    await expect(page).toHaveURL(/\/(lobby|play)\/belote$/);
     await page
       .getByRole("link", { name: "Tous les jeux", exact: true })
       .click();

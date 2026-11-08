@@ -82,6 +82,7 @@ class TableSeat(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="table_seats"
     )
     seat_index = models.PositiveSmallIntegerField()
+    buy_in = models.PositiveBigIntegerField(default=0)
     admitted_at = models.DateTimeField(null=True, blank=True)
     joined_at = models.DateTimeField(auto_now_add=True)
 
@@ -94,6 +95,46 @@ class TableSeat(models.Model):
             models.UniqueConstraint(
                 fields=["table", "seat_index"], name="unique_table_seat"
             ),
+        ]
+
+
+class TableBankroll(models.Model):
+    STATUS_CHOICES = [
+        ("reserved", "Réservé"),
+        ("active", "Actif"),
+        ("settled", "Réglé"),
+        ("refunded", "Remboursé"),
+    ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    table = models.ForeignKey(
+        GameTable, on_delete=models.CASCADE, related_name="bankrolls"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="table_bankrolls",
+    )
+    currency_code = models.CharField(max_length=3, default="MGA")
+    reserved_amount = models.PositiveBigIntegerField(default=0)
+    current_stack = models.PositiveBigIntegerField(default=0)
+    pending_top_up = models.PositiveBigIntegerField(default=0)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="reserved")
+    initial_transaction = models.ForeignKey(
+        "wallet.WalletTransaction",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="initial_bankrolls",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "table_bankrolls"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["table", "user"], name="unique_table_user_bankroll"
+            )
         ]
 
 

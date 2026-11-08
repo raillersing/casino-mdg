@@ -1,0 +1,389 @@
+{
+  "/games": {
+    "title": "Casino MDG",
+    "height": 1940,
+    "width": 402,
+    "viewport": 390,
+    "headings": [
+      {
+        "text": "À quoi voulez-vous jouer ?",
+        "y": 106
+      },
+      {
+        "text": "Tous les jeux",
+        "y": 220
+      },
+      {
+        "text": "Belote Malagasy",
+        "y": 549
+      },
+      {
+        "text": "Domino Double-Six",
+        "y": 549
+      },
+      {
+        "text": "Ludo Mada",
+        "y": 955
+      },
+      {
+        "text": "Rami Malagasy",
+        "y": 955
+      },
+      {
+        "text": "Poker Texas Hold’em",
+        "y": 1361
+      },
+      {
+        "text": "Envie de jouer à plusieurs ?",
+        "y": 1644
+      }
+    ],
+    "buttons": [
+      {
+        "text": "128 ms",
+        "y": 17,
+        "h": 22
+      },
+      {
+        "text": "",
+        "y": 14,
+        "h": 28
+      },
+      {
+        "text": "",
+        "y": 14,
+        "h": 28
+      },
+      {
+        "text": "FR",
+        "y": 15,
+        "h": 25
+      },
+      {
+        "text": "",
+        "y": 14,
+        "h": 28
+      },
+      {
+        "text": "Tous",
+        "y": 326,
+        "h": 44
+      },
+      {
+        "text": "Cartes",
+        "y": 326,
+        "h": 44
+      },
+      {
+        "text": "Plateau",
+        "y": 326,
+        "h": 44
+      }
+    ]
+  },
+  "/play/ludo": {
+    "title": "Casino MDG",
+    "height": 2664,
+    "width": 395,
+    "viewport": 390,
+    "headings": [
+      {
+        "text": "Ludo Mada",
+        "y": 1024
+      },
+      {
+        "text": "Audience & Joueurs uniques",
+        "y": 1386
+      },
+      {
+        "text": "Comment jouer",
+        "y": 1680
+      },
+      {
+        "text": "Les autres jeux",
+        "y": 2262
+      }
+    ],
+    "buttons": [
+      {
+        "text": "49 ms",
+        "y": 17,
+        "h": 22
+      },
+      {
+        "text": "",
+        "y": 14,
+        "h": 28
+      },
+      {
+        "text": "",
+        "y": 14,
+        "h": 28
+      },
+      {
+        "text": "FR",
+        "y": 15,
+        "h": 25
+      },
+      {
+        "text": "",
+        "y": 14,
+        "h": 28
+      },
+      {
+        "text": "Poker0 en partie0 tables en cours",
+        "y": 517,
+        "h": 42
+      },
+      {
+        "text": "Belote0 en partie0 tables en cours",
+        "y": 569,
+        "h": 42
+      },
+      {
+        "text": "Rami0 en partie0 tables en cours",
+        "y": 621,
+        "h": 42
+      },
+      {
+        "text": "Ludo0 en partie0 tables en cours",
+        "y": 673,
+        "h": 42
+      },
+      {
+        "text": "Domino0 en partie0 tables en cours",
+        "y": 725,
+        "h": 42
+      },
+      {
+        "text": "Trouver des joueursTrouvez des humains en quelques secondes via le matchmaking.",
+        "y": 1708,
+        "h": 81
+      },
+      {
+        "text": "S’entraînerAffrontez des bots pour apprendre sans pression.",
+        "y": 1801,
+        "h": 81
+      },
+      {
+        "text": "",
+        "y": 2002,
+        "h": 32
+      },
+      {
+        "text": "",
+        "y": 2002,
+        "h": 32
+      },
+      {
+        "text": "Créer une table privée",
+        "y": 2202,
+        "h": 42
+      },
+      {
+        "text": "Voir les tournois",
+        "y": 2256,
+        "h": 42
+      }
+    ]
+  },
+  "/lobby/ludo": {
+    "title": "Casino MDG",
+    "height": 2097,
+    "width": 395,
+    "viewport": 390,
+    "headings": [
+      {
+        "text": "Trouvez votre table",
+        "y": 106
+      },
+      {
+        "text": "Raccourcis de création instantanée",
+        "y": 1348
+      },
+      {
+        "text": "Voir les tables",
+        "y": 1603
+      }
+    ],
+    "buttons": [
+      {
+        "text": "78 ms",
+        "y": 17,
+        "h": 22
+      },
+      {
+        "text": "",
+        "y": 14,
+        "h": 28
+      },
+      {
+        "text": "",
+        "y": 14,
+        "h": 28
+      },
+      {
+        "text": "FR",
+        "y": 15,
+        "h": 25
+      },
+      {
+        "text": "",
+        "y": 14,
+        "h": 28
+      },
+      {
+        "text": "Actualiser",
+        "y": 189,
+        "h": 36
+      },
+      {
+        "text": "Rejoindre par Code",
+        "y": 189,
+        "h": 36
+      },
+      {
+        "text": "Créer une table",
+        "y": 235,
+        "h": 34
+      },
+      {
+        "text": "Poker0 en partie0 tables en cours",
+        "y": 673,
+        "h": 42
+      },
+      {
+        "text": "Belote0 en partie0 tables en cours",
+        "y": 725,
+        "h": 42
+      },
+      {
+        "text": "Rami0 en partie0 tables en cours",
+        "y": 777,
+        "h": 42
+      },
+      {
+        "text": "Ludo0 en partie0 tables en cours",
+        "y": 829,
+        "h": 42
+      },
+      {
+        "text": "Domino0 en partie0 tables en cours",
+        "y": 881,
+        "h": 42
+      },
+      {
+        "text": "Tables (0)",
+        "y": 1034,
+        "h": 44
+      },
+      {
+        "text": "Partie Rapide",
+        "y": 1034,
+        "h": 44
+      },
+      {
+        "text": "Tournois (0)",
+        "y": 1034,
+        "h": 44
+      },
+      {
+        "text": "★Toutes les tables0· 1👥",
+        "y": 1121,
+        "h": 44
+      },
+      {
+        "text": "♥Belote Malagasy0",
+        "y": 1121,
+        "h": 44
+      },
+      {
+        "text": "🁓Domino Double-Six0",
+        "y": 1121,
+        "h": 44
+      },
+      {
+        "text": "🎲Ludo Mada0",
+        "y": 1121,
+        "h": 44
+      },
+      {
+        "text": "♦Rami Malagasy0",
+        "y": 1121,
+        "h": 44
+      },
+      {
+        "text": "♠Poker Texas Hold'em0",
+        "y": 1121,
+        "h": 44
+      },
+      {
+        "text": "🏆Tournois & Sit & Go0",
+        "y": 1121,
+        "h": 44
+      },
+      {
+        "text": "Toutes les mises",
+        "y": 1249,
+        "h": 44
+      },
+      {
+        "text": "Gratuit / Démo",
+        "y": 1249,
+        "h": 44
+      },
+      {
+        "text": "200 Ar",
+        "y": 1249,
+        "h": 44
+      },
+      {
+        "text": "500 Ar",
+        "y": 1249,
+        "h": 44
+      },
+      {
+        "text": "1 000 Ar",
+        "y": 1249,
+        "h": 44
+      },
+      {
+        "text": "2 000 Ar",
+        "y": 1249,
+        "h": 44
+      },
+      {
+        "text": "5 000 Ar",
+        "y": 1249,
+        "h": 44
+      },
+      {
+        "text": "10 000 Ar+",
+        "y": 1249,
+        "h": 44
+      },
+      {
+        "text": "Table personnalisée",
+        "y": 1343,
+        "h": 50
+      },
+      {
+        "text": "Créer & Jouer",
+        "y": 1472,
+        "h": 38
+      },
+      {
+        "text": "",
+        "y": 1472,
+        "h": 38
+      },
+      {
+        "text": "Créer une table",
+        "y": 1887,
+        "h": 34
+      }
+    ]
+  },
+  "create": "🎲\nCréer une table\n2 à 4 Joueurs · 4 Pions · Sortie sur 6\nCHOISIR LE JEU\nbelote\ndomino\nludo\nrami\npoker\n♥\nBelote\n🁓\nDomino\n🎲\nLudo\n♦\nRami\n♠\nPoker\nMODE DE PARTIE\nStandard\n⚡ Blitz (15s)\nDuo (2J)\nDétails\nNOM DE LA TABLE\nNombre de joueurs\n2 joueurs\n3 joueurs\n4 joueurs\n2 J\n3 J\n4 J\nRythme (tour)\n10 secondes\n15 secondes\n30 secondes\n60 secondes\n90 secondes\n120 secondes\n15s\n30s\n60s\n\nPartie 100% gratuite.\n\nCONFIDENTIALITÉ DE LA SALLE\nTable Publique\nVisible dans le lobby, accessible à tous les joueurs.\nTable Privée\nProtégée par un code secret à 6 caractères.\nAnnuler\nCréer la table (Ludo)",
+  "errors": []
+}

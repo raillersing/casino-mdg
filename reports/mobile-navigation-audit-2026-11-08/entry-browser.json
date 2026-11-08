@@ -1,0 +1,92 @@
+[
+  {
+    "kind": "quick-public",
+    "wsMessages": [
+      "unauthorized table creation requires admission ticket",
+      "table not found"
+    ],
+    "http": [],
+    "errors": [],
+    "text": "♠\nMDG\n0 Ar\n353 ms\nFR\nA\nQuitter la table\nTable Émeraude\n Connecté · games.ludo\n\ntable not found\n\n0 joueur(s) synchronisé(s) · séquence 0\n264 ms\n\n🎲\nLUDO MALAGASY · ARENA 4 JOUEURS\nAu tour de (Rouge)\nDernier dé : —\nR\nCamp Rouge\nJoueur · Camp Rouge\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nV\nCamp Vert\nJoueur · Camp Vert\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nB\nCamp Bleu\nJoueur · Camp Bleu\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nJ\nCamp Jaune\nJoueur · Camp Jaune\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\n👑\n★\n★\n★\n★\n★\n★\n★\n★\nTour de jeu\nTour du camp Rouge…\n⏳ Tour de l'adversaire ()…\n00:12\nTour des bots\nChoisissez votre action\n🎲 game.rollDice\nRéagir\nAccueil\nJeux\nTables\nClubs\nProfil"
+  },
+  {
+    "kind": "custom-private",
+    "wsMessages": [
+      "unauthorized table creation requires admission ticket",
+      "table not found"
+    ],
+    "http": [
+      {
+        "path": "/api/v1/games/tables/",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/games/tables/",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/games/tables/join-by-code/",
+        "status": 404
+      },
+      {
+        "path": "/api/v1/games/tables/join-by-code/",
+        "status": 404
+      }
+    ],
+    "errors": [],
+    "text": "♠\nMDG\n0 Ar\n45 ms\nFR\nA\nQuitter la table\nTable Émeraude\n Connecté · games.ludo\n\ntable not found\n\n0 joueur(s) synchronisé(s) · séquence 0\n181 ms\n\n🎲\nLUDO MALAGASY · ARENA 4 JOUEURS\nAu tour de (Rouge)\nDernier dé : —\nR\nCamp Rouge\nJoueur · Camp Rouge\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nV\nCamp Vert\nJoueur · Camp Vert\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nB\nCamp Bleu\nJoueur · Camp Bleu\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nJ\nCamp Jaune\nJoueur · Camp Jaune\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\n👑\n★\n★\n★\n★\n★\n★\n★\n★\nTour de jeu\nTour du camp Rouge…\n⏳ Tour de l'adversaire ()…\n00:12\nTour des bots\nChoisissez votre action\n🎲 game.rollDice\nRéagir\nAccueil\nJeux\nTables\nClubs\nProfil"
+  },
+  {
+    "kind": "code-private",
+    "wsMessages": [
+      "unauthorized table creation requires admission ticket",
+      "table not found"
+    ],
+    "http": [
+      {
+        "path": "/api/v1/games/tables/",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/games/tables/",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/games/tables/join-by-code/",
+        "status": 404
+      },
+      {
+        "path": "/api/v1/games/tables/join-by-code/",
+        "status": 404
+      }
+    ],
+    "errors": [],
+    "text": "♠\nMDG\n0 Ar\n115 ms\nFR\nA\nQuitter la table\nTable Émeraude\n Connecté · games.ludo\n\ntable not found\n\n0 joueur(s) synchronisé(s) · séquence 0\n52 ms\n\n🎲\nLUDO MALAGASY · ARENA 4 JOUEURS\nAu tour de (Rouge)\nDernier dé : —\nR\nCamp Rouge\nJoueur · Camp Rouge\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nV\nCamp Vert\nJoueur · Camp Vert\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nB\nCamp Bleu\nJoueur · Camp Bleu\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nJ\nCamp Jaune\nJoueur · Camp Jaune\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\n👑\n★\n★\n★\n★\n★\n★\n★\n★\nTour de jeu\nTour du camp Rouge…\n⏳ Tour de l'adversaire ()…\n00:12\nTour des bots\nChoisissez votre action\n🎲 game.rollDice\nRéagir\nAccueil\nJeux\nTables\nClubs\nProfil"
+  },
+  {
+    "kind": "public-with-valid-ticket",
+    "wsMessages": [
+      {
+        "type": "state",
+        "players": 1,
+        "gamePlayers": 0
+      }
+    ],
+    "http": [],
+    "errors": [],
+    "text": "♠\nMDG\n0 Ar\n69 ms\nFR\nA\nQuitter la table\nTable Émeraude\n Connecté · games.ludo\n\n1 joueur(s) synchronisé(s) · séquence 1 · Reprise de la table\n217 ms\n\nActions récentes\n🎲 Ludo Malagasy\n· Tour : Joueur 0 · Joueurs : 0\n🎲\nLUDO MALAGASY · ARENA 4 JOUEURS\nAu tour de (Joueur)\nDernier dé : —\nR\nCamp Rouge\nJoueur · Camp Rouge\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nV\nCamp Vert\nJoueur · Camp Vert\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nB\nCamp Bleu\nJoueur · Camp Bleu\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nJ\nCamp Jaune\nJoueur · Camp Jaune\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\n👑\n★\n★\n★\n★\n★\n★\n★\n★\nTour de jeu\nTour du camp Joueur 0…\n⏳ Tour de l'adversaire ()…\n00:12\nTour des bots\nChoisissez votre action\n🎲 game.rollDice\nRéagir\nAccueil\nJeux\nTables\nClubs\nProfil"
+  },
+  {
+    "kind": "waiting-four",
+    "wsMessages": [
+      {
+        "type": "state",
+        "players": 1,
+        "gamePlayers": 0
+      }
+    ],
+    "http": [],
+    "errors": [],
+    "text": "♠\nMDG\n0 Ar\n60 ms\nFR\nA\nQuitter la table\nTable Émeraude\n Connecté · games.ludo\n\n1 joueur(s) synchronisé(s) · séquence 1 · Reprise de la table\n257 ms\n\nActions récentes\n🎲 Ludo Malagasy\n· Tour : Joueur 0 · Joueurs : 0\n🎲\nLUDO MALAGASY · ARENA 4 JOUEURS\nAu tour de (Joueur)\nDernier dé : —\nR\nCamp Rouge\nJoueur · Camp Rouge\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nV\nCamp Vert\nJoueur · Camp Vert\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nB\nCamp Bleu\nJoueur · Camp Bleu\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\nJ\nCamp Jaune\nJoueur · Camp Jaune\nYard\n0\nPiste\n0\nBut\n0 🏆\nPts\n0\n👑\n★\n★\n★\n★\n★\n★\n★\n★\nTour de jeu\nTour du camp Joueur 0…\n⏳ Tour de l'adversaire ()…\n00:12\nTour des bots\nChoisissez votre action\n🎲 game.rollDice\nRéagir\nAccueil\nJeux\nTables\nClubs\nProfil"
+  }
+]
