@@ -145,20 +145,31 @@ export function CreateTableModal({
 
   const formRef = useRef<HTMLFormElement>(null);
   const user = useGameStore((state) => state.user);
-  const availableBalance = user?.balance ?? user?.mgaBalance ?? 0;
+  const availableBalance = user?.mgaBalance ?? 0;
 
   const creationKey = useRef("");
+  const availableBalanceRef = useRef(availableBalance);
+  availableBalanceRef.current = availableBalance;
 
-  const [capabilities, setCapabilities] = useState<Record<string, Capability> | null>(null);
+  const [capabilities, setCapabilities] = useState<Record<
+    string,
+    Capability
+  > | null>(null);
   const [game, setGame] = useState<Game>(initialGameType);
   const [players, setPlayers] = useState(4);
   const [duration, setDuration] = useState(30);
   const [rules, setRules] = useState<Record<string, number>>({});
   const [name, setName] = useState("");
   const [privateRoom, setPrivate] = useState(false);
-  const [stakeAmount, setStakeAmount] = useState<number>(initialGameType === "poker" ? 5000 : 0);
-  const [buyIn, setBuyIn] = useState<number>(initialGameType === "poker" ? Math.min(availableBalance, 50000) : 0);
-  const [preset, setPreset] = useState<"standard" | "blitz" | "duo" | "custom">("standard");
+  const [stakeAmount, setStakeAmount] = useState<number>(
+    initialGameType === "poker" ? 5000 : 0,
+  );
+  const [buyIn, setBuyIn] = useState<number>(
+    initialGameType === "poker" ? Math.min(availableBalance, 50000) : 0,
+  );
+  const [preset, setPreset] = useState<"standard" | "blitz" | "duo" | "custom">(
+    "standard",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -187,7 +198,7 @@ export function CreateTableModal({
         setBuyIn(0);
       }
     }
-  }, [isOpen, initialGameType, availableBalance]);
+  }, [isOpen, initialGameType]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -202,7 +213,7 @@ export function CreateTableModal({
         setCapabilities(data.games);
         const c = data.games[initialGameType];
         if (c) {
-          setPlayers(c.players[c.players.length - 1]);
+          setPlayers(c.players[0]);
           setRules(c.defaults);
         }
       })
@@ -222,11 +233,11 @@ export function CreateTableModal({
 
     if (presetType === "standard") {
       setDuration(30);
-      setPlayers(config.players.includes(4) ? 4 : config.players[config.players.length - 1]);
+      setPlayers(config.players[0]);
       setRules(config.defaults);
     } else if (presetType === "blitz") {
       setDuration(15);
-      setPlayers(config.players.includes(4) ? 4 : config.players[config.players.length - 1]);
+      setPlayers(config.players[0]);
       setRules(config.defaults);
     } else if (presetType === "duo") {
       setDuration(15);
@@ -248,7 +259,7 @@ export function CreateTableModal({
     }
     const c = capabilities?.[nextGame];
     if (c) {
-      setPlayers(c.players[c.players.length - 1]);
+      setPlayers(c.players[0]);
       setRules(c.defaults);
       setPreset("standard");
       setDuration(30);
@@ -269,9 +280,12 @@ export function CreateTableModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" onClick={(e) => {
-      if (e.target === e.currentTarget && !busy) onClose();
-    }}>
+    <div
+      className="modal-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose();
+      }}
+    >
       <section
         className="create-table-modal-modern"
         role="dialog"
@@ -335,9 +349,11 @@ export function CreateTableModal({
             if (!config || busy) return;
             setBusy(true);
             setError("");
-            if (game === "poker") {
-              if (buyIn < (stakeAmount || 5000)) {
-                setError(`Le tapis d'entrée doit être au moins égal au minimum (${(stakeAmount || 5000).toLocaleString()} Ar).`);
+            if (game === "poker" && stakeAmount > 0) {
+              if (buyIn < stakeAmount) {
+                setError(
+                  `Le tapis d'entrée doit être au moins égal au minimum (${(stakeAmount || 5000).toLocaleString()} Ar).`,
+                );
                 setBusy(false);
                 return;
               }
@@ -350,12 +366,14 @@ export function CreateTableModal({
             try {
               await onSubmit({
                 idempotency_key: creationKey.current,
-                name: name.trim() || `${GAME_METAS[game].name} #${Math.floor(100 + Math.random() * 900)}`,
+                name:
+                  name.trim() ||
+                  `${GAME_METAS[game].name} #${Math.floor(100 + Math.random() * 900)}`,
                 game_type: game,
                 max_players: players,
                 is_private: privateRoom,
                 stake_amount: stakeAmount,
-                buy_in: game === "poker" ? buyIn : undefined,
+                buy_in: game === "poker" && stakeAmount > 0 ? buyIn : 0,
                 turn_duration: duration,
                 rules_config: rules,
               });
@@ -383,32 +401,41 @@ export function CreateTableModal({
                 onChange={(e) => handleSelectGame(e.target.value as Game)}
                 className="visually-hidden-accessible"
               >
-                {(["belote", "domino", "ludo", "rami", "poker"] as const).map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
+                {(["belote", "domino", "ludo", "rami", "poker"] as const).map(
+                  (id) => (
+                    <option key={id} value={id}>
+                      {id}
+                    </option>
+                  ),
+                )}
               </select>
 
               {/* High-touch tactile Game Picker */}
               <div className="create-game-grid">
-                {(["belote", "domino", "ludo", "rami", "poker"] as const).map((gKey) => {
-                  const meta = GAME_METAS[gKey];
-                  const isSelected = game === gKey;
-                  return (
-                    <button
-                      key={gKey}
-                      type="button"
-                      className={`create-game-pill ${isSelected ? "selected" : ""}`}
-                      onClick={() => handleSelectGame(gKey)}
-                    >
-                      <span className="create-game-suit" style={{ color: meta.color }}>
-                        {meta.suit}
-                      </span>
-                      <span className="create-game-name">{meta.name.split(" ")[0]}</span>
-                    </button>
-                  );
-                })}
+                {(["belote", "domino", "ludo", "rami", "poker"] as const).map(
+                  (gKey) => {
+                    const meta = GAME_METAS[gKey];
+                    const isSelected = game === gKey;
+                    return (
+                      <button
+                        key={gKey}
+                        type="button"
+                        className={`create-game-pill ${isSelected ? "selected" : ""}`}
+                        onClick={() => handleSelectGame(gKey)}
+                      >
+                        <span
+                          className="create-game-suit"
+                          style={{ color: meta.color }}
+                        >
+                          {meta.suit}
+                        </span>
+                        <span className="create-game-name">
+                          {meta.name.split(" ")[0]}
+                        </span>
+                      </button>
+                    );
+                  },
+                )}
               </div>
             </div>
 
@@ -474,7 +501,10 @@ export function CreateTableModal({
                   className="create-name-dice-btn"
                   onClick={rollRandomName}
                   title={tr("Nom aléatoire", "Anarana kisendrasendra")}
-                  aria-label={tr("Générer un nom aléatoire", "Hanoratra anarana kisendrasendra")}
+                  aria-label={tr(
+                    "Générer un nom aléatoire",
+                    "Hanoratra anarana kisendrasendra",
+                  )}
                 >
                   <Dices size={18} />
                 </button>
@@ -536,7 +566,10 @@ export function CreateTableModal({
 
                   {/* Accessible select */}
                   <select
-                    aria-label={tr("Durée d’un tour", "Fotoana isaky ny anjara")}
+                    aria-label={tr(
+                      "Durée d’un tour",
+                      "Fotoana isaky ny anjara",
+                    )}
                     value={duration}
                     onChange={(e) => {
                       setDuration(Number(e.target.value));
@@ -572,8 +605,12 @@ export function CreateTableModal({
                 {/* Specific Rules (e.g. Belote Score or Poker Small Blind) */}
                 {Object.entries(config.rules).map(([key, values]) => {
                   const isScore = key === "target_score";
-                  const labelFr = isScore ? "Score à atteindre" : "Petite blind (grande blind = double)";
-                  const labelMg = isScore ? "Isa kendrena" : "Blind kely (avo roa heny ny blind lehibe)";
+                  const labelFr = isScore
+                    ? "Score à atteindre"
+                    : "Petite blind (grande blind = double)";
+                  const labelMg = isScore
+                    ? "Isa kendrena"
+                    : "Blind kely (avo roa heny ny blind lehibe)";
 
                   return (
                     <div key={key} className="create-option-row">
@@ -620,14 +657,28 @@ export function CreateTableModal({
                 })}
 
                 {/* Ariary Minimum Stake & Buy-In */}
-                <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-color, #2a3742)" }}>
+                <div
+                  style={{
+                    marginTop: "16px",
+                    paddingTop: "12px",
+                    borderTop: "1px solid var(--border-color, #2a3742)",
+                  }}
+                >
                   <div className="create-option-row">
                     <div className="create-option-label-wrap">
                       <Coins size={16} />
-                      <span>{tr("Minimum de participation (Ar)", "Fandraisana anjara kely indrindra (Ar)")}</span>
+                      <span>
+                        {tr(
+                          "Minimum de participation (Ar)",
+                          "Fandraisana anjara kely indrindra (Ar)",
+                        )}
+                      </span>
                     </div>
                     <div className="create-pill-selector">
-                      {(game === "poker" ? [0, 5000, 10000, 25000] : [0, 1000, 2000, 5000]).map((amt) => (
+                      {(game === "poker"
+                        ? [0, 5000, 10000, 25000]
+                        : [0, 1000, 2000, 5000]
+                      ).map((amt) => (
                         <button
                           key={amt}
                           type="button"
@@ -637,14 +688,21 @@ export function CreateTableModal({
                             setStakeAmount(amt);
                             if (game === "poker") {
                               if (amt > 0) {
-                                setBuyIn(Math.max(amt, Math.min(availableBalance, 50000)));
+                                setBuyIn(
+                                  Math.max(
+                                    amt,
+                                    Math.min(availableBalance, 50000),
+                                  ),
+                                );
                               } else {
                                 setBuyIn(0);
                               }
                             }
                           }}
                         >
-                          {amt === 0 ? "Gratuit" : `${amt >= 1000 ? `${amt / 1000}K` : amt} Ar`}
+                          {amt === 0
+                            ? "Gratuit"
+                            : `${amt >= 1000 ? `${amt / 1000}K` : amt} Ar`}
                         </button>
                       ))}
                     </div>
@@ -658,14 +716,22 @@ export function CreateTableModal({
                           "Jetona filalaovana ihany ; tsy alaina amin’ny poketra.",
                         )
                       : tr(
-                          "Financement réel en Ariary (MGA) depuis votre portefeuille.",
-                          "Famatsiana vola tena izy Ariary (MGA) avy amin'ny poketra.",
+                          game === "poker"
+                            ? "Tapis réservé en Ariary depuis votre portefeuille."
+                            : "Seuil de solde en Ariary : aucun débit ni mise.",
+                          game === "poker"
+                            ? "Tapis amin’ny Ariary avy amin’ny poketra."
+                            : "Fetra amin’ny solde Ariary ; tsy misy alaina.",
                         )}
                   </p>
 
                   {game === "poker" && stakeAmount > 0 && (
                     <div style={{ marginTop: "14px" }}>
-                      <label htmlFor="create-creator-buyin" className="create-field-label" style={{ fontSize: "13px" }}>
+                      <label
+                        htmlFor="create-creator-buyin"
+                        className="create-field-label"
+                        style={{ fontSize: "13px" }}
+                      >
                         {tr("Mon tapis à l'entrée (Ar)", "Tapis hidirako (Ar)")}
                       </label>
                       <input
@@ -675,7 +741,9 @@ export function CreateTableModal({
                         max={availableBalance}
                         step="1000"
                         value={buyIn || ""}
-                        onChange={(e) => setBuyIn(Math.max(0, Number(e.target.value)))}
+                        onChange={(e) =>
+                          setBuyIn(Math.max(0, Number(e.target.value)))
+                        }
                         style={{
                           width: "100%",
                           padding: "10px 14px",
@@ -688,20 +756,29 @@ export function CreateTableModal({
                           marginBottom: "8px",
                         }}
                       />
-                      <div className="create-pill-selector" style={{ marginBottom: "6px" }}>
-                        {[5000, 10000, 25000, 50000].filter((a) => a >= (stakeAmount || 5000) && a <= availableBalance).map((amt) => (
-                          <button
-                            key={amt}
-                            type="button"
-                            className={`create-option-pill ${buyIn === amt ? "active" : ""}`}
-                            onClick={() => {
-                              haptics.lightTick();
-                              setBuyIn(amt);
-                            }}
-                          >
-                            {amt / 1000}K Ar
-                          </button>
-                        ))}
+                      <div
+                        className="create-pill-selector"
+                        style={{ marginBottom: "6px" }}
+                      >
+                        {[5000, 10000, 25000, 50000]
+                          .filter(
+                            (a) =>
+                              a >= (stakeAmount || 5000) &&
+                              a <= availableBalance,
+                          )
+                          .map((amt) => (
+                            <button
+                              key={amt}
+                              type="button"
+                              className={`create-option-pill ${buyIn === amt ? "active" : ""}`}
+                              onClick={() => {
+                                haptics.lightTick();
+                                setBuyIn(amt);
+                              }}
+                            >
+                              {amt / 1000}K Ar
+                            </button>
+                          ))}
                         {availableBalance >= (stakeAmount || 5000) && (
                           <button
                             type="button"
@@ -715,10 +792,23 @@ export function CreateTableModal({
                           </button>
                         )}
                       </div>
-                      <small style={{ color: "var(--text-secondary, #adb9c4)", display: "block" }}>
-                        Minimum {(stakeAmount || 5000).toLocaleString()} Ar · sans plafond de table · dans la limite de votre solde ({availableBalance.toLocaleString()} Ar).
+                      <small
+                        style={{
+                          color: "var(--text-secondary, #adb9c4)",
+                          display: "block",
+                        }}
+                      >
+                        Minimum {(stakeAmount || 5000).toLocaleString()} Ar ·
+                        sans plafond de table · dans la limite de votre solde (
+                        {availableBalance.toLocaleString()} Ar).
                       </small>
-                      <small style={{ color: "#70d7ad", display: "block", marginTop: "4px" }}>
+                      <small
+                        style={{
+                          color: "#70d7ad",
+                          display: "block",
+                          marginTop: "4px",
+                        }}
+                      >
                         La partie commence dès 2 joueurs connectés.
                       </small>
                     </div>
@@ -730,7 +820,10 @@ export function CreateTableModal({
             {/* 6. Visibility: Public Table vs Private Invitation */}
             <div className="create-field-group">
               <span className="create-field-label">
-                {tr("Confidentialité de la salle", "Tsiambaratelon'ny efitrano")}
+                {tr(
+                  "Confidentialité de la salle",
+                  "Tsiambaratelon'ny efitrano",
+                )}
               </span>
               <div className="create-privacy-toggle-grid">
                 <button
@@ -743,7 +836,9 @@ export function CreateTableModal({
                 >
                   <div className="create-privacy-head">
                     <Globe size={18} />
-                    <span>{tr("Table Publique", "Latabatra ho an'ny rehetra")}</span>
+                    <span>
+                      {tr("Table Publique", "Latabatra ho an'ny rehetra")}
+                    </span>
                   </div>
                   <small>
                     {tr(
@@ -777,7 +872,11 @@ export function CreateTableModal({
 
             {/* Error Banner */}
             {error && (
-              <div className="error-banner" role="alert" style={{ margin: "14px 0 0" }}>
+              <div
+                className="error-banner"
+                role="alert"
+                style={{ margin: "14px 0 0" }}
+              >
                 <ShieldAlert size={16} />
                 <span>{error}</span>
               </div>

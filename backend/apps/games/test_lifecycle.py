@@ -72,10 +72,10 @@ class TableLifecycleTests(TestCase):
 
     @patch("apps.games.views.join_table", side_effect=ValueError("seat failure"))
     def test_creation_and_first_seat_roll_back_together(self, join):
-        with self.assertRaises(ValueError):
-            self.client.post(
-                "/api/v1/games/tables/", {"game_type": "ludo"}, format="json"
-            )
+        response = self.client.post(
+            "/api/v1/games/tables/", {"game_type": "ludo"}, format="json"
+        )
+        self.assertEqual(response.status_code, 409)
         self.assertEqual(GameTable.objects.count(), 0)
 
     @patch("apps.games.lifecycle.engine_activity_snapshot")

@@ -13,6 +13,7 @@ export type ConnectionState =
 type WebSocketOptions = {
   enabled?: boolean;
   token?: string;
+  getConnectionToken?: () => Promise<string>;
   onOpen?: (socket: WebSocket) => void;
   onClose?: () => void;
   onMessage?: (event: MessageEvent<string>) => void;
@@ -22,6 +23,7 @@ type WebSocketOptions = {
 
 export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   const ws = useRef<WebSocket | null>(null);
+  const connectionGeneration = useRef(0);
   const closed = useRef(false);
   const reconnectAttempts = useRef(0);
   const reconnectTimer = useRef<number | null>(null);
@@ -30,12 +32,16 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   const [latency, setLatency] = useState<number | null>(null);
   const [connState, setConnState] = useState<ConnectionState>("connecting");
 
+  const invalidateConnection = useCallback(() => {
+    connectionGeneration.current++;
+  }, []);
   const callbacks = useRef<WebSocketOptions>({});
   const setReconnecting = useGameStore((state) => state.setReconnecting);
   const accessToken = useGameStore((state) => state.accessToken);
   const {
     enabled = true,
     token: explicitToken,
+    getConnectionToken,
     onOpen,
     onClose,
     onMessage,
@@ -44,6 +50,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   } = options;
 
   callbacks.current = {
+    getConnectionToken,
     onOpen,
     onClose,
     onMessage,
@@ -56,7 +63,8 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     callbacks.current.onConnectionStateChange?.(state);
   }, []);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
+    const generation = ++connectionGeneration.current;
     if (!navigator.onLine) {
       updateState("offline");
       return;
@@ -68,7 +76,21 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
 
     const socketUrl = new URL(url, window.location.href);
     socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const authToken = explicitToken || accessToken;
+    let authToken = explicitToken || accessToken;
+    try {
+      if (callbacks.current.getConnectionToken)
+        authToken = await callbacks.current.getConnectionToken();
+    } catch {
+      if (generation !== connectionGeneration.current || closed.current) return;
+      updateState("reconnecting");
+      if (++reconnectAttempts.current <= MAX_RECONNECT_ATTEMPTS)
+        reconnectTimer.current = window.setTimeout(
+          connect,
+          MAX_RECONNECT_DELAY,
+        );
+      return;
+    }
+    if (generation !== connectionGeneration.current || closed.current) return;
     if (authToken) {
       socketUrl.searchParams.set("token", authToken);
     }
@@ -76,6 +98,10 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
     ws.current = socket;
 
     socket.onopen = () => {
+      if (ws.current !== socket || closed.current) {
+        socket.close();
+        return;
+      }
       const wasReconnect = reconnectAttempts.current > 0;
       reconnectAttempts.current = 0;
       setReconnecting(false);
@@ -166,6 +192,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   // Gestion des événements réseau du navigateur (Online / Offline instantané)
   useEffect(() => {
     const handleOnline = () => {
+      if (!enabled) return;
       if (reconnectTimer.current !== null) {
         window.clearTimeout(reconnectTimer.current);
         reconnectTimer.current = null;
@@ -189,13 +216,14 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [connect, updateState]);
+  }, [connect, enabled, updateState]);
 
   useEffect(() => {
     if (!enabled || !url || (!explicitToken && !accessToken)) return;
     connect();
     return () => {
       closed.current = true;
+      invalidateConnection();
       if (reconnectTimer.current !== null) {
         window.clearTimeout(reconnectTimer.current);
         reconnectTimer.current = null;
@@ -206,7 +234,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       }
       ws.current?.close();
     };
-  }, [accessToken, connect, enabled, explicitToken, url]);
+  }, [accessToken, connect, enabled, explicitToken, invalidateConnection, url]);
 
   return { ws, send, latency, connectionState: connState };
 }

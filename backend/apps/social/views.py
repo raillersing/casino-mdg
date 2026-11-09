@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 
 from apps.backoffice.services import record_audit
 from apps.games.models import GameTable, TableSeat
-from apps.games.services import join_table
+from apps.games.services import generate_admission_token, join_table
 
 from .models import (
     ChatMessage,
@@ -140,15 +140,52 @@ class TableInvitationAcceptView(APIView):
                     invitation.status = "expired"
                     invitation.save(update_fields=["status"])
                 return Response({"detail": "Cette invitation a expiré."}, status=410)
+            from apps.games.views import table_payload
+
+            if invitation.table.club_id:
+                from apps.clubs.models import ClubMembership
+
+                if not ClubMembership.objects.filter(
+                    club_id=invitation.table.club_id, user=request.user
+                ).exists():
+                    return Response(
+                        {"detail": "Table réservée aux membres du club."}, status=403
+                    )
             if invitation.status == "accepted":
                 if invitation.invitee_id == request.user.pk:
+                    if not invitation.table.seats.filter(user=request.user).exists():
+                        return Response(
+                            {"detail": "Cette participation est terminée."}, status=409
+                        )
                     return Response(
-                        {"table_id": str(invitation.table_id), "created": False},
+                        {
+                            "table_id": str(invitation.table_id),
+                            "table_code": invitation.table.table_code,
+                            "table": table_payload(invitation.table, request),
+                            "created": False,
+                            "admission_token": generate_admission_token(
+                                request.user,
+                                invitation.table,
+                                invitation.table.seats.get(
+                                    user=request.user
+                                ).seat_index,
+                            ),
+                        },
                         status=200,
                     )
                 return Response({"detail": "Invitation déjà utilisée."}, status=409)
+            if request.data.get("preview") is True:
+                return Response(
+                    {
+                        "table_id": str(invitation.table_id),
+                        "table": table_payload(invitation.table, request),
+                        "created": False,
+                    }
+                )
             try:
-                seat, created = join_table(invitation.table, request.user)
+                seat, created = join_table(
+                    invitation.table, request.user, request.data.get("buy_in")
+                )
             except ValueError as exc:
                 return Response({"detail": str(exc)}, status=409)
             invitation.invitee = request.user
@@ -165,6 +202,10 @@ class TableInvitationAcceptView(APIView):
                     "table_id": str(invitation.table_id),
                     "table_code": invitation.table.table_code,
                     "seat_index": seat.seat_index,
+                    "table": table_payload(invitation.table, request),
+                    "admission_token": generate_admission_token(
+                        request.user, invitation.table, seat.seat_index
+                    ),
                     "created": created,
                 },
                 status=201,

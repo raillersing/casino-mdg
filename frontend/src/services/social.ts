@@ -48,13 +48,23 @@ export function createTableInvitation(tableId: string, accessToken: string) {
   );
 }
 
-export function acceptTableInvitation(token: string, accessToken: string) {
+export function acceptTableInvitation(
+  token: string,
+  accessToken: string,
+  buyIn?: number,
+  preview = false,
+) {
   return request<{
     table_id: string;
+    table?: import("./games").GameTable;
+    admission_token?: string;
     table_code?: string;
     seat_index?: number;
     created: boolean;
-  }>(`invitations/${token}/accept/`, accessToken, { method: "POST" });
+  }>(`invitations/${token}/accept/`, accessToken, {
+    method: "POST",
+    body: JSON.stringify({ buy_in: buyIn, preview }),
+  });
 }
 
 export type FriendItem = {

@@ -43,11 +43,11 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8001',
+        target: process.env.DEV_API_TARGET || 'http://localhost:8001',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://localhost:8080',
+        target: process.env.DEV_WS_TARGET || 'ws://localhost:8080',
         ws: true,
       },
     },

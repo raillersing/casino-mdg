@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .live_activity import engine_activity_snapshot
-from .models import GameTable
+from .models import GameTable, TableBankroll, TableFundingOperation
 from .modes import HUMAN_MATCH
 
 
@@ -42,7 +42,17 @@ def reconcile_tables():
                         .filter(joined_at__lt=cutoff)
                         .filter(Q(admitted_at__isnull=True) | Q(admitted_at__lt=cutoff))
                     )
-                    count, _ = stale.delete()
+                    # A funded seat is released only after an engine checkpoint.
+                    from .finance import request_leave
+
+                    funded = TableBankroll.objects.filter(
+                        table=table, status__in=["reserved", "active"]
+                    )
+                    for seat in stale.filter(user_id__in=funded.values("user_id")):
+                        request_leave(table, seat.user)
+                    count, _ = stale.exclude(
+                        user_id__in=funded.values("user_id")
+                    ).delete()
                     released += count
                     if (
                         count
@@ -60,6 +70,25 @@ def reconcile_tables():
                 duration = getattr(settings, "TABLE_WAITING_EXPIRY_SECONDS", 900)
             if table.updated_at >= observed_at - timedelta(seconds=duration):
                 continue
+            bankrolls = list(
+                TableBankroll.objects.filter(
+                    table=table, status__in=["reserved", "active"]
+                )
+            )
+            if bankrolls:
+                # Never fabricate a final stack when an admitted engine was lost.
+                if table.finance_revision or any(
+                    b.finance_version != 1 for b in bankrolls
+                ):
+                    continue
+                if TableFundingOperation.objects.filter(
+                    table=table, status="applied"
+                ).exists():
+                    continue
+                from .finance import refund
+
+                for bankroll in bankrolls:
+                    refund(bankroll, "unadmitted-expiry")
             table.status = "finished"
             table.save(update_fields=["status", "updated_at"])
             closed += 1

@@ -1,5 +1,6 @@
 import os
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime
+from datetime import timezone as dt_timezone
 
 import jwt
 import requests
@@ -17,6 +18,15 @@ def generate_admission_token(
     now = datetime.now(dt_timezone.utc)
     if role == "player" and seat_index is not None:
         TableSeat.objects.filter(table=table, user=user).update(admitted_at=now)
+    funding = None
+    if role == "player" and table.game_type == "poker" and table.stake_amount > 0:
+        funding = TableBankroll.objects.filter(
+            table=table, user=user, status__in=["reserved", "active"], finance_version=1
+        ).first()
+        if not funding:
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError("Financement MGA non rapproché ou siège non financé.")
     if buy_in is None and role == "player":
         seat = TableSeat.objects.filter(table=table, user=user).first()
         if seat and seat.buy_in:
@@ -58,6 +68,12 @@ def generate_admission_token(
                 else 0
             ),
         },
+        "funding_session": str(funding.pk) if funding else "",
+        "funding_operation": (
+            str(funding.tablefundingoperation_set.get(kind="entry").pk)
+            if funding
+            else ""
+        ),
         "iat": int(now.timestamp()),
         "exp": int(now.timestamp()) + lifetime_seconds,
     }
@@ -92,8 +108,6 @@ def seed_demo_tables():
 
 @transaction.atomic
 def join_table(table, user, buy_in=None):
-    from apps.wallet.models import LedgerAccount, LedgerEntry, WalletTransaction
-
     table = GameTable.objects.select_for_update().get(pk=table.pk)
     if table.status == "finished":
         raise ValueError("Cette table est terminée.")
@@ -105,70 +119,41 @@ def join_table(table, user, buy_in=None):
         raise ValueError("Cette table est complète.")
     if table.status == "running":
         try:
-            waiting = engine_activity().get(str(table.pk), {}).get("waiting") is True
+            live = engine_activity().get(str(table.pk), {})
+            waiting = live.get("waiting") is True or (
+                table.game_type == "poker" and live.get("started") is True
+            )
         except (requests.RequestException, ValueError):
             waiting = False
         if not waiting:
             raise ValueError("Cette partie a déjà commencé.")
         table.status = "open"
 
-    min_part = table.stake_amount
+    from .finance import account, money, reserve
+
+    min_part = money(table.stake_amount, zero=True)
     effective_buy_in = 0
-    if table.game_type == "poker":
-        if buy_in is not None:
-            effective_buy_in = int(buy_in)
-            if effective_buy_in < min_part:
-                raise ValueError(
-                    f"Le tapis choisi ({effective_buy_in:,} Ar) doit être au moins égal au minimum de table ({min_part:,} Ar)."
-                )
-        else:
-            effective_buy_in = min_part
-    else:
-        effective_buy_in = min_part
-
-    if effective_buy_in > 0:
-        mga_acc = LedgerAccount.objects.select_for_update().get_or_create(
-            user=user, account_type="player", currency_code="MGA"
-        )[0]
-        if mga_acc.balance < effective_buy_in:
-            raise ValueError(
-                f"Solde Ariary insuffisant. Solde disponible : {mga_acc.balance:,} Ar (requis : {effective_buy_in:,} Ar)."
-            )
-        mga_acc.balance -= effective_buy_in
-        mga_acc.held_balance += effective_buy_in
-        mga_acc.save(update_fields=["balance", "held_balance", "updated_at"])
-
-        tx_code = f"MGA-BUYIN-{str(table.id)[:18]}-{user.pk}-{int(timezone.now().timestamp())}"
-        tx = WalletTransaction.objects.create(
-            transaction_code=tx_code,
-            user=user,
-            type="game",
-            direction="debit",
-            amount=effective_buy_in,
-            currency_code="MGA",
-            status="completed",
-            source_account=mga_acc,
-            description=f"Participation table {table.name} ({table.get_game_type_display()})",
-            metadata={"table_id": str(table.id), "buy_in": effective_buy_in},
-            processed_at=timezone.now(),
-        )
-        LedgerEntry.objects.create(
-            transaction=tx,
-            account=mga_acc,
-            entry_type="debit",
-            amount=effective_buy_in,
-            balance_after=mga_acc.balance,
-            description="Réservation buy-in table",
-        )
-        TableBankroll.objects.create(
+    wallet = account(user.pk)
+    if table.game_type != "poker":
+        if wallet.balance < min_part:
+            raise ValueError("Solde Ariary inférieur au minimum d'accès ; aucun débit.")
+    elif min_part:
+        effective_buy_in = money(buy_in if buy_in is not None else min_part)
+        if effective_buy_in < min_part:
+            raise ValueError("Le tapis choisi doit atteindre le minimum de la table.")
+        bankroll = TableBankroll.objects.create(
             table=table,
             user=user,
             currency_code="MGA",
-            reserved_amount=effective_buy_in,
-            current_stack=effective_buy_in,
-            status="active",
-            initial_transaction=tx,
+            finance_version=1,
+            status="reserved",
+            current_stack=0,
         )
+        reserve(
+            table, user, bankroll, effective_buy_in, f"entry:{bankroll.pk}", "entry"
+        )
+    elif buy_in not in (None, 0):
+        raise ValueError("Une table gratuite utilise des jetons SIM, pas des Ariary.")
 
     occupied = set(table.seats.values_list("seat_index", flat=True))
     available = next(
@@ -190,51 +175,14 @@ def leave_table(table, user):
         except GameTable.DoesNotExist:
             return False, False
 
+        from .finance import request_leave
+
+        if request_leave(table, user):
+            table.refresh_from_db(fields=["status"])
+            return True, table.status == "finished"
         deleted_count, _ = TableSeat.objects.filter(table=table, user=user).delete()
         if deleted_count == 0:
             return False, False
-
-        from apps.wallet.models import LedgerAccount, LedgerEntry, WalletTransaction
-
-        bankroll = (
-            TableBankroll.objects.select_for_update()
-            .filter(table=table, user=user, status="active")
-            .first()
-        )
-        if bankroll and bankroll.current_stack > 0:
-            refund_amount = bankroll.current_stack
-            mga_acc = LedgerAccount.objects.select_for_update().get_or_create(
-                user=user, account_type="player", currency_code="MGA"
-            )[0]
-            mga_acc.balance += refund_amount
-            mga_acc.held_balance = max(0, mga_acc.held_balance - refund_amount)
-            mga_acc.save(update_fields=["balance", "held_balance", "updated_at"])
-
-            tx_code = f"MGA-REFUND-{str(table.id)[:18]}-{user.pk}-{int(timezone.now().timestamp())}"
-            tx = WalletTransaction.objects.create(
-                transaction_code=tx_code,
-                user=user,
-                type="refund",
-                direction="credit",
-                amount=refund_amount,
-                currency_code="MGA",
-                status="completed",
-                destination_account=mga_acc,
-                description=f"Remboursement sortie table {table.name}",
-                metadata={"table_id": str(table.id), "refund_amount": refund_amount},
-                processed_at=timezone.now(),
-            )
-            LedgerEntry.objects.create(
-                transaction=tx,
-                account=mga_acc,
-                entry_type="credit",
-                amount=refund_amount,
-                balance_after=mga_acc.balance,
-                description="Restitution stack sortie table",
-            )
-            bankroll.status = "refunded"
-            bankroll.current_stack = 0
-            bankroll.save(update_fields=["status", "current_stack", "updated_at"])
 
         remaining_seats = table.seats.count()
 
@@ -257,60 +205,7 @@ def leave_table(table, user):
         return True, False
 
 
-@transaction.atomic
-def top_up_table(table, user, amount):
-    if amount <= 0:
-        raise ValueError("Le montant de recharge doit être supérieur à 0 Ar.")
-    seat = TableSeat.objects.filter(table=table, user=user).first()
-    if not seat:
-        raise ValueError("Vous n'êtes pas assis à cette table.")
+def top_up_table(table, user, amount, key=None):
+    from .finance import reserve_top_up
 
-    from apps.wallet.models import LedgerAccount, LedgerEntry, WalletTransaction
-
-    mga_acc = LedgerAccount.objects.select_for_update().get_or_create(
-        user=user, account_type="player", currency_code="MGA"
-    )[0]
-    if mga_acc.balance < amount:
-        raise ValueError(
-            f"Solde Ariary insuffisant. Solde disponible : {mga_acc.balance:,} Ar (demandé : {amount:,} Ar)."
-        )
-    mga_acc.balance -= amount
-    mga_acc.held_balance += amount
-    mga_acc.save(update_fields=["balance", "held_balance", "updated_at"])
-
-    tx_code = f"MGA-TOPUP-{str(table.id)[:18]}-{user.pk}-{int(timezone.now().timestamp())}"
-    tx = WalletTransaction.objects.create(
-        transaction_code=tx_code,
-        user=user,
-        type="game",
-        direction="debit",
-        amount=amount,
-        currency_code="MGA",
-        status="completed",
-        source_account=mga_acc,
-        description=f"Recharge tapis table {table.name}",
-        metadata={"table_id": str(table.id), "top_up_amount": amount},
-        processed_at=timezone.now(),
-    )
-    LedgerEntry.objects.create(
-        transaction=tx,
-        account=mga_acc,
-        entry_type="debit",
-        amount=amount,
-        balance_after=mga_acc.balance,
-        description="Réservation recharge tapis poker",
-    )
-    bankroll, _ = TableBankroll.objects.get_or_create(
-        table=table,
-        user=user,
-        defaults={
-            "currency_code": "MGA",
-            "reserved_amount": 0,
-            "current_stack": 0,
-            "status": "active",
-        },
-    )
-    bankroll.pending_top_up += amount
-    bankroll.reserved_amount += amount
-    bankroll.save(update_fields=["pending_top_up", "reserved_amount", "updated_at"])
-    return bankroll, mga_acc.balance
+    return reserve_top_up(table, user, amount, key)

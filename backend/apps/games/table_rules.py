@@ -12,7 +12,7 @@ CAPABILITIES = {
         "players": [2, 6, 9],
         "rules": {"small_blind": [25, 50, 100, 200]},
         "defaults": {"small_blind": 50},
-        "summary": "Texas Hold’em, stack initial 10 000 jetons, blinds fixes.",
+        "summary": "Texas Hold’em : tapis choisi en MGA ou entraînement gratuit en SIM.",
         "summary_mg": "Texas Hold’em, jetona 10 000 amin’ny voalohany, blind tsy miova.",
     },
     "ludo": {
@@ -48,7 +48,11 @@ def validate_table_settings(game, players, duration, rules, stake):
         raise ValueError("Nombre de joueurs incompatible avec ce jeu.")
     if isinstance(duration, bool) or duration not in [10, 15, 30, 60, 90, 120]:
         raise ValueError("Durée de tour non prise en charge.")
-    if not isinstance(stake, int) or isinstance(stake, bool) or stake < 0:
+    if (
+        not isinstance(stake, int)
+        or isinstance(stake, bool)
+        or not 0 <= stake <= 2**53 - 1
+    ):
         raise ValueError(
             "Le minimum de participation doit être un montant positif ou nul en Ariary."
         )

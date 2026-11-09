@@ -359,7 +359,21 @@ async function stubGameApis(page: Page) {
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ table, created: false }),
+      body: JSON.stringify({
+        table,
+        created: false,
+        admission_token: "e2e-admission",
+      }),
+    }),
+  );
+  await page.route("**/api/v1/games/tables/*/admission/", (route) =>
+    route.fulfill({
+      json: {
+        table,
+        table_id: table.id,
+        admission_token: "e2e-admission",
+        role: "spectator",
+      },
     }),
   );
   await page.route("**/api/v1/games/bot-simulations/", (route) =>
@@ -367,6 +381,7 @@ async function stubGameApis(page: Page) {
       status: 201,
       contentType: "application/json",
       body: JSON.stringify({
+        admission_token: "e2e-admission",
         session_id: "session-1",
         table_id: "table-bot",
         table_code: "BOT-POKER-001",

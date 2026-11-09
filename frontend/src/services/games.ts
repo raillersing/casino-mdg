@@ -1,5 +1,7 @@
 export type GameTable = {
   id: string;
+  joined?: boolean;
+  created_by_id?: string | null;
   table_code: string;
   name: string;
   game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
@@ -127,13 +129,15 @@ export type CreateTablePayload = {
 };
 
 export function createTable(accessToken: string, payload: CreateTablePayload) {
-  return request<{
-    table: GameTable;
-    table_id: string;
-    seat_index: number;
-    admission_token: string;
-    created: boolean;
-  } & GameTable>("tables/", {
+  return request<
+    {
+      table: GameTable;
+      table_id: string;
+      seat_index: number;
+      admission_token: string;
+      created: boolean;
+    } & GameTable
+  >("tables/", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -154,7 +158,11 @@ export function getLiveStats(pingGame?: string) {
   });
 }
 
-export function joinTableByCode(accessToken: string, code: string, buyIn?: number) {
+export function joinTableByCode(
+  accessToken: string,
+  code: string,
+  buyIn?: number,
+) {
   return request<{
     table: GameTable;
     table_id: string;
@@ -168,6 +176,17 @@ export function joinTableByCode(accessToken: string, code: string, buyIn?: numbe
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ code, buy_in: buyIn }),
+  });
+}
+
+export function previewTableByCode(accessToken: string, code: string) {
+  return request<{ table: GameTable }>("tables/join-by-code/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code, preview: true }),
   });
 }
 
@@ -282,6 +301,7 @@ export function topUpTable(
   tableId: string,
   accessToken: string,
   amount: number,
+  idempotencyKey: string,
 ) {
   return request<{
     table_id: string;
@@ -291,11 +311,12 @@ export function topUpTable(
     status: string;
   }>(`tables/${tableId}/top-up/`, {
     method: "POST",
+    signal: AbortSignal.timeout(10000),
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ amount }),
+    body: JSON.stringify({ amount, idempotency_key: idempotencyKey }),
   });
 }
 

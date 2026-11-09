@@ -81,6 +81,8 @@ type Message struct {
 }
 
 type Server struct {
+	financeLocks sync.Map
+	financeAcks  sync.Map
 	startedAt    time.Time
 	config       *config.Config
 	roomManager  *room.Manager
@@ -158,6 +160,8 @@ type Client struct {
 	admissionSeatID   int
 	admissionRole     string
 	admissionBuyIn    int64
+	fundingSession    string
+	fundingOperation  string
 	turnDuration      int
 	admissionGameType string
 	settings          *room.TableSettings
@@ -208,6 +212,10 @@ func NewServer(cfg *config.Config, rm *room.Manager) *Server {
 			}
 		}()
 	}
+	server.restoreFinance()
+	if cfg.BackendInternalURL != "" && cfg.ResultSecret != "" {
+		go server.financeLoop()
+	}
 	return server
 }
 
@@ -245,6 +253,8 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		client.admissionGameType = claims.GameType
 		client.settings = claims.Settings
 		client.admissionBuyIn = claims.BuyIn
+		client.fundingSession = claims.FundingSession
+		client.fundingOperation = claims.FundingOperation
 	}
 	go s.writePump(client)
 	s.readPump(client)
@@ -340,6 +350,39 @@ func (s *Server) handleMessage(client *Client, msg *Message) {
 }
 
 func (s *Server) handleJoin(client *Client, msg *Message) {
+	guard := s.financeGuard(msg.TableID)
+	guard.Lock()
+	defer guard.Unlock()
+	if !client.isBot && client.admissionTableID == "" {
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "a signed admission ticket is required"})
+		return
+	}
+	if record, err := readFinance(financePath(msg.TableID)); err == nil && record.Snapshot.Closed {
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "table is closed"})
+		return
+	}
+	var entry *room.FundingOperation
+	if client.fundingSession != "" {
+		ops, err := s.fundingOperations(msg.TableID)
+		if err == nil {
+			for i := range ops {
+				op := &ops[i]
+				if op.ID == client.fundingOperation && op.Session == client.fundingSession && op.UserID == client.playerID && op.Kind == "entry" && op.Amount == client.admissionBuyIn {
+					entry = op
+					break
+				}
+			}
+		}
+		if entry != nil && entry.Status == "applied" && !s.roomManager.IsFunded(msg.TableID) {
+			s.sendMessage(client, &Message{Type: MsgError, Payload: "financial recovery required"})
+			return
+		}
+		if entry == nil {
+			s.sendMessage(client, &Message{Type: MsgError, Payload: "funded admission unavailable"})
+			return
+		}
+	}
+
 	if s.isTableClosed(msg.TableID) {
 		s.sendMessage(client, &Message{Type: MsgError, TableID: msg.TableID, Payload: "table is closed", Timestamp: time.Now()})
 		return
@@ -425,6 +468,11 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		s.sendMessage(client, &Message{Type: MsgError, Payload: "player identity mismatch", Timestamp: time.Now()})
 		return
 	}
+	if client.admissionBuyIn > 0 && entry == nil && client.fundingSession == "" {
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "MGA admission requires a funding operation"})
+		client.tableID = ""
+		return
+	}
 	if client.settings != nil {
 		if err := s.roomManager.ConfigureTable(msg.TableID, *client.settings); err != nil {
 			s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error()})
@@ -460,6 +508,16 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 			client.tableID = ""
 			return
 		}
+		if entry != nil {
+			if err := s.roomManager.ApplyFunding(msg.TableID, *entry); err != nil {
+				s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error()})
+				return
+			}
+			if err := s.commitFinance(msg.TableID); err != nil {
+				s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error()})
+				return
+			}
+		}
 		if !client.isBot {
 			if s.roomManager.StartTable(msg.TableID) == nil && s.roomManager.IsSessionStarted(msg.TableID) {
 				s.roomManager.StartHumanDeadline(msg.TableID)
@@ -478,6 +536,10 @@ func (s *Server) handleJoin(client *Client, msg *Message) {
 		}
 	}
 
+	if err := s.commitFinance(msg.TableID); err != nil {
+		s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error()})
+		return
+	}
 	s.addClient(client)
 	playersCopy := table.CopyPlayers()
 	table.RLock()
@@ -780,6 +842,15 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 				"all_in":         player.AllIn,
 			})
 		}
+		inHand := map[string]bool{}
+		for _, p := range game.Players {
+			inHand[p.ID] = true
+		}
+		for id, p := range tablePlayers {
+			if !inHand[id] {
+				players = append(players, map[string]interface{}{"id": id, "seat": p.Seat, "stack": p.Stack, "pending_top_up": p.PendingTopUp, "cards": []poker.Card{}, "waiting_for_hand": true})
+			}
+		}
 		small, big := game.BlindSeatsForPresentation()
 		minRaise := int64(0)
 		maxRaise := int64(0)
@@ -923,6 +994,7 @@ func publicGameState(state interface{}, playerID string, tablePlayers map[string
 			"current":           game.Current,
 			"current_player_id": currentPlayerID,
 			"last_roll":         game.LastRoll,
+			"last_result":       game.LastResult,
 			"can_roll":          game.CanRoll,
 			"can_move":          game.CanMove,
 			"valid_moves":       game.ValidMoves,
@@ -1098,9 +1170,13 @@ func (s *Server) notifyS2SSettlement(tableID, gameType string, results []S2SSett
 }
 
 func (s *Server) handleLeave(client *Client, msg *Message) {
+	guard := s.financeGuard(client.tableID)
+	guard.Lock()
+	defer guard.Unlock()
 	leftTableID := client.tableID
 	if leftTableID != "" && !client.spectator {
 		s.roomManager.LeavePlayer(leftTableID, client.playerID)
+		_ = s.commitFinance(leftTableID)
 	}
 	s.removeClient(client)
 	client.tableID = ""
@@ -1123,6 +1199,9 @@ func (s *Server) handleLeave(client *Client, msg *Message) {
 }
 
 func (s *Server) handleAction(client *Client, msg *Message) {
+	guard := s.financeGuard(msg.TableID)
+	guard.Lock()
+	defer guard.Unlock()
 	if client.conn != nil && client.tableID != msg.TableID {
 		s.sendMessage(client, &Message{Type: MsgError, Payload: "action is bound to the joined table"})
 		return
@@ -1142,33 +1221,20 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 	}
 
 	if msg.Action == "top_up" || msg.Action == "rebuy" {
-		var amount int64
-		if m, ok := msg.Payload.(map[string]interface{}); ok {
-			if v, exists := m["amount"]; exists {
-				amount = extractInt64(v)
-			}
-		} else {
-			amount = extractInt64(msg.Payload)
-		}
-		if amount <= 0 {
-			s.sendMessage(client, &Message{Type: MsgError, Payload: "invalid top-up amount", Timestamp: time.Now()})
-			return
-		}
-		if err := s.roomManager.QueueTopUp(msg.TableID, client.playerID, amount); err != nil {
-			s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
-			return
-		}
-		s.sendMessage(client, &Message{
-			Type:      MsgAction,
-			TableID:   msg.TableID,
-			PlayerID:  client.playerID,
-			Action:    "top_up_reserved",
-			Payload:   map[string]interface{}{"amount": amount, "status": "reserved"},
-			Timestamp: time.Now(),
-		})
-		s.broadcastState(msg.TableID)
+		s.sendMessage(client, &Message{Type: MsgError, Payload: "reserve funding through the backend with an idempotency key"})
 		return
 	}
+	if s.roomManager.IsFunded(msg.TableID) {
+		sync := s.commitFinance
+		if msg.Action == "new_hand" {
+			sync = s.syncFunding
+		}
+		if err := sync(msg.TableID); err != nil {
+			s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error()})
+			return
+		}
+	}
+
 	previousPhase := s.roomManager.PokerPhase(msg.TableID)
 	var event room.Event
 	var replayed bool
@@ -1195,6 +1261,12 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 			s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error(), Timestamp: time.Now()})
 		}
 		return
+	}
+	if s.roomManager.IsFunded(msg.TableID) {
+		if err := s.commitFinance(msg.TableID); err != nil {
+			s.sendMessage(client, &Message{Type: MsgError, Payload: err.Error()})
+			return
+		}
 	}
 	actionMessage := &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: client.playerID, Action: event.Action, Payload: actionDetails(s.roomManager, msg.TableID, client.playerID, event.Action, event.Payload), EventID: event.ID, Sequence: event.Sequence, Timestamp: event.Timestamp}
 	if replayed {
@@ -1230,10 +1302,17 @@ func (s *Server) handleAction(client *Client, msg *Message) {
 					outcome = "win"
 				}
 				sig := signResult(s.config.ResultSecret, msg.TableID, "poker", outcome, int(share), playerID)
-				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": outcome, "amount": share, "signature": sig}, Sequence: event.Sequence, Timestamp: time.Now()})
+				s.broadcastToTable(msg.TableID, &Message{Type: MsgAction, TableID: msg.TableID, PlayerID: playerID, Action: "result", Payload: map[string]interface{}{"outcome": outcome, "amount": share, "signature": sig, "currency": func() string {
+					if s.roomManager.IsFunded(msg.TableID) {
+						return "MGA"
+					}
+					return "SIM"
+				}()}, Sequence: event.Sequence, Timestamp: time.Now()})
 				pokerS2S = append(pokerS2S, S2SSettlementResult{PlayerID: playerID, Outcome: outcome, Amount: share, Signature: sig})
 			}
-			s.notifyS2SSettlement(msg.TableID, "poker", pokerS2S)
+			if !s.roomManager.IsFunded(msg.TableID) {
+				s.notifyS2SSettlement(msg.TableID, "poker", pokerS2S)
+			}
 			if showdownPayouts, revealed, pot, finishReason, ok := s.roomManager.PokerShowdown(msg.TableID); ok {
 				winners := make([]string, 0, len(showdownPayouts))
 				handRanks := make(map[string]string)
@@ -1735,20 +1814,22 @@ func (s *Server) broadcastToTable(tableID string, msg *Message) {
 }
 
 type userClaims struct {
-	GameType     string              `json:"game_type"`
-	Settings     *room.TableSettings `json:"table_settings"`
-	TurnDuration int                 `json:"turn_duration"`
-	BuyIn        int64               `json:"buy_in,omitempty"`
-	Sub          string              `json:"sub"`
-	Name         string              `json:"name"`
-	TableID      string              `json:"table_id"`
-	SeatID       int                 `json:"seat_id"`
-	Role         string              `json:"role"`
-	Type         string              `json:"type"`
-	RawExp       json.RawMessage     `json:"exp"`
-	RawIat       json.RawMessage     `json:"iat"`
-	Expires      int64               `json:"-"`
-	IssuedAt     int64               `json:"-"`
+	GameType         string              `json:"game_type"`
+	Settings         *room.TableSettings `json:"table_settings"`
+	TurnDuration     int                 `json:"turn_duration"`
+	FundingSession   string              `json:"funding_session,omitempty"`
+	FundingOperation string              `json:"funding_operation,omitempty"`
+	BuyIn            int64               `json:"buy_in,omitempty"`
+	Sub              string              `json:"sub"`
+	Name             string              `json:"name"`
+	TableID          string              `json:"table_id"`
+	SeatID           int                 `json:"seat_id"`
+	Role             string              `json:"role"`
+	Type             string              `json:"type"`
+	RawExp           json.RawMessage     `json:"exp"`
+	RawIat           json.RawMessage     `json:"iat"`
+	Expires          int64               `json:"-"`
+	IssuedAt         int64               `json:"-"`
 }
 
 func authenticate(token, secret string) (userClaims, bool) {

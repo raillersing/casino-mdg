@@ -8,6 +8,7 @@ export interface WaitingPlayer {
   seat?: number;
   isCreator?: boolean;
   isBot?: boolean;
+  isActive?: boolean;
 }
 
 interface WaitingRoomProps {
@@ -60,7 +61,9 @@ export function WaitingRoom({
 
   const emoji = GAME_EMOJIS[gameType.toLowerCase()] || "🎮";
   const gameLabel = GAME_NAMES[gameType.toLowerCase()] || gameType;
-  const connectedCount = currentPlayers.length;
+  const connectedCount = currentPlayers.filter(
+    (p) => p.isActive !== false,
+  ).length;
   const isPoker = gameType.toLowerCase() === "poker";
   const minRequired = isPoker ? 2 : maxPlayers;
   const remaining = Math.max(0, minRequired - connectedCount);
@@ -81,7 +84,7 @@ export function WaitingRoom({
   // Build the list of seats
   const seats: Array<WaitingPlayer | null> = [];
   for (let i = 0; i < maxPlayers; i++) {
-    const playerAtSeat = currentPlayers.find((p) => p.seat === i) || currentPlayers[i] || null;
+    const playerAtSeat = currentPlayers.find((p) => p.seat === i) || null;
     seats.push(playerAtSeat);
   }
 
@@ -194,7 +197,10 @@ export function WaitingRoom({
         style={{
           padding: "14px 16px",
           borderRadius: "12px",
-          backgroundColor: remaining === 0 ? "rgba(112, 215, 173, 0.15)" : "rgba(225, 191, 121, 0.12)",
+          backgroundColor:
+            remaining === 0
+              ? "rgba(112, 215, 173, 0.15)"
+              : "rgba(225, 191, 121, 0.12)",
           border: `1px solid ${remaining === 0 ? "#70d7ad" : "rgba(225, 191, 121, 0.4)"}`,
           color: remaining === 0 ? "#70d7ad" : "#e1bf79",
           fontSize: "14px",
@@ -237,12 +243,19 @@ export function WaitingRoom({
             color: "var(--text-secondary, #adb9c4)",
           }}
         >
-          <span>Participants ({connectedCount}/{maxPlayers})</span>
+          <span>
+            Participants ({connectedCount}/{maxPlayers})
+          </span>
           <span>Place</span>
         </div>
 
         {seats.map((player, index) => {
-          const isMe = Boolean(player && currentUserId && (player.id === currentUserId || player.id === String(currentUserId)));
+          const isMe = Boolean(
+            player &&
+            currentUserId &&
+            (player.id === currentUserId ||
+              player.id === String(currentUserId)),
+          );
           return (
             <div
               key={player?.id || `seat-${index}`}
@@ -251,17 +264,30 @@ export function WaitingRoom({
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "10px 0",
-                borderBottom: index < maxPlayers - 1 ? "1px solid rgba(42, 55, 66, 0.5)" : "none",
+                borderBottom:
+                  index < maxPlayers - 1
+                    ? "1px solid rgba(42, 55, 66, 0.5)"
+                    : "none",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+              >
                 <div
                   style={{
                     width: "40px",
                     height: "40px",
                     borderRadius: "50%",
-                    backgroundColor: player ? (isMe ? "var(--accent-gold, #e1bf79)" : "#334652") : "rgba(42, 55, 66, 0.4)",
-                    color: player ? (isMe ? "#16120b" : "#fff") : "var(--text-secondary, #adb9c4)",
+                    backgroundColor: player
+                      ? isMe
+                        ? "var(--accent-gold, #e1bf79)"
+                        : "#334652"
+                      : "rgba(42, 55, 66, 0.4)",
+                    color: player
+                      ? isMe
+                        ? "#16120b"
+                        : "#fff"
+                      : "var(--text-secondary, #adb9c4)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -275,8 +301,18 @@ export function WaitingRoom({
                 <div>
                   {player ? (
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span>{isMe ? `Vous · ${player.name}` : player.name}</span>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          fontSize: "14px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        <span>
+                          {isMe ? `Vous · ${player.name}` : player.name}
+                        </span>
                         {player.isCreator && (
                           <span
                             style={{
@@ -294,17 +330,29 @@ export function WaitingRoom({
                         )}
                       </div>
                       <div style={{ fontSize: "12px", color: "#70d7ad" }}>
-                        Connecté
+                        {player.isActive === false
+                          ? "Reconnexion en cours"
+                          : "Connecté"}
                       </div>
                     </div>
                   ) : (
-                    <div style={{ color: "var(--text-secondary, #adb9c4)", fontSize: "13px" }}>
+                    <div
+                      style={{
+                        color: "var(--text-secondary, #adb9c4)",
+                        fontSize: "13px",
+                      }}
+                    >
                       Place libre
                     </div>
                   )}
                 </div>
               </div>
-              <span style={{ fontSize: "12px", color: "var(--text-secondary, #adb9c4)" }}>
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: "var(--text-secondary, #adb9c4)",
+                }}
+              >
                 Siège {index + 1}
               </span>
             </div>
@@ -327,7 +375,12 @@ export function WaitingRoom({
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Shield size={16} color="var(--accent-gold, #e1bf79)" />
-            <span style={{ fontSize: "13px", color: "var(--text-secondary, #adb9c4)" }}>
+            <span
+              style={{
+                fontSize: "13px",
+                color: "var(--text-secondary, #adb9c4)",
+              }}
+            >
               Table privée — Partagez ce code à vos amis
             </span>
           </div>
@@ -390,7 +443,10 @@ export function WaitingRoom({
         }}
       >
         <span>
-          Participation : <strong>{stakeAmount > 0 ? `${stakeAmount.toLocaleString()} Ar` : "Gratuit"}</strong>
+          Participation :{" "}
+          <strong>
+            {stakeAmount > 0 ? `${stakeAmount.toLocaleString()} Ar` : "Gratuit"}
+          </strong>
         </span>
         <span style={{ margin: "0 8px" }}>·</span>
         <span>

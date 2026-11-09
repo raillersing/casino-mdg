@@ -135,6 +135,8 @@ test("opens an auditable wallet transaction from history", async ({ page }) => {
         balance: 10000,
         held_balance: 0,
         currency: "SIM",
+        mga_balance: 0,
+        mga_held_balance: 0,
       }),
     }),
   );

@@ -1,9 +1,10 @@
-import { GameActivitySummary } from "@components/game/GameActivitySummary";
-import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, Search, Users } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, Search, Users, Bot, Zap, Loader2 } from "lucide-react";
+import { useGameStore } from "@stores/gameStore";
+import { startBotSimulation } from "@services/games";
+import { createGuestToken } from "@services/auth";
 
 const games = [
   {
@@ -51,17 +52,55 @@ const games = [
     description: "Composez votre meilleure main à cinq cartes.",
     color: "gold",
   },
-];
+] as const;
 
 export function GamesPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const token = useGameStore((state) => state.accessToken);
+  const setSession = useGameStore((state) => state.setSession);
+  const setGuestMode = useGameStore((state) => state.setGuestMode);
+
   const [category, setCategory] = useState("all");
   const [query, setQuery] = useState("");
+  const [launchingGame, setLaunchingGame] = useState<string | null>(null);
+
+  const handleSoloPlay = async (gameId: "belote" | "domino" | "ludo" | "rami" | "poker") => {
+    setLaunchingGame(gameId);
+    try {
+      let currentToken = token;
+      if (!currentToken) {
+        const guest = await createGuestToken("Invité");
+        setSession(guest.access, guest.refresh);
+        setGuestMode(guest.user.display_name, guest.wallet.balance);
+        currentToken = guest.access;
+      }
+      const botCount = gameId === "rami" ? 1 : 3;
+      const idempotencyKey = `catalog-solo-${gameId}-${Date.now()}`;
+      const session = await startBotSimulation(
+        currentToken,
+        gameId,
+        "balanced",
+        idempotencyKey,
+        botCount,
+      );
+      navigate(
+        `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}${session.admission_token ? `&admission_token=${session.admission_token}` : ""}`,
+      );
+    } catch (err) {
+      console.error("Solo launch failed", err);
+      navigate(`/lobby/${gameId}`);
+    } finally {
+      setLaunchingGame(null);
+    }
+  };
+
   const visible = games.filter(
     (game) =>
       (category === "all" || category === game.kind) &&
       game.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
+
   return (
     <div className="discovery-page">
       <header className="discovery-heading">
@@ -69,76 +108,116 @@ export function GamesPage() {
         <h1>{t("discovery.catalogTitle")}</h1>
         <p>{t("discovery.intro")}</p>
       </header>
+
       <section aria-labelledby="catalog-title">
         <div className="discovery-section-head">
           <h2 id="catalog-title">{t("discovery.allGames")}</h2>
           <span>{t("discovery.count")}</span>
         </div>
-        {
-          <div className="discovery-tools">
-            <label className="discovery-search">
-              <Search size={18} />
-              <input
-                aria-label={t("discovery.search")}
-                placeholder={t("discovery.search")}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
-            <div
-              className="discovery-filters"
-              aria-label={t("discovery.categories")}
-            >
-              {[
-                ["all", t("discovery.all")],
-                ["cards", t("discovery.cards")],
-                ["board", t("discovery.board")],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  aria-pressed={category === value}
-                  onClick={() => setCategory(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        }
-        <div className="discovery-grid">
-          {visible.map((game) => (
-            <div key={game.id} className="discovery-game">
-              <Link
-                to={`/lobby/${game.id}`}
-                key={game.id}
-                className={`discovery-card discovery-${game.color}`}
+
+        <div className="discovery-tools">
+          <label className="discovery-search">
+            <Search size={18} />
+            <input
+              aria-label={t("discovery.search")}
+              placeholder={t("discovery.search")}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <div
+            className="discovery-filters"
+            aria-label={t("discovery.categories")}
+          >
+            {[
+              ["all", t("discovery.all")],
+              ["cards", t("discovery.cards")],
+              ["board", t("discovery.board")],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                aria-pressed={category === value}
+                onClick={() => setCategory(value)}
               >
-                <div className="discovery-art" aria-hidden="true">
-                  <img
-                    src={`/images/games/${game.id}-cover.webp`}
-                    alt=""
-                    loading={game.id === "belote" ? "eager" : "lazy"}
-                    decoding="async"
-                    width={960}
-                    height={640}
-                  />
-                </div>
-                <div className="discovery-card-copy">
-                  <span className="discovery-players">{game.players}</span>
-                  <h3>{game.name}</h3>
-                  <p>{game.description}</p>
-                  <span className="discovery-card-action">
-                    {t("discovery.chooseGame")} <ArrowRight size={17} />
-                  </span>
-                </div>
-              </Link>
-              <div className="discovery-game-stats">
-                <GameActivitySummary gameType={game.id} compact />
-                <UniquePlayerStats gameType={game.id} compact />
-              </div>
-            </div>
-          ))}
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        <div className="discovery-grid">
+          {visible.map((game) => {
+            const isLaunching = launchingGame === game.id;
+            return (
+              <div key={game.id} className="discovery-game">
+                <Link
+                  to={`/lobby/${game.id}`}
+                  className={`discovery-card discovery-${game.color}`}
+                >
+                  <div className="discovery-art" aria-hidden="true">
+                    <img
+                      src={`/images/games/${game.id}-cover.webp`}
+                      alt=""
+                      loading={game.id === "belote" ? "eager" : "lazy"}
+                      decoding="async"
+                      width={960}
+                      height={640}
+                    />
+                  </div>
+                  <div className="discovery-card-copy">
+                    <span className="discovery-players">{game.players}</span>
+                    <h3>{game.name}</h3>
+                    <p>{game.description}</p>
+                    <span className="discovery-card-action">
+                      {t("discovery.chooseGame")} <ArrowRight size={17} />
+                    </span>
+                  </div>
+                </Link>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "8px",
+                    marginTop: "8px",
+                    padding: "0 4px",
+                  }}
+                >
+                  <Link
+                    to={`/lobby/${game.id}`}
+                    className="button button-gold button-small"
+                    style={{
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                    }}
+                  >
+                    <Zap size={14} /> Accéder aux tables
+                  </Link>
+
+                  <button
+                    type="button"
+                    className="button button-secondary button-small"
+                    disabled={isLaunching}
+                    onClick={() => handleSoloPlay(game.id)}
+                    style={{ justifyContent: "center", fontWeight: 600 }}
+                  >
+                    {isLaunching ? (
+                      <>
+                        <Loader2 size={14} className="spin" /> Lancement...
+                      </>
+                    ) : (
+                      <>
+                        <Bot size={14} /> Solo vs IA
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
         {visible.length === 0 && (
           <div className="empty-note" role="status">
             <p>{t("discovery.none")}</p>
@@ -154,6 +233,7 @@ export function GamesPage() {
           </div>
         )}
       </section>
+
       <aside className="discovery-online" aria-label="Jouer à plusieurs">
         <div>
           <Users size={24} />
@@ -166,6 +246,7 @@ export function GamesPage() {
           {t("discovery.online")} <ArrowRight size={17} />
         </Link>
       </aside>
+
       <p className="discovery-help">{t("discovery.help")}</p>
     </div>
   );

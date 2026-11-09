@@ -86,7 +86,11 @@ const QUICK_GAME_SPECS: Record<
     players: "4 Joueurs",
     duration: "30s / tour",
     rule: "501 pts",
-    preset: { max_players: 4, turn_duration: 30, rules_config: { target_score: 501 } },
+    preset: {
+      max_players: 4,
+      turn_duration: 30,
+      rules_config: { target_score: 501 },
+    },
   },
   domino: {
     players: "4 Joueurs",
@@ -110,7 +114,11 @@ const QUICK_GAME_SPECS: Record<
     players: "6 Joueurs",
     duration: "30s / tour",
     rule: "Blinds 25/50",
-    preset: { max_players: 6, turn_duration: 30, rules_config: { small_blind: 25 } },
+    preset: {
+      max_players: 6,
+      turn_duration: 30,
+      rules_config: { small_blind: 25 },
+    },
   },
 };
 
@@ -127,7 +135,24 @@ export function LobbyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [joining, setJoining] = useState<string | null>(null);
-  const [pokerBuyInTable, setPokerBuyInTable] = useState<GameTable | null>(null);
+  const [pokerBuyInTable, setPokerBuyInTable] = useState<GameTable | null>(
+    null,
+  );
+  useEffect(() => {
+    const requested = searchParams.get("join");
+    const table = tables.find((item) => item.id === requested);
+    if (
+      table &&
+      table.game_type === "poker" &&
+      Number(table.stake_amount) > 0
+    ) {
+      setPokerBuyInTable(table);
+      const next = new URLSearchParams(searchParams);
+      next.delete("join");
+      setSearchParams(next, { replace: true });
+    }
+  }, [tables, searchParams, setSearchParams]);
+
   const accessToken = useGameStore((state) => state.accessToken);
   const user = useGameStore((state) => state.user);
   const navigate = useNavigate();
@@ -511,7 +536,11 @@ export function LobbyPage() {
         return;
       }
     }
-    if (table.game_type === "poker" && buyIn === undefined) {
+    if (
+      table.game_type === "poker" &&
+      Number(table.stake_amount) > 0 &&
+      buyIn === undefined
+    ) {
       setPokerBuyInTable(table);
       return;
     }
@@ -621,7 +650,8 @@ export function LobbyPage() {
     if (table.status === "finished") return false;
 
     // 2. Filtrer les modes bots d'entraînement solo (ne doivent pas être dans les tables multijoueur)
-    if (table.mode === "DEMO_AI" || table.mode === "SIMULATION_SOLO") return false;
+    if (table.mode === "DEMO_AI" || table.mode === "SIMULATION_SOLO")
+      return false;
 
     // 3. Une table publique doit avoir au moins 1 joueur actif
     if (!table.is_private && (table.player_count ?? 0) <= 0) return false;
@@ -629,14 +659,10 @@ export function LobbyPage() {
     const matchesQuery = table.name.toLowerCase().includes(query.toLowerCase());
     if (!matchesQuery) return false;
     if (stakeFilter === "all") return true;
-    if (stakeFilter === "0") {
-      return (
-        table.stakes.toLowerCase().includes("gratuit") ||
-        table.stakes.includes("0")
-      );
-    }
-    const cleanStake = table.stakes.replace(/\s+/g, "");
-    return cleanStake.includes(stakeFilter);
+    const minimum = Number(table.stake_amount || 0);
+    return stakeFilter === "10000"
+      ? minimum >= 10000
+      : minimum === Number(stakeFilter);
   });
 
   const shownTournaments = useMemo(() => {
@@ -652,7 +678,7 @@ export function LobbyPage() {
   }, [tournaments, query, stakeFilter]);
 
   return (
-    <div className="lobby-claude-shell">
+    <div className={`lobby-claude-shell ${urlGameType ? "is-game-lobby" : ""}`}>
       {/* 1. Header with Live Status & Action Buttons */}
       <div className="lobby-claude-head">
         <div className="lobby-claude-head-copy">
@@ -731,7 +757,8 @@ export function LobbyPage() {
               else {
                 setCreateTableGame(
                   ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
-                    ? (filter as "belote" | "domino" | "ludo" | "rami" | "poker")
+                    ? (filter as
+                        "belote" | "domino" | "ludo" | "rami" | "poker")
                     : "belote",
                 );
                 setShowCreateTable(true);
@@ -742,15 +769,6 @@ export function LobbyPage() {
           </button>
         </div>
       </div>
-
-      {/* Barre de Télémétrie Joueurs Réels & Tables en Cours */}
-      <LiveStatsTicker
-        activeGameFilter={filter}
-        onSelectGame={(g) => {
-          setFilter(g);
-          setSearchParams({ filter: g });
-        }}
-      />
 
       {/* Mobile Segmented View Switcher */}
       <div className="mobile-lobby-tabs lobby-view-tabs">
@@ -1017,144 +1035,61 @@ export function LobbyPage() {
       </div>
 
       {/* 4. Unified Search & Stakes Bar */}
-      <div className="lobby-search-filter-bar">
-        <div className="lobby-search-input-wrap">
-          <Search size={16} />
-          <input
-            aria-label="Rechercher une table"
-            placeholder="Rechercher une table…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {query && (
-            <button
-              type="button"
-              aria-label="Effacer la recherche"
-              onClick={() => setQuery("")}
-              style={{
-                border: 0,
-                background: "none",
-                color: "var(--muted)",
-                cursor: "pointer",
-                fontSize: "16px",
-              }}
-            >
-              ×
-            </button>
-          )}
-        </div>
-
-        <div className="stake-chips-scroll" style={{ margin: 0, flex: "none" }}>
-          {[
-            { key: "all", label: "Toutes les mises" },
-            { key: "0", label: "Gratuit / Démo" },
-            { key: "200", label: "200 Ar" },
-            { key: "500", label: "500 Ar" },
-            { key: "1000", label: "1 000 Ar" },
-            { key: "2000", label: "2 000 Ar" },
-            { key: "5000", label: "5 000 Ar" },
-            { key: "10000", label: "10 000 Ar+" },
-          ].map((chip) => (
-            <button
-              key={chip.key}
-              type="button"
-              className={`stake-chip ${stakeFilter === chip.key ? "active" : ""}`}
-              onClick={() => setStakeFilter(chip.key)}
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Raccourcis de Création de Table par Jeu */}
-      {filter !== "tournaments" && (
-        <section className="lobby-quick-create-section">
-          <div className="lobby-quick-create-header">
-            <h2>
-              <Sparkles size={16} />
-              <span>
-                {t(
-                  "discovery.quickShortcuts",
-                  "Raccourcis de création instantanée",
-                )}
-              </span>
-            </h2>
-            <button
-              type="button"
-              className="button button-gold button-small"
-              onClick={() => {
-                if (!accessToken) navigate("/auth?next=/lobby");
-                else {
-                  setCreateTableGame(
-                    ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
-                      ? (filter as "belote" | "domino" | "ludo" | "rami" | "poker")
-                      : "belote",
-                  );
-                  setShowCreateTable(true);
-                }
-              }}
-            >
-              <Plus size={14} /> {t("discovery.createCustom", "Table personnalisée")}
-            </button>
+      <details className="lobby-filters-details" open={!urlGameType}>
+        <summary>Rechercher et filtrer les tables</summary>
+        <div className="lobby-search-filter-bar">
+          <div className="lobby-search-input-wrap">
+            <Search size={16} />
+            <input
+              aria-label="Rechercher une table"
+              placeholder="Rechercher une table…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+              <button
+                type="button"
+                aria-label="Effacer la recherche"
+                onClick={() => setQuery("")}
+                style={{
+                  border: 0,
+                  background: "none",
+                  color: "var(--muted)",
+                  cursor: "pointer",
+                  fontSize: "16px",
+                }}
+              >
+                ×
+              </button>
+            )}
           </div>
 
-          <div className="lobby-quick-create-grid">
-            {quickGamesToShow.map((gKey) => {
-              const meta = GAME_SUITS[gKey];
-              const isBusy = quickCreating === gKey;
-              const badgeInfo = QUICK_GAME_SPECS[gKey];
-              return (
-                <div key={gKey} className="lobby-quick-card">
-                  <div className="lobby-quick-card-top">
-                    <div
-                      className="lobby-quick-card-suit"
-                      style={{ color: meta.color }}
-                    >
-                      {meta.icon}
-                    </div>
-                    <div className="lobby-quick-card-info">
-                      <h3>{meta.label.split(" ")[0]}</h3>
-                      <span>
-                        {badgeInfo.players} · {badgeInfo.duration} · {badgeInfo.rule}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="lobby-quick-card-actions">
-                    <button
-                      type="button"
-                      className="button button-gold lobby-quick-instant-btn"
-                      onClick={() => void handleQuickCreate(gKey)}
-                      disabled={Boolean(quickCreating)}
-                    >
-                      {isBusy ? (
-                        <Loader2 size={14} className="spin" />
-                      ) : (
-                        <Zap size={14} />
-                      )}
-                      <span>{isBusy ? "Création..." : "Créer & Jouer"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-secondary lobby-quick-tune-btn"
-                      title={`Personnaliser ${meta.label}`}
-                      aria-label={`Personnaliser ${meta.label}`}
-                      onClick={() => {
-                        setCreateTableGame(gKey);
-                        setShowCreateTable(true);
-                      }}
-                    >
-                      <Sliders size={15} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+          <div
+            className="stake-chips-scroll"
+            style={{ margin: 0, flex: "none" }}
+          >
+            {[
+              { key: "all", label: "Tous les minima" },
+              { key: "0", label: "Sans minimum" },
+              { key: "200", label: "200 Ar" },
+              { key: "500", label: "500 Ar" },
+              { key: "1000", label: "1 000 Ar" },
+              { key: "2000", label: "2 000 Ar" },
+              { key: "5000", label: "5 000 Ar" },
+              { key: "10000", label: "10 000 Ar+" },
+            ].map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                className={`stake-chip ${stakeFilter === chip.key ? "active" : ""}`}
+                onClick={() => setStakeFilter(chip.key)}
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
-        </section>
-      )}
-
+        </div>
+      </details>
       <div
         style={{
           display: "flex",
@@ -1615,8 +1550,11 @@ export function LobbyPage() {
                     if (!accessToken) navigate("/auth?next=/lobby");
                     else {
                       setCreateTableGame(
-                        ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
-                          ? (filter as "belote" | "domino" | "ludo" | "rami" | "poker")
+                        ["belote", "domino", "ludo", "rami", "poker"].includes(
+                          filter,
+                        )
+                          ? (filter as
+                              "belote" | "domino" | "ludo" | "rami" | "poker")
                           : "belote",
                       );
                       setShowCreateTable(true);
@@ -1630,7 +1568,16 @@ export function LobbyPage() {
                   className="button button-secondary button-small"
                   onClick={() => void findHuman()}
                 >
-                  <Zap size={14} /> Matchmaking {GAME_SUITS[matchmakingGame]?.label.split(" ")[0]}
+                  <Zap size={14} /> Matchmaking{" "}
+                  {GAME_SUITS[matchmakingGame]?.label.split(" ")[0]}
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary button-small"
+                  onClick={() => void launchSimulation(matchmakingGame)}
+                  disabled={startingSimulation !== null}
+                >
+                  <Bot size={14} /> Jouer contre les Bots
                 </button>
               </>
             )}
@@ -1887,6 +1834,112 @@ export function LobbyPage() {
         </div>
       )}
 
+      {/* Barre de Télémétrie Joueurs Réels & Tables en Cours */}
+      <details className="lobby-activity-details">
+        <summary>Activité des joueurs</summary>
+        <LiveStatsTicker
+          activeGameFilter={filter}
+          onSelectGame={(g) => {
+            setFilter(g);
+            setSearchParams({ filter: g });
+          }}
+        />
+      </details>
+
+      {/* Raccourcis de Création de Table par Jeu */}
+      {filter !== "tournaments" && (
+        <details className="lobby-quick-create-section">
+          <summary>Création express</summary>
+          <div className="lobby-quick-create-header">
+            <h2>
+              <Sparkles size={16} />
+              <span>
+                {t(
+                  "discovery.quickShortcuts",
+                  "Raccourcis de création instantanée",
+                )}
+              </span>
+            </h2>
+            <button
+              type="button"
+              className="button button-gold button-small"
+              onClick={() => {
+                if (!accessToken) navigate("/auth?next=/lobby");
+                else {
+                  setCreateTableGame(
+                    ["belote", "domino", "ludo", "rami", "poker"].includes(
+                      filter,
+                    )
+                      ? (filter as
+                          "belote" | "domino" | "ludo" | "rami" | "poker")
+                      : "belote",
+                  );
+                  setShowCreateTable(true);
+                }
+              }}
+            >
+              <Plus size={14} />{" "}
+              {t("discovery.createCustom", "Table personnalisée")}
+            </button>
+          </div>
+
+          <div className="lobby-quick-create-grid">
+            {quickGamesToShow.map((gKey) => {
+              const meta = GAME_SUITS[gKey];
+              const isBusy = quickCreating === gKey;
+              const badgeInfo = QUICK_GAME_SPECS[gKey];
+              return (
+                <div key={gKey} className="lobby-quick-card">
+                  <div className="lobby-quick-card-top">
+                    <div
+                      className="lobby-quick-card-suit"
+                      style={{ color: meta.color }}
+                    >
+                      {meta.icon}
+                    </div>
+                    <div className="lobby-quick-card-info">
+                      <h3>{meta.label.split(" ")[0]}</h3>
+                      <span>
+                        {badgeInfo.players} · {badgeInfo.duration} ·{" "}
+                        {badgeInfo.rule}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="lobby-quick-card-actions">
+                    <button
+                      type="button"
+                      className="button button-gold lobby-quick-instant-btn"
+                      onClick={() => void handleQuickCreate(gKey)}
+                      disabled={Boolean(quickCreating)}
+                    >
+                      {isBusy ? (
+                        <Loader2 size={14} className="spin" />
+                      ) : (
+                        <Zap size={14} />
+                      )}
+                      <span>{isBusy ? "Création..." : "Créer & Jouer"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-secondary lobby-quick-tune-btn"
+                      title={`Personnaliser ${meta.label}`}
+                      aria-label={`Personnaliser ${meta.label}`}
+                      onClick={() => {
+                        setCreateTableGame(gKey);
+                        setShowCreateTable(true);
+                      }}
+                    >
+                      <Sliders size={15} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
+
       {/* Modal Riche de Création de Table */}
       <CreateTableModal
         initialGameType={createTableGame}
@@ -1902,8 +1955,10 @@ export function LobbyPage() {
           const admissionQuery = res.admission_token
             ? `?table_id=${res.table_id || res.id}&admission_token=${res.admission_token}`
             : `?table_id=${res.table_id || res.id}`;
-          const gType = res.game_type || res.table?.game_type || payload.game_type;
-          const tCode = res.table_code || res.table?.table_code || res.table_id || res.id;
+          const gType =
+            res.game_type || res.table?.game_type || payload.game_type;
+          const tCode =
+            res.table_code || res.table?.table_code || res.table_id || res.id;
           navigate(`/game/${gType}/${tCode}${admissionQuery}`);
           return (res.table || res) as GameTable;
         }}
@@ -1919,7 +1974,9 @@ export function LobbyPage() {
           const admissionQuery = admissionToken
             ? `?table_id=${table.id}&admission_token=${admissionToken}`
             : `?table_id=${table.id}`;
-          navigate(`/game/${table.game_type}/${table.table_code}${admissionQuery}`);
+          navigate(
+            `/game/${table.game_type}/${table.table_code}${admissionQuery}`,
+          );
         }}
       />
 
@@ -1928,7 +1985,7 @@ export function LobbyPage() {
           isOpen={Boolean(pokerBuyInTable)}
           tableName={pokerBuyInTable.name}
           minStake={pokerBuyInTable.stake_amount || 5000}
-          availableBalance={user?.balance ?? user?.mgaBalance ?? 0}
+          availableBalance={user?.mgaBalance ?? 0}
           onClose={() => setPokerBuyInTable(null)}
           onConfirm={(chosenBuyIn) => {
             const tbl = pokerBuyInTable;
@@ -1960,7 +2017,14 @@ export function LobbyPage() {
         </span>
       </div>
 
-      <div style={{ marginTop: "32px", display: "flex", flexDirection: "column", gap: "16px" }}>
+      <div
+        style={{
+          marginTop: "32px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+        }}
+      >
         <GameActivitySummary gameType={filter} />
         <UniquePlayerStats gameType={filter} />
       </div>

@@ -69,7 +69,7 @@ export function Layout({ children }: { children: ReactNode }) {
       getWalletBalance(accessToken).catch(() => null),
     ])
       .then(([current, wallet]) => {
-        const mga = wallet?.mga_balance ?? wallet?.balance ?? 0;
+        const mga = wallet?.mga_balance ?? 0;
         setUser({
           id: current.id,
           displayName: current.display_name,
@@ -78,13 +78,15 @@ export function Layout({ children }: { children: ReactNode }) {
           xp: current.xp,
           level: current.level,
           balance: mga,
-          mgaBalance: mga,
+          mgaBalance: wallet?.mga_balance,
           mgaHeldBalance: wallet?.mga_held_balance ?? 0,
           isStaff: current.is_staff,
         });
       })
       .catch((err: unknown) => {
-        const status = (err as { response?: { status?: number }; status?: number })?.response?.status ??
+        const status =
+          (err as { response?: { status?: number }; status?: number })?.response
+            ?.status ??
           (err as { response?: { status?: number }; status?: number })?.status;
         const msg = String((err as { message?: string })?.message || "");
         if (status === 401 || msg.includes("401")) {
@@ -123,6 +125,25 @@ export function Layout({ children }: { children: ReactNode }) {
     };
   }, [accessToken, location.pathname]);
 
+  const updateBalance = useGameStore((state) => state.updateBalance);
+  useEffect(() => {
+    if (!accessToken) return;
+    const refresh = () => {
+      if (document.visibilityState === "visible")
+        void getWalletBalance(accessToken)
+          .then((w) => {
+            if (typeof w.mga_balance === "number")
+              updateBalance(w.mga_balance, w.mga_held_balance);
+          })
+          .catch(() => undefined);
+    };
+    const timer = window.setInterval(refresh, 5000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [accessToken, updateBalance]);
   const isGamePage = location.pathname.startsWith("/game/");
 
   return (
@@ -223,7 +244,11 @@ export function Layout({ children }: { children: ReactNode }) {
                 aria-label={t("nav.wallet")}
               >
                 <WalletCards size={14} />
-                <span>{user.balance.toLocaleString()} Ar</span>
+                <span>
+                  {typeof user.mgaBalance === "number"
+                    ? `${user.mgaBalance.toLocaleString()} Ar`
+                    : "Solde indisponible"}
+                </span>
               </Link>
             ) : (
               <span className="balance-pill muted">

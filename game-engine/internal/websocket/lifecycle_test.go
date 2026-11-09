@@ -86,7 +86,7 @@ func TestForcedDominoActionsAreBroadcastAndFinishBlockedGame(t *testing.T) {
 	server := NewServer(cfg, manager)
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
-	conn, _, err := websocket.DefaultDialer.Dial("ws"+httpServer.URL[len("http"):]+"/ws?token="+testToken("a", cfg.JWTSecret), nil)
+	conn, _, err := websocket.DefaultDialer.Dial("ws"+httpServer.URL[len("http"):]+"/ws?token="+testAdmissionToken("a", table.ID, 0, "player", cfg.JWTSecret, time.Now().Add(time.Minute).Unix()), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,5 +159,30 @@ func TestSocketCannotActOnAnotherJoinedTable(t *testing.T) {
 	}
 	if response.Type != MsgError || manager.TableSequence(second.ID) != sequence {
 		t.Fatal("ticket for another table accepted an action")
+	}
+}
+
+func TestExistingPrivateRoomStillRequiresSeatAdmission(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test-secret", GracePeriod: time.Second}
+	manager := room.NewManager(cfg)
+	table := manager.CreateTable("poker")
+	server := NewServer(cfg, manager)
+	httpServer := httptest.NewServer(serverHandler(server))
+	defer httpServer.Close()
+	conn, _, err := websocket.DefaultDialer.Dial("ws"+httpServer.URL[len("http"):]+"/ws?token="+testToken("intruder", cfg.JWTSecret), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+	if err = conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
+		t.Fatal(err)
+	}
+	var response Message
+	if err = conn.ReadJSON(&response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Type != MsgError || len(table.CopyPlayers()) != 0 {
+		t.Fatalf("admission bypass: %+v", response)
 	}
 }

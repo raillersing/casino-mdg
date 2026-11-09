@@ -1,5 +1,10 @@
+import { useGameStore } from "../../stores/gameStore";
 import React, { useState } from "react";
-import { GameTable, joinTableByCode } from "../../services/games";
+import {
+  GameTable,
+  joinTableByCode,
+  previewTableByCode,
+} from "../../services/games";
 
 interface JoinPrivateTableModalProps {
   isOpen: boolean;
@@ -15,6 +20,9 @@ export const JoinPrivateTableModal: React.FC<JoinPrivateTableModalProps> = ({
   onJoined,
 }) => {
   const [code, setCode] = useState("");
+  const [preview, setPreview] = useState<GameTable | null>(null);
+  const [buyIn, setBuyIn] = useState(0);
+  const available = useGameStore((state) => state.user?.mgaBalance ?? 0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -31,7 +39,22 @@ export const JoinPrivateTableModal: React.FC<JoinPrivateTableModalProps> = ({
     setError("");
 
     try {
-      const response = await joinTableByCode(accessToken, cleanCode);
+      if (!preview) {
+        const info = await previewTableByCode(accessToken, cleanCode);
+        if (
+          info.table.game_type === "poker" &&
+          Number(info.table.stake_amount) > 0
+        ) {
+          setPreview(info.table);
+          setBuyIn(info.table.stake_amount || 0);
+          return;
+        }
+      }
+      const response = await joinTableByCode(
+        accessToken,
+        cleanCode,
+        preview ? buyIn : undefined,
+      );
       onJoined(response.table, response.admission_token);
       onClose();
     } catch (err: unknown) {
@@ -162,7 +185,10 @@ export const JoinPrivateTableModal: React.FC<JoinPrivateTableModalProps> = ({
             placeholder="Ex: XKAMHZ"
             autoFocus
             maxLength={16}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            onChange={(e) => {
+              setCode(e.target.value.toUpperCase());
+              setPreview(null);
+            }}
             style={{
               width: "100%",
               minHeight: "48px",
@@ -180,6 +206,27 @@ export const JoinPrivateTableModal: React.FC<JoinPrivateTableModalProps> = ({
             }}
           />
 
+          {preview && (
+            <div>
+              <p>
+                {preview.name} · Minimum{" "}
+                {(preview.stake_amount || 0).toLocaleString()} Ar · Disponible{" "}
+                {available.toLocaleString()} Ar
+              </p>
+              <label htmlFor="private-buy-in">Mon tapis en Ariary</label>
+              <input
+                id="private-buy-in"
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min={preview.stake_amount}
+                value={buyIn}
+                onChange={(e) => setBuyIn(Number(e.target.value))}
+                className="text-input"
+              />
+              <p>Sans plafond de table, dans la limite du solde disponible.</p>
+            </div>
+          )}
           <div
             className="modal-actions"
             style={{

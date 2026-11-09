@@ -51,6 +51,7 @@ import { useWebSocket } from "@hooks/useWebSocket";
 import { trackEvent } from "@services/analytics";
 import { TableExitModal } from "@components/game/TableExitModal";
 import { WaitingRoom, type WaitingPlayer } from "@components/game/WaitingRoom";
+import { PokerBuyInModal } from "@components/game/PokerBuyInModal";
 import { PokerTopUpModal } from "@components/game/PokerTopUpModal";
 import { getSeatPosition } from "@utils/tableLayout";
 import { TableSettingsModal } from "@components/game/TableSettingsModal";
@@ -563,6 +564,9 @@ export function GamePage() {
     return () => clearInterval(timer);
   }, []);
   const [invitationState, setInvitationState] = useState("");
+  const [invitationBuyIn, setInvitationBuyIn] = useState<GameTable | null>(
+    null,
+  );
   const [invite, setInvite] = useState("");
   const [sequence, setSequence] = useState(0);
   const [gameConnectionError, setGameConnectionError] = useState("");
@@ -733,7 +737,9 @@ export function GamePage() {
   const updateBalance = useGameStore((state) => state.updateBalance);
   const [tableMeta, setTableMeta] = useState<GameTable | null>(null);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
-  const [pendingTopUpNotice, setPendingTopUpNotice] = useState<string | null>(null);
+  const [pendingTopUpNotice, setPendingTopUpNotice] = useState<string | null>(
+    null,
+  );
   const userId =
     useGameStore((state) => state.user?.id || "") ||
     tokenSubject(accessToken) ||
@@ -758,14 +764,19 @@ export function GamePage() {
           (p.is_bot ? botNameForSeat(idx) : `Joueur ${idx + 1}`),
       ),
       seat: typeof p.seat === "number" ? p.seat : idx,
-      isCreator: Boolean(p.is_creator || p.seat === 0),
+      isCreator: Boolean(
+        tableMeta?.created_by_id &&
+        String(p.id) === String(tableMeta.created_by_id),
+      ),
       isBot: Boolean(p.is_bot),
+      isActive: p.is_active !== false,
     }));
-  }, [statePlayers]);
+  }, [statePlayers, tableMeta?.created_by_id]);
   const isWaitingRoom = useMemo(() => {
-    if (demoAi || closedTableRef.current || gameConnectionError) return false;
+    if (demoAi || closedTableRef.current) return false;
     if (!gameState) return true;
-    if (gameState.status === "waiting" || gameState.started === false) return true;
+    if (gameState.status === "waiting" || gameState.started === false)
+      return true;
     if (isPoker) {
       return !gameState.phase || gameState.phase === "";
     }
@@ -1134,22 +1145,44 @@ export function GamePage() {
     window.setTimeout(() => setEmote(""), 1800);
   };
 
+  const confirmInvitation = useCallback(
+    async (buyIn?: number) => {
+      if (!invitation || !accessToken) return;
+      const result = await acceptTableInvitation(
+        invitation,
+        accessToken,
+        buyIn,
+      );
+      if (!result.admission_token) throw new Error("Admission indisponible");
+      setInvitationBuyIn(null);
+      setInvitationState("Invitation acceptée.");
+      setAdmissionToken(result.admission_token);
+      if (result.table) setTableMeta(result.table);
+      navigate(
+        `/game/${result.table?.game_type || gameType}/${result.table_code || result.table_id}?table_id=${result.table_id}&admission_token=${encodeURIComponent(result.admission_token)}`,
+        { replace: true },
+      );
+    },
+    [invitation, accessToken, gameType, navigate],
+  );
   useEffect(() => {
     if (!invitation || !accessToken || invitationHandled.current) return;
     invitationHandled.current = true;
-    setInvitationState("Invitation en cours de validation…");
-    void acceptTableInvitation(invitation, accessToken)
+    void acceptTableInvitation(invitation, accessToken, undefined, true)
       .then((result) => {
-        void trackEvent("invite_joined", {
-          game_type: gameType,
-          metadata: { table_id: result.table_id, created: result.created },
-        });
-        setInvitationState("Invitation acceptée. Vous rejoignez la table.");
-        if (result.table_code && result.table_code !== tableId)
-          navigate(`/game/${gameType}/${result.table_code}`);
+        if (
+          result.table?.game_type === "poker" &&
+          Number(result.table.stake_amount) > 0
+        ) {
+          setInvitationBuyIn(result.table);
+        } else {
+          void confirmInvitation().catch((error) =>
+            setInvitationState(String(error)),
+          );
+        }
       })
-      .catch((error: Error) => setInvitationState(error.message));
-  }, [accessToken, gameType, invitation, navigate, tableId]);
+      .catch((error) => setInvitationState(String(error)));
+  }, [accessToken, invitation, confirmInvitation]);
   const handleSocketMessage = useCallback(
     (event: MessageEvent<string>) => {
       try {
@@ -1609,10 +1642,22 @@ export function GamePage() {
           outcome?: "win" | "loss" | "draw";
           amount?: number;
           signature?: string;
+          currency?: string;
         };
         const outcome = payload.outcome || resultPayload.outcome;
         const amount = payload.amount ?? resultPayload.amount ?? 0;
         const signature = resultPayload.signature;
+        if (
+          payload.action === "result" &&
+          payload.player_id === userId &&
+          resultPayload.currency === "MGA" &&
+          accessToken
+        ) {
+          setResultMessage("Règlement Ariary confirmé par le serveur.");
+          void getWalletBalance(accessToken)
+            .then((w) => updateBalance(w.mga_balance, w.mga_held_balance))
+            .catch(() => undefined);
+        }
         if (
           (payload.type === "result" || payload.action === "result") &&
           payload.player_id === userId &&
@@ -1620,7 +1665,8 @@ export function GamePage() {
           accessToken &&
           gameType &&
           engineTableId &&
-          !settled.current
+          !settled.current &&
+          resultPayload.currency !== "MGA"
         ) {
           settled.current = true;
           setResultMessage(t("game.resultSaving"));
@@ -1666,7 +1712,10 @@ export function GamePage() {
             setGameOver(true);
           }
         }
-        if ((payload.type === "state" || payload.type === "sync") && !closedTableRef.current)
+        if (
+          (payload.type === "state" || payload.type === "sync") &&
+          !closedTableRef.current
+        )
           setGameConnectionError("");
       } catch {
         setGameConnectionError(t("game.invalidTableResponse"));
@@ -1686,6 +1735,7 @@ export function GamePage() {
       gameState,
       myPokerPlayer,
       showSpeechBubble,
+      updateBalance,
     ],
   );
 
@@ -1801,9 +1851,31 @@ export function GamePage() {
     },
     [],
   );
+  const refreshedAdmission = useRef("");
+  useEffect(() => {
+    refreshedAdmission.current = "";
+  }, [admissionToken, engineTableId]);
+  const getConnectionToken = async () => {
+    const ticket = refreshedAdmission.current || admissionToken;
+    if (ticket) {
+      try {
+        const claims = JSON.parse(
+          atob(ticket.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
+        );
+        if (!claims.exp || claims.exp > Date.now() / 1000 + 10) return ticket;
+      } catch {
+        return ticket;
+      }
+    }
+    if (!accessToken || !engineTableId) throw new Error("Admission requise");
+    const admission = await getTableAdmission(engineTableId, accessToken);
+    refreshedAdmission.current = admission.admission_token;
+    return admission.admission_token;
+  };
   const { ws, send, latency } = useWebSocket(socketUrl, {
-    enabled: Boolean(engineTableId && (admissionToken || accessToken)),
-    token: admissionToken || accessToken || undefined,
+    enabled: Boolean(engineTableId && admissionToken),
+    token: admissionToken || undefined,
+    getConnectionToken,
     onOpen: handleSocketOpen,
     onConnectionStateChange: handleConnectionStateChange,
     onMessage: handleSocketMessage,
@@ -1850,7 +1922,7 @@ export function GamePage() {
   }, [accessToken, admissionToken, engineTableId, send, sequence]);
 
   useEffect(() => {
-    if (!tableId) return;
+    if (!tableId || invitation) return;
     getTables(gameType, accessToken || undefined)
       .then(({ results }) => {
         const match = results.find(
@@ -1865,6 +1937,29 @@ export function GamePage() {
           resolvedTableIdRef.current = match.id;
           setResolvedTableId(match.id);
           if (accessToken && !demoAi) {
+            if (spectator) {
+              void getTableAdmission(
+                match.id,
+                accessToken,
+                match.access_code || undefined,
+              )
+                .then((admission) =>
+                  setAdmissionToken(admission.admission_token),
+                )
+                .catch((error) => setGameConnectionError(String(error)));
+              return;
+            }
+            if (
+              match.game_type === "poker" &&
+              Number(match.stake_amount) > 0 &&
+              !match.joined &&
+              !spectator
+            ) {
+              navigate(`/lobby/${gameType}?join=${match.id}`, {
+                replace: true,
+              });
+              return;
+            }
             void joinTable(
               match.id,
               accessToken,
@@ -1954,13 +2049,22 @@ export function GamePage() {
           setResolvedTableId(tableId);
         }
       });
-  }, [accessToken, demoAi, demoTableId, gameType, tableId]);
+  }, [
+    accessToken,
+    demoAi,
+    demoTableId,
+    gameType,
+    tableId,
+    navigate,
+    spectator,
+    invitation,
+  ]);
 
   useEffect(() => {
-    if (!tableId || !accessToken) return;
+    if (!engineTableId || !accessToken) return;
     let active = true;
     const fetchChat = () => {
-      getTableChat(tableId, accessToken)
+      getTableChat(engineTableId, accessToken)
         .then((payload) => {
           if (!active) return;
           setChat((prev) => {
@@ -1983,12 +2087,16 @@ export function GamePage() {
       active = false;
       clearInterval(interval);
     };
-  }, [accessToken, tableId, user?.displayName, userId, showSpeechBubble]);
+  }, [accessToken, engineTableId, user?.displayName, userId, showSpeechBubble]);
 
   const sendMessage = async () => {
     if (!tableId || !accessToken || !message.trim()) return;
     try {
-      const sent = await sendTableMessage(tableId, message.trim(), accessToken);
+      const sent = await sendTableMessage(
+        engineTableId,
+        message.trim(),
+        accessToken,
+      );
       setChat((current) => [...current, sent]);
       showSpeechBubble(sent.author, sent.body);
       showSpeechBubble(userId, sent.body);
@@ -2003,8 +2111,8 @@ export function GamePage() {
   const inviteFriend = async () => {
     if (!tableId || !accessToken) return;
     try {
-      const result = await createTableInvitation(tableId, accessToken);
-      const link = `${window.location.origin}/game/${gameType}/${tableId}?invite=${result.token}`;
+      const result = await createTableInvitation(engineTableId, accessToken);
+      const link = `${window.location.origin}/game/${gameType}/${engineTableId}?invite=${result.token}`;
       await navigator.clipboard?.writeText(link);
       void trackEvent("invite_sent", {
         game_type: gameType,
@@ -2121,21 +2229,21 @@ export function GamePage() {
   };
   sendGameActionRef.current = sendGameAction;
 
+  const topUpRequest = useRef<{ amount: number; key: string } | null>(null);
   const handleConfirmTopUp = async (amount: number) => {
     if (!accessToken || !engineTableId) return;
-    await topUpTable(engineTableId, accessToken, amount);
-    send({
-      type: "action",
-      table_id: engineTableId,
-      action: "top_up",
-      sequence,
-      payload: { amount },
-      timestamp: new Date().toISOString(),
-    });
+    if (!topUpRequest.current || topUpRequest.current.amount !== amount) {
+      topUpRequest.current = { amount, key: crypto.randomUUID() };
+    }
+    await topUpTable(
+      engineTableId,
+      accessToken,
+      amount,
+      topUpRequest.current.key,
+    );
+    topUpRequest.current = null;
     void getWalletBalance(accessToken)
-      .then((w) =>
-        updateBalance(w.mga_balance ?? w.balance, w.mga_held_balance ?? 0),
-      )
+      .then((w) => updateBalance(w.mga_balance, w.mga_held_balance ?? 0))
       .catch(() => undefined);
     setPendingTopUpNotice(
       `+${amount.toLocaleString()} Ar réservés — ajout après cette main`,
@@ -2169,7 +2277,7 @@ export function GamePage() {
           .then(() => {
             void getWalletBalance(accessToken)
               .then((w) =>
-                updateBalance(w.mga_balance ?? w.balance, w.mga_held_balance ?? 0),
+                updateBalance(w.mga_balance, w.mga_held_balance ?? 0),
               )
               .catch(() => undefined);
           })
@@ -2189,6 +2297,40 @@ export function GamePage() {
     !pokerWinners.length,
   );
 
+  if (invitationBuyIn) {
+    return (
+      <div className="page-stack">
+        <p>Choisissez votre tapis pour accepter l’invitation.</p>
+        <PokerBuyInModal
+          isOpen
+          tableName={invitationBuyIn.name}
+          minStake={invitationBuyIn.stake_amount || 0}
+          availableBalance={user?.mgaBalance ?? 0}
+          onClose={() => navigate(`/lobby/${gameType}`)}
+          onConfirm={(amount) => {
+            void confirmInvitation(amount).catch((error) =>
+              setInvitationState(String(error)),
+            );
+          }}
+        />
+        <p role="alert">{invitationState}</p>
+      </div>
+    );
+  }
+  if (closedTableRef.current === engineTableId && engineTableId) {
+    return (
+      <section className="page-stack">
+        <h1>Table terminée</h1>
+        <p role="status">{t("game.tableClosed")}</p>
+        <button
+          className="button button-gold"
+          onClick={() => navigate(`/lobby/${gameType}`)}
+        >
+          Retour aux tables
+        </button>
+      </section>
+    );
+  }
   if (isWaitingRoom) {
     return (
       <WaitingRoom
@@ -2866,12 +3008,13 @@ export function GamePage() {
                       fontWeight: 700,
                     }}
                   >
-                    (+{Number(myPokerPlayer?.pending_top_up).toLocaleString()} Ar réservés)
+                    (+{Number(myPokerPlayer?.pending_top_up).toLocaleString()}{" "}
+                    Ar réservés)
                   </small>
                 )}
               </span>
             </div>
-            {isPoker && !spectator && (
+            {isPoker && !spectator && Number(tableMeta?.stake_amount) > 0 && (
               <button
                 type="button"
                 className="rebuy-btn"
@@ -2889,6 +3032,11 @@ export function GamePage() {
               >
                 + Ajouter des fonds
               </button>
+            )}
+            {myPokerPlayer?.waiting_for_hand === true && (
+              <p role="status">
+                Vous êtes assis. Vos cartes arrivent à la prochaine main.
+              </p>
             )}
             {myBet > 0 && <span className="you-bet-chip">{myBet}</span>}
           </div>
@@ -4953,7 +5101,7 @@ export function GamePage() {
           onClose={() => setShowTopUpModal(false)}
           onConfirmTopUp={handleConfirmTopUp}
           currentStack={Number(myPokerPlayer?.stack ?? 0)}
-          availableBalance={user?.balance ?? user?.mgaBalance ?? 0}
+          availableBalance={user?.mgaBalance ?? 0}
           pendingTopUp={Number(myPokerPlayer?.pending_top_up ?? 0)}
         />
       )}

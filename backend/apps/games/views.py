@@ -97,6 +97,7 @@ def valid_engine_signature(request, game_id, game_type, outcome, amount, metadat
 def table_payload(table, request):
     return {
         "id": str(table.id),
+        "created_by_id": str(table.created_by_id) if table.created_by_id else None,
         "table_code": table.table_code,
         "name": table.name,
         "game_type": table.game_type,
@@ -483,11 +484,6 @@ class TableListCreateView(APIView):
         )
 
     def get(self, request):
-        now = timezone.now()
-        fresh_empty_threshold = now - timedelta(minutes=2)
-        active_waiting_threshold = now - timedelta(minutes=15)
-        active_running_threshold = now - timedelta(minutes=20)
-
         DEMO_CODES = [
             "emerald-01",
             "baobab-01",
@@ -521,28 +517,9 @@ class TableListCreateView(APIView):
         else:
             visibility = Q(is_private=False, num_seats__gt=0)
 
-        # Expiration & cycle de vie actif (bonnes pratiques jeux en ligne) :
-        # - Une table vide (0 joueur) n'est tolérée que pour son créateur pendant 2 minutes max.
-        # - Une table en attente (open) expire après 15 min sans activité.
-        # - Une table en cours (running) expire après 20 min sans activité.
-        active_lifecycle = (
-            Q(num_seats=0, updated_at__gte=fresh_empty_threshold)
-            | Q(
-                status="open",
-                num_seats__gt=0,
-                updated_at__gte=active_waiting_threshold,
-            )
-            | Q(
-                status="running",
-                num_seats__gt=0,
-                updated_at__gte=active_running_threshold,
-            )
-        )
-
         tables = (
             base_qs.annotate(num_seats=Count("seats"))
             .filter(visibility)
-            .filter(active_lifecycle)
             .distinct()
             .prefetch_related("seats", "bot_simulation__bots")
         )
@@ -584,7 +561,16 @@ class TableListCreateView(APIView):
                         },
                         status=409,
                     )
-                return Response(table_payload(existing, request), status=200)
+                seat = existing.seats.filter(user=request.user).first()
+                if existing.status == "finished" or not seat:
+                    return Response(
+                        {"detail": "Cette création est terminée."}, status=409
+                    )
+                result = table_payload(existing, request)
+                result["admission_token"] = generate_admission_token(
+                    request.user, existing, seat.seat_index
+                )
+                return Response(result, status=200)
         game_type = request.data.get("game_type", "poker")
         if game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
@@ -611,7 +597,15 @@ class TableListCreateView(APIView):
             )
         except (TypeError, ValueError) as exc:
             return Response({"detail": str(exc)}, status=400)
-        stakes_label = "Jetons de jeu" if game_type == "poker" else "Gratuit"
+        stakes_label = (
+            (
+                f"Minimum {stake_amount:,} Ar"
+                if game_type == "poker"
+                else f"Solde ≥ {stake_amount:,} Ar"
+            )
+            if stake_amount
+            else ("Jetons SIM" if game_type == "poker" else "Gratuit")
+        )
 
         club = None
         club_id = request.data.get("club_id")
@@ -662,7 +656,11 @@ class TableListCreateView(APIView):
             table_code=f"{game_type}-{uuid.uuid4().hex[:16]}",
         )
         creator_buy_in = request.data.get("buy_in")
-        seat, created = join_table(table, request.user, buy_in=creator_buy_in)
+        try:
+            seat, created = join_table(table, request.user, buy_in=creator_buy_in)
+        except ValueError as exc:
+            transaction.set_rollback(True)
+            return Response({"detail": str(exc)}, status=409)
         admission_token = generate_admission_token(
             request.user,
             table,
@@ -838,6 +836,7 @@ class TableAdmissionView(APIView):
             return Response(
                 {
                     "admission_token": admission_token,
+                    "table": table_payload(table, request),
                     "table_id": str(table.id),
                     "seat_index": seat_index,
                     "role": role,
@@ -883,6 +882,8 @@ class TableJoinByCodeView(APIView):
                 {"detail": "Cette table est réservée aux membres du club."},
                 status=403,
             )
+        if request.data.get("preview") is True:
+            return Response({"table": table_payload(table, request), "preview": True})
         join_buy_in = request.data.get("buy_in")
         try:
             seat, created = join_table(table, request.user, buy_in=join_buy_in)
@@ -920,10 +921,16 @@ class TableTopUpView(APIView):
             return Response({"detail": "Table introuvable."}, status=404)
 
         try:
-            amount = int(request.data.get("amount", 0))
+            amount = request.data.get("amount")
             from .services import top_up_table
 
-            bankroll, available = top_up_table(table, request.user, amount)
+            bankroll, available, operation = top_up_table(
+                table,
+                request.user,
+                amount,
+                request.headers.get("Idempotency-Key")
+                or request.data.get("idempotency_key"),
+            )
         except (ValueError, TypeError) as exc:
             return Response({"detail": str(exc)}, status=400)
 
@@ -931,6 +938,8 @@ class TableTopUpView(APIView):
             {
                 "success": True,
                 "table_id": str(table.id),
+                "operation_id": str(operation.pk),
+                "status": operation.status,
                 "pending_top_up": bankroll.pending_top_up,
                 "current_stack": bankroll.current_stack,
                 "mga_balance": available,
@@ -1184,6 +1193,15 @@ class GameResultCreateView(APIView):
         ):
             return Response({"detail": "Résultat de partie invalide."}, status=400)
         metadata = request.data.get("metadata", {})
+        if GameTable.objects.filter(
+            pk=game_id, game_type="poker", stake_amount__gt=0
+        ).exists():
+            return Response(
+                {
+                    "detail": "Les fonds MGA sont réglés uniquement par les checkpoints du moteur."
+                },
+                status=409,
+            )
         if outcome == "win" and not valid_engine_signature(
             request, game_id, game_type, outcome, amount, metadata
         ):

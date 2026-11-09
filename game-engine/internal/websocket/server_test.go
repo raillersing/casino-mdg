@@ -43,7 +43,7 @@ func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
 	server := NewServer(cfg, manager)
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
-	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testToken("player-1", cfg.JWTSecret)
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testAdmissionToken("player-1", table.ID, 0, "player", cfg.JWTSecret, time.Now().Add(time.Minute).Unix())
 	conn, response, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
@@ -91,7 +91,7 @@ func TestWebSocketReconnectRestoresSequencePrivateStateAndResync(t *testing.T) {
 	url := "ws" + httpServer.URL[len("http"):]
 
 	connect := func(player string) *websocket.Conn {
-		conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?token="+testToken(player, cfg.JWTSecret), nil)
+		conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?token="+testAdmissionToken(player, table.ID, 0, "player", cfg.JWTSecret, time.Now().Add(time.Minute).Unix()), nil)
 		if err != nil {
 			t.Fatalf("dial %s failed: %v", player, err)
 		}
@@ -196,7 +196,7 @@ func TestFoldPublishesSignedLossResult(t *testing.T) {
 	server := NewServer(cfg, manager)
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
-	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testToken("player-fold", cfg.JWTSecret)
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testAdmissionToken("player-fold", table.ID, 0, "player", cfg.JWTSecret, time.Now().Add(time.Minute).Unix())
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
@@ -349,7 +349,7 @@ func TestSpectatorReceivesStateButCannotAct(t *testing.T) {
 	server := NewServer(cfg, manager)
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
-	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testToken("spectator-1", cfg.JWTSecret)
+	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + testAdmissionToken("spectator-1", table.ID, -1, "spectator", cfg.JWTSecret, time.Now().Add(time.Minute).Unix())
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
@@ -402,7 +402,7 @@ func TestWebSocketRejectsArbitraryRoomProvisionWithoutAdmissionTicket(t *testing
 	if err := conn.ReadJSON(&msg); err != nil {
 		t.Fatal(err)
 	}
-	if msg.Type != MsgError || msg.Payload != "unauthorized table creation requires admission ticket" {
+	if msg.Type != MsgError || msg.Payload != "a signed admission ticket is required" {
 		t.Fatalf("expected unauthorized table creation error, got: %+v", msg)
 	}
 }
@@ -478,7 +478,7 @@ func TestRamiKnockSettlementAndHMAC(t *testing.T) {
 	url := "ws" + httpServer.URL[len("http"):]
 
 	connect := func(player string) *websocket.Conn {
-		conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?token="+testToken(player, cfg.JWTSecret), nil)
+		conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?token="+testAdmissionToken(player, table.ID, 0, "player", cfg.JWTSecret, time.Now().Add(time.Minute).Unix()), nil)
 		if err != nil {
 			t.Fatalf("dial %s failed: %v", player, err)
 		}
@@ -573,7 +573,7 @@ func TestBeloteGameOverBroadcastToAllPlayers(t *testing.T) {
 	url := "ws" + httpServer.URL[len("http"):]
 
 	connect := func(player string) *websocket.Conn {
-		conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?token="+testToken(player, cfg.JWTSecret), nil)
+		conn, _, err := websocket.DefaultDialer.Dial(url+"/ws?token="+testAdmissionToken(player, table.ID, 0, "player", cfg.JWTSecret, time.Now().Add(time.Minute).Unix()), nil)
 		if err != nil {
 			t.Fatalf("dial %s failed: %v", player, err)
 		}
@@ -657,12 +657,16 @@ func TestAuthenticateSupportsFloatAndIntegerExpTimestamps(t *testing.T) {
 }
 
 func TestNotifyS2SSettlementTransmitsPayloadWithSecret(t *testing.T) {
-	receivedHeader := ""
-	var receivedBody map[string]interface{}
+	type receipt struct {
+		header string
+		body   map[string]interface{}
+	}
+	received := make(chan receipt, 1)
 	s2sServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/games/internal/settle-round/" {
-			receivedHeader = r.Header.Get("X-Game-Engine-Secret")
-			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			received <- receipt{r.Header.Get("X-Game-Engine-Secret"), body}
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"status":"ok"}`))
 			return
@@ -688,8 +692,13 @@ func TestNotifyS2SSettlementTransmitsPayloadWithSecret(t *testing.T) {
 
 	server.notifyS2SSettlement("table-s2s-1", "poker", results)
 
-	time.Sleep(100 * time.Millisecond)
-
+	var item receipt
+	select {
+	case item = <-received:
+	case <-time.After(time.Second):
+		t.Fatal("settlement was not delivered")
+	}
+	receivedHeader, receivedBody := item.header, item.body
 	if receivedHeader != "s2s-test-secret" {
 		t.Fatalf("expected X-Game-Engine-Secret s2s-test-secret, got %q", receivedHeader)
 	}
@@ -719,7 +728,7 @@ func TestBuyInAndTopUpAction(t *testing.T) {
 	httpServer := httptest.NewServer(serverHandler(server))
 	defer httpServer.Close()
 
-	token := testAdmissionTokenWithBuyIn("player-high-roller", table.ID, 0, "player", cfg.JWTSecret, time.Now().Add(time.Minute).Unix(), 50000)
+	token := testAdmissionTokenWithBuyIn("player-high-roller", table.ID, 0, "player", cfg.JWTSecret, time.Now().Add(time.Minute).Unix(), 0)
 	url := "ws" + httpServer.URL[len("http"):] + "/ws?token=" + token
 	conn, resp, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
@@ -749,8 +758,8 @@ func TestBuyInAndTopUpAction(t *testing.T) {
 	if p == nil {
 		t.Fatal("player not found in table")
 	}
-	if p.Stack != 50000 {
-		t.Fatalf("expected stack 50000, got: %d", p.Stack)
+	if p.Stack != 10000 {
+		t.Fatalf("expected stack 10000, got: %d", p.Stack)
 	}
 
 	// Send top_up action
@@ -762,12 +771,12 @@ func TestBuyInAndTopUpAction(t *testing.T) {
 	if err := conn.ReadJSON(&topUpAck); err != nil {
 		t.Fatal(err)
 	}
-	if topUpAck.Type != MsgAction || topUpAck.Action != "top_up_reserved" {
+	if topUpAck.Type != MsgError {
 		t.Fatalf("expected top_up_reserved ack, got: %+v", topUpAck)
 	}
 
 	pAfter := tbl.CopyPlayers()["player-high-roller"]
-	if pAfter.PendingTopUp != 25000 {
+	if pAfter.PendingTopUp != 0 {
 		t.Fatalf("expected pending top up 25000, got: %d", pAfter.PendingTopUp)
 	}
 }

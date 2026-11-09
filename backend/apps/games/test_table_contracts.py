@@ -18,7 +18,7 @@ class TableContractTests(TestCase):
         for args in [
             ("belote", 2, 30, {}, 0),
             ("ludo", 4, 30, {"fast_exit": True}, 0),
-            ("poker", 6, 30, {}, 100),
+            ("poker", 6, 30, {}, -1),
             ("rami", 4, 1, {}, 0),
         ]:
             with self.assertRaises(ValueError):

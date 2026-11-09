@@ -52,6 +52,8 @@ class GameTable(models.Model):
         on_delete=models.SET_NULL,
         related_name="created_tables",
     )
+    finance_revision = models.PositiveBigIntegerField(default=0)
+    finance_hash = models.CharField(max_length=64, blank=True)
     creation_key = models.CharField(max_length=64, null=True, blank=True)
     creation_payload_hash = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -115,6 +117,8 @@ class TableBankroll(models.Model):
         related_name="table_bankrolls",
     )
     currency_code = models.CharField(max_length=3, default="MGA")
+    finance_version = models.PositiveSmallIntegerField(default=0)
+    held_amount = models.PositiveBigIntegerField(default=0)
     reserved_amount = models.PositiveBigIntegerField(default=0)
     current_stack = models.PositiveBigIntegerField(default=0)
     pending_top_up = models.PositiveBigIntegerField(default=0)
@@ -133,7 +137,9 @@ class TableBankroll(models.Model):
         db_table = "table_bankrolls"
         constraints = [
             models.UniqueConstraint(
-                fields=["table", "user"], name="unique_table_user_bankroll"
+                fields=["table", "user"],
+                condition=models.Q(status__in=["reserved", "active"]),
+                name="unique_live_table_bankroll",
             )
         ]
 
@@ -631,4 +637,26 @@ class HumanGameActivity(models.Model):
             models.Index(
                 fields=["game_type", "last_seen_at"], name="human_game_activity_window"
             )
+        ]
+
+
+class TableFundingOperation(models.Model):
+    """Durable MGA command; only an authenticated engine may acknowledge it."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    table = models.ForeignKey(GameTable, on_delete=models.PROTECT)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    bankroll = models.ForeignKey(TableBankroll, on_delete=models.PROTECT)
+    key = models.CharField(max_length=80)
+    kind = models.CharField(max_length=12)  # entry, top_up, leave
+    amount = models.PositiveBigIntegerField(default=0)
+    status = models.CharField(max_length=12, default="reserved")
+    transaction = models.ForeignKey(
+        "wallet.WalletTransaction", null=True, on_delete=models.PROTECT
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "key"], name="unique_funding_key")
         ]

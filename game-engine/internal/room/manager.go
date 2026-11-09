@@ -35,6 +35,7 @@ func safeRandIntn(n int) int {
 
 // Table represents a game table (Poker, Belote, Rami)
 type Table struct {
+	Finance        *FinanceState  `json:"finance,omitempty"`
 	Settings       *TableSettings `json:"settings,omitempty"`
 	TurnDuration   int            `json:"turn_duration,omitempty"`
 	ID             string
@@ -97,6 +98,7 @@ type Event struct {
 }
 
 type TableSnapshot struct {
+	Finance           *FinanceState      `json:"finance,omitempty"`
 	Closed            bool               `json:"closed,omitempty"`
 	Settings          *TableSettings     `json:"settings,omitempty"`
 	TurnDuration      int                `json:"turn_duration,omitempty"`
@@ -118,6 +120,7 @@ type TableSnapshot struct {
 }
 
 type Player struct {
+	Leaving      bool      `json:"leaving,omitempty"`
 	ID           string    `json:"id"`
 	Name         string    `json:"name"`
 	Stack        int64     `json:"stack"`
@@ -290,6 +293,14 @@ func (m *Manager) LeavePlayer(tableID, playerID string) bool {
 		table.mu.Unlock()
 		return false
 	}
+	if table.Finance != nil {
+		table.Players[playerID].Leaving = true
+		table.Players[playerID].IsActive = false
+		appendEvent(table, playerID, "leave_requested", nil)
+		table.mu.Unlock()
+		m.FinalizeFinance(tableID)
+		return true
+	}
 	delete(table.Players, playerID)
 	table.UpdatedAt = time.Now()
 	isEmpty := !hasHumanSeat(table) || (table.State != nil && table.GameType != "poker")
@@ -344,6 +355,9 @@ func (m *Manager) joinPlayerWithProfileAndBuyIn(tableID, playerID, name string, 
 		return Event{}, fmt.Errorf("table is closed")
 	}
 	if existing, ok := table.Players[playerID]; ok {
+		if existing.Leaving {
+			return Event{}, fmt.Errorf("departure pending")
+		}
 		existing.IsActive = true
 		existing.JoinedAt = time.Now()
 		return Event{TableID: tableID, PlayerID: playerID, Action: "reconnected", Sequence: table.Sequence}, nil
@@ -547,7 +561,13 @@ func (m *Manager) TimedOutAction(tableID string) (BotTurn, bool) {
 	}
 	table.mu.RLock()
 	defer table.mu.RUnlock()
-	if table.ActionDeadline.IsZero() || time.Now().Before(table.ActionDeadline) {
+	leaving := false
+	if hand, ok := table.State.(*poker.Hand); ok && hand.Current >= 0 && hand.Current < len(hand.Players) {
+		if p := table.Players[hand.Players[hand.Current].ID]; p != nil {
+			leaving = p.Leaving
+		}
+	}
+	if !leaving && (table.ActionDeadline.IsZero() || time.Now().Before(table.ActionDeadline)) {
 		return BotTurn{}, false
 	}
 	switch game := table.State.(type) {
@@ -559,7 +579,7 @@ func (m *Manager) TimedOutAction(tableID string) (BotTurn, bool) {
 		if player.Folded || player.AllIn {
 			return BotTurn{}, false
 		}
-		if game.HighestBet() == player.Bet {
+		if !leaving && game.HighestBet() == player.Bet {
 			return BotTurn{PlayerID: player.ID, Action: "check", Sequence: table.Sequence}, true
 		}
 		return BotTurn{PlayerID: player.ID, Action: "fold", Sequence: table.Sequence}, true
@@ -1094,21 +1114,7 @@ func (m *Manager) StartTable(tableID string) error {
 }
 
 func (m *Manager) QueueTopUp(tableID, playerID string, amount int64) error {
-	if amount <= 0 {
-		return fmt.Errorf("invalid top up amount")
-	}
-	table, ok := m.GetTable(tableID)
-	if !ok {
-		return fmt.Errorf("table not found")
-	}
-	table.mu.Lock()
-	defer table.mu.Unlock()
-	player, ok := table.Players[playerID]
-	if !ok {
-		return fmt.Errorf("player not in table")
-	}
-	player.PendingTopUp += amount
-	return nil
+	return fmt.Errorf("funding requires a backend-authorized operation")
 }
 
 func (m *Manager) SetPokerDeadline(tableID string, deadline time.Time) bool {
@@ -1593,6 +1599,11 @@ func (m *Manager) DisconnectPlayer(tableID, playerID string) {
 		table.mu.Lock()
 		shouldRemove := false
 		if current, exists := table.Players[playerID]; exists && !current.IsActive && current.JoinedAt.Equal(joinedAt) && time.Now().After(deadline) {
+			if table.Finance != nil {
+				table.mu.Unlock()
+				m.LeavePlayer(tableID, playerID)
+				return
+			}
 			delete(table.Players, playerID)
 			table.UpdatedAt = time.Now()
 			if !hasHumanSeat(table) || (table.State != nil && table.GameType != "poker") {
@@ -1858,9 +1869,13 @@ func (m *Manager) Snapshot(tableID string) (TableSnapshot, error) {
 	}
 	events := append([]Event(nil), table.Events...)
 	state, _ := json.Marshal(table.State)
+	financeBody, _ := json.Marshal(table.Finance)
+	var finance *FinanceState
+	_ = json.Unmarshal(financeBody, &finance)
 	return TableSnapshot{
-		Closed: !table.IsActive,
-		ID:     table.ID, GameType: table.GameType, Sequence: table.Sequence,
+		Finance: finance,
+		Closed:  !table.IsActive,
+		ID:      table.ID, GameType: table.GameType, Sequence: table.Sequence,
 		Players: players, Events: events, UpdatedAt: table.UpdatedAt, State: state,
 		Settings: table.Settings, ActionDeadline: table.ActionDeadline, TurnDuration: table.TurnDuration,
 		PokerLevel: table.PokerLevel, PokerHandsPlayed: table.PokerHandsPlayed,
@@ -1888,7 +1903,8 @@ func (m *Manager) RestoreSnapshot(snapshot TableSnapshot) (*Table, error) {
 		players[id] = &copy
 	}
 	table := &Table{
-		ID: snapshot.ID, GameType: snapshot.GameType, Players: players,
+		Finance: snapshot.Finance,
+		ID:      snapshot.ID, GameType: snapshot.GameType, Players: players,
 		CreatedAt: time.Now(), UpdatedAt: snapshot.UpdatedAt, IsActive: true,
 		GracePeriod: m.config.GracePeriod, Deterministic: m.config.Deterministic,
 		Blinds: m.config.Blinds, Sequence: snapshot.Sequence,
@@ -1986,9 +2002,24 @@ func startNextPokerHand(table *Table) error {
 	for _, player := range hand.Players {
 		stacks[player.ID] = player.Stack + payouts[player.ID]
 	}
+	if table.Finance != nil {
+		ready := 0
+		for _, p := range table.Players {
+			stack := p.Stack
+			if value, exists := stacks[p.ID]; exists && financeUsesHand(table, p.ID) {
+				stack = value
+			}
+			if stack+p.PendingTopUp > 0 {
+				ready++
+			}
+		}
+		if ready < 2 {
+			return fmt.Errorf("waiting for funded players")
+		}
+	}
 	seats := make([]*Player, 0, len(table.Players))
 	for _, player := range table.Players {
-		if stack, exists := stacks[player.ID]; exists {
+		if stack, exists := stacks[player.ID]; exists && financeUsesHand(table, player.ID) {
 			player.Stack = stack
 		}
 		if player.PendingTopUp > 0 {
@@ -2008,6 +2039,9 @@ func startNextPokerHand(table *Table) error {
 		}
 	}
 	if len(seats) < 2 {
+		if table.Finance != nil {
+			return fmt.Errorf("waiting for funded players")
+		}
 		hand.SessionFinished = true
 		table.IsActive = false
 		return nil

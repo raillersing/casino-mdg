@@ -531,8 +531,9 @@ class TableApiTests(TestCase):
         stale_table.refresh_from_db()
         self.assertEqual(stale_table.status, "open")
 
-    def test_stale_waiting_tables_and_demo_tables_are_excluded_from_lobby(self):
+    def test_reconciler_expires_stale_tables_without_hiding_connected_tables(self):
         from datetime import timedelta
+
         from django.utils import timezone
 
         # 1. Demo table with demo code is excluded
@@ -560,11 +561,24 @@ class TableApiTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         result_ids = [t["id"] for t in resp.data["results"]]
         self.assertNotIn(str(demo.pk), result_ids)
-        self.assertNotIn(str(stale_waiting.pk), result_ids)
+        self.assertIn(str(stale_waiting.pk), result_ids)
+        from unittest.mock import patch
+
+        from .lifecycle import reconcile_tables
+
+        with patch(
+            "apps.games.lifecycle.engine_activity_snapshot",
+            return_value={"tables": {}, "uptime_seconds": 300},
+        ):
+            reconcile_tables()
+        response = self.client.get("/api/v1/games/tables/")
+        self.assertNotIn(
+            str(stale_waiting.pk), [t["id"] for t in response.data["results"]]
+        )
 
     def test_table_creation_returns_admission_token_and_reserves_mga_funds(self):
-        from apps.wallet.models import LedgerAccount
         from apps.games.models import TableBankroll
+        from apps.wallet.models import LedgerAccount
 
         # Set up player MGA account with 75,000 Ar
         mga_acc, _ = LedgerAccount.objects.get_or_create(
@@ -604,8 +618,9 @@ class TableApiTests(TestCase):
         ).first()
         self.assertIsNotNone(bankroll)
         self.assertEqual(bankroll.reserved_amount, 50000)
-        self.assertEqual(bankroll.current_stack, 50000)
-        self.assertEqual(bankroll.status, "active")
+        self.assertEqual(bankroll.current_stack, 0)
+        self.assertEqual(bankroll.held_amount, 50000)
+        self.assertEqual(bankroll.status, "reserved")
 
     def test_poker_buy_in_below_minimum_or_exceeding_balance_is_rejected(self):
         from apps.wallet.models import LedgerAccount
@@ -644,8 +659,8 @@ class TableApiTests(TestCase):
         self.assertIn("Solde Ariary insuffisant", resp_high.data["detail"])
 
     def test_poker_top_up_endpoint_reserves_mga_and_updates_pending_top_up(self):
-        from apps.wallet.models import LedgerAccount
         from apps.games.models import TableBankroll
+        from apps.wallet.models import LedgerAccount
 
         mga_acc, _ = LedgerAccount.objects.get_or_create(
             user=self.user, account_type="player", currency_code="MGA"
@@ -672,7 +687,7 @@ class TableApiTests(TestCase):
         # Top up with 15,000 Ar
         topup_resp = self.client.post(
             f"/api/v1/games/tables/{table.pk}/top-up/",
-            {"amount": 15000},
+            {"amount": 15000, "idempotency_key": "test-top-up"},
             format="json",
         )
         self.assertEqual(topup_resp.status_code, 200)
@@ -715,7 +730,7 @@ class TableApiTests(TestCase):
         leave_resp = self.client.post(f"/api/v1/games/tables/{table.pk}/leave/")
         self.assertEqual(leave_resp.status_code, 200)
 
-        # Funds are refunded
+        # This seat never reached an engine; cancellation returns the reservation.
         mga_acc.refresh_from_db()
         self.assertEqual(mga_acc.balance, 50000)
         self.assertEqual(mga_acc.held_balance, 0)
