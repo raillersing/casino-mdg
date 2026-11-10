@@ -349,16 +349,24 @@ export function CreateTableModal({
             if (!config || busy) return;
             setBusy(true);
             setError("");
-            if (game === "poker" && stakeAmount > 0) {
-              if (buyIn < stakeAmount) {
+            if (stakeAmount > 0) {
+              if (game === "poker") {
+                if (buyIn < stakeAmount) {
+                  setError(
+                    `Le tapis d'entrée doit être au moins égal au minimum (${(stakeAmount || 5000).toLocaleString()} Ar).`,
+                  );
+                  setBusy(false);
+                  return;
+                }
+                if (buyIn > availableBalance) {
+                  setError("Le tapis choisi dépasse votre solde disponible.");
+                  setBusy(false);
+                  return;
+                }
+              } else if (availableBalance < stakeAmount) {
                 setError(
-                  `Le tapis d'entrée doit être au moins égal au minimum (${(stakeAmount || 5000).toLocaleString()} Ar).`,
+                  `Votre solde disponible (${availableBalance.toLocaleString()} Ar) est insuffisant pour la mise de ${stakeAmount.toLocaleString()} Ar.`,
                 );
-                setBusy(false);
-                return;
-              }
-              if (buyIn > availableBalance) {
-                setError("Le tapis choisi dépasse votre solde disponible.");
                 setBusy(false);
                 return;
               }
@@ -373,7 +381,7 @@ export function CreateTableModal({
                 max_players: players,
                 is_private: privateRoom,
                 stake_amount: stakeAmount,
-                buy_in: game === "poker" && stakeAmount > 0 ? buyIn : 0,
+                buy_in: game === "poker" && stakeAmount > 0 ? buyIn : (stakeAmount > 0 ? stakeAmount : 0),
                 turn_duration: duration,
                 rules_config: rules,
               });
@@ -668,10 +676,15 @@ export function CreateTableModal({
                     <div className="create-option-label-wrap">
                       <Coins size={16} />
                       <span>
-                        {tr(
-                          "Minimum de participation (Ar)",
-                          "Fandraisana anjara kely indrindra (Ar)",
-                        )}
+                        {game === "poker"
+                          ? tr(
+                              "Tapis minimum de table (Ar)",
+                              "Tapis kely indrindra (Ar)",
+                            )
+                          : tr(
+                              "Mise fixe par joueur (Ar)",
+                              "Loka isaky ny mpilalao (Ar)",
+                            )}
                       </span>
                     </div>
                     <div className="create-pill-selector">
@@ -718,10 +731,10 @@ export function CreateTableModal({
                       : tr(
                           game === "poker"
                             ? "Tapis réservé en Ariary depuis votre portefeuille."
-                            : "Seuil de solde en Ariary : aucun débit ni mise.",
+                            : "Mise fixe réservée en Ariary depuis votre portefeuille.",
                           game === "poker"
                             ? "Tapis amin’ny Ariary avy amin’ny poketra."
-                            : "Fetra amin’ny solde Ariary ; tsy misy alaina.",
+                            : "Loka amin’ny Ariary avy amin’ny poketra.",
                         )}
                   </p>
 

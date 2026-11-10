@@ -53,7 +53,7 @@ export const JoinPrivateTableModal: React.FC<JoinPrivateTableModalProps> = ({
       const response = await joinTableByCode(
         accessToken,
         cleanCode,
-        preview ? buyIn : undefined,
+        preview && preview.game_type === "poker" ? buyIn : undefined,
       );
       onJoined(response.table, response.admission_token);
       onClose();

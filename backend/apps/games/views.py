@@ -920,6 +920,12 @@ class TableTopUpView(APIView):
         except GameTable.DoesNotExist:
             return Response({"detail": "Table introuvable."}, status=404)
 
+        if table.game_type != "poker":
+            return Response(
+                {"detail": "Le rechargement de tapis n'est autorisé qu'au Poker."},
+                status=400,
+            )
+
         try:
             amount = request.data.get("amount")
             from .services import top_up_table

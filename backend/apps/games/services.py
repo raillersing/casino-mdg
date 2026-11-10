@@ -135,8 +135,25 @@ def join_table(table, user, buy_in=None):
     effective_buy_in = 0
     wallet = account(user.pk)
     if table.game_type != "poker":
-        if wallet.balance < min_part:
-            raise ValueError("Solde Ariary inférieur au minimum d'accès ; aucun débit.")
+        if buy_in is not None and int(buy_in) != min_part:
+            raise ValueError(
+                f"Pour {table.game_type.capitalize()}, la mise de participation est fixe et ne peut pas être augmentée ({min_part} Ar)."
+            )
+        effective_buy_in = min_part
+        if min_part > 0:
+            if wallet.balance < min_part:
+                raise ValueError("Solde Ariary inférieur au minimum d'accès ; aucun débit.")
+            bankroll = TableBankroll.objects.create(
+                table=table,
+                user=user,
+                currency_code="MGA",
+                finance_version=1,
+                status="reserved",
+                current_stack=0,
+            )
+            reserve(
+                table, user, bankroll, effective_buy_in, f"entry:{bankroll.pk}", "entry"
+            )
     elif min_part:
         effective_buy_in = money(buy_in if buy_in is not None else min_part)
         if effective_buy_in < min_part:

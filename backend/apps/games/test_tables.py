@@ -734,3 +734,53 @@ class TableApiTests(TestCase):
         mga_acc.refresh_from_db()
         self.assertEqual(mga_acc.balance, 50000)
         self.assertEqual(mga_acc.held_balance, 0)
+
+    def test_non_poker_games_have_fixed_participation_fee_and_reject_increased_buy_in(self):
+        from apps.wallet.models import LedgerAccount
+
+        mga_acc, _ = LedgerAccount.objects.get_or_create(
+            user=self.user, account_type="player", currency_code="MGA"
+        )
+        mga_acc.balance = 50000
+        mga_acc.held_balance = 0
+        mga_acc.save()
+
+        self.client.force_authenticate(self.user)
+        table = GameTable.objects.create(
+            table_code="ludo-fixed-stake",
+            name="Table Ludo 2k",
+            game_type="ludo",
+            stake_amount=2000,
+            max_players=4,
+        )
+
+        # Trying to buy-in with 10,000 Ar on Ludo is rejected
+        resp_high = self.client.post(
+            f"/api/v1/games/tables/{table.pk}/join/",
+            {"buy_in": 10000},
+            format="json",
+        )
+        self.assertEqual(resp_high.status_code, 409)
+        self.assertIn("la mise de participation est fixe", resp_high.data["detail"])
+
+        # Top-up is also strictly rejected for non-poker games
+        topup_resp = self.client.post(
+            f"/api/v1/games/tables/{table.pk}/top-up/",
+            {"amount": 5000, "idempotency_key": "top-up-ludo"},
+            format="json",
+        )
+        self.assertEqual(topup_resp.status_code, 400)
+        self.assertIn("Le rechargement de tapis n'est autorisé qu'au Poker", topup_resp.data["detail"])
+
+        # Joining with the exact stake (or without specifying custom buy_in) succeeds and reserves 2,000 Ar
+        join_ok = self.client.post(
+            f"/api/v1/games/tables/{table.pk}/join/",
+            format="json",
+        )
+        self.assertEqual(join_ok.status_code, 201)
+        self.assertEqual(join_ok.data["buy_in"], 2000)
+
+        mga_acc.refresh_from_db()
+        self.assertEqual(mga_acc.balance, 48000)
+        self.assertEqual(mga_acc.held_balance, 2000)
+
