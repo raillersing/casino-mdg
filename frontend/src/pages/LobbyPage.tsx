@@ -129,6 +129,10 @@ export function LobbyPage() {
   const queryFilter = searchParams.get("filter");
 
   const [filter, setFilter] = useState(urlGameType || queryFilter || "all");
+  const isGameLobby = Boolean(
+    urlGameType && ["belote", "domino", "ludo", "rami", "poker"].includes(urlGameType),
+  );
+  const selectedGameMeta = isGameLobby && urlGameType ? GAME_SUITS[urlGameType] : null;
   const [stakeFilter, setStakeFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [tables, setTables] = useState<GameTable[]>([]);
@@ -680,98 +684,259 @@ export function LobbyPage() {
   return (
     <div className={`lobby-claude-shell ${urlGameType ? "is-game-lobby" : ""}`}>
       {/* 1. Header with Live Status & Action Buttons */}
-      <div className="lobby-claude-head">
-        <div className="lobby-claude-head-copy">
-          <Link
-            to="/games"
-            className="button button-ghost button-small"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              marginBottom: "8px",
-              color: "var(--text-secondary, #adb9c4)",
-              textDecoration: "none",
-              padding: "4px 8px",
-            }}
-          >
-            <ArrowLeft size={15} /> {t("discovery.allGames") || "Tous les jeux"}
-          </Link>
+      {isGameLobby && selectedGameMeta ? (
+        <div className="game-dedicated-header">
           <div
             style={{
-              display: "inline-flex",
+              display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              gap: "8px",
-              marginBottom: "4px",
+              marginBottom: "12px",
             }}
           >
-            <span className="home-eyebrow">
-              <Compass size={13} /> Multijoueur
-            </span>
-            <span className="lobby-live-badge">
-              <i />
-              <span>
-                {matchStatus.human_online > 0
-                  ? `${matchStatus.human_online} Joueurs connectés`
-                  : "Tables de jeu"}
-              </span>
+            <Link
+              to="/games"
+              className="button button-ghost button-small"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                color: "var(--text-secondary, #adb9c4)",
+                textDecoration: "none",
+                padding: "6px 10px",
+              }}
+            >
+              <ArrowLeft size={16} /> {t("discovery.allGames") || "Tous les jeux"}
+            </Link>
+
+            <span
+              style={{
+                fontSize: "13px",
+                color: "var(--gold)",
+                fontWeight: 600,
+                background: "rgba(211, 176, 107, 0.1)",
+                padding: "4px 12px",
+                borderRadius: "20px",
+                border: "1px solid rgba(211, 176, 107, 0.25)",
+              }}
+            >
+              Disponible :{" "}
+              {typeof user?.mgaBalance === "number"
+                ? `${user.mgaBalance.toLocaleString()} Ar`
+                : "0 Ar"}
             </span>
           </div>
-          <h1>{t("discovery.lobbyTitle")}</h1>
-          <p>
-            Choisissez un jeu et une table disponible pour rejoindre une partie.
-          </p>
-        </div>
 
-        <div className="lobby-claude-head-actions">
-          <button
-            type="button"
-            className="button button-secondary button-small"
-            onClick={refreshData}
-            title="Rafraîchir les tables"
-          >
-            <RotateCw size={14} className={loading ? "spin" : ""} /> Actualiser
-          </button>
-          <button
-            type="button"
-            className="button button-small"
+          <div
             style={{
-              background:
-                "linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))",
-              border: "1px solid rgba(168, 85, 247, 0.5)",
-              color: "#c084fc",
-              fontWeight: 600,
-            }}
-            onClick={() => {
-              if (!accessToken) navigate("/auth?next=/lobby");
-              else setShowJoinPrivate(true);
+              display: "flex",
+              alignItems: "center",
+              gap: "14px",
+              margin: "14px 0 10px",
             }}
           >
-            <Lock size={14} /> Rejoindre par Code
-          </button>
-          <button
-            type="button"
-            className="button button-gold button-small"
-            onClick={() => {
-              if (!accessToken) navigate("/auth?next=/lobby");
-              else {
-                setCreateTableGame(
-                  ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
-                    ? (filter as
-                        "belote" | "domino" | "ludo" | "rami" | "poker")
-                    : "belote",
-                );
-                setShowCreateTable(true);
-              }
-            }}
-          >
-            <Plus size={15} /> Créer une table
-          </button>
-        </div>
-      </div>
+            <div
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "14px",
+                background: `${selectedGameMeta.color}22`,
+                border: `1.5px solid ${selectedGameMeta.color}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "26px",
+                color: selectedGameMeta.color,
+                flexShrink: 0,
+              }}
+            >
+              {selectedGameMeta.icon}
+            </div>
+            <div>
+              <span
+                className="home-eyebrow"
+                style={{ color: selectedGameMeta.color }}
+              >
+                1 · Tables du jeu choisi
+              </span>
+              <h1
+                style={{
+                  margin: "2px 0 0",
+                  fontSize: "22px",
+                  fontWeight: 800,
+                }}
+              >
+                {selectedGameMeta.label}
+              </h1>
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontSize: "13px",
+                  color: "var(--muted)",
+                }}
+              >
+                {(liveStats?.games?.[urlGameType!]?.online_players ??
+                  matchStatus.human_online) ||
+                  0}{" "}
+                en ligne · {shown.length} table(s) ouverte(s)
+              </p>
+            </div>
+          </div>
 
-      {/* Mobile Segmented View Switcher */}
-      <div className="mobile-lobby-tabs lobby-view-tabs">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "10px",
+              margin: "16px 0 20px",
+            }}
+          >
+            <button
+              type="button"
+              className="button button-secondary"
+              style={{
+                justifyContent: "center",
+                fontWeight: 600,
+                minHeight: "44px",
+                gap: "8px",
+              }}
+              onClick={() => {
+                if (!accessToken) navigate(`/auth?next=/lobby/${urlGameType}`);
+                else setShowJoinPrivate(true);
+              }}
+            >
+              <Lock size={15} /> Code privé
+            </button>
+
+            <button
+              type="button"
+              className="button button-gold"
+              style={{
+                justifyContent: "center",
+                fontWeight: 700,
+                minHeight: "44px",
+                gap: "8px",
+              }}
+              onClick={() => {
+                if (!accessToken) navigate(`/auth?next=/lobby/${urlGameType}`);
+                else {
+                  setCreateTableGame(
+                    urlGameType as
+                      | "belote"
+                      | "domino"
+                      | "ludo"
+                      | "rami"
+                      | "poker",
+                  );
+                  setShowCreateTable(true);
+                }
+              }}
+            >
+              <Plus size={16} /> Créer une table
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="lobby-claude-head">
+          <div className="lobby-claude-head-copy">
+            <Link
+              to="/games"
+              className="button button-ghost button-small"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                marginBottom: "8px",
+                color: "var(--text-secondary, #adb9c4)",
+                textDecoration: "none",
+                padding: "4px 8px",
+              }}
+            >
+              <ArrowLeft size={15} /> {t("discovery.allGames") || "Tous les jeux"}
+            </Link>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "4px",
+              }}
+            >
+              <span className="home-eyebrow">
+                <Compass size={13} /> Multijoueur
+              </span>
+              <span className="lobby-live-badge">
+                <i />
+                <span>
+                  {matchStatus.human_online > 0
+                    ? `${matchStatus.human_online} Joueurs connectés`
+                    : "Tables de jeu"}
+                </span>
+              </span>
+            </div>
+            <h1>{t("discovery.lobbyTitle")}</h1>
+            <p>
+              Choisissez un jeu et une table disponible pour rejoindre une partie.
+            </p>
+          </div>
+
+          <div className="lobby-claude-head-actions">
+            <button
+              type="button"
+              className="button button-secondary button-small"
+              onClick={refreshData}
+              title="Rafraîchir les tables"
+            >
+              <RotateCw size={14} className={loading ? "spin" : ""} /> Actualiser
+            </button>
+            <button
+              type="button"
+              className="button button-small"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))",
+                border: "1px solid rgba(168, 85, 247, 0.5)",
+                color: "#c084fc",
+                fontWeight: 600,
+              }}
+              onClick={() => {
+                if (!accessToken) navigate("/auth?next=/lobby");
+                else setShowJoinPrivate(true);
+              }}
+            >
+              <Lock size={14} /> Rejoindre par Code
+            </button>
+            <button
+              type="button"
+              className="button button-gold button-small"
+              onClick={() => {
+                if (!accessToken) navigate("/auth?next=/lobby");
+                else {
+                  setCreateTableGame(
+                    ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
+                      ? (filter as
+                          | "belote"
+                          | "domino"
+                          | "ludo"
+                          | "rami"
+                          | "poker")
+                      : "belote",
+                  );
+                  setShowCreateTable(true);
+                }
+              }}
+            >
+              <Plus size={15} /> Créer une table
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* En mode lobby général (sans jeu sélectionné dans l'URL), afficher la navigation par jeu et recherche */}
+      {!isGameLobby && (
+        <>
+          {/* Mobile Segmented View Switcher */}
+          <div className="mobile-lobby-tabs lobby-view-tabs">
         <button
           type="button"
           className={`mobile-lobby-tab ${mobileTab === "tables" ? "active" : ""}`}
@@ -1107,6 +1272,8 @@ export function LobbyPage() {
           </span>
         )}
       </div>
+      </>
+      )}
       {/* 5. Main Content: Tournaments or Regular Table Cards Grid */}
       {filter === "tournaments" ? (
         <div className="tournaments-lobby-section">
@@ -1834,17 +2001,75 @@ export function LobbyPage() {
         </div>
       )}
 
-      {/* Barre de Télémétrie Joueurs Réels & Tables en Cours */}
-      <details className="lobby-activity-details">
-        <summary>Activité des joueurs</summary>
-        <LiveStatsTicker
-          activeGameFilter={filter}
-          onSelectGame={(g) => {
-            setFilter(g);
-            setSearchParams({ filter: g });
-          }}
-        />
-      </details>
+      {/* Actions secondaires et statistiques */}
+      {isGameLobby && selectedGameMeta ? (
+        <div style={{ marginTop: "24px" }}>
+          <button
+            type="button"
+            className="button button-gold button-large"
+            style={{
+              width: "100%",
+              minHeight: "48px",
+              fontWeight: 700,
+              justifyContent: "center",
+              fontSize: "15px",
+            }}
+            onClick={() => {
+              if (!accessToken) navigate(`/auth?next=/lobby/${urlGameType}`);
+              else {
+                setCreateTableGame(
+                  urlGameType as
+                    | "belote"
+                    | "domino"
+                    | "ludo"
+                    | "rami"
+                    | "poker",
+                );
+                setShowCreateTable(true);
+              }
+            }}
+          >
+            <Plus size={18} /> Créer une table de {selectedGameMeta.label.split(" ")[0]}
+          </button>
+
+          <details
+            className="lobby-secondary-details"
+            style={{
+              marginTop: "20px",
+              border: "1px solid var(--border)",
+              borderRadius: "14px",
+              padding: "14px 16px",
+              background: "rgba(21, 29, 37, 0.6)",
+            }}
+          >
+            <summary
+              style={{
+                cursor: "pointer",
+                color: "var(--gold)",
+                fontWeight: 600,
+                fontSize: "14px",
+              }}
+            >
+              Parties en cours et statistiques d'audience
+            </summary>
+            <div style={{ marginTop: "16px" }}>
+              <LiveStatsTicker />
+            </div>
+          </details>
+        </div>
+      ) : (
+        <>
+          {/* Barre de Télémétrie Joueurs Réels & Tables en Cours */}
+          <details className="lobby-activity-details">
+            <summary>Activité des joueurs</summary>
+            <LiveStatsTicker
+              activeGameFilter={filter}
+              onSelectGame={(g) => {
+                setFilter(g);
+                setSearchParams({ filter: g });
+              }}
+            />
+          </details>
 
       {/* Raccourcis de Création de Table par Jeu */}
       {filter !== "tournaments" && (
@@ -1938,6 +2163,8 @@ export function LobbyPage() {
             })}
           </div>
         </details>
+      )}
+      </>
       )}
 
       {/* Modal Riche de Création de Table */}

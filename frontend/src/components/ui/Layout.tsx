@@ -374,15 +374,6 @@ export function Layout({ children }: { children: ReactNode }) {
           </NavLink>
 
           <NavLink
-            to="/clubs"
-            className={({ isActive }) => (isActive ? "active" : "")}
-            onClick={() => haptics.tabChange()}
-          >
-            <UsersRound size={20} />
-            <span>{t("nav.clubs") || "Clubs"}</span>
-          </NavLink>
-
-          <NavLink
             to={user ? "/profile" : "/auth"}
             className={({ isActive }) => (isActive ? "active" : "")}
             onClick={() => haptics.tabChange()}
