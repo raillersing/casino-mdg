@@ -1923,6 +1923,35 @@ export function GamePage() {
 
   useEffect(() => {
     if (!tableId || invitation) return;
+    if (demoAi) {
+      if (demoTableId) {
+        resolvedTableIdRef.current = demoTableId;
+        setResolvedTableId(demoTableId);
+      }
+      if (demoTableId && admissionToken) {
+        return;
+      }
+      if (accessToken && !admissionToken) {
+        const bots = gameType === "poker" ? 8 : gameType === "rami" ? 1 : 3;
+        void startBotSimulation(
+          accessToken,
+          (gameType as "poker" | "belote" | "rami" | "ludo" | "domino") ||
+            "poker",
+          "balanced",
+          `auto-sim-${Date.now()}`,
+          bots,
+        ).then((session) => {
+          if (session?.table_id) {
+            resolvedTableIdRef.current = session.table_id;
+            setResolvedTableId(session.table_id);
+            if (session.admission_token) {
+              setAdmissionToken(session.admission_token);
+            }
+          }
+        });
+      }
+      return;
+    }
     getTables(gameType, accessToken || undefined)
       .then(({ results }) => {
         const match = results.find(
@@ -2058,6 +2087,7 @@ export function GamePage() {
     navigate,
     spectator,
     invitation,
+    admissionToken,
   ]);
 
   useEffect(() => {

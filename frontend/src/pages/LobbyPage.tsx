@@ -615,8 +615,12 @@ export function LobbyPage() {
       };
       const table = await createTable(token, payload);
       haptics.buttonTap();
+      const admissionParam = (table as unknown as { admission_token?: string })
+        .admission_token
+        ? `&admission_token=${(table as unknown as { admission_token?: string }).admission_token}`
+        : "";
       navigate(
-        `/game/${table.game_type}/${table.table_code}?table_id=${table.id}`,
+        `/game/${table.game_type}/${table.table_code}?table_id=${table.id}${admissionParam}`,
       );
     } catch (err: unknown) {
       setError(
