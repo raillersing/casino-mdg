@@ -11,7 +11,7 @@ type ResumableResponse = { results: GameTable[] };
 export function MyPartiesPage() {
   const { i18n } = useTranslation();
   const mg = i18n.language.startsWith("mg");
-  const tr = (fr: string, malagasy: string) => (mg ? malagasy : fr);
+  const tr = useCallback((fr: string, malagasy: string) => (mg ? malagasy : fr), [mg]);
   const token = useGameStore((state) => state.accessToken);
   const [joined, setJoined] = useState<GameTable[]>([]);
   const [verified, setVerified] = useState<GameTable[]>([]);
@@ -59,7 +59,7 @@ export function MyPartiesPage() {
       ));
     }
     setPending(false);
-  }, [token, mg]);
+  }, [token, tr]);
 
   useEffect(() => {
     const controller = new AbortController();
