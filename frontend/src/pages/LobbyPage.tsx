@@ -127,7 +127,8 @@ const QUICK_GAME_SPECS: Record<
 };
 
 export function LobbyPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const mg = i18n.language.startsWith("mg");
   const { gameType: urlGameType } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryFilter = searchParams.get("filter");
@@ -138,6 +139,7 @@ export function LobbyPage() {
   );
   const selectedGameMeta = isGameLobby && urlGameType ? GAME_SUITS[urlGameType] : null;
   const [stakeFilter, setStakeFilter] = useState("all");
+  const [seatFilter, setSeatFilter] = useState<"all" | "available" | "mine">("all");
   const [query, setQuery] = useState("");
   const [tables, setTables] = useState<GameTable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -755,6 +757,9 @@ export function LobbyPage() {
 
     const matchesQuery = table.name.toLowerCase().includes(query.toLowerCase());
     if (!matchesQuery) return false;
+    if (seatFilter === "available" && table.player_count >= table.max_players && !table.joined)
+      return false;
+    if (seatFilter === "mine" && !table.joined) return false;
     if (stakeFilter === "all") return true;
     const minimum = Number(table.stake_amount || 0);
     return stakeFilter === "10000"
@@ -1350,6 +1355,29 @@ export function LobbyPage() {
         )}
       </div>
       </>
+      )}
+      {isGameLobby && (
+        <section className="game-lobby-filters" aria-label={mg ? "Hanivana latabatra" : "Filtrer les tables"}>
+          <label className="game-lobby-search-field">
+            <Search size={17} aria-hidden="true" />
+            <span className="sr-only">{mg ? "Hitady latabatra" : "Rechercher une table"}</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={mg ? "Hitady latabatra..." : "Rechercher une table..."}
+              aria-label={mg ? "Hitady latabatra" : "Rechercher une table"}
+            />
+          </label>
+          <label className="game-lobby-select-field">
+            <span className="sr-only">{mg ? "Toerana" : "Disponibilité"}</span>
+            <select value={seatFilter} onChange={(event) => setSeatFilter(event.target.value as "all" | "available" | "mine")}>
+              <option value="all">{mg ? "Latabatra rehetra" : "Toutes les tables"}</option>
+              <option value="available">{mg ? "Misy toerana" : "Places disponibles"}</option>
+              <option value="mine">{mg ? "Ny latabatro" : "Mes tables"}</option>
+            </select>
+          </label>
+        </section>
       )}
       {isGameLobby && (
         <div className="game-lobby-table-heading">
