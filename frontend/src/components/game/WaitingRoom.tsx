@@ -61,7 +61,9 @@ export function WaitingRoom({
 
   const emoji = GAME_EMOJIS[gameType.toLowerCase()] || "🎮";
   const gameLabel = GAME_NAMES[gameType.toLowerCase()] || gameType;
-  const confirmedConnections = currentPlayers.filter((p) => p.isActive === true).length;
+  const confirmedConnections = currentPlayers.filter(
+    (p) => p.isActive === true,
+  ).length;
   const seatedCount = currentPlayers.length;
   const isPoker = gameType.toLowerCase() === "poker";
   const minRequired = isPoker ? 2 : maxPlayers;
@@ -428,12 +430,17 @@ export function WaitingRoom({
               <span>{copied ? "Copié !" : "Copier"}</span>
             </button>
           </div>
-          {copyError && <p role="alert" style={{ color: "var(--red)", margin: 0 }}>{copyError}</p>}
+          {copyError && (
+            <p role="alert" style={{ color: "var(--red)", margin: 0 }}>
+              {copyError}
+            </p>
+          )}
         </div>
       )}
       {isPrivate && !invitationCode && (
         <p className="playing-v2-notice" role="status">
-          Le code privé n'est pas disponible pour ce compte. Demandez une invitation au créateur.
+          Le code privé n'est pas disponible pour ce compte. Demandez une
+          invitation au créateur.
         </p>
       )}
 

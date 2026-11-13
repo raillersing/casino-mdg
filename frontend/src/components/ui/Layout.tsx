@@ -102,7 +102,9 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!accessToken) return;
     const parts = location.pathname.split("/");
-    const game = ["play", "game", "lobby"].includes(parts[1]) ? parts[2] : undefined;
+    const game = ["play", "game", "lobby"].includes(parts[1])
+      ? parts[2]
+      : undefined;
     const validGame = ["belote", "domino", "ludo", "rami", "poker"].includes(
       game || "",
     )

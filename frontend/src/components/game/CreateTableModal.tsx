@@ -381,7 +381,12 @@ export function CreateTableModal({
                 max_players: players,
                 is_private: privateRoom,
                 stake_amount: stakeAmount,
-                buy_in: game === "poker" && stakeAmount > 0 ? buyIn : (stakeAmount > 0 ? stakeAmount : 0),
+                buy_in:
+                  game === "poker" && stakeAmount > 0
+                    ? buyIn
+                    : stakeAmount > 0
+                      ? stakeAmount
+                      : 0,
                 turn_duration: duration,
                 rules_config: rules,
               });

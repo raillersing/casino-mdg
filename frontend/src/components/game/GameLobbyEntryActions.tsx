@@ -55,25 +55,31 @@ export function GameLobbyEntryActions({
         </p>
       </div>
 
-      {availableSizes && availableSizes.length > 1 && !isSearching && onSizeChange && (
-        <fieldset className="game-lobby-format" aria-label={tr("Format de la partie", "Isan'ny mpilalao")}>
-          <legend>{tr("Nombre de joueurs", "Isan'ny mpilalao")}</legend>
-          <div className="game-lobby-format-options">
-            {availableSizes.map((size) => (
-              <button
-                key={size}
-                type="button"
-                disabled={isCreating}
-                aria-pressed={selectedSize === size}
-                className={selectedSize === size ? "selected" : ""}
-                onClick={() => onSizeChange(size)}
-              >
-                {size} {tr("joueurs", "mpilalao")}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      )}
+      {availableSizes &&
+        availableSizes.length > 1 &&
+        !isSearching &&
+        onSizeChange && (
+          <fieldset
+            className="game-lobby-format"
+            aria-label={tr("Format de la partie", "Isan'ny mpilalao")}
+          >
+            <legend>{tr("Nombre de joueurs", "Isan'ny mpilalao")}</legend>
+            <div className="game-lobby-format-options">
+              {availableSizes.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  disabled={isCreating}
+                  aria-pressed={selectedSize === size}
+                  className={selectedSize === size ? "selected" : ""}
+                  onClick={() => onSizeChange(size)}
+                >
+                  {size} {tr("joueurs", "mpilalao")}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
       {isSearching ? (
         <div className="game-lobby-searching" role="status" aria-live="polite">

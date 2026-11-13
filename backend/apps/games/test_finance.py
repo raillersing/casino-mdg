@@ -59,7 +59,9 @@ class FundingTests(TestCase):
 
     def test_reserve_replay_apply_then_exit_refunds_pending_exactly_once(self):
         b, entry = self.enter()
-        apply_checkpoint(self.table.pk, self.checkpoint(1, [entry], [(b, {"stack": 50000})]))
+        apply_checkpoint(
+            self.table.pk, self.checkpoint(1, [entry], [(b, {"stack": 50000})])
+        )
         _, _, top = reserve_top_up(self.table, self.users[0], 10000, "top-1")
         _, _, retry = reserve_top_up(self.table, self.users[0], 10000, "top-1")
         self.assertEqual(top.pk, retry.pk)

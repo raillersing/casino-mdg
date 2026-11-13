@@ -30,7 +30,9 @@ interface LiveCommandCenterProps {
   onToggleAutoRefresh: () => void;
   onManualRefresh: () => void;
   activeTab: "all" | "finance" | "games" | "app" | "flow" | "ops";
-  onSelectTab: (tab: "all" | "finance" | "games" | "app" | "flow" | "ops") => void;
+  onSelectTab: (
+    tab: "all" | "finance" | "games" | "app" | "flow" | "ops",
+  ) => void;
   selectedPeriod?: "day" | "week" | "month" | "year";
   onChangePeriod?: (period: "day" | "week" | "month" | "year") => void;
 }
@@ -574,10 +576,10 @@ export function LiveCommandCenter({
             (windowDays === 1
               ? "day"
               : windowDays === 30
-              ? "month"
-              : windowDays === 365
-              ? "year"
-              : "week")
+                ? "month"
+                : windowDays === 365
+                  ? "year"
+                  : "week")
           }
           onChangePeriod={(p) => {
             if (onChangePeriod) onChangePeriod(p);

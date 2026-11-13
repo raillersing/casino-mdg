@@ -245,7 +245,10 @@ export function queueMatch(
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ game_type: gameType, ...(targetPlayers ? { target_size: targetPlayers } : {}) }),
+      body: JSON.stringify({
+        game_type: gameType,
+        ...(targetPlayers ? { target_size: targetPlayers } : {}),
+      }),
     },
   );
 }

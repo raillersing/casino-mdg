@@ -54,16 +54,26 @@ const games = [
   },
 ] as const;
 
-
 type CatalogGame = (typeof games)[number];
 
-function CatalogGameCard({ game, actionLabel }: { game: CatalogGame; actionLabel: string }) {
+function CatalogGameCard({
+  game,
+  actionLabel,
+}: {
+  game: CatalogGame;
+  actionLabel: string;
+}) {
   return (
     <>
       <div className="discovery-art" aria-hidden="true">
-        <img src={`/images/games/${game.id}-cover.webp`} alt=""
+        <img
+          src={`/images/games/${game.id}-cover.webp`}
+          alt=""
           loading={game.id === "belote" ? "eager" : "lazy"}
-          decoding="async" width={960} height={640} />
+          decoding="async"
+          width={960}
+          height={640}
+        />
       </div>
       <div className="discovery-card-copy">
         <span className="discovery-players">{game.players}</span>
@@ -94,7 +104,9 @@ export function GamesPage() {
   const [query, setQuery] = useState("");
   const [launchingGame, setLaunchingGame] = useState<string | null>(null);
 
-  const handleSoloPlay = async (gameId: "belote" | "domino" | "ludo" | "rami" | "poker") => {
+  const handleSoloPlay = async (
+    gameId: "belote" | "domino" | "ludo" | "rami" | "poker",
+  ) => {
     setLaunchingGame(gameId);
     try {
       let currentToken = token;
@@ -134,16 +146,28 @@ export function GamesPage() {
     <div className="discovery-page">
       <header className="discovery-heading">
         <span className="eyebrow">MDG GAME CLUB</span>
-        <h1>{isCreating
-          ? mg ? "Hamorona latabatra ho an'ny lalao iza?" : "Pour quel jeu créer une table ?"
-          : isPracticing
-            ? mg ? "Iza no lalao hianaranao?" : "À quel jeu voulez-vous vous entraîner ?"
-            : t("discovery.catalogTitle")}</h1>
-        <p>{isCreating
-          ? mg ? "Misafidiana lalao, dia amboary ny isan'ny mpilalao." : "Choisissez un jeu puis personnalisez votre table."
-          : isPracticing
-            ? mg ? "Misafidiana lalao hianarana miaraka amin'ny milina." : "Choisissez un jeu pour vous entraîner avec des robots identifiés."
-            : t("discovery.intro")}</p>
+        <h1>
+          {isCreating
+            ? mg
+              ? "Hamorona latabatra ho an'ny lalao iza?"
+              : "Pour quel jeu créer une table ?"
+            : isPracticing
+              ? mg
+                ? "Iza no lalao hianaranao?"
+                : "À quel jeu voulez-vous vous entraîner ?"
+              : t("discovery.catalogTitle")}
+        </h1>
+        <p>
+          {isCreating
+            ? mg
+              ? "Misafidiana lalao, dia amboary ny isan'ny mpilalao."
+              : "Choisissez un jeu puis personnalisez votre table."
+            : isPracticing
+              ? mg
+                ? "Misafidiana lalao hianarana miaraka amin'ny milina."
+                : "Choisissez un jeu pour vous entraîner avec des robots identifiés."
+              : t("discovery.intro")}
+        </p>
       </header>
 
       <section aria-labelledby="catalog-title">
@@ -196,19 +220,31 @@ export function GamesPage() {
                   >
                     <CatalogGameCard
                       game={game}
-                      actionLabel={mg ? "Hanomboka fanazaran-tena" : "Lancer l'entraînement"}
+                      actionLabel={
+                        mg
+                          ? "Hanomboka fanazaran-tena"
+                          : "Lancer l'entraînement"
+                      }
                     />
                   </button>
                 ) : (
                   <Link
-                    to={isCreating ? `/lobby/${game.id}?action=create` : `/lobby/${game.id}`}
+                    to={
+                      isCreating
+                        ? `/lobby/${game.id}?action=create`
+                        : `/lobby/${game.id}`
+                    }
                     className={`discovery-card discovery-${game.color}`}
                   >
                     <CatalogGameCard
                       game={game}
-                      actionLabel={isCreating
-                        ? mg ? "Hamorona latabatra" : "Créer une table"
-                        : t("discovery.chooseGame")}
+                      actionLabel={
+                        isCreating
+                          ? mg
+                            ? "Hamorona latabatra"
+                            : "Créer une table"
+                          : t("discovery.chooseGame")
+                      }
                     />
                   </Link>
                 )}
@@ -223,7 +259,11 @@ export function GamesPage() {
                   }}
                 >
                   <Link
-                    to={isCreating ? `/lobby/${game.id}?action=create` : `/lobby/${game.id}`}
+                    to={
+                      isCreating
+                        ? `/lobby/${game.id}?action=create`
+                        : `/lobby/${game.id}`
+                    }
                     className="button button-gold button-small"
                     style={{
                       justifyContent: "center",
@@ -231,7 +271,14 @@ export function GamesPage() {
                       textDecoration: "none",
                     }}
                   >
-                    <Zap size={14} /> {isCreating ? (mg ? "Hamorona latabatra" : "Créer une table") : (mg ? "Hijery latabatra" : "Accéder aux tables")}
+                    <Zap size={14} />{" "}
+                    {isCreating
+                      ? mg
+                        ? "Hamorona latabatra"
+                        : "Créer une table"
+                      : mg
+                        ? "Hijery latabatra"
+                        : "Accéder aux tables"}
                   </Link>
 
                   <button

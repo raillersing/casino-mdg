@@ -144,7 +144,9 @@ export function BackofficePage() {
         getPilotActions(token),
         getBackofficeKYCRequests(token),
         getResponsibleGamingExclusions(token),
-        getLiveDashboard(token, days, period || selectedPeriod).catch(() => null),
+        getLiveDashboard(token, days, period || selectedPeriod).catch(
+          () => null,
+        ),
       ])
         .then(
           ([
@@ -433,10 +435,10 @@ export function BackofficePage() {
             days === 1
               ? "day"
               : days === 30
-              ? "month"
-              : days === 365
-              ? "year"
-              : "week";
+                ? "month"
+                : days === 365
+                  ? "year"
+                  : "week";
           setSelectedPeriod(p);
           loadAllBackofficeData(days, p);
         }}

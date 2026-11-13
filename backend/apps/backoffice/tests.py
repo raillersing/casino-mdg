@@ -367,4 +367,6 @@ class AuditTests(TestCase):
         for p in ("week", "month", "year"):
             r = client.get(f"/api/v1/backoffice/live-dashboard/?period={p}")
             self.assertEqual(r.status_code, 200)
-            self.assertEqual(r.data["executive_dashboard"]["selected_period"]["period"], p)
+            self.assertEqual(
+                r.data["executive_dashboard"]["selected_period"]["period"], p
+            )

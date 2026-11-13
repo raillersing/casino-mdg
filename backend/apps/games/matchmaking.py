@@ -59,9 +59,7 @@ def queue_player(user, game_type, target_size=None):
 
     # Prefer a compatible public, free table with a recently present human
     # host. A stale seat alone must not count as a waiting player.
-    fresh_users = set(
-        active_presence(game_type).values_list("user_id", flat=True)
-    )
+    fresh_users = set(active_presence(game_type).values_list("user_id", flat=True))
     public_tables = (
         GameTable.objects.filter(
             game_type=game_type,

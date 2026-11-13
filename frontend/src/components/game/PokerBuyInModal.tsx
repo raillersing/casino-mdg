@@ -41,7 +41,9 @@ export function PokerBuyInModal({
 
   const handleConfirm = () => {
     if (buyIn < minRequired) {
-      setError(`Le tapis minimum pour cette table est de ${minRequired.toLocaleString()} Ar.`);
+      setError(
+        `Le tapis minimum pour cette table est de ${minRequired.toLocaleString()} Ar.`,
+      );
       return;
     }
     if (buyIn > availableBalance) {
@@ -203,9 +205,7 @@ export function PokerBuyInModal({
                       ? "1px solid var(--accent-gold, #e1bf79)"
                       : "1px solid var(--border-color, #2a3742)",
                   background:
-                    buyIn === amt
-                      ? "rgba(225, 191, 121, 0.15)"
-                      : "transparent",
+                    buyIn === amt ? "rgba(225, 191, 121, 0.15)" : "transparent",
                   color:
                     buyIn === amt
                       ? "var(--accent-gold, #e1bf79)"
@@ -262,7 +262,8 @@ export function PokerBuyInModal({
                 margin: "4px 0 0 0",
               }}
             >
-              Il restera <strong>{remaining.toLocaleString()} Ar</strong> disponibles hors de cette table.
+              Il restera <strong>{remaining.toLocaleString()} Ar</strong>{" "}
+              disponibles hors de cette table.
             </p>
           </div>
 
@@ -274,7 +275,8 @@ export function PokerBuyInModal({
               lineHeight: 1.4,
             }}
           >
-            La table n'impose pas de maximum. Vous pourrez ajouter des fonds entre deux mains depuis votre solde disponible.
+            La table n'impose pas de maximum. Vous pourrez ajouter des fonds
+            entre deux mains depuis votre solde disponible.
           </p>
 
           {error && (

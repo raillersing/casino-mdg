@@ -1,9 +1,12 @@
 from django.core.management.base import BaseCommand
+
 from apps.accounts.models import User
 
 
 class Command(BaseCommand):
-    help = "Promeut un utilisateur en Administrateur / Staff pour accéder au Back-office."
+    help = (
+        "Promeut un utilisateur en Administrateur / Staff pour accéder au Back-office."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(

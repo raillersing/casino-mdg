@@ -996,9 +996,7 @@ class LiveDashboardView(APIView):
                 ProductEvent.objects.filter(
                     event_name="table_created", game_type=g_k, created_at__gte=since
                 ).count()
-                + GameTable.objects.filter(
-                    game_type=g_k, created_at__gte=since
-                ).count()
+                + GameTable.objects.filter(game_type=g_k, created_at__gte=since).count()
             )
             g_active = tables_qs.filter(
                 game_type=g_k, status__in=["open", "running"]
@@ -1036,9 +1034,7 @@ class LiveDashboardView(APIView):
                     ).aggregate(s=Sum("amount"))["s"]
                     or 0
                 )
-            g_players = len(
-                set(g_res.values_list("user_id", flat=True).distinct())
-            )
+            g_players = len(set(g_res.values_list("user_id", flat=True).distinct()))
 
             by_game_analytics.append(
                 {
@@ -1134,10 +1130,9 @@ class LiveDashboardView(APIView):
             type="bonus", direction="credit", created_at__gte=since
         ).aggregate(vol=Sum("amount"), cnt=Count("id"))
 
-        recent_tx_qs = (
-            WalletTransaction.objects.select_related("user")
-            .order_by("-created_at")[:30]
-        )
+        recent_tx_qs = WalletTransaction.objects.select_related("user").order_by(
+            "-created_at"
+        )[:30]
         recent_transactions = [
             {
                 "id": str(tx.id),
@@ -1160,10 +1155,9 @@ class LiveDashboardView(APIView):
         ]
 
         # Flux des dernières parties jouées
-        recent_gr = (
-            GameResult.objects.select_related("user")
-            .order_by("-created_at")[:25]
-        )
+        recent_gr = GameResult.objects.select_related("user").order_by("-created_at")[
+            :25
+        ]
         recent_games_feed = [
             {
                 "id": str(gr.id),

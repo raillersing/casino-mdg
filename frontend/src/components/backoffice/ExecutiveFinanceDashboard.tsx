@@ -29,7 +29,12 @@ export function ExecutiveFinanceDashboard({
 }: ExecutiveFinanceDashboardProps) {
   const [txFilter, setTxFilter] = useState<string>("all");
   const [activeSubTab, setActiveSubTab] = useState<
-    "overview" | "matrix" | "by_game" | "leaderboard" | "transactions" | "recent_games"
+    | "overview"
+    | "matrix"
+    | "by_game"
+    | "leaderboard"
+    | "transactions"
+    | "recent_games"
   >("overview");
 
   const exec = data.executive_dashboard;
@@ -45,8 +50,14 @@ export function ExecutiveFinanceDashboard({
           color: "var(--muted)",
         }}
       >
-        <AlertTriangle size={32} color="var(--gold)" style={{ margin: "0 auto 12px" }} />
-        <p>Données financières et exécutives non disponibles pour cette période.</p>
+        <AlertTriangle
+          size={32}
+          color="var(--gold)"
+          style={{ margin: "0 auto 12px" }}
+        />
+        <p>
+          Données financières et exécutives non disponibles pour cette période.
+        </p>
       </div>
     );
   }
@@ -66,11 +77,12 @@ export function ExecutiveFinanceDashboard({
     year: "1 An (Annuel)",
   };
 
-  const filteredTransactions = exec.financial_overview.recent_transactions.filter((tx) => {
-    if (txFilter === "all") return true;
-    if (txFilter === "pending") return tx.status === "pending";
-    return tx.type === txFilter;
-  });
+  const filteredTransactions =
+    exec.financial_overview.recent_transactions.filter((tx) => {
+      if (txFilter === "all") return true;
+      if (txFilter === "pending") return tx.status === "pending";
+      return tx.type === txFilter;
+    });
 
   return (
     <section
@@ -117,7 +129,14 @@ export function ExecutiveFinanceDashboard({
             <TrendingUp size={24} />
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                flexWrap: "wrap",
+              }}
+            >
               <h2
                 style={{
                   margin: 0,
@@ -165,14 +184,17 @@ export function ExecutiveFinanceDashboard({
                 color: "var(--muted)",
               }}
             >
-              Statistiques des tables créées, parties jouées, volume des mises, GGR, trésorerie et palmarès des joueurs.
+              Statistiques des tables créées, parties jouées, volume des mises,
+              GGR, trésorerie et palmarès des joueurs.
             </p>
           </div>
         </div>
 
         {/* SÉLECTEUR DE PÉRIODE */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+          <span
+            style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}
+          >
             Période d&apos;analyse :
           </span>
           <div
@@ -202,7 +224,9 @@ export function ExecutiveFinanceDashboard({
                       ? "linear-gradient(135deg, #d3b06b, #b89349)"
                       : "transparent",
                     color: active ? "#0a0d12" : "var(--soft)",
-                    boxShadow: active ? "0 2px 8px rgba(211, 176, 107, 0.4)" : "none",
+                    boxShadow: active
+                      ? "0 2px 8px rgba(211, 176, 107, 0.4)"
+                      : "none",
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -234,8 +258,20 @@ export function ExecutiveFinanceDashboard({
             gap: "10px",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "12px",
+                color: "var(--muted)",
+                fontWeight: 600,
+              }}
+            >
               VOLUME MISÉ ({periodLabels[selectedPeriod]})
             </span>
             <div
@@ -250,7 +286,9 @@ export function ExecutiveFinanceDashboard({
             </div>
           </div>
           <div>
-            <strong style={{ fontSize: "22px", color: "#fff", display: "block" }}>
+            <strong
+              style={{ fontSize: "22px", color: "#fff", display: "block" }}
+            >
               {formatMGA(currentMetrics.total_stakes_mga)}
             </strong>
             <div
@@ -285,11 +323,13 @@ export function ExecutiveFinanceDashboard({
             <span
               style={{
                 fontWeight: 700,
-                color: currentMetrics.ggr_mga >= 0 ? "var(--green)" : "var(--red)",
+                color:
+                  currentMetrics.ggr_mga >= 0 ? "var(--green)" : "var(--red)",
               }}
             >
               {currentMetrics.ggr_mga >= 0 ? "+" : ""}
-              {formatMGA(currentMetrics.ggr_mga)} ({currentMetrics.ggr_margin_pct}%)
+              {formatMGA(currentMetrics.ggr_mga)} (
+              {currentMetrics.ggr_margin_pct}%)
             </span>
           </div>
         </div>
@@ -306,8 +346,20 @@ export function ExecutiveFinanceDashboard({
             gap: "10px",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "12px",
+                color: "var(--muted)",
+                fontWeight: 600,
+              }}
+            >
               TRÉSORERIE & PAIEMENTS
             </span>
             <div
@@ -322,8 +374,16 @@ export function ExecutiveFinanceDashboard({
             </div>
           </div>
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: "11.5px", color: "var(--muted)" }}>Dépôts validés :</span>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+              }}
+            >
+              <span style={{ fontSize: "11.5px", color: "var(--muted)" }}>
+                Dépôts validés :
+              </span>
               <strong style={{ fontSize: "15px", color: "var(--green)" }}>
                 +{formatMGA(currentMetrics.deposits_volume_mga)}
               </strong>
@@ -336,7 +396,9 @@ export function ExecutiveFinanceDashboard({
                 marginTop: "4px",
               }}
             >
-              <span style={{ fontSize: "11.5px", color: "var(--muted)" }}>Retraits réglés :</span>
+              <span style={{ fontSize: "11.5px", color: "var(--muted)" }}>
+                Retraits réglés :
+              </span>
               <strong style={{ fontSize: "15px", color: "var(--soft)" }}>
                 -{formatMGA(currentMetrics.withdrawals_volume_mga)}
               </strong>
@@ -356,7 +418,10 @@ export function ExecutiveFinanceDashboard({
             <span
               style={{
                 fontWeight: 700,
-                color: currentMetrics.net_cash_flow_mga >= 0 ? "var(--green)" : "var(--gold)",
+                color:
+                  currentMetrics.net_cash_flow_mga >= 0
+                    ? "var(--green)"
+                    : "var(--gold)",
               }}
             >
               {currentMetrics.net_cash_flow_mga >= 0 ? "+" : ""}
@@ -379,8 +444,12 @@ export function ExecutiveFinanceDashboard({
             >
               <AlertTriangle size={13} />
               <span>
-                {exec.financial_overview.pending_withdrawals_count} retrait(s) en attente (
-                {formatMGA(exec.financial_overview.pending_withdrawals_volume_mga)})
+                {exec.financial_overview.pending_withdrawals_count} retrait(s)
+                en attente (
+                {formatMGA(
+                  exec.financial_overview.pending_withdrawals_volume_mga,
+                )}
+                )
               </span>
             </div>
           )}
@@ -398,8 +467,20 @@ export function ExecutiveFinanceDashboard({
             gap: "10px",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "12px",
+                color: "var(--muted)",
+                fontWeight: 600,
+              }}
+            >
               ACTIVITÉ DU JEU
             </span>
             <div
@@ -413,12 +494,24 @@ export function ExecutiveFinanceDashboard({
               <Dices size={18} />
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+            }}
+          >
             <div>
               <strong style={{ fontSize: "22px", color: "#fff" }}>
                 {currentMetrics.games_played}
               </strong>
-              <span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "6px" }}>
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                  marginLeft: "6px",
+                }}
+              >
                 parties jouées
               </span>
             </div>
@@ -445,7 +538,9 @@ export function ExecutiveFinanceDashboard({
               fontSize: "11.5px",
             }}
           >
-            <span style={{ color: "var(--muted)" }}>Mise moyenne / partie :</span>
+            <span style={{ color: "var(--muted)" }}>
+              Mise moyenne / partie :
+            </span>
             <span style={{ fontWeight: 700, color: "var(--gold)" }}>
               {formatMGA(currentMetrics.avg_stake_mga)}
             </span>
@@ -464,8 +559,20 @@ export function ExecutiveFinanceDashboard({
             gap: "10px",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "12px",
+                color: "var(--muted)",
+                fontWeight: 600,
+              }}
+            >
               JOUEURS ACTIFS & STARS
             </span>
             <div
@@ -483,7 +590,13 @@ export function ExecutiveFinanceDashboard({
             <strong style={{ fontSize: "22px", color: "#fff" }}>
               {currentMetrics.unique_active_players}
             </strong>
-            <span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "6px" }}>
+            <span
+              style={{
+                fontSize: "12px",
+                color: "var(--muted)",
+                marginLeft: "6px",
+              }}
+            >
               joueurs actifs
             </span>
           </div>
@@ -511,7 +624,8 @@ export function ExecutiveFinanceDashboard({
                 <span style={{ color: "var(--muted)" }}>💎 Top Mises :</span>
                 <span style={{ color: "var(--blue)", fontWeight: 600 }}>
                   {exec.leaderboards.top_bettors[0].display_name} (
-                  {formatMGA(exec.leaderboards.top_bettors[0].total_staked_mga)})
+                  {formatMGA(exec.leaderboards.top_bettors[0].total_staked_mga)}
+                  )
                 </span>
               </div>
             )}
@@ -531,11 +645,27 @@ export function ExecutiveFinanceDashboard({
       >
         {[
           { id: "overview" as const, label: "Vue Période", icon: Layers },
-          { id: "matrix" as const, label: "Comparatif 4 Périodes", icon: TrendingUp },
+          {
+            id: "matrix" as const,
+            label: "Comparatif 4 Périodes",
+            icon: TrendingUp,
+          },
           { id: "by_game" as const, label: "Ventilation par Jeu", icon: Dices },
-          { id: "leaderboard" as const, label: "Palmarès Joueurs 🏆", icon: Trophy },
-          { id: "transactions" as const, label: "Transactions App 💳", icon: Wallet },
-          { id: "recent_games" as const, label: "Dernières Parties 🎯", icon: Clock },
+          {
+            id: "leaderboard" as const,
+            label: "Palmarès Joueurs 🏆",
+            icon: Trophy,
+          },
+          {
+            id: "transactions" as const,
+            label: "Transactions App 💳",
+            icon: Wallet,
+          },
+          {
+            id: "recent_games" as const,
+            label: "Dernières Parties 🎯",
+            icon: Clock,
+          },
         ].map((subTab) => {
           const Icon = subTab.icon;
           const isSelected = activeSubTab === subTab.id;
@@ -573,9 +703,23 @@ export function ExecutiveFinanceDashboard({
       {/* ─── VUE 1 : COMPARATIF DES 4 PÉRIODES (JOURNÉE / SEMAINE / MOIS / ANNÉE) ─── */}
       {(activeSubTab === "overview" || activeSubTab === "matrix") && (
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ margin: 0, fontSize: "15px", color: "var(--gold-light)", fontWeight: 700 }}>
-              📊 Matrice Comparative : Aujourd&apos;hui vs 7 Jours vs 30 Jours vs 1 An
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "15px",
+                color: "var(--gold-light)",
+                fontWeight: 700,
+              }}
+            >
+              📊 Matrice Comparative : Aujourd&apos;hui vs 7 Jours vs 30 Jours
+              vs 1 An
             </h3>
             <span style={{ fontSize: "11.5px", color: "var(--muted)" }}>
               Données consolidées temps réel
@@ -596,105 +740,305 @@ export function ExecutiveFinanceDashboard({
               }}
             >
               <thead>
-                <tr style={{ background: "rgba(10, 14, 20, 0.8)", textAlign: "left" }}>
-                  <th style={{ padding: "12px 14px", color: "var(--gold)" }}>MÉTRIQUE CLÉ</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>JOURNÉE (24H)</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>7 JOURS (HEBDO)</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>30 JOURS (MOIS)</th>
-                  <th style={{ padding: "12px 14px", color: "var(--gold-light)" }}>1 AN (ANNUEL)</th>
+                <tr
+                  style={{
+                    background: "rgba(10, 14, 20, 0.8)",
+                    textAlign: "left",
+                  }}
+                >
+                  <th style={{ padding: "12px 14px", color: "var(--gold)" }}>
+                    MÉTRIQUE CLÉ
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    JOURNÉE (24H)
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    7 JOURS (HEBDO)
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    30 JOURS (MOIS)
+                  </th>
+                  <th
+                    style={{ padding: "12px 14px", color: "var(--gold-light)" }}
+                  >
+                    1 AN (ANNUEL)
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>🪑 Tables créées</td>
-                  <td style={{ padding: "10px 14px" }}>{periods.day.tables_created}</td>
-                  <td style={{ padding: "10px 14px" }}>{periods.week.tables_created}</td>
-                  <td style={{ padding: "10px 14px" }}>{periods.month.tables_created}</td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: "var(--gold)" }}>
+                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                    🪑 Tables créées
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {periods.day.tables_created}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {periods.week.tables_created}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {periods.month.tables_created}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color: "var(--gold)",
+                    }}
+                  >
                     {periods.year.tables_created}
                   </td>
                 </tr>
-                <tr style={{ borderBottom: "1px solid var(--line)", background: "rgba(255, 255, 255, 0.02)" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>🎮 Parties complétées</td>
-                  <td style={{ padding: "10px 14px" }}>{periods.day.games_played}</td>
-                  <td style={{ padding: "10px 14px" }}>{periods.week.games_played}</td>
-                  <td style={{ padding: "10px 14px" }}>{periods.month.games_played}</td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: "var(--gold)" }}>
+                <tr
+                  style={{
+                    borderBottom: "1px solid var(--line)",
+                    background: "rgba(255, 255, 255, 0.02)",
+                  }}
+                >
+                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                    🎮 Parties complétées
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {periods.day.games_played}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {periods.week.games_played}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {periods.month.games_played}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color: "var(--gold)",
+                    }}
+                  >
                     {periods.year.games_played}
                   </td>
                 </tr>
                 <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>💵 Total Mises (Wagers)</td>
-                  <td style={{ padding: "10px 14px" }}>{formatMGA(periods.day.total_stakes_mga)}</td>
-                  <td style={{ padding: "10px 14px" }}>{formatMGA(periods.week.total_stakes_mga)}</td>
-                  <td style={{ padding: "10px 14px" }}>{formatMGA(periods.month.total_stakes_mga)}</td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: "var(--gold)" }}>
+                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                    💵 Total Mises (Wagers)
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {formatMGA(periods.day.total_stakes_mga)}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {formatMGA(periods.week.total_stakes_mga)}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {formatMGA(periods.month.total_stakes_mga)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color: "var(--gold)",
+                    }}
+                  >
                     {formatMGA(periods.year.total_stakes_mga)}
                   </td>
                 </tr>
-                <tr style={{ borderBottom: "1px solid var(--line)", background: "rgba(255, 255, 255, 0.02)" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>🏆 Total Gains Payés</td>
-                  <td style={{ padding: "10px 14px" }}>{formatMGA(periods.day.total_payouts_mga)}</td>
-                  <td style={{ padding: "10px 14px" }}>{formatMGA(periods.week.total_payouts_mga)}</td>
-                  <td style={{ padding: "10px 14px" }}>{formatMGA(periods.month.total_payouts_mga)}</td>
+                <tr
+                  style={{
+                    borderBottom: "1px solid var(--line)",
+                    background: "rgba(255, 255, 255, 0.02)",
+                  }}
+                >
+                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                    🏆 Total Gains Payés
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {formatMGA(periods.day.total_payouts_mga)}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {formatMGA(periods.week.total_payouts_mga)}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {formatMGA(periods.month.total_payouts_mga)}
+                  </td>
                   <td style={{ padding: "10px 14px", fontWeight: 700 }}>
                     {formatMGA(periods.year.total_payouts_mga)}
                   </td>
                 </tr>
                 <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>📈 Marge Brute GGR</td>
-                  <td style={{ padding: "10px 14px", color: periods.day.ggr_mga >= 0 ? "var(--green)" : "var(--gold)" }}>
-                    {formatMGA(periods.day.ggr_mga)} ({periods.day.ggr_margin_pct}%)
+                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                    📈 Marge Brute GGR
                   </td>
-                  <td style={{ padding: "10px 14px", color: periods.week.ggr_mga >= 0 ? "var(--green)" : "var(--gold)" }}>
-                    {formatMGA(periods.week.ggr_mga)} ({periods.week.ggr_margin_pct}%)
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      color:
+                        periods.day.ggr_mga >= 0
+                          ? "var(--green)"
+                          : "var(--gold)",
+                    }}
+                  >
+                    {formatMGA(periods.day.ggr_mga)} (
+                    {periods.day.ggr_margin_pct}%)
                   </td>
-                  <td style={{ padding: "10px 14px", color: periods.month.ggr_mga >= 0 ? "var(--green)" : "var(--gold)" }}>
-                    {formatMGA(periods.month.ggr_mga)} ({periods.month.ggr_margin_pct}%)
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      color:
+                        periods.week.ggr_mga >= 0
+                          ? "var(--green)"
+                          : "var(--gold)",
+                    }}
+                  >
+                    {formatMGA(periods.week.ggr_mga)} (
+                    {periods.week.ggr_margin_pct}%)
                   </td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: periods.year.ggr_mga >= 0 ? "var(--green)" : "var(--gold)" }}>
-                    {formatMGA(periods.year.ggr_mga)} ({periods.year.ggr_margin_pct}%)
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      color:
+                        periods.month.ggr_mga >= 0
+                          ? "var(--green)"
+                          : "var(--gold)",
+                    }}
+                  >
+                    {formatMGA(periods.month.ggr_mga)} (
+                    {periods.month.ggr_margin_pct}%)
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color:
+                        periods.year.ggr_mga >= 0
+                          ? "var(--green)"
+                          : "var(--gold)",
+                    }}
+                  >
+                    {formatMGA(periods.year.ggr_mga)} (
+                    {periods.year.ggr_margin_pct}%)
                   </td>
                 </tr>
-                <tr style={{ borderBottom: "1px solid var(--line)", background: "rgba(255, 255, 255, 0.02)" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>📥 Dépôts Validés</td>
-                  <td style={{ padding: "10px 14px", color: "var(--green)" }}>{formatMGA(periods.day.deposits_volume_mga)}</td>
-                  <td style={{ padding: "10px 14px", color: "var(--green)" }}>{formatMGA(periods.week.deposits_volume_mga)}</td>
-                  <td style={{ padding: "10px 14px", color: "var(--green)" }}>{formatMGA(periods.month.deposits_volume_mga)}</td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: "var(--green)" }}>
+                <tr
+                  style={{
+                    borderBottom: "1px solid var(--line)",
+                    background: "rgba(255, 255, 255, 0.02)",
+                  }}
+                >
+                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                    📥 Dépôts Validés
+                  </td>
+                  <td style={{ padding: "10px 14px", color: "var(--green)" }}>
+                    {formatMGA(periods.day.deposits_volume_mga)}
+                  </td>
+                  <td style={{ padding: "10px 14px", color: "var(--green)" }}>
+                    {formatMGA(periods.week.deposits_volume_mga)}
+                  </td>
+                  <td style={{ padding: "10px 14px", color: "var(--green)" }}>
+                    {formatMGA(periods.month.deposits_volume_mga)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color: "var(--green)",
+                    }}
+                  >
                     {formatMGA(periods.year.deposits_volume_mga)}
                   </td>
                 </tr>
                 <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>📤 Retraits Exécutés</td>
-                  <td style={{ padding: "10px 14px" }}>{formatMGA(periods.day.withdrawals_volume_mga)}</td>
-                  <td style={{ padding: "10px 14px" }}>{formatMGA(periods.week.withdrawals_volume_mga)}</td>
-                  <td style={{ padding: "10px 14px" }}>{formatMGA(periods.month.withdrawals_volume_mga)}</td>
+                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                    📤 Retraits Exécutés
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {formatMGA(periods.day.withdrawals_volume_mga)}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {formatMGA(periods.week.withdrawals_volume_mga)}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {formatMGA(periods.month.withdrawals_volume_mga)}
+                  </td>
                   <td style={{ padding: "10px 14px", fontWeight: 700 }}>
                     {formatMGA(periods.year.withdrawals_volume_mga)}
                   </td>
                 </tr>
-                <tr style={{ borderBottom: "1px solid var(--line)", background: "rgba(255, 255, 255, 0.02)" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>⚖️ Flux Net Trésorerie</td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: periods.day.net_cash_flow_mga >= 0 ? "var(--green)" : "var(--gold)" }}>
+                <tr
+                  style={{
+                    borderBottom: "1px solid var(--line)",
+                    background: "rgba(255, 255, 255, 0.02)",
+                  }}
+                >
+                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                    ⚖️ Flux Net Trésorerie
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color:
+                        periods.day.net_cash_flow_mga >= 0
+                          ? "var(--green)"
+                          : "var(--gold)",
+                    }}
+                  >
                     {formatMGA(periods.day.net_cash_flow_mga)}
                   </td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: periods.week.net_cash_flow_mga >= 0 ? "var(--green)" : "var(--gold)" }}>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color:
+                        periods.week.net_cash_flow_mga >= 0
+                          ? "var(--green)"
+                          : "var(--gold)",
+                    }}
+                  >
                     {formatMGA(periods.week.net_cash_flow_mga)}
                   </td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: periods.month.net_cash_flow_mga >= 0 ? "var(--green)" : "var(--gold)" }}>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color:
+                        periods.month.net_cash_flow_mga >= 0
+                          ? "var(--green)"
+                          : "var(--gold)",
+                    }}
+                  >
                     {formatMGA(periods.month.net_cash_flow_mga)}
                   </td>
-                  <td style={{ padding: "10px 14px", fontWeight: 800, color: periods.year.net_cash_flow_mga >= 0 ? "var(--green)" : "var(--gold)" }}>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 800,
+                      color:
+                        periods.year.net_cash_flow_mga >= 0
+                          ? "var(--green)"
+                          : "var(--gold)",
+                    }}
+                  >
                     {formatMGA(periods.year.net_cash_flow_mga)}
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>👥 Joueurs Actifs Uniques</td>
-                  <td style={{ padding: "10px 14px" }}>{periods.day.unique_active_players}</td>
-                  <td style={{ padding: "10px 14px" }}>{periods.week.unique_active_players}</td>
-                  <td style={{ padding: "10px 14px" }}>{periods.month.unique_active_players}</td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700, color: "var(--gold)" }}>
+                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                    👥 Joueurs Actifs Uniques
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {periods.day.unique_active_players}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {periods.week.unique_active_players}
+                  </td>
+                  <td style={{ padding: "10px 14px" }}>
+                    {periods.month.unique_active_players}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      color: "var(--gold)",
+                    }}
+                  >
                     {periods.year.unique_active_players}
                   </td>
                 </tr>
@@ -707,8 +1051,21 @@ export function ExecutiveFinanceDashboard({
       {/* ─── VUE 2 : VENTILATION PAR JEU ─── */}
       {(activeSubTab === "overview" || activeSubTab === "by_game") && (
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ margin: 0, fontSize: "15px", color: "var(--gold-light)", fontWeight: 700 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "15px",
+                color: "var(--gold-light)",
+                fontWeight: 700,
+              }}
+            >
               🎲 Ventilation par Jeu · {periodLabels[selectedPeriod]}
             </h3>
             <span style={{ fontSize: "11.5px", color: "var(--muted)" }}>
@@ -730,15 +1087,36 @@ export function ExecutiveFinanceDashboard({
               }}
             >
               <thead>
-                <tr style={{ background: "rgba(10, 14, 20, 0.8)", textAlign: "left" }}>
-                  <th style={{ padding: "12px 14px", color: "var(--gold)" }}>JEU</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>TABLES CRÉÉES</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>TABLES EN DIRECT</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>PARTIES JOUÉES</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>MISES TOTALES</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>GAINS PAYÉS</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>MARGE GGR</th>
-                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>JOUEURS</th>
+                <tr
+                  style={{
+                    background: "rgba(10, 14, 20, 0.8)",
+                    textAlign: "left",
+                  }}
+                >
+                  <th style={{ padding: "12px 14px", color: "var(--gold)" }}>
+                    JEU
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    TABLES CRÉÉES
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    TABLES EN DIRECT
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    PARTIES JOUÉES
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    MISES TOTALES
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    GAINS PAYÉS
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    MARGE GGR
+                  </th>
+                  <th style={{ padding: "12px 14px", color: "var(--soft)" }}>
+                    JOUEURS
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -747,7 +1125,13 @@ export function ExecutiveFinanceDashboard({
                     key={g.game_type}
                     style={{ borderBottom: "1px solid var(--line)" }}
                   >
-                    <td style={{ padding: "11px 14px", fontWeight: 700, color: "#fff" }}>
+                    <td
+                      style={{
+                        padding: "11px 14px",
+                        fontWeight: 700,
+                        color: "#fff",
+                      }}
+                    >
                       {g.label}
                     </td>
                     <td style={{ padding: "11px 14px" }}>
@@ -755,8 +1139,14 @@ export function ExecutiveFinanceDashboard({
                         style={{
                           padding: "2px 8px",
                           borderRadius: "4px",
-                          background: g.tables_created > 0 ? "rgba(211, 176, 107, 0.16)" : "transparent",
-                          color: g.tables_created > 0 ? "var(--gold)" : "var(--muted)",
+                          background:
+                            g.tables_created > 0
+                              ? "rgba(211, 176, 107, 0.16)"
+                              : "transparent",
+                          color:
+                            g.tables_created > 0
+                              ? "var(--gold)"
+                              : "var(--muted)",
                           fontWeight: 600,
                         }}
                       >
@@ -768,17 +1158,29 @@ export function ExecutiveFinanceDashboard({
                         style={{
                           padding: "2px 8px",
                           borderRadius: "4px",
-                          background: g.active_tables > 0 ? "rgba(105, 214, 160, 0.16)" : "transparent",
-                          color: g.active_tables > 0 ? "var(--green)" : "var(--muted)",
+                          background:
+                            g.active_tables > 0
+                              ? "rgba(105, 214, 160, 0.16)"
+                              : "transparent",
+                          color:
+                            g.active_tables > 0
+                              ? "var(--green)"
+                              : "var(--muted)",
                           fontWeight: 600,
                         }}
                       >
                         {g.active_tables}
                       </span>
                     </td>
-                    <td style={{ padding: "11px 14px", fontWeight: 600 }}>{g.games_played}</td>
-                    <td style={{ padding: "11px 14px" }}>{formatMGA(g.total_stakes_mga)}</td>
-                    <td style={{ padding: "11px 14px" }}>{formatMGA(g.total_payouts_mga)}</td>
+                    <td style={{ padding: "11px 14px", fontWeight: 600 }}>
+                      {g.games_played}
+                    </td>
+                    <td style={{ padding: "11px 14px" }}>
+                      {formatMGA(g.total_stakes_mga)}
+                    </td>
+                    <td style={{ padding: "11px 14px" }}>
+                      {formatMGA(g.total_payouts_mga)}
+                    </td>
                     <td
                       style={{
                         padding: "11px 14px",
@@ -800,7 +1202,13 @@ export function ExecutiveFinanceDashboard({
 
       {/* ─── VUE 3 : PALMARÈS & LEADERBOARDS (TOP GAGNANTS & TOP MISES) ─── */}
       {(activeSubTab === "overview" || activeSubTab === "leaderboard") && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: "16px",
+          }}
+        >
           {/* COLONNE 1 : TOP GAGNANTS */}
           <div
             style={{
@@ -815,73 +1223,122 @@ export function ExecutiveFinanceDashboard({
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <Trophy size={18} color="var(--gold)" />
-              <h4 style={{ margin: 0, fontSize: "14px", color: "var(--gold-light)", fontWeight: 700 }}>
+              <h4
+                style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  color: "var(--gold-light)",
+                  fontWeight: 700,
+                }}
+              >
                 🏆 Top Gagnants (Plus de victoires & gains)
               </h4>
             </div>
 
             {exec.leaderboards.top_winners.length === 0 ? (
-              <p style={{ fontSize: "12px", color: "var(--muted)", margin: "8px 0" }}>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                  margin: "8px 0",
+                }}
+              >
                 Aucune victoire enregistrée pour le moment.
               </p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {exec.leaderboards.top_winners.slice(0, 7).map((winner, idx) => (
-                  <div
-                    key={winner.user_id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 12px",
-                      borderRadius: "8px",
-                      background: idx === 0 ? "rgba(211, 176, 107, 0.12)" : "rgba(255, 255, 255, 0.02)",
-                      border: idx === 0 ? "1px solid rgba(211, 176, 107, 0.3)" : "1px solid rgba(255, 255, 255, 0.04)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "6px" }}
+              >
+                {exec.leaderboards.top_winners
+                  .slice(0, 7)
+                  .map((winner, idx) => (
+                    <div
+                      key={winner.user_id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        background:
+                          idx === 0
+                            ? "rgba(211, 176, 107, 0.12)"
+                            : "rgba(255, 255, 255, 0.02)",
+                        border:
+                          idx === 0
+                            ? "1px solid rgba(211, 176, 107, 0.3)"
+                            : "1px solid rgba(255, 255, 255, 0.04)",
+                      }}
+                    >
+                      <div
                         style={{
-                          width: "22px",
-                          height: "22px",
-                          borderRadius: "50%",
-                          background:
-                            idx === 0
-                              ? "var(--gold)"
-                              : idx === 1
-                              ? "#c0c0c0"
-                              : idx === 2
-                              ? "#cd7f32"
-                              : "rgba(255, 255, 255, 0.1)",
-                          color: idx < 3 ? "#0a0d12" : "var(--muted)",
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "11px",
-                          fontWeight: 800,
+                          gap: "8px",
                         }}
                       >
-                        {idx + 1}
-                      </span>
-                      <div>
-                        <strong style={{ fontSize: "12.5px", color: "#fff", display: "block" }}>
-                          {winner.display_name}
+                        <span
+                          style={{
+                            width: "22px",
+                            height: "22px",
+                            borderRadius: "50%",
+                            background:
+                              idx === 0
+                                ? "var(--gold)"
+                                : idx === 1
+                                  ? "#c0c0c0"
+                                  : idx === 2
+                                    ? "#cd7f32"
+                                    : "rgba(255, 255, 255, 0.1)",
+                            color: idx < 3 ? "#0a0d12" : "var(--muted)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                          }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <strong
+                            style={{
+                              fontSize: "12.5px",
+                              color: "#fff",
+                              display: "block",
+                            }}
+                          >
+                            {winner.display_name}
+                          </strong>
+                          <small
+                            style={{ fontSize: "11px", color: "var(--muted)" }}
+                          >
+                            {winner.identifier}
+                          </small>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <strong
+                          style={{
+                            fontSize: "13px",
+                            color: "var(--gold)",
+                            display: "block",
+                          }}
+                        >
+                          {formatMGA(winner.total_won_mga)}
                         </strong>
-                        <small style={{ fontSize: "11px", color: "var(--muted)" }}>
-                          {winner.identifier}
+                        <small
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--green)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {winner.wins_count} victoires
                         </small>
                       </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <strong style={{ fontSize: "13px", color: "var(--gold)", display: "block" }}>
-                        {formatMGA(winner.total_won_mga)}
-                      </strong>
-                      <small style={{ fontSize: "11px", color: "var(--green)", fontWeight: 600 }}>
-                        {winner.wins_count} victoires
-                      </small>
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
@@ -900,69 +1357,115 @@ export function ExecutiveFinanceDashboard({
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <Crown size={18} color="var(--blue)" />
-              <h4 style={{ margin: 0, fontSize: "14px", color: "var(--blue)", fontWeight: 700 }}>
+              <h4
+                style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  color: "var(--blue)",
+                  fontWeight: 700,
+                }}
+              >
                 💎 Top Mises & VIPs (Plus gros volumes misés)
               </h4>
             </div>
 
             {exec.leaderboards.top_bettors.length === 0 ? (
-              <p style={{ fontSize: "12px", color: "var(--muted)", margin: "8px 0" }}>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                  margin: "8px 0",
+                }}
+              >
                 Aucune mise enregistrée pour le moment.
               </p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {exec.leaderboards.top_bettors.slice(0, 7).map((bettor, idx) => (
-                  <div
-                    key={bettor.user_id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 12px",
-                      borderRadius: "8px",
-                      background: idx === 0 ? "rgba(131, 174, 234, 0.12)" : "rgba(255, 255, 255, 0.02)",
-                      border: idx === 0 ? "1px solid rgba(131, 174, 234, 0.3)" : "1px solid rgba(255, 255, 255, 0.04)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "6px" }}
+              >
+                {exec.leaderboards.top_bettors
+                  .slice(0, 7)
+                  .map((bettor, idx) => (
+                    <div
+                      key={bettor.user_id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        background:
+                          idx === 0
+                            ? "rgba(131, 174, 234, 0.12)"
+                            : "rgba(255, 255, 255, 0.02)",
+                        border:
+                          idx === 0
+                            ? "1px solid rgba(131, 174, 234, 0.3)"
+                            : "1px solid rgba(255, 255, 255, 0.04)",
+                      }}
+                    >
+                      <div
                         style={{
-                          width: "22px",
-                          height: "22px",
-                          borderRadius: "50%",
-                          background:
-                            idx === 0
-                              ? "var(--blue)"
-                              : "rgba(255, 255, 255, 0.1)",
-                          color: idx === 0 ? "#0a0d12" : "var(--muted)",
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "11px",
-                          fontWeight: 800,
+                          gap: "8px",
                         }}
                       >
-                        {idx + 1}
-                      </span>
-                      <div>
-                        <strong style={{ fontSize: "12.5px", color: "#fff", display: "block" }}>
-                          {bettor.display_name}
+                        <span
+                          style={{
+                            width: "22px",
+                            height: "22px",
+                            borderRadius: "50%",
+                            background:
+                              idx === 0
+                                ? "var(--blue)"
+                                : "rgba(255, 255, 255, 0.1)",
+                            color: idx === 0 ? "#0a0d12" : "var(--muted)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                          }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <strong
+                            style={{
+                              fontSize: "12.5px",
+                              color: "#fff",
+                              display: "block",
+                            }}
+                          >
+                            {bettor.display_name}
+                          </strong>
+                          <small
+                            style={{ fontSize: "11px", color: "var(--muted)" }}
+                          >
+                            {bettor.identifier}
+                          </small>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <strong
+                          style={{
+                            fontSize: "13px",
+                            color: "var(--blue)",
+                            display: "block",
+                          }}
+                        >
+                          {formatMGA(bettor.total_staked_mga)}
                         </strong>
-                        <small style={{ fontSize: "11px", color: "var(--muted)" }}>
-                          {bettor.identifier}
+                        <small
+                          style={{ fontSize: "11px", color: "var(--soft)" }}
+                        >
+                          {bettor.bets_count} mises (moy.{" "}
+                          {formatMGA(bettor.avg_stake_mga)})
                         </small>
                       </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <strong style={{ fontSize: "13px", color: "var(--blue)", display: "block" }}>
-                        {formatMGA(bettor.total_staked_mga)}
-                      </strong>
-                      <small style={{ fontSize: "11px", color: "var(--soft)" }}>
-                        {bettor.bets_count} mises (moy. {formatMGA(bettor.avg_stake_mga)})
-                      </small>
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
@@ -982,7 +1485,14 @@ export function ExecutiveFinanceDashboard({
             }}
           >
             <div>
-              <h3 style={{ margin: 0, fontSize: "15px", color: "var(--gold-light)", fontWeight: 700 }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "15px",
+                  color: "var(--gold-light)",
+                  fontWeight: 700,
+                }}
+              >
                 💳 Transactions Financières Réelles dans l&apos;App
               </h3>
               <small style={{ color: "var(--muted)", fontSize: "11.5px" }}>
@@ -1008,9 +1518,16 @@ export function ExecutiveFinanceDashboard({
                     padding: "4px 9px",
                     borderRadius: "6px",
                     fontSize: "11.5px",
-                    border: txFilter === f.id ? "1px solid var(--gold)" : "1px solid var(--line)",
-                    background: txFilter === f.id ? "rgba(211, 176, 107, 0.2)" : "var(--panel)",
-                    color: txFilter === f.id ? "var(--gold-light)" : "var(--soft)",
+                    border:
+                      txFilter === f.id
+                        ? "1px solid var(--gold)"
+                        : "1px solid var(--line)",
+                    background:
+                      txFilter === f.id
+                        ? "rgba(211, 176, 107, 0.2)"
+                        : "var(--panel)",
+                    color:
+                      txFilter === f.id ? "var(--gold-light)" : "var(--soft)",
                     cursor: "pointer",
                     fontWeight: txFilter === f.id ? 700 : 500,
                   }}
@@ -1035,21 +1552,49 @@ export function ExecutiveFinanceDashboard({
               }}
             >
               <thead>
-                <tr style={{ background: "rgba(10, 14, 20, 0.8)", textAlign: "left" }}>
-                  <th style={{ padding: "10px 12px", color: "var(--gold)" }}>CODE TRANSACTION</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>DATE & HEURE</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>JOUEUR</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>TYPE</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>SENS</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>MONTANT</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>STATUT</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>DESCRIPTION</th>
+                <tr
+                  style={{
+                    background: "rgba(10, 14, 20, 0.8)",
+                    textAlign: "left",
+                  }}
+                >
+                  <th style={{ padding: "10px 12px", color: "var(--gold)" }}>
+                    CODE TRANSACTION
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    DATE & HEURE
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    JOUEUR
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    TYPE
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    SENS
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    MONTANT
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    STATUT
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    DESCRIPTION
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: "18px", textAlign: "center", color: "var(--muted)" }}>
+                    <td
+                      colSpan={8}
+                      style={{
+                        padding: "18px",
+                        textAlign: "center",
+                        color: "var(--muted)",
+                      }}
+                    >
                       Aucune transaction trouvée pour ce filtre.
                     </td>
                   </tr>
@@ -1060,11 +1605,27 @@ export function ExecutiveFinanceDashboard({
                     const isPending = tx.status === "pending";
 
                     return (
-                      <tr key={tx.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                        <td style={{ padding: "9px 12px", fontFamily: "monospace", fontSize: "11px", color: "var(--soft)" }}>
+                      <tr
+                        key={tx.id}
+                        style={{ borderBottom: "1px solid var(--line)" }}
+                      >
+                        <td
+                          style={{
+                            padding: "9px 12px",
+                            fontFamily: "monospace",
+                            fontSize: "11px",
+                            color: "var(--soft)",
+                          }}
+                        >
                           {tx.transaction_code.slice(0, 22)}...
                         </td>
-                        <td style={{ padding: "9px 12px", color: "var(--muted)", whiteSpace: "nowrap" }}>
+                        <td
+                          style={{
+                            padding: "9px 12px",
+                            color: "var(--muted)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {new Date(tx.created_at).toLocaleString("fr-FR", {
                             day: "2-digit",
                             month: "short",
@@ -1076,7 +1637,12 @@ export function ExecutiveFinanceDashboard({
                           <strong style={{ color: "#fff", display: "block" }}>
                             {tx.user_display_name}
                           </strong>
-                          <small style={{ color: "var(--muted)", fontSize: "10.5px" }}>
+                          <small
+                            style={{
+                              color: "var(--muted)",
+                              fontSize: "10.5px",
+                            }}
+                          >
                             {tx.user_identifier}
                           </small>
                         </td>
@@ -1091,18 +1657,18 @@ export function ExecutiveFinanceDashboard({
                                 tx.type === "deposit"
                                   ? "rgba(105, 214, 160, 0.15)"
                                   : tx.type === "withdrawal"
-                                  ? "rgba(211, 176, 107, 0.15)"
-                                  : tx.type === "game"
-                                  ? "rgba(131, 174, 234, 0.15)"
-                                  : "rgba(199, 125, 255, 0.15)",
+                                    ? "rgba(211, 176, 107, 0.15)"
+                                    : tx.type === "game"
+                                      ? "rgba(131, 174, 234, 0.15)"
+                                      : "rgba(199, 125, 255, 0.15)",
                               color:
                                 tx.type === "deposit"
                                   ? "var(--green)"
                                   : tx.type === "withdrawal"
-                                  ? "var(--gold)"
-                                  : tx.type === "game"
-                                  ? "var(--blue)"
-                                  : "#c77dff",
+                                    ? "var(--gold)"
+                                    : tx.type === "game"
+                                      ? "var(--blue)"
+                                      : "#c77dff",
                               textTransform: "capitalize",
                             }}
                           >
@@ -1119,11 +1685,21 @@ export function ExecutiveFinanceDashboard({
                               gap: "3px",
                             }}
                           >
-                            {isCredit ? <ArrowDownLeft size={13} /> : <ArrowUpRight size={13} />}
+                            {isCredit ? (
+                              <ArrowDownLeft size={13} />
+                            ) : (
+                              <ArrowUpRight size={13} />
+                            )}
                             {isCredit ? "Crédit" : "Débit"}
                           </span>
                         </td>
-                        <td style={{ padding: "9px 12px", fontWeight: 700, color: isCredit ? "var(--green)" : "#fff" }}>
+                        <td
+                          style={{
+                            padding: "9px 12px",
+                            fontWeight: 700,
+                            color: isCredit ? "var(--green)" : "#fff",
+                          }}
+                        >
                           {isCredit ? "+" : "-"}
                           {formatMGA(tx.amount)}
                         </td>
@@ -1137,19 +1713,32 @@ export function ExecutiveFinanceDashboard({
                               background: isCompleted
                                 ? "rgba(105, 214, 160, 0.15)"
                                 : isPending
-                                ? "rgba(211, 176, 107, 0.15)"
-                                : "rgba(232, 120, 120, 0.15)",
+                                  ? "rgba(211, 176, 107, 0.15)"
+                                  : "rgba(232, 120, 120, 0.15)",
                               color: isCompleted
                                 ? "var(--green)"
                                 : isPending
-                                ? "var(--gold)"
-                                : "var(--red)",
+                                  ? "var(--gold)"
+                                  : "var(--red)",
                             }}
                           >
-                            {isCompleted ? "Complété" : isPending ? "En attente" : tx.status}
+                            {isCompleted
+                              ? "Complété"
+                              : isPending
+                                ? "En attente"
+                                : tx.status}
                           </span>
                         </td>
-                        <td style={{ padding: "9px 12px", color: "var(--muted)", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <td
+                          style={{
+                            padding: "9px 12px",
+                            color: "var(--muted)",
+                            maxWidth: "200px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {tx.description}
                         </td>
                       </tr>
@@ -1165,8 +1754,21 @@ export function ExecutiveFinanceDashboard({
       {/* ─── VUE 5 : DERNIÈRES PARTIES JOUÉES ─── */}
       {(activeSubTab === "overview" || activeSubTab === "recent_games") && (
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ margin: 0, fontSize: "15px", color: "var(--gold-light)", fontWeight: 700 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "15px",
+                color: "var(--gold-light)",
+                fontWeight: 700,
+              }}
+            >
               🎯 Flux des Dernières Parties Jouées
             </h3>
             <span style={{ fontSize: "11.5px", color: "var(--muted)" }}>
@@ -1188,18 +1790,40 @@ export function ExecutiveFinanceDashboard({
               }}
             >
               <thead>
-                <tr style={{ background: "rgba(10, 14, 20, 0.8)", textAlign: "left" }}>
-                  <th style={{ padding: "10px 12px", color: "var(--gold)" }}>JEU</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>DATE & HEURE</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>JOUEUR / VAINQUEUR</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>RÉSULTAT</th>
-                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>MONTANT</th>
+                <tr
+                  style={{
+                    background: "rgba(10, 14, 20, 0.8)",
+                    textAlign: "left",
+                  }}
+                >
+                  <th style={{ padding: "10px 12px", color: "var(--gold)" }}>
+                    JEU
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    DATE & HEURE
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    JOUEUR / VAINQUEUR
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    RÉSULTAT
+                  </th>
+                  <th style={{ padding: "10px 12px", color: "var(--soft)" }}>
+                    MONTANT
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {exec.recent_games_feed.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ padding: "16px", textAlign: "center", color: "var(--muted)" }}>
+                    <td
+                      colSpan={5}
+                      style={{
+                        padding: "16px",
+                        textAlign: "center",
+                        color: "var(--muted)",
+                      }}
+                    >
                       Aucune partie réglée récemment.
                     </td>
                   </tr>
@@ -1207,11 +1831,22 @@ export function ExecutiveFinanceDashboard({
                   exec.recent_games_feed.map((rg) => {
                     const isWin = rg.outcome === "win";
                     return (
-                      <tr key={rg.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                        <td style={{ padding: "9px 12px", fontWeight: 700, color: "#fff" }}>
+                      <tr
+                        key={rg.id}
+                        style={{ borderBottom: "1px solid var(--line)" }}
+                      >
+                        <td
+                          style={{
+                            padding: "9px 12px",
+                            fontWeight: 700,
+                            color: "#fff",
+                          }}
+                        >
                           {rg.game_label}
                         </td>
-                        <td style={{ padding: "9px 12px", color: "var(--muted)" }}>
+                        <td
+                          style={{ padding: "9px 12px", color: "var(--muted)" }}
+                        >
                           {new Date(rg.created_at).toLocaleString("fr-FR", {
                             day: "2-digit",
                             month: "short",
@@ -1219,7 +1854,13 @@ export function ExecutiveFinanceDashboard({
                             minute: "2-digit",
                           })}
                         </td>
-                        <td style={{ padding: "9px 12px", color: "var(--soft)", fontWeight: 600 }}>
+                        <td
+                          style={{
+                            padding: "9px 12px",
+                            color: "var(--soft)",
+                            fontWeight: 600,
+                          }}
+                        >
                           {rg.player_name}
                         </td>
                         <td style={{ padding: "9px 12px" }}>
@@ -1232,17 +1873,21 @@ export function ExecutiveFinanceDashboard({
                               background: isWin
                                 ? "rgba(105, 214, 160, 0.15)"
                                 : rg.outcome === "draw"
-                                ? "rgba(211, 176, 107, 0.15)"
-                                : "rgba(232, 120, 120, 0.15)",
+                                  ? "rgba(211, 176, 107, 0.15)"
+                                  : "rgba(232, 120, 120, 0.15)",
                               color: isWin
                                 ? "var(--green)"
                                 : rg.outcome === "draw"
-                                ? "var(--gold)"
-                                : "var(--red)",
+                                  ? "var(--gold)"
+                                  : "var(--red)",
                               textTransform: "uppercase",
                             }}
                           >
-                            {isWin ? "Victoire" : rg.outcome === "draw" ? "Égalité" : "Défaite"}
+                            {isWin
+                              ? "Victoire"
+                              : rg.outcome === "draw"
+                                ? "Égalité"
+                                : "Défaite"}
                           </span>
                         </td>
                         <td

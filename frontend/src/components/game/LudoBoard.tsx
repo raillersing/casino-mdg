@@ -218,7 +218,9 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 }) => {
   // 3D Dice States
   const [rollingAnim, setRollingAnim] = useState(false);
-  const [displayRoll, setDisplayRoll] = useState<number>(lastRoll > 0 ? lastRoll : 1);
+  const [displayRoll, setDisplayRoll] = useState<number>(
+    lastRoll > 0 ? lastRoll : 1,
+  );
   const [diceRotation, setDiceRotation] = useState({ x: 0, y: 0, z: 0 });
   const [showSixCelebration, setShowSixCelebration] = useState(false);
 
@@ -270,7 +272,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
       return { cx: grid[0] * 20 + 10, cy: grid[1] * 20 + 10 };
     }
     // home_path
-    const colorPaths = HOME_PATH_GRID_COORDS[playerColor] || HOME_PATH_GRID_COORDS[0];
+    const colorPaths =
+      HOME_PATH_GRID_COORDS[playerColor] || HOME_PATH_GRID_COORDS[0];
     if (pos >= 0 && pos < colorPaths.length) {
       const grid = colorPaths[pos];
       return { cx: grid[0] * 20 + 10, cy: grid[1] * 20 + 10 };
@@ -290,7 +293,12 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
         const pawnKey = `${player.color}-${pawn.id}`;
         const prevPawn = prevPlayer?.pawns.find((p) => p.id === pawn.id);
 
-        const targetPos = getStaticCoord(player.color, pawn.state, pawn.position, pawn.id);
+        const targetPos = getStaticCoord(
+          player.color,
+          pawn.state,
+          pawn.position,
+          pawn.id,
+        );
 
         // Detect if pawn just moved
         if (
@@ -301,14 +309,27 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           if (pawn.state === "home" && prevPawn.state !== "home") {
             casinoAudio.playLudoHomeWin();
             haptics.winCelebration();
-            setGoalCelebration({ color: player.color, cx: targetPos.cx, cy: targetPos.cy });
+            setGoalCelebration({
+              color: player.color,
+              cx: targetPos.cx,
+              cy: targetPos.cy,
+            });
             setTimeout(() => setGoalCelebration(null), 2400);
           }
 
           // Check if captured (was on track, now in base)
           if (prevPawn.state === "track" && pawn.state === "base") {
-            const hitPos = getStaticCoord(player.color, "track", prevPawn.position, pawn.id);
-            setCaptureEvent({ cx: hitPos.cx, cy: hitPos.cy, victimColor: player.color });
+            const hitPos = getStaticCoord(
+              player.color,
+              "track",
+              prevPawn.position,
+              pawn.id,
+            );
+            setCaptureEvent({
+              cx: hitPos.cx,
+              cy: hitPos.cy,
+              victimColor: player.color,
+            });
             casinoAudio.playLudoCapture();
             haptics.betPlaced();
             setTimeout(() => setCaptureEvent(null), 1800);
@@ -316,7 +337,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
 
           // Animate Hopping Sequence
           let hopCount = 0;
-          const totalHops = pawn.state === "base" ? 1 : Math.max(1, lastRoll || 1);
+          const totalHops =
+            pawn.state === "base" ? 1 : Math.max(1, lastRoll || 1);
           const hopInterval = window.setInterval(() => {
             hopCount++;
             casinoAudio.playLudoPawnHop();
@@ -533,12 +555,16 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               ? `rotateX(${diceRotation.x}deg) rotateY(${diceRotation.y}deg) scale(1.12)`
               : "none",
           }}
-          title={canClickDice ? "Cliquez sur le dé pour lancer !" : `Dé : ${val}`}
+          title={
+            canClickDice ? "Cliquez sur le dé pour lancer !" : `Dé : ${val}`
+          }
         >
           {/* 3x3 Pip Matrix */}
           {[0, 1, 2].map((r) =>
             [0, 1, 2].map((c) => {
-              const hasPip = activePips.some(([pr, pc]) => pr === r && pc === c);
+              const hasPip = activePips.some(
+                ([pr, pc]) => pr === r && pc === c,
+              );
               const isOne = val === 1 && r === 1 && c === 1;
               const isSix = val === 6;
               return (
@@ -562,7 +588,9 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
         </div>
 
         {/* Dynamic Shadow underneath */}
-        <div className={`ludo-king-dice-shadow ${rollingAnim ? "shadow-tumbling" : ""}`} />
+        <div
+          className={`ludo-king-dice-shadow ${rollingAnim ? "shadow-tumbling" : ""}`}
+        />
       </div>
     );
   };
@@ -609,15 +637,32 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             </radialGradient>
 
             {/* Gold Star Gradient */}
-            <linearGradient id="goldStarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient
+              id="goldStarGrad"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
               <stop offset="0%" stopColor="#fef08a" />
               <stop offset="50%" stopColor="#eab308" />
               <stop offset="100%" stopColor="#a16207" />
             </linearGradient>
 
             {/* Drop Shadow Filter for Board & Pawns */}
-            <filter id="pawnShadow" x="-20%" y="-20%" width="150%" height="150%">
-              <feDropShadow dx="0" dy="2" stdDeviation="1.8" floodOpacity="0.45" />
+            <filter
+              id="pawnShadow"
+              x="-20%"
+              y="-20%"
+              width="150%"
+              height="150%"
+            >
+              <feDropShadow
+                dx="0"
+                dy="2"
+                stdDeviation="1.8"
+                floodOpacity="0.45"
+              />
             </filter>
             <filter id="goldGlow" x="-20%" y="-20%" width="140%" height="140%">
               <feGaussianBlur stdDeviation="2.5" result="blur" />
@@ -631,33 +676,128 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           {/* 4 Colored Yards with Luxury Bevel */}
           {/* Red Yard (Top Left: 0..120 x 0..120) */}
           <rect x="0" y="0" width="120" height="120" fill="#ef4444" />
-          <rect x="14" y="14" width="92" height="92" rx="14" fill="#ffffff" filter="url(#pawnShadow)" />
-          <rect x="18" y="18" width="84" height="84" rx="10" fill="url(#redYardGlow)" />
+          <rect
+            x="14"
+            y="14"
+            width="92"
+            height="92"
+            rx="14"
+            fill="#ffffff"
+            filter="url(#pawnShadow)"
+          />
+          <rect
+            x="18"
+            y="18"
+            width="84"
+            height="84"
+            rx="10"
+            fill="url(#redYardGlow)"
+          />
 
           {/* Green Yard (Top Right: 180..300 x 0..120) */}
           <rect x="180" y="0" width="120" height="120" fill="#10b981" />
-          <rect x="194" y="14" width="92" height="92" rx="14" fill="#ffffff" filter="url(#pawnShadow)" />
-          <rect x="198" y="18" width="84" height="84" rx="10" fill="url(#greenYardGlow)" />
+          <rect
+            x="194"
+            y="14"
+            width="92"
+            height="92"
+            rx="14"
+            fill="#ffffff"
+            filter="url(#pawnShadow)"
+          />
+          <rect
+            x="198"
+            y="18"
+            width="84"
+            height="84"
+            rx="10"
+            fill="url(#greenYardGlow)"
+          />
 
           {/* Yellow Yard (Bottom Right: 180..300 x 180..300) */}
           <rect x="180" y="180" width="120" height="120" fill="#f59e0b" />
-          <rect x="194" y="194" width="92" height="92" rx="14" fill="#ffffff" filter="url(#pawnShadow)" />
-          <rect x="198" y="198" width="84" height="84" rx="10" fill="url(#yellowYardGlow)" />
+          <rect
+            x="194"
+            y="194"
+            width="92"
+            height="92"
+            rx="14"
+            fill="#ffffff"
+            filter="url(#pawnShadow)"
+          />
+          <rect
+            x="198"
+            y="198"
+            width="84"
+            height="84"
+            rx="10"
+            fill="url(#yellowYardGlow)"
+          />
 
           {/* Blue Yard (Bottom Left: 0..120 x 180..300) */}
           <rect x="0" y="180" width="120" height="120" fill="#3b82f6" />
-          <rect x="14" y="194" width="92" height="92" rx="14" fill="#ffffff" filter="url(#pawnShadow)" />
-          <rect x="18" y="198" width="84" height="84" rx="10" fill="url(#blueYardGlow)" />
+          <rect
+            x="14"
+            y="194"
+            width="92"
+            height="92"
+            rx="14"
+            fill="#ffffff"
+            filter="url(#pawnShadow)"
+          />
+          <rect
+            x="18"
+            y="198"
+            width="84"
+            height="84"
+            rx="10"
+            fill="url(#blueYardGlow)"
+          />
 
           {/* Central Victory Triangle (120..180 x 120..180) */}
-          <polygon points="120,120 180,120 150,150" fill="#10b981" stroke="#fff" strokeWidth="0.8" />
-          <polygon points="180,120 180,180 150,150" fill="#f59e0b" stroke="#fff" strokeWidth="0.8" />
-          <polygon points="120,180 180,180 150,150" fill="#3b82f6" stroke="#fff" strokeWidth="0.8" />
-          <polygon points="120,120 120,180 150,150" fill="#ef4444" stroke="#fff" strokeWidth="0.8" />
+          <polygon
+            points="120,120 180,120 150,150"
+            fill="#10b981"
+            stroke="#fff"
+            strokeWidth="0.8"
+          />
+          <polygon
+            points="180,120 180,180 150,150"
+            fill="#f59e0b"
+            stroke="#fff"
+            strokeWidth="0.8"
+          />
+          <polygon
+            points="120,180 180,180 150,150"
+            fill="#3b82f6"
+            stroke="#fff"
+            strokeWidth="0.8"
+          />
+          <polygon
+            points="120,120 120,180 150,150"
+            fill="#ef4444"
+            stroke="#fff"
+            strokeWidth="0.8"
+          />
 
           {/* Golden Center Medallion with Crown */}
-          <circle cx="150" cy="150" r="16" fill="url(#goldStarGrad)" stroke="#78350f" strokeWidth="2" filter="url(#goldGlow)" />
-          <text x="150" y="154.5" fontSize="13" textAnchor="middle" fill="#451a03" fontWeight="900">
+          <circle
+            cx="150"
+            cy="150"
+            r="16"
+            fill="url(#goldStarGrad)"
+            stroke="#78350f"
+            strokeWidth="2"
+            filter="url(#goldGlow)"
+          />
+          <text
+            x="150"
+            y="154.5"
+            fontSize="13"
+            textAnchor="middle"
+            fill="#451a03"
+            fontWeight="900"
+          >
             👑
           </text>
 
@@ -665,29 +805,73 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           {/* Red Home Path (Cols 1..5, Row 7) */}
           {[1, 2, 3, 4, 5].map((col) => (
             <g key={`red-hp-${col}`}>
-              <rect x={col * 20} y={140} width="20" height="20" fill="#ef4444" stroke="#ffffff" strokeWidth="0.9" />
-              <polygon points={`${col * 20 + 6},144 ${col * 20 + 14},150 ${col * 20 + 6},156`} fill="rgba(255,255,255,0.45)" />
+              <rect
+                x={col * 20}
+                y={140}
+                width="20"
+                height="20"
+                fill="#ef4444"
+                stroke="#ffffff"
+                strokeWidth="0.9"
+              />
+              <polygon
+                points={`${col * 20 + 6},144 ${col * 20 + 14},150 ${col * 20 + 6},156`}
+                fill="rgba(255,255,255,0.45)"
+              />
             </g>
           ))}
           {/* Green Home Path (Rows 1..5, Col 7) */}
           {[1, 2, 3, 4, 5].map((row) => (
             <g key={`green-hp-${row}`}>
-              <rect x={140} y={row * 20} width="20" height="20" fill="#10b981" stroke="#ffffff" strokeWidth="0.9" />
-              <polygon points={`144,${row * 20 + 6} 150,${row * 20 + 14} 156,${row * 20 + 6}`} fill="rgba(255,255,255,0.45)" />
+              <rect
+                x={140}
+                y={row * 20}
+                width="20"
+                height="20"
+                fill="#10b981"
+                stroke="#ffffff"
+                strokeWidth="0.9"
+              />
+              <polygon
+                points={`144,${row * 20 + 6} 150,${row * 20 + 14} 156,${row * 20 + 6}`}
+                fill="rgba(255,255,255,0.45)"
+              />
             </g>
           ))}
           {/* Yellow Home Path (Cols 9..13, Row 7) */}
           {[9, 10, 11, 12, 13].map((col) => (
             <g key={`yellow-hp-${col}`}>
-              <rect x={col * 20} y={140} width="20" height="20" fill="#f59e0b" stroke="#ffffff" strokeWidth="0.9" />
-              <polygon points={`${col * 20 + 14},144 ${col * 20 + 6},150 ${col * 20 + 14},156`} fill="rgba(255,255,255,0.45)" />
+              <rect
+                x={col * 20}
+                y={140}
+                width="20"
+                height="20"
+                fill="#f59e0b"
+                stroke="#ffffff"
+                strokeWidth="0.9"
+              />
+              <polygon
+                points={`${col * 20 + 14},144 ${col * 20 + 6},150 ${col * 20 + 14},156`}
+                fill="rgba(255,255,255,0.45)"
+              />
             </g>
           ))}
           {/* Blue Home Path (Rows 9..13, Col 7) */}
           {[9, 10, 11, 12, 13].map((row) => (
             <g key={`blue-hp-${row}`}>
-              <rect x={140} y={row * 20} width="20" height="20" fill="#3b82f6" stroke="#ffffff" strokeWidth="0.9" />
-              <polygon points={`144,${row * 20 + 14} 150,${row * 20 + 6} 156,${row * 20 + 14}`} fill="rgba(255,255,255,0.45)" />
+              <rect
+                x={140}
+                y={row * 20}
+                width="20"
+                height="20"
+                fill="#3b82f6"
+                stroke="#ffffff"
+                strokeWidth="0.9"
+              />
+              <polygon
+                points={`144,${row * 20 + 14} 150,${row * 20 + 6} 156,${row * 20 + 14}`}
+                fill="rgba(255,255,255,0.45)"
+              />
             </g>
           ))}
 
@@ -722,7 +906,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
           {/* 8 Safe Squares (Starts + Arm Stars) with Golden Medallions */}
           {Array.from(SAFE_SQUARES).map((sqIdx) => {
             const [c, r] = TRACK_GRID_COORDS[sqIdx];
-            const isStart = sqIdx === 0 || sqIdx === 13 || sqIdx === 26 || sqIdx === 39;
+            const isStart =
+              sqIdx === 0 || sqIdx === 13 || sqIdx === 26 || sqIdx === 39;
             const startColor =
               sqIdx === 0
                 ? "#ef4444"
@@ -824,8 +1009,18 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 strokeWidth="3"
                 opacity="0.8"
               >
-                <animate attributeName="r" values="8;26" dur="0.5s" repeatCount="1" />
-                <animate attributeName="opacity" values="0.9;0" dur="0.5s" repeatCount="1" />
+                <animate
+                  attributeName="r"
+                  values="8;26"
+                  dur="0.5s"
+                  repeatCount="1"
+                />
+                <animate
+                  attributeName="opacity"
+                  values="0.9;0"
+                  dur="0.5s"
+                  repeatCount="1"
+                />
               </circle>
               <text
                 x={captureEvent.cx}
@@ -851,8 +1046,18 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
                 stroke="#ffd700"
                 strokeWidth="3"
               >
-                <animate attributeName="r" values="10;34" dur="0.6s" repeatCount="1" />
-                <animate attributeName="opacity" values="1;0" dur="0.6s" repeatCount="1" />
+                <animate
+                  attributeName="r"
+                  values="10;34"
+                  dur="0.6s"
+                  repeatCount="1"
+                />
+                <animate
+                  attributeName="opacity"
+                  values="1;0"
+                  dur="0.6s"
+                  repeatCount="1"
+                />
               </circle>
               <text
                 x={goalCelebration.cx}
@@ -877,11 +1082,22 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
               const isSelectable =
                 isMe && isMyTurn && canMove && validMoves.includes(pawn.id);
               const animPos = animatedPawns[pawnKey];
-              const staticPos = getStaticCoord(player.color, pawn.state, pawn.position, pawn.id);
-              const clusterOffset = getClusterOffset(player.color, pawn, players);
+              const staticPos = getStaticCoord(
+                player.color,
+                pawn.state,
+                pawn.position,
+                pawn.id,
+              );
+              const clusterOffset = getClusterOffset(
+                player.color,
+                pawn,
+                players,
+              );
 
-              const cx = (animPos ? animPos.cx : staticPos.cx) + clusterOffset.dx;
-              const cy = (animPos ? animPos.cy : staticPos.cy) + clusterOffset.dy;
+              const cx =
+                (animPos ? animPos.cx : staticPos.cx) + clusterOffset.dx;
+              const cy =
+                (animPos ? animPos.cy : staticPos.cy) + clusterOffset.dy;
               const hopY = animPos?.hopY || 0;
               const scale = animPos?.scale || 1;
 
@@ -1001,9 +1217,13 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             {lastRoll === 6 ? (
               <span className="ludo-six-status">🎲 Six obtenu ! (Rejouez)</span>
             ) : lastRoll > 0 ? (
-              <span>Dé : <strong>{lastRoll}</strong></span>
+              <span>
+                Dé : <strong>{lastRoll}</strong>
+              </span>
             ) : isMyTurn ? (
-              <span className="ludo-myturn-status">À vous de lancer le dé !</span>
+              <span className="ludo-myturn-status">
+                À vous de lancer le dé !
+              </span>
             ) : (
               <span>Tour de jeu</span>
             )}
@@ -1048,7 +1268,8 @@ export const LudoBoard: React.FC<LudoBoardProps> = ({
             <div className="ludo-king-wait-text">
               Tour du camp{" "}
               <strong>
-                {COLOR_CONFIG[currentTurnIndex]?.name || `Joueur ${currentTurnIndex + 1}`}
+                {COLOR_CONFIG[currentTurnIndex]?.name ||
+                  `Joueur ${currentTurnIndex + 1}`}
               </strong>
               …
             </div>

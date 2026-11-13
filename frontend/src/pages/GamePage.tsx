@@ -4311,7 +4311,11 @@ export function GamePage() {
           </span>
           <div>
             <strong>
-              {isMyTurn ? t("game.yourTurnAction") : demoAi ? "Tour du robot" : "Tour de l’adversaire"}
+              {isMyTurn
+                ? t("game.yourTurnAction")
+                : demoAi
+                  ? "Tour du robot"
+                  : "Tour de l’adversaire"}
             </strong>
             <span>{t("game.chooseAction")}</span>
           </div>

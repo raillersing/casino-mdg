@@ -561,7 +561,8 @@ export function ProfilePage() {
               </div>
             </div>
             <span className="text-link" style={{ cursor: "default" }}>
-              {t("profile.allBadges")} ({stats.wins > 0 ? "2" : "1"}/3 débloqués)
+              {t("profile.allBadges")} ({stats.wins > 0 ? "2" : "1"}/3
+              débloqués)
             </span>
           </div>
           <button className="logout-button" onClick={handleLogout}>
@@ -647,7 +648,9 @@ export function ProfilePage() {
                   }}
                 >
                   <Check size={16} />
-                  <span>{editNameSaving ? "Enregistrement..." : "Enregistrer"}</span>
+                  <span>
+                    {editNameSaving ? "Enregistrement..." : "Enregistrer"}
+                  </span>
                 </button>
               </div>
             </div>

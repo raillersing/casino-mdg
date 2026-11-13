@@ -32,7 +32,7 @@
     height: auto;
     min-height: 64px;
     padding: 6px 10px;
-    background: rgba(9, 13, 19, .96);
+    background: rgba(9, 13, 19, 0.96);
     border-bottom: 1px solid var(--line);
     backdrop-filter: blur(12px);
   }
@@ -47,8 +47,8 @@
     margin: 10px 0 0;
     border: 1px solid var(--line);
     border-radius: 15px 15px 0 0;
-    background: rgba(9, 13, 19, .97);
-    box-shadow: 0 -9px 28px rgba(0, 0, 0, .35);
+    background: rgba(9, 13, 19, 0.97);
+    box-shadow: 0 -9px 28px rgba(0, 0, 0, 0.35);
     backdrop-filter: blur(12px);
   }
   .game-room.game-ux-v2:not(.table-landscape-forced) .game-controls button {
@@ -60,6 +60,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .game-room.game-ux-v2 * {
-    transition-duration: .01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
