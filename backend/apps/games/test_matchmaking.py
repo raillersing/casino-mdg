@@ -208,3 +208,29 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["ticket"]["status"], "queued")
         self.assertEqual(TableSeat.objects.filter(table=table).count(), 1)
+
+    def test_switching_games_cancels_other_pending_search(self):
+        self.client.force_authenticate(self.first)
+        old = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        next_search = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "poker", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(old.status_code, 201)
+        self.assertEqual(next_search.status_code, 201)
+        self.assertEqual(
+            MatchmakingTicket.objects.get(pk=old.data["ticket"]["ticket_id"]).status,
+            "cancelled",
+        )
+        self.client.force_authenticate(self.second)
+        second = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(second.data["ticket"]["status"], "queued")
