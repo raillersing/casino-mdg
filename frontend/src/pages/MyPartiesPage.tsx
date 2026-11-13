@@ -72,7 +72,7 @@ export function MyPartiesPage() {
 
   if (!token) {
     return (
-      <main className="playing-v2-page">
+      <div className="playing-v2-page">
         <h1>{tr("Mes parties", "Ny lalaoko")}</h1>
         <p>{tr(
           "Connectez-vous pour retrouver vos tables et reprendre une partie.",
@@ -84,12 +84,12 @@ export function MyPartiesPage() {
         <Link className="playing-v2-secondary" to="/games">
           {tr("Découvrir les jeux", "Hahita lalao")}
         </Link>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="playing-v2-page">
+    <div className="playing-v2-page">
       <header className="playing-v2-header">
         <div>
           <span className="playing-v2-eyebrow">MDG GAME CLUB</span>
@@ -183,6 +183,6 @@ export function MyPartiesPage() {
           </Link>
         </>
       )}
-    </main>
+    </div>
   );
 }
