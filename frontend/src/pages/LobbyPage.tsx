@@ -181,6 +181,29 @@ export function LobbyPage() {
   }>({ human_online: 0, estimated_wait_seconds: 20, ticket: null });
 
   const [matchError, setMatchError] = useState("");
+  const [availableMatchSizes, setAvailableMatchSizes] = useState<number[]>([]);
+  const [matchSize, setMatchSize] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    // The engine-backed table capabilities remain the only source of formats.
+    const controller = new AbortController();
+    setAvailableMatchSizes([]);
+    setMatchSize(undefined);
+    fetch("/api/v1/games/table-capabilities/", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("CAPABILITIES_UNAVAILABLE");
+        return response.json() as Promise<{ games?: Record<string, { players: number[] }> }>;
+      })
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        const choices = payload.games?.[matchmakingGame]?.players || [];
+        setAvailableMatchSizes(choices);
+        setMatchSize(choices.includes(2) ? 2 : choices[0]);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAvailableMatchSizes([]);
+      });
+    return () => controller.abort();
+  }, [matchmakingGame]);
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
@@ -479,7 +502,7 @@ export function LobbyPage() {
     setTimedOut(false);
     setWaitingSeconds(0);
     try {
-      const result = await queueMatch(accessToken, matchmakingGame);
+      const result = await queueMatch(accessToken, matchmakingGame, matchSize);
       setMatchStatus((current) => ({ ...current, ticket: result.ticket }));
       void trackEvent("matchmaking_started", {
         game_type: matchmakingGame,
@@ -500,7 +523,7 @@ export function LobbyPage() {
     } catch (reason) {
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
     }
-  }, [accessToken, navigate, matchmakingGame, t, isGameLobby, urlGameType]);
+  }, [accessToken, navigate, matchmakingGame, matchSize, t, isGameLobby, urlGameType]);
 
   useEffect(() => {
     if (!accessToken || searchParams.get("action") !== "matchmaking") return;
@@ -865,6 +888,11 @@ export function LobbyPage() {
             }
             waitingSeconds={waitingSeconds}
             isCreating={quickCreating !== null}
+            availableSizes={availableMatchSizes}
+            selectedSize={matchStatus.ticket?.status === "queued"
+              ? matchStatus.ticket.target_players
+              : matchSize}
+            onSizeChange={setMatchSize}
             onSearch={() => void findHuman()}
             onCancel={() => void cancelSearch()}
             onCreate={() => {
