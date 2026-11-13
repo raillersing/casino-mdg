@@ -364,3 +364,12 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+
+.game-lobby-filters{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;margin:16px 0 8px}
+.game-lobby-search-field,.game-lobby-select-field{display:flex;align-items:center;min-height:48px;border:1px solid rgba(255,255,255,.18);border-radius:11px;padding:0 12px;background:var(--panel);color:var(--soft)}
+.game-lobby-search-field{gap:9px}
+.game-lobby-search-field input,.game-lobby-select-field select{flex:1;min-width:0;width:100%;height:46px;border:0;background:transparent;color:var(--text);outline-offset:2px}
+.game-lobby-select-field select{color-scheme:dark}
+.game-lobby-search-field input::placeholder{color:var(--muted)}
+@media(min-width:650px){.game-lobby-filters{grid-template-columns:minmax(0,2fr) minmax(180px,1fr)}}
