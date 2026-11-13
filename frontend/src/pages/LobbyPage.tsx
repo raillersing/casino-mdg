@@ -56,7 +56,7 @@ import { PokerBuyInModal } from "@components/game/PokerBuyInModal";
 import { GameLobbyEntryActions } from "@components/game/GameLobbyEntryActions";
 import { TableAvailabilityCard } from "@components/game/TableAvailabilityCard";
 import { QuickCreateTableSheet } from "@components/game/QuickCreateTableSheet";
-import "@styles/game-lobby-v2.css";
+import "../styles/game-lobby-v2.css";
 import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
 import { GameActivitySummary } from "@components/game/GameActivitySummary";
 import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
