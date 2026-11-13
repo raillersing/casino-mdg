@@ -30,6 +30,10 @@ def queue_player(user, game_type, target_size=None):
         user=user,
         defaults={"game_type": game_type, "status": "searching", "last_seen_at": now},
     )
+    # A human should not remain matchable in two games simultaneously.
+    MatchmakingTicket.objects.select_for_update().filter(
+        user=user, status="queued"
+    ).exclude(game_type=game_type).update(status="cancelled", updated_at=now)
     ticket, created = MatchmakingTicket.objects.select_for_update().get_or_create(
         user=user,
         game_type=game_type,
@@ -97,7 +101,7 @@ def queue_player(user, game_type, target_size=None):
             game_type=game_type,
             status="queued",
             target_players=capacity,
-            user_id__in=active_presence().values("user_id"),
+            user_id__in=active_presence(game_type).values("user_id"),
         )
         .order_by("created_at")[:capacity]
     )
