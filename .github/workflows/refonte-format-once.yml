@@ -42,5 +42,7 @@ jobs:
           git add frontend/src backend
           if ! git diff --cached --quiet; then
             git commit -m "style: align frontend and backend formatting to CI checks"
+            git fetch origin feat/mobile-first-game-lobby-2026-11-13
+            git rebase origin/feat/mobile-first-game-lobby-2026-11-13
             git push origin HEAD:feat/mobile-first-game-lobby-2026-11-13
           fi
