@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -185,6 +185,8 @@ export function LobbyPage() {
   const [timedOut, setTimedOut] = useState(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
   const [showQuickCreate, setShowQuickCreate] = useState(false);
+  // React StrictMode can replay effects; a URL action must be consumed once.
+  const consumedIntentRef = useRef<string | null>(null);
   const [createTableGame, setCreateTableGame] = useState<
     "belote" | "domino" | "ludo" | "rami" | "poker"
   >("belote");
@@ -243,6 +245,9 @@ export function LobbyPage() {
         : "all",
     );
     const action = searchParams.get("action");
+    if (!action) consumedIntentRef.current = null;
+    const intentKey = `${urlGameType || "all"}:${action || ""}`;
+    if (action && consumedIntentRef.current === intentKey) return;
     if (!accessToken && (action === "join-private" || action === "create")) {
       navigate(
         `/auth?next=${encodeURIComponent(`/lobby?${searchParams.toString()}`)}`,
@@ -251,6 +256,7 @@ export function LobbyPage() {
       return;
     }
     if (action === "join-private" && accessToken) {
+      consumedIntentRef.current = intentKey;
       setShowJoinPrivate(true);
       const next = new URLSearchParams(searchParams);
       next.delete("action");
@@ -259,7 +265,9 @@ export function LobbyPage() {
     }
     if (action === "matchmaking") setMobileTab("quick");
     if (action === "create" && accessToken) {
-      const gParam = searchParams.get("game_type");
+      consumedIntentRef.current = intentKey;
+      // A dedicated game URL always overrides a generic game_type query.
+      const gParam = isGameLobby ? urlGameType : searchParams.get("game_type");
       if (
         gParam &&
         ["belote", "domino", "ludo", "rami", "poker"].includes(gParam)
@@ -494,11 +502,14 @@ export function LobbyPage() {
 
   useEffect(() => {
     if (!accessToken || searchParams.get("action") !== "matchmaking") return;
+    const intentKey = `${urlGameType || "all"}:matchmaking`;
+    if (consumedIntentRef.current === intentKey) return;
+    consumedIntentRef.current = intentKey;
     const next = new URLSearchParams(searchParams);
     next.delete("action");
     setSearchParams(next, { replace: true });
     if (isGameLobby) void findHuman();
-  }, [accessToken, isGameLobby, searchParams, setSearchParams, findHuman]);
+  }, [accessToken, isGameLobby, urlGameType, searchParams, setSearchParams, findHuman]);
 
   const cancelSearch = async () => {
     if (!accessToken || !matchStatus.ticket) return;
