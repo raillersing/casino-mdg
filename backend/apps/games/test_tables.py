@@ -772,15 +772,16 @@ class TableApiTests(TestCase):
         self.assertEqual(topup_resp.status_code, 400)
         self.assertIn("Le rechargement de tapis n'est autorisé qu'au Poker", topup_resp.data["detail"])
 
-        # Joining with the exact stake (or without specifying custom buy_in) succeeds and reserves 2,000 Ar
+        # The non-Poker minimum is an eligibility gate, never a debit.
+        # This must match test_finance.py and the seat/admission contract.
         join_ok = self.client.post(
             f"/api/v1/games/tables/{table.pk}/join/",
             format="json",
         )
         self.assertEqual(join_ok.status_code, 201)
-        self.assertEqual(join_ok.data["buy_in"], 2000)
+        self.assertEqual(table.seats.get(user=self.user).buy_in, 0)
 
         mga_acc.refresh_from_db()
-        self.assertEqual(mga_acc.balance, 48000)
-        self.assertEqual(mga_acc.held_balance, 2000)
+        self.assertEqual(mga_acc.balance, 50000)
+        self.assertEqual(mga_acc.held_balance, 0)
 
