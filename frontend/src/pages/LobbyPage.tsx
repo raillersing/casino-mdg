@@ -28,7 +28,6 @@ import {
 import {
   cancelMatch,
   createTable,
-  getLiveStats,
   getMatchmakingStatus,
   getTables,
   joinTable,
@@ -37,7 +36,6 @@ import {
   sendMatchmakingHeartbeat,
   type CreateTablePayload,
   type GameTable,
-  type LiveStatsResponse,
   type MatchmakingTicket,
 } from "@services/games";
 import {
@@ -58,6 +56,7 @@ import { TableAvailabilityCard } from "@components/game/TableAvailabilityCard";
 import { QuickCreateTableSheet } from "@components/game/QuickCreateTableSheet";
 import "../styles/game-lobby-v2.css";
 import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
+import { useLiveStats } from "@hooks/useLiveStats";
 import { GameActivitySummary } from "@components/game/GameActivitySummary";
 import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
 import { haptics } from "@utils/haptics";
@@ -224,7 +223,9 @@ export function LobbyPage() {
   >("belote");
   const [quickCreating, setQuickCreating] = useState<string | null>(null);
   const [showJoinPrivate, setShowJoinPrivate] = useState(false);
-  const [liveStats, setLiveStats] = useState<LiveStatsResponse | null>(null);
+  // The ticker and the per-game summary share a single React Query cache.
+  const { data: activityData, isError: activityUnavailable } = useLiveStats();
+  const liveStats = activityUnavailable ? null : activityData;
   const [startingSimulation, setStartingSimulation] = useState<string | null>(
     null,
   );
@@ -436,58 +437,6 @@ export function LobbyPage() {
       window.removeEventListener("online", resume);
     };
   }, [filter, accessToken]);
-
-  // Share in-flight activity requests across StrictMode effect replay.
-  // Avoid extra 3G/4G transfers while still updating the active instance.
-  const statsPromiseRef = useRef<ReturnType<typeof getLiveStats> | null>(null);
-  const loadStats = useCallback(() => {
-    if (statsPromiseRef.current) return statsPromiseRef.current;
-    const pending = getLiveStats();
-    statsPromiseRef.current = pending;
-    void pending
-      .finally(() => {
-        if (statsPromiseRef.current === pending) statsPromiseRef.current = null;
-      })
-      .catch(() => undefined);
-    return pending;
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    let inFlight = false;
-    const fetchStats = async () => {
-      if (
-        !mounted ||
-        inFlight ||
-        document.visibilityState !== "visible" ||
-        !navigator.onLine
-      )
-        return;
-      inFlight = true;
-      try {
-        const data = await loadStats();
-        if (mounted) setLiveStats(data);
-      } catch {
-        // Unverified activity must never be replaced by a fabricated zero.
-      } finally {
-        inFlight = false;
-      }
-    };
-    const resume = () => {
-      if (document.visibilityState === "visible") void fetchStats();
-    };
-    // Activity is independent of table filters and must load only once.
-    void fetchStats();
-    const timer = window.setInterval(() => void fetchStats(), 30000);
-    document.addEventListener("visibilitychange", resume);
-    window.addEventListener("online", resume);
-    return () => {
-      mounted = false;
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", resume);
-      window.removeEventListener("online", resume);
-    };
-  }, [loadStats]);
 
   // StrictMode replays effects in development. The same filter/token must
   // not launch a duplicate initial table request.
