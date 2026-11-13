@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Loader2, Settings2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { CreateTablePayload, GameTable } from "../../services/games";
@@ -49,13 +49,13 @@ export function QuickCreateTableSheet({
     const focusTimer = window.setTimeout(() => dialogRef.current?.focus(), 0);
     fetch("/api/v1/games/table-capabilities/", { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error(tr("Réglages indisponibles.", "Tsy misy ny fikirana."));
+        if (!response.ok) throw new Error(mg ? "Tsy misy ny fikirana." : "Réglages indisponibles.");
         return response.json() as Promise<{ games: Record<string, Capability> }>;
       })
       .then((payload) => {
         const next = payload.games?.[game];
         if (!next || !next.players?.length) {
-          throw new Error(tr("Ce jeu n'est pas disponible.", "Tsy azo lalaovina ity."));
+          throw new Error(mg ? "Tsy azo lalaovina ity." : "Ce jeu n'est pas disponible.");
         }
         if (controller.signal.aborted) return;
         setCapability(next);
@@ -75,7 +75,7 @@ export function QuickCreateTableSheet({
       document.body.style.overflow = previousOverflow;
       previousFocus.current?.focus();
     };
-  }, [isOpen, game]);
+  }, [isOpen, game, mg]);
 
   if (!isOpen) return null;
 
@@ -102,7 +102,7 @@ export function QuickCreateTableSheet({
     }
   };
 
-  const trapFocus = (event: React.KeyboardEvent<HTMLElement>) => {
+  const trapFocus = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape" && !busy) {
       event.preventDefault();
       onClose();
