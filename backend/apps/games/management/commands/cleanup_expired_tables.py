@@ -2,11 +2,11 @@ from datetime import timedelta
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.games.models import BotSimulationSession, GameTable
-from apps.games.modes import DEMO_AI, HUMAN_MATCH
+from apps.games.modes import DEMO_AI
 
 
 class Command(BaseCommand):
@@ -16,7 +16,10 @@ class Command(BaseCommand):
         parser.add_argument(
             "--force-all",
             action="store_true",
-            help="Ferme toutes les tables existantes sans exception (remise à zéro propre du lobby).",
+            help=(
+                "Ferme toutes les tables existantes sans exception "
+                "(remise à zéro propre du lobby)."
+            ),
         )
         parser.add_argument(
             "--delete-closed",
@@ -105,15 +108,19 @@ class Command(BaseCommand):
                 )
 
             # Suppression totale de toutes les tables terminées/fermées
-            # (conforme à l'exigence : 'Les tables expirer doivent être supprimées de l'app totalement')
-            del_count, _ = GameTable.objects.filter(
-                Q(status="finished")
-                | Q(created_by__isnull=True)
-                | Q(table_code__in=demo_codes)
-            ).delete()
-            if del_count > 0:
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Suppression totale de {del_count} tables expirées/fantômes de la base de données."
-                    )
+            # L'effacement doit être demandé explicitement et ne doit pas
+            # supprimer des preuves financières ou des joueurs encore assis.
+            if delete_closed:
+                # No financial audit history or active seats may be cascaded.
+                eligible = GameTable.objects.filter(
+                    status="finished",
+                    seats__isnull=True,
+                    bankrolls__isnull=True,
                 )
+                del_count, _ = eligible.delete()
+                if del_count > 0:
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"Suppression de {del_count} tables fermées et vides."
+                        )
+                    )
