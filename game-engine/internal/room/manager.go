@@ -340,10 +340,6 @@ func (m *Manager) joinPlayer(tableID, playerID, name string, seat int, isBot, in
 	return m.joinPlayerWithProfileAndBuyIn(tableID, playerID, name, seat, isBot, initialize, "", 0)
 }
 
-func (m *Manager) joinPlayerWithProfile(tableID, playerID, name string, seat int, isBot, initialize bool, botProfile string) (Event, error) {
-	return m.joinPlayerWithProfileAndBuyIn(tableID, playerID, name, seat, isBot, initialize, botProfile, 0)
-}
-
 func (m *Manager) joinPlayerWithProfileAndBuyIn(tableID, playerID, name string, seat int, isBot, initialize bool, botProfile string, buyIn int64) (Event, error) {
 	table, ok := m.GetTable(tableID)
 	if !ok {
