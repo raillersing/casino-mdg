@@ -474,9 +474,15 @@ export function LobbyPage() {
     };
   }, []);
 
+  // StrictMode replays effects in development. The same filter/token must
+  // not launch a duplicate initial table and live-stat request.
+  const initialRefreshKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const key = `${filter}:${accessToken || "guest"}`;
+    if (initialRefreshKeyRef.current === key) return;
+    initialRefreshKeyRef.current = key;
     refreshData();
-  }, [refreshData]);
+  }, [refreshData, filter, accessToken]);
 
   useEffect(() => {
     if (!accessToken) return;
