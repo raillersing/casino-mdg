@@ -31,9 +31,10 @@ def generate_admission_token(
         seat = TableSeat.objects.filter(table=table, user=user).first()
         if seat and seat.buy_in:
             buy_in = seat.buy_in
-        elif table.stake_amount:
+        elif table.game_type == "poker" and table.stake_amount:
             buy_in = table.stake_amount
         else:
+            # Non-poker minimums are eligibility checks, not engine chips.
             buy_in = 0
     payload = {
         "sub": str(user.pk),
@@ -137,23 +138,12 @@ def join_table(table, user, buy_in=None):
     if table.game_type != "poker":
         if buy_in is not None and int(buy_in) != min_part:
             raise ValueError(
-                f"Pour {table.game_type.capitalize()}, la mise de participation est fixe et ne peut pas être augmentée ({min_part} Ar)."
+                f"Pour {table.game_type.capitalize()}, le minimum d'accès est fixe ({min_part} Ar)."
             )
-        effective_buy_in = min_part
-        if min_part > 0:
-            if wallet.balance < min_part:
-                raise ValueError("Solde Ariary inférieur au minimum d'accès ; aucun débit.")
-            bankroll = TableBankroll.objects.create(
-                table=table,
-                user=user,
-                currency_code="MGA",
-                finance_version=1,
-                status="reserved",
-                current_stack=0,
-            )
-            reserve(
-                table, user, bankroll, effective_buy_in, f"entry:{bankroll.pk}", "entry"
-            )
+        # Admission to non-poker games must never reserve MGA. The minimum
+        # is an eligibility gate, not a debit or a playable monetary stack.
+        if min_part > 0 and wallet.balance < min_part:
+            raise ValueError("Solde Ariary inférieur au minimum d'accès ; aucun débit.")
     elif min_part:
         effective_buy_in = money(buy_in if buy_in is not None else min_part)
         if effective_buy_in < min_part:
