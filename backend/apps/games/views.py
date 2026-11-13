@@ -505,8 +505,9 @@ class TableListCreateView(APIView):
         )
 
         # Visibilité :
-        # - Les tables publiques ne sont visibles pour autrui que si un joueur y est assis (num_seats > 0).
-        # - Les tables privées ne sont visibles que par leur créateur, joueurs assis ou membres de club.
+        # Les tables publiques ne sont visibles pour autrui que si un joueur
+        # y est assis (num_seats > 0). Les tables privées ne sont visibles que
+        # par leur créateur, joueurs assis ou membres de club.
         if request.user.is_authenticated:
             visibility = (
                 Q(is_private=False, num_seats__gt=0)
