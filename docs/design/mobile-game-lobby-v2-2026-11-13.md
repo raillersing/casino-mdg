@@ -86,3 +86,70 @@ Le test E2E simule les réponses d'API. Il ne remplace pas la recette d'une part
 3. Unifier la salle d'attente et l'état de présence avec les événements du moteur.
 4. Décomposer `GamePage.tsx` en contrôleur de session, sièges, plateau et commandes tactiles par jeu.
 5. Réception UX modérée FR/MG, mobile Android/iOS, réseau lent, accessibilité et contrôle de sécurité comptable avant ouverture MGA.
+
+---
+
+# Extension : refonte UX transversale (second lot)
+
+Le premier incrément ci-dessus reste historique. La PR #48 inclut maintenant les travaux ci-dessous sur la même branche. **Aucun parcours de production ou de paiement réel n'a été déclaré validé au moyen des seuls tests simulés.**
+
+## Architecture des parcours
+
+| Intention utilisateur | Destination | Résultat attendu |
+|---|---|---|
+| Démarrer une partie | Accueil -> Jeux -> /lobby/:jeu | Voir immédiatement recherche, tables et création |
+| Créer une table | Accueil -> /games?intent=create -> /lobby/:jeu?action=create | Formulaire rapide gratuit avec capacités serveur |
+| S'entraîner | Accueil -> /games?intent=practice | Simulation annoncée comme entraînement IA |
+| Rejoindre sur invitation | Accueil -> /lobby?action=join-private | Code d'accès privé vérifié |
+| Reprendre | Mes parties -> /game/:jeu/:code | Distinguer session moteur confirmée et siège encore enregistré |
+| Jouer à plusieurs | Lobby -> recherche avec format serveur | Correspondance avec humain présent ou autres tickets compatibles |
+| Retour du joueur | Bouton Quitter / Mes parties | Admission/reprise via contrats serveur existants |
+
+### Nouveaux modules
+
+- `HomePage.tsx` + `home-game-v2.css` : accueil orienté trois intentions, deux jeux en avant, reprise confirmée, sans statistiques artificielles.
+- `GamesPage.tsx` : conserve l'intention créer ou pratiquer, séparée du parcours tables.
+- `MyPartiesPage.tsx` + `playing-v2.css` : page dédiée aux parties confirmées et aux sièges réservés.
+- `Layout.tsx` : navigation mobile et bureau Accueil / Jeux / Mes parties / Profil, sans bouton notification inerte.
+- `GamePage.tsx` + `gameplay-ux-v2.css` : nom de table réel, statut de connexion explicite, actions prioritaires accessibles au pouce et respect du mouvement réduit.
+- `WaitingRoom.tsx` : états prudents : siège enregistré ≠ joueur connecté ≠ moteur prêt ; code privé non déduit d'un identifiant public.
+- `LobbyPage.tsx` : recherche des tables par nom et filtre disponibles / mes tables.
+
+## Matchmaking et vérité serveur
+
+- `queueMatch` envoie `target_size` lorsque le joueur choisit un format compatible.
+- `MatchmakingStatusView` renvoie le ticket du jeu demandé plutôt qu'un ticket d'un autre jeu.
+- `matchmaking_payload` inclut `target_players`.
+- L'allocation favorise une table publique gratuite avec siège libre et présence humaine récente avant de créer une autre table.
+- Les tickets en attente de jeux précédents sont annulés lorsque l'utilisateur change de jeu.
+- La sélection de format repose sur `table-capabilities`, pas une liste séparée.
+- Les délais d'attente factices ont été retirés du lobby général.
+- Aucun robot n'est substitué à un joueur sans un parcours de simulation explicite.
+
+## Garde-fous financiers
+
+La règle choisie pour cet incrément, suivant le test existant `test_finance.py`, est : **pour les jeux non-Poker, un minimum en Ariary est un contrôle d'éligibilité et n'autorise pas de réservation/débit MGA**. Les tests API auparavant contradictoires sont alignés sur ce contrat et sur `TableSeat.buy_in = 0`. Le Poker à mise monétaire conserve ses traitements spécifiques. Cette règle doit être approuvée par le propriétaire du produit et revue juridiquement avant toute exploitation monétaire en production.
+
+Les badges de statut ne transforment jamais un siège, une statistique historique ou une absence de réponse serveur en joueur connecté. Les pourcentages Poker d'équité codés en dur ont été retirés, car non calculés pour la main courante.
+
+## Couverture automatisée de la branche
+
+- Navigateurs : navigation mobile, cinq lobbies de jeu, recherche/filtres, création rapide, annulation/retour du matchmaking, catalogue créer/pratiquer, parties à reprendre.
+- Accessibilité automatisée : Accueil, Auth, lobby générique, catalogue mobile, Mes parties et lobby du jeu sélectionné (selon les tests Playwright Axe).
+- Backend : matchmaking 3 joueurs Ludo, filtrage par jeu, format invalide, table existante avec hôte présent, hôte périmé ignoré, changement de jeu.
+- Tests Django de financement : contrôle sans débit non-Poker, et invariants de financement Poker.
+- Go : tests du moteur et lint ; helpers inutilisés supprimés.
+
+Voir les exécutions GitHub Actions associées au commit exact de la branche. **Les résultats d'une exécution antérieure ne prouvent pas la réussite de nouveaux commits.** Aucun benchmark LCP/INP/CLS ni test utilisateurs modéré n'a été réalisé ici.
+
+## Limites et critères avant une mise en production
+
+1. **Réception E2E réelle** avec deux appareils / navigateurs et deux comptes distincts, moteur Go et Django en staging, pour chacun des jeux et capacités supportées.
+2. **Réconciliation sièges / présence / snapshots / déconnexion** sous réseau mobile intermittent, notamment avec 4G/3G.
+3. **Audit indépendant des flux financiers** MGA, rapprochements, remboursements, all-in Poker et états de sortie. Aucun nouveau flux réel ne doit être activé sans recette.
+4. **Conformité légale et protection des joueurs** pour les fonctionnalités financières et politiques locales.
+5. **Tests utilisateurs** FR/MG à 320/360/390/430 px et sur appareils Android/iOS, clavier et lecteurs d'écran.
+6. **Observabilité** : métriques anonymisées du temps pour rejoindre, taux de succès, annulation de matchmaking, erreurs d'admission et sessions.
+7. **Contrainte de déploiement** : le workflow Release déclenché sur tags `v*` publie des images ; fusionner vers `master` n'est pas en soi un déploiement de production.
+
+Critère « prêt à merger » : CI de la tête PR verte et absence de régression identifiée ; si les points 1–6 ne sont pas testés, les qualifier explicitement de **non certifiés**, et ne pas qualifier le produit de « production-ready ».
