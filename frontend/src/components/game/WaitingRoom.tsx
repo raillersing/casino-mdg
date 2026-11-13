@@ -45,7 +45,6 @@ const GAME_NAMES: Record<string, string> = {
 
 export function WaitingRoom({
   tableName,
-  tableCode,
   gameType,
   maxPlayers,
   currentPlayers,
