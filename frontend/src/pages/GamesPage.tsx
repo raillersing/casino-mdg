@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Search, Users, Bot, Zap, Loader2 } from "lucide-react";
 import { useGameStore } from "@stores/gameStore";
 import { startBotSimulation } from "@services/games";
@@ -54,9 +54,38 @@ const games = [
   },
 ] as const;
 
+
+type CatalogGame = (typeof games)[number];
+
+function CatalogGameCard({ game, actionLabel }: { game: CatalogGame; actionLabel: string }) {
+  return (
+    <>
+      <div className="discovery-art" aria-hidden="true">
+        <img src={`/images/games/${game.id}-cover.webp`} alt=""
+          loading={game.id === "belote" ? "eager" : "lazy"}
+          decoding="async" width={960} height={640} />
+      </div>
+      <div className="discovery-card-copy">
+        <span className="discovery-players">{game.players}</span>
+        <h3>{game.name}</h3>
+        <p>{game.description}</p>
+        <span className="discovery-card-action">
+          {actionLabel} <ArrowRight size={17} aria-hidden="true" />
+        </span>
+      </div>
+    </>
+  );
+}
+
 export function GamesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const intent = searchParams.get("intent");
+  const isCreating = intent === "create";
+  const isPracticing = intent === "practice";
+  const { i18n } = useTranslation();
+  const mg = i18n.language.startsWith("mg");
   const token = useGameStore((state) => state.accessToken);
   const setSession = useGameStore((state) => state.setSession);
   const setGuestMode = useGameStore((state) => state.setGuestMode);
@@ -105,8 +134,16 @@ export function GamesPage() {
     <div className="discovery-page">
       <header className="discovery-heading">
         <span className="eyebrow">MDG GAME CLUB</span>
-        <h1>{t("discovery.catalogTitle")}</h1>
-        <p>{t("discovery.intro")}</p>
+        <h1>{isCreating
+          ? mg ? "Hamorona latabatra ho an'ny lalao iza?" : "Pour quel jeu créer une table ?"
+          : isPracticing
+            ? mg ? "Iza no lalao hianaranao?" : "À quel jeu voulez-vous vous entraîner ?"
+            : t("discovery.catalogTitle")}</h1>
+        <p>{isCreating
+          ? mg ? "Misafidiana lalao, dia amboary ny isan'ny mpilalao." : "Choisissez un jeu puis personnalisez votre table."
+          : isPracticing
+            ? mg ? "Misafidiana lalao hianarana miaraka amin'ny milina." : "Choisissez un jeu pour vous entraîner avec des robots identifiés."
+            : t("discovery.intro")}</p>
       </header>
 
       <section aria-labelledby="catalog-title">
@@ -150,29 +187,31 @@ export function GamesPage() {
             const isLaunching = launchingGame === game.id;
             return (
               <div key={game.id} className="discovery-game">
-                <Link
-                  to={`/lobby/${game.id}`}
-                  className={`discovery-card discovery-${game.color}`}
-                >
-                  <div className="discovery-art" aria-hidden="true">
-                    <img
-                      src={`/images/games/${game.id}-cover.webp`}
-                      alt=""
-                      loading={game.id === "belote" ? "eager" : "lazy"}
-                      decoding="async"
-                      width={960}
-                      height={640}
+                {isPracticing ? (
+                  <button
+                    type="button"
+                    className={`discovery-card discovery-${game.color} discovery-card-button`}
+                    onClick={() => void handleSoloPlay(game.id)}
+                    disabled={isLaunching}
+                  >
+                    <CatalogGameCard
+                      game={game}
+                      actionLabel={mg ? "Hanomboka fanazaran-tena" : "Lancer l'entraînement"}
                     />
-                  </div>
-                  <div className="discovery-card-copy">
-                    <span className="discovery-players">{game.players}</span>
-                    <h3>{game.name}</h3>
-                    <p>{game.description}</p>
-                    <span className="discovery-card-action">
-                      {t("discovery.chooseGame")} <ArrowRight size={17} />
-                    </span>
-                  </div>
-                </Link>
+                  </button>
+                ) : (
+                  <Link
+                    to={isCreating ? `/lobby/${game.id}?action=create` : `/lobby/${game.id}`}
+                    className={`discovery-card discovery-${game.color}`}
+                  >
+                    <CatalogGameCard
+                      game={game}
+                      actionLabel={isCreating
+                        ? mg ? "Hamorona latabatra" : "Créer une table"
+                        : t("discovery.chooseGame")}
+                    />
+                  </Link>
+                )}
 
                 <div
                   style={{
@@ -184,7 +223,7 @@ export function GamesPage() {
                   }}
                 >
                   <Link
-                    to={`/lobby/${game.id}`}
+                    to={isCreating ? `/lobby/${game.id}?action=create` : `/lobby/${game.id}`}
                     className="button button-gold button-small"
                     style={{
                       justifyContent: "center",
@@ -192,7 +231,7 @@ export function GamesPage() {
                       textDecoration: "none",
                     }}
                   >
-                    <Zap size={14} /> Accéder aux tables
+                    <Zap size={14} /> {isCreating ? (mg ? "Hamorona latabatra" : "Créer une table") : (mg ? "Hijery latabatra" : "Accéder aux tables")}
                   </Link>
 
                   <button
