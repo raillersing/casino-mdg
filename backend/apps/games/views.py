@@ -20,7 +20,13 @@ from apps.wallet.services import credit_simulation_reward, settle_game_win
 
 from .chance_simulation import MAX_ROUNDS, simulate_draw, simulate_instant
 from .live_activity import engine_activity
-from .matchmaking import active_presence, cancel_ticket, queue_player
+from .matchmaking import (
+    QUEUE_TTL,
+    active_presence,
+    active_queued_tickets,
+    cancel_ticket,
+    queue_player,
+)
 from .models import (
     BotSimulationParticipant,
     BotSimulationSession,
@@ -42,7 +48,6 @@ from .services import generate_admission_token, join_table, leave_table
 from .table_rules import CAPABILITIES, validate_table_settings
 from .test_games import create_draw_entry, draw_now, ensure_test_catalog, play_instant
 
-MATCHMAKING_TIMEOUT_SECONDS = 20
 
 
 def game_result_signature_payload(
@@ -1052,7 +1057,7 @@ def matchmaking_payload(ticket):
         ),
         "created_at": ticket.created_at.isoformat(),
         "waiting_seconds": waiting_seconds,
-        "timeout_seconds": MATCHMAKING_TIMEOUT_SECONDS,
+        "timeout_seconds": None,
     }
 
 
@@ -1064,26 +1069,33 @@ class MatchmakingStatusView(APIView):
         if game_type and game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
         active = active_presence(game_type)
-        queued = MatchmakingTicket.objects.filter(status="queued")
-        if game_type:
-            queued = queued.filter(game_type=game_type)
-        own_tickets = MatchmakingTicket.objects.filter(
-            user=request.user, status__in=["queued", "matched"]
+        queued = active_queued_tickets(game_type)
+        # Matched tickets are resumable only while the seat exists and the
+        # matching table has not finished. Never suggest an old ghost match.
+        own_tickets = MatchmakingTicket.objects.filter(user=request.user).filter(
+            Q(status="queued", updated_at__gte=timezone.now() - QUEUE_TTL)
+            | Q(
+                status="matched",
+                matched_table__status__in=["open", "running"],
+                matched_table__seats__user=request.user,
+            )
         )
         if game_type:
             own_tickets = own_tickets.filter(game_type=game_type)
-        ticket = own_tickets.order_by("-created_at").first()
+        ticket = (
+            own_tickets.select_related("matched_table")
+            .distinct()
+            .order_by("-created_at")
+            .first()
+        )
         return Response(
             {
                 "game_type": game_type,
                 "human_online": active.count(),
                 "queued": queued.count(),
-                "estimated_wait_seconds": (
-                    0
-                    if queued.exclude(user=request.user).exists()
-                    else MATCHMAKING_TIMEOUT_SECONDS
-                ),
-                "timeout_seconds": MATCHMAKING_TIMEOUT_SECONDS,
+                # No historical data supports a numeric wait-time prediction.
+                "estimated_wait_seconds": None,
+                "timeout_seconds": None,
                 "ticket": matchmaking_payload(ticket) if ticket else None,
             }
         )
@@ -1096,16 +1108,25 @@ class MatchmakingHeartbeatView(APIView):
         game_type = request.data.get("game_type")
         if game_type and game_type not in dict(GameTable.GAME_TYPES):
             return Response({"detail": "Jeu inconnu."}, status=400)
-        from django.utils import timezone
-
         from .models import PlayerPresence
 
+        now = timezone.now()
+        own_queue = MatchmakingTicket.objects.filter(
+            user=request.user, status="queued", game_type=game_type
+        )
+        # Do not revive a queue that has been idle beyond the grace period.
+        own_queue.filter(updated_at__lt=now - QUEUE_TTL).update(
+            status="cancelled", updated_at=now
+        )
+        searching = own_queue.filter(updated_at__gte=now - QUEUE_TTL).exists()
+        if searching:
+            own_queue.update(updated_at=now)
         presence, _ = PlayerPresence.objects.update_or_create(
             user=request.user,
             defaults={
                 "game_type": game_type,
-                "status": "online",
-                "last_seen_at": timezone.now(),
+                "status": "searching" if searching else "online",
+                "last_seen_at": now,
             },
         )
         return Response(
