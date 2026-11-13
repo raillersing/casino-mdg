@@ -1,0 +1,40 @@
+name: One-off mobile lobby formatting
+
+on:
+  push:
+    branches: [perf/mobile-lobby-network-scheduling-2026-11-13]
+    paths:
+      - .github/workflows/format-mobile-lobby-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/mobile-lobby-network-scheduling-2026-11-13
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Format changed TSX
+        working-directory: frontend
+        run: npx prettier --write src/pages/LobbyPage.tsx tests/e2e/mobile-lobby-network.spec.ts
+      - name: Commit formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/pages/LobbyPage.tsx frontend/tests/e2e/mobile-lobby-network.spec.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style: format mobile lobby polling and tests"
+            git fetch origin perf/mobile-lobby-network-scheduling-2026-11-13
+            git rebase origin/perf/mobile-lobby-network-scheduling-2026-11-13
+            git push origin HEAD:perf/mobile-lobby-network-scheduling-2026-11-13
+          fi
