@@ -1043,6 +1043,7 @@ def matchmaking_payload(ticket):
     return {
         "ticket_id": str(ticket.id),
         "game_type": ticket.game_type,
+        "target_players": ticket.target_players,
         "status": ticket.status,
         "table_id": str(ticket.matched_table_id) if ticket.matched_table_id else None,
         "table_code": (
@@ -1065,13 +1066,12 @@ class MatchmakingStatusView(APIView):
         queued = MatchmakingTicket.objects.filter(status="queued")
         if game_type:
             queued = queued.filter(game_type=game_type)
-        ticket = (
-            MatchmakingTicket.objects.filter(
-                user=request.user, status__in=["queued", "matched"]
-            )
-            .order_by("-created_at")
-            .first()
+        own_tickets = MatchmakingTicket.objects.filter(
+            user=request.user, status__in=["queued", "matched"]
         )
+        if game_type:
+            own_tickets = own_tickets.filter(game_type=game_type)
+        ticket = own_tickets.order_by("-created_at").first()
         return Response(
             {
                 "game_type": game_type,
