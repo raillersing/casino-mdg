@@ -194,6 +194,7 @@ export type MatchmakingTicket = {
   ticket_id: string;
   game_type: "poker" | "belote" | "rami" | "ludo" | "domino";
   status: "queued" | "matched" | "cancelled";
+  target_players?: number;
   table_id: string | null;
   table_code: string | null;
   created_at: string;
@@ -234,6 +235,7 @@ export function sendMatchmakingHeartbeat(
 export function queueMatch(
   accessToken: string,
   gameType: "poker" | "belote" | "rami" | "ludo" | "domino",
+  targetPlayers?: number,
 ) {
   return request<{ ticket: MatchmakingTicket; created: boolean }>(
     "matchmaking/queue/",
@@ -243,7 +245,7 @@ export function queueMatch(
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ game_type: gameType }),
+      body: JSON.stringify({ game_type: gameType, ...(targetPlayers ? { target_size: targetPlayers } : {}) }),
     },
   );
 }
