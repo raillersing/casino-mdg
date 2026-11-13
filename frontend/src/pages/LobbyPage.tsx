@@ -1105,8 +1105,7 @@ export function LobbyPage() {
 
           <div className="lobby-deck-status">
             <span>
-              Attente estimée :{" "}
-              <strong>~{matchStatus.estimated_wait_seconds || 15}s</strong>
+              Délai d'attente : <strong>variable selon les joueurs disponibles</strong>
             </span>
             <span>
               En ligne : <strong>{matchStatus.human_online} joueur(s)</strong>
