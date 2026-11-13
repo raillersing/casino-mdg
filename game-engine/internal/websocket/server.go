@@ -1925,24 +1925,3 @@ func signBotToken(claims botTokenClaims, secret string) string {
 	return encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-func extractInt64(v interface{}) int64 {
-	switch val := v.(type) {
-	case int64:
-		return val
-	case int:
-		return int64(val)
-	case float64:
-		return int64(val)
-	case float32:
-		return int64(val)
-	case string:
-		var n int64
-		fmt.Sscanf(val, "%d", &n)
-		return n
-	case json.Number:
-		n, _ := val.Int64()
-		return n
-	default:
-		return 0
-	}
-}
