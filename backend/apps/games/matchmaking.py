@@ -1,8 +1,10 @@
 from datetime import timedelta
 
+import requests
 from django.db import connection, transaction
 from django.utils import timezone
 
+from .live_activity import engine_activity
 from .models import GameTable, MatchmakingTicket, PlayerPresence
 from .services import join_table
 
@@ -91,11 +93,39 @@ def queue_player(user, game_type, target_size=None):
         .prefetch_related("seats")
         .order_by("created_at")[:50]
     )
-    for existing_table in public_tables:
-        seats = list(existing_table.seats.all())
-        if not 0 < len(seats) < capacity:
+    # A lobby heartbeat is NOT evidence that a human is inside this table.
+    # Match only to seats with a live, authenticated human engine connection.
+    candidates_with_fresh_seats = [
+        (table, list(table.seats.all()))
+        for table in public_tables
+    ]
+    candidates_with_fresh_seats = [
+        (table, seats)
+        for table, seats in candidates_with_fresh_seats
+        if 0 < len(seats) < capacity
+        and any(seat.user_id in fresh_users for seat in seats)
+    ]
+    if candidates_with_fresh_seats:
+        try:
+            live_tables = engine_activity()
+        except (requests.RequestException, ValueError, KeyError, TypeError):
+            live_tables = {}
+    else:
+        live_tables = {}
+    for existing_table, seats in candidates_with_fresh_seats:
+        live_entry = live_tables.get(str(existing_table.pk))
+        if not isinstance(live_entry, dict):
             continue
-        if not any(seat.user_id in fresh_users for seat in seats):
+        if live_entry.get("waiting") is not True:
+            continue
+        engine_humans = live_entry.get("humans")
+        if not isinstance(engine_humans, list):
+            continue
+        verified_humans = {str(item) for item in engine_humans if isinstance(item, str)}
+        if not any(
+            seat.user_id in fresh_users and str(seat.user_id) in verified_humans
+            for seat in seats
+        ):
             continue
         # join_table performs its own row-level lock and rechecks seats.
         try:
