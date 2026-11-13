@@ -431,3 +431,64 @@ test("long-running matchmaking remains cancellable without a fictitious timeout"
   await expect(page.getByText(/Temps écoulé.*2[5-9]s/)).toBeVisible();
   await expect(page.getByText(/Délai dépassé/)).toHaveCount(0);
 });
+
+
+test("cancel versus match race preserves access to an already assigned table", async ({
+  page,
+}) => {
+  await mockSignedIn(page);
+  await mockTableList(page, []);
+  await page.route("**/api/v1/games/table-capabilities/", (route) =>
+    route.fulfill({
+      json: { games: { ludo: { players: [2, 3, 4], defaults: {} } } },
+    }),
+  );
+  await page.route("**/api/v1/games/matchmaking/heartbeat/", (route) =>
+    route.fulfill({ json: { status: "searching", game_type: "ludo" } }),
+  );
+  const ticket = {
+    ticket_id: "race-ticket",
+    game_type: "ludo",
+    target_players: 2,
+    table_id: null,
+    table_code: null,
+    status: "queued",
+    created_at: new Date().toISOString(),
+    waiting_seconds: 0,
+    timeout_seconds: null,
+  };
+  await page.route("**/api/v1/games/matchmaking/status/**", (route) =>
+    route.fulfill({
+      json: {
+        game_type: "ludo",
+        human_online: 2,
+        queued: 1,
+        estimated_wait_seconds: null,
+        timeout_seconds: null,
+        ticket,
+      },
+    }),
+  );
+  await page.route("**/api/v1/games/matchmaking/queue/race-ticket/", (route) =>
+    route.fulfill({
+      json: {
+        ticket: {
+          ...ticket,
+          status: "matched",
+          table_id: "allocated-table",
+          table_code: "LUDO-ALLOCATED",
+        },
+      },
+    }),
+  );
+  await page.goto("/lobby/ludo");
+  await expect(page.locator(".game-lobby-cancel")).toBeVisible();
+  await page.locator(".game-lobby-cancel").click();
+  await expect(
+    page.getByText(/La partie a été trouvée avant l'annulation/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Rejoindre ma partie" }),
+  ).toHaveAttribute("href", "/game/ludo/LUDO-ALLOCATED?table_id=allocated-table");
+  await expect(page).toHaveURL(/\/lobby\/ludo/);
+});
