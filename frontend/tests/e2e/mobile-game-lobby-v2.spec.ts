@@ -286,7 +286,7 @@ test("returning from authentication can resume Ludo matchmaking", async ({
           human_online: 0,
           queued: 0,
           estimated_wait_seconds: 0,
-          ticket: null,
+          ticket: queued.length ? ticket : null,
         },
       });
     }
