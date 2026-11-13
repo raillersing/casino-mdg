@@ -138,7 +138,7 @@ def join_table(table, user, buy_in=None):
     if table.game_type != "poker":
         if buy_in is not None and int(buy_in) != min_part:
             raise ValueError(
-                f"Pour {table.game_type.capitalize()}, le minimum d'accès est fixe ({min_part} Ar)."
+                f"Pour {table.game_type.capitalize()}, la mise de participation est fixe et ne peut pas être augmentée ({min_part} Ar)."
             )
         # Admission to non-poker games must never reserve MGA. The minimum
         # is an eligibility gate, not a debit or a playable monetary stack.
