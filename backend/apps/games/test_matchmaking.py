@@ -157,7 +157,8 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(GameTable.objects.count(), 0)
 
-    def test_matchmaking_joins_existing_public_room_with_present_host(self):
+    @patch("apps.games.matchmaking.engine_activity")
+    def test_matchmaking_joins_existing_public_room_with_present_host(self, live_activity):
         table = GameTable.objects.create(
             table_code="human-ludo-available",
             name="Ludo ouvert",
@@ -170,6 +171,12 @@ class MatchmakingApiTests(TestCase):
             stake_amount=0,
         )
         TableSeat.objects.create(table=table, user=self.first, seat_index=0)
+        live_activity.return_value = {
+            str(table.pk): {
+                "waiting": True,
+                "humans": [str(self.first.pk)],
+            }
+        }
         self.client.force_authenticate(self.first)
         self.client.post(
             "/api/v1/games/matchmaking/heartbeat/",
@@ -348,3 +355,125 @@ class MatchmakingApiTests(TestCase):
         table.save(update_fields=["status"])
         finished = self.client.get("/api/v1/games/matchmaking/status/?game_type=ludo")
         self.assertIsNone(finished.data["ticket"])
+
+
+    @patch("apps.games.matchmaking.engine_activity")
+    def test_lobby_heartbeat_is_not_live_table_presence(self, activity):
+        room = GameTable.objects.create(
+            table_code="lobby-heartbeat-is-not-presence",
+            name="Presence check",
+            game_type="ludo",
+            max_players=2,
+            created_by=self.first,
+        )
+        TableSeat.objects.create(table=room, user=self.first, seat_index=0)
+        self.client.force_authenticate(self.first)
+        self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "ludo"},
+            format="json",
+        )
+        activity.return_value = {
+            str(room.pk): {"waiting": True, "humans": []}
+        }
+        self.client.force_authenticate(self.second)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(response.data["ticket"]["status"], "queued")
+        self.assertEqual(TableSeat.objects.filter(table=room).count(), 1)
+        activity.assert_called_once()
+
+    @patch("apps.games.matchmaking.engine_activity")
+    def test_engine_human_in_a_different_room_cannot_validate_host(self, activity):
+        room = GameTable.objects.create(
+            table_code="different-room-presence",
+            name="Presence check",
+            game_type="ludo",
+            max_players=2,
+            created_by=self.first,
+        )
+        TableSeat.objects.create(table=room, user=self.first, seat_index=0)
+        self.client.force_authenticate(self.first)
+        self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "ludo"},
+            format="json",
+        )
+        activity.return_value = {
+            "some-other-table": {
+                "waiting": True,
+                "humans": [str(self.first.pk)],
+            }
+        }
+        self.client.force_authenticate(self.second)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(response.data["ticket"]["status"], "queued")
+        self.assertEqual(TableSeat.objects.filter(table=room).count(), 1)
+
+    @patch("apps.games.matchmaking.engine_activity")
+    def test_started_room_does_not_get_new_matchmaking_seat(self, activity):
+        room = GameTable.objects.create(
+            table_code="started-room-presence",
+            name="Started room",
+            game_type="poker",
+            max_players=2,
+            created_by=self.first,
+        )
+        TableSeat.objects.create(table=room, user=self.first, seat_index=0)
+        self.client.force_authenticate(self.first)
+        self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "poker"},
+            format="json",
+        )
+        activity.return_value = {
+            str(room.pk): {
+                "waiting": False,
+                "started": True,
+                "humans": [str(self.first.pk)],
+            }
+        }
+        self.client.force_authenticate(self.second)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "poker", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(response.data["ticket"]["status"], "queued")
+        self.assertEqual(TableSeat.objects.filter(table=room).count(), 1)
+
+    @patch("apps.games.matchmaking.engine_activity")
+    def test_engine_outage_falls_back_to_normal_queue(self, activity):
+        import requests
+
+        room = GameTable.objects.create(
+            table_code="offline-room-presence",
+            name="Offline engine",
+            game_type="ludo",
+            max_players=2,
+            created_by=self.first,
+        )
+        TableSeat.objects.create(table=room, user=self.first, seat_index=0)
+        self.client.force_authenticate(self.first)
+        self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "ludo"},
+            format="json",
+        )
+        activity.side_effect = requests.Timeout("Engine offline")
+        self.client.force_authenticate(self.second)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["ticket"]["status"], "queued")
+        self.assertEqual(TableSeat.objects.filter(table=room).count(), 1)
