@@ -297,3 +297,22 @@ test("returning from authentication can resume Ludo matchmaking", async ({
   expect(queued).toEqual(["ludo"]);
   await expect(page).not.toHaveURL(/action=matchmaking/);
 });
+
+
+test("per-game filters distinguish free seats and my reserved table", async ({
+  page,
+}) => {
+  await mockTableList(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/lobby/ludo");
+  await expect(page.locator(".game-lobby-table-card")).toHaveCount(3);
+  await page.getByLabel("Disponibilité").selectOption("available");
+  await expect(page.locator(".game-lobby-table-card")).toHaveCount(2);
+  await page.getByLabel("Disponibilité").selectOption("mine");
+  await expect(page.locator(".game-lobby-table-card")).toHaveCount(1);
+  await expect(page.locator(".game-lobby-table-card")).toContainText("Ma partie");
+  await page.getByLabel("Disponibilité").selectOption("all");
+  await page.getByRole("searchbox", { name: "Rechercher une table" }).fill("ouverte");
+  await expect(page.locator(".game-lobby-table-card")).toHaveCount(1);
+  await expect(page.locator(".game-lobby-table-card")).toContainText("Table ouverte");
+});
