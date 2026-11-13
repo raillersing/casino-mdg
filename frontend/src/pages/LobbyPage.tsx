@@ -53,6 +53,10 @@ import { BotCountSelector } from "@components/game/BotCountSelector";
 import { CreateTableModal } from "@components/game/CreateTableModal";
 import { JoinPrivateTableModal } from "@components/game/JoinPrivateTableModal";
 import { PokerBuyInModal } from "@components/game/PokerBuyInModal";
+import { GameLobbyEntryActions } from "@components/game/GameLobbyEntryActions";
+import { TableAvailabilityCard } from "@components/game/TableAvailabilityCard";
+import { QuickCreateTableSheet } from "@components/game/QuickCreateTableSheet";
+import "@styles/game-lobby-v2.css";
 import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
 import { GameActivitySummary } from "@components/game/GameActivitySummary";
 import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
@@ -161,10 +165,13 @@ export function LobbyPage() {
   const user = useGameStore((state) => state.user);
   const navigate = useNavigate();
 
+  // The URL is the source of truth for a dedicated game's matchmaking.
   const matchmakingGame = (
-    ["poker", "belote", "rami", "ludo", "domino"].includes(filter)
-      ? filter
-      : "belote"
+    urlGameType && ["poker", "belote", "rami", "ludo", "domino"].includes(urlGameType)
+      ? urlGameType
+      : ["poker", "belote", "rami", "ludo", "domino"].includes(filter)
+        ? filter
+        : "belote"
   ) as "poker" | "belote" | "rami" | "ludo" | "domino";
 
   const [matchStatus, setMatchStatus] = useState<{
@@ -177,6 +184,7 @@ export function LobbyPage() {
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [createTableGame, setCreateTableGame] = useState<
     "belote" | "domino" | "ludo" | "rami" | "poker"
   >("belote");
@@ -582,6 +590,25 @@ export function LobbyPage() {
     return ["belote", "domino", "ludo", "rami", "poker"] as const;
   }, [filter]);
 
+  const createAndNavigate = async (payload: CreateTablePayload): Promise<GameTable> => {
+    if (!accessToken) {
+      navigate(`/auth?next=${encodeURIComponent(`/lobby/${payload.game_type}?action=create`)}`);
+      throw new Error("AUTH_REQUIRED");
+    }
+    const response = await createTable(accessToken, payload);
+    const selected = (response.table || response) as GameTable;
+    const tableId = response.table_id || selected.id;
+    const tableCode = selected.table_code || tableId;
+    const params = new URLSearchParams({ table_id: tableId });
+    if (response.admission_token) {
+      params.set("admission_token", response.admission_token);
+    }
+    setShowCreateTable(false);
+    setShowQuickCreate(false);
+    navigate(`/game/${selected.game_type}/${tableCode}?${params.toString()}`);
+    return selected;
+  };
+
   const handleQuickCreate = async (
     gameType: "belote" | "domino" | "ludo" | "rami" | "poker",
   ) => {
@@ -671,6 +698,11 @@ export function LobbyPage() {
     return stakeFilter === "10000"
       ? minimum >= 10000
       : minimum === Number(stakeFilter);
+  }).sort((a, b) => {
+    // Put the user's own seat and joinable tables ahead of full rooms.
+    const priority = (table: GameTable) =>
+      table.joined ? 0 : table.player_count < table.max_players ? 1 : 2;
+    return priority(a) - priority(b);
   });
 
   const shownTournaments = useMemo(() => {
@@ -787,58 +819,30 @@ export function LobbyPage() {
             </div>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "10px",
-              margin: "16px 0 20px",
+          <GameLobbyEntryActions
+            gameName={selectedGameMeta.label}
+            isSearching={matchStatus.ticket?.status === "queued"}
+            waitingSeconds={waitingSeconds}
+            isCreating={quickCreating !== null}
+            onSearch={() => void findHuman()}
+            onCancel={() => void cancelSearch()}
+            onCreate={() => {
+              if (!accessToken) {
+                navigate(`/auth?next=${encodeURIComponent(`/lobby/${urlGameType}?action=create`)}`);
+                return;
+              }
+              setCreateTableGame(matchmakingGame);
+              setShowQuickCreate(true);
             }}
-          >
-            <button
-              type="button"
-              className="button button-secondary"
-              style={{
-                justifyContent: "center",
-                fontWeight: 600,
-                minHeight: "44px",
-                gap: "8px",
-              }}
-              onClick={() => {
-                if (!accessToken) navigate(`/auth?next=/lobby/${urlGameType}`);
-                else setShowJoinPrivate(true);
-              }}
-            >
-              <Lock size={15} /> Code privé
-            </button>
-
-            <button
-              type="button"
-              className="button button-gold"
-              style={{
-                justifyContent: "center",
-                fontWeight: 700,
-                minHeight: "44px",
-                gap: "8px",
-              }}
-              onClick={() => {
-                if (!accessToken) navigate(`/auth?next=/lobby/${urlGameType}`);
-                else {
-                  setCreateTableGame(
-                    urlGameType as
-                      | "belote"
-                      | "domino"
-                      | "ludo"
-                      | "rami"
-                      | "poker",
-                  );
-                  setShowCreateTable(true);
-                }
-              }}
-            >
-              <Plus size={16} /> Créer une table
-            </button>
-          </div>
+            onPrivateCode={() => {
+              if (!accessToken) {
+                navigate(`/auth?next=${encodeURIComponent(`/lobby/${urlGameType}?action=join-private`)}`);
+                return;
+              }
+              setShowJoinPrivate(true);
+            }}
+            error={matchError}
+          />
         </div>
       ) : (
         <div className="lobby-claude-head">
@@ -1755,8 +1759,18 @@ export function LobbyPage() {
           </div>
         </div>
       ) : (
-        <div className="lobby-cards-grid">
+        <div className={isGameLobby ? "game-lobby-table-list" : "lobby-cards-grid"}>
           {shown.map((table) => {
+            if (isGameLobby) {
+              return (
+                <TableAvailabilityCard
+                  key={table.id}
+                  table={table}
+                  isJoining={joining === table.id}
+                  onJoin={() => void join(table)}
+                />
+              );
+            }
             const live = table.status === "running";
             const meta = GAME_SUITS[table.game_type] ?? {
               icon: "♠",
@@ -2008,34 +2022,6 @@ export function LobbyPage() {
       {/* Actions secondaires et statistiques */}
       {isGameLobby && selectedGameMeta ? (
         <div style={{ marginTop: "24px" }}>
-          <button
-            type="button"
-            className="button button-gold button-large"
-            style={{
-              width: "100%",
-              minHeight: "48px",
-              fontWeight: 700,
-              justifyContent: "center",
-              fontSize: "15px",
-            }}
-            onClick={() => {
-              if (!accessToken) navigate(`/auth?next=/lobby/${urlGameType}`);
-              else {
-                setCreateTableGame(
-                  urlGameType as
-                    | "belote"
-                    | "domino"
-                    | "ludo"
-                    | "rami"
-                    | "poker",
-                );
-                setShowCreateTable(true);
-              }
-            }}
-          >
-            <Plus size={18} /> Créer une table de {selectedGameMeta.label.split(" ")[0]}
-          </button>
-
           <details
             className="lobby-secondary-details"
             style={{
@@ -2171,28 +2157,23 @@ export function LobbyPage() {
       </>
       )}
 
-      {/* Modal Riche de Création de Table */}
+      <QuickCreateTableSheet
+        game={createTableGame}
+        isOpen={showQuickCreate}
+        onClose={() => setShowQuickCreate(false)}
+        onAdvanced={() => {
+          setShowQuickCreate(false);
+          setShowCreateTable(true);
+        }}
+        onSubmit={createAndNavigate}
+      />
+
+      {/* Detailed configuration remains available from the quick sheet. */}
       <CreateTableModal
         initialGameType={createTableGame}
         isOpen={showCreateTable}
         onClose={() => setShowCreateTable(false)}
-        onSubmit={async (payload: CreateTablePayload) => {
-          if (!accessToken) {
-            navigate("/auth?next=/lobby");
-            throw new Error("AUTH_REQUIRED");
-          }
-          const res = await createTable(accessToken, payload);
-          setShowCreateTable(false);
-          const admissionQuery = res.admission_token
-            ? `?table_id=${res.table_id || res.id}&admission_token=${res.admission_token}`
-            : `?table_id=${res.table_id || res.id}`;
-          const gType =
-            res.game_type || res.table?.game_type || payload.game_type;
-          const tCode =
-            res.table_code || res.table?.table_code || res.table_id || res.id;
-          navigate(`/game/${gType}/${tCode}${admissionQuery}`);
-          return (res.table || res) as GameTable;
-        }}
+        onSubmit={createAndNavigate}
       />
 
       {/* Modal Rejoindre une Table Privée par Code */}
