@@ -384,9 +384,6 @@ export function LobbyPage() {
   const refreshData = useCallback(() => {
     setLoading(true);
     setError("");
-    getLiveStats()
-      .then(setLiveStats)
-      .catch(() => undefined);
     if (filter === "tournaments") {
       getTournaments(accessToken || "")
         .then((res) => setTournaments(res.results || []))
@@ -440,6 +437,21 @@ export function LobbyPage() {
     };
   }, [filter, accessToken]);
 
+  // Share in-flight activity requests across StrictMode effect replay.
+  // Avoid extra 3G/4G transfers while still updating the active instance.
+  const statsPromiseRef = useRef<ReturnType<typeof getLiveStats> | null>(null);
+  const loadStats = useCallback(() => {
+    if (statsPromiseRef.current) return statsPromiseRef.current;
+    const pending = getLiveStats();
+    statsPromiseRef.current = pending;
+    void pending
+      .finally(() => {
+        if (statsPromiseRef.current === pending) statsPromiseRef.current = null;
+      })
+      .catch(() => undefined);
+    return pending;
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     let inFlight = false;
@@ -453,7 +465,7 @@ export function LobbyPage() {
         return;
       inFlight = true;
       try {
-        const data = await getLiveStats();
+        const data = await loadStats();
         if (mounted) setLiveStats(data);
       } catch {
         // Unverified activity must never be replaced by a fabricated zero.
@@ -464,7 +476,8 @@ export function LobbyPage() {
     const resume = () => {
       if (document.visibilityState === "visible") void fetchStats();
     };
-    // refreshData performs the initial fetch and handles manual refreshes.
+    // Activity is independent of table filters and must load only once.
+    void fetchStats();
     const timer = window.setInterval(() => void fetchStats(), 30000);
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("online", resume);
@@ -474,10 +487,10 @@ export function LobbyPage() {
       document.removeEventListener("visibilitychange", resume);
       window.removeEventListener("online", resume);
     };
-  }, []);
+  }, [loadStats]);
 
   // StrictMode replays effects in development. The same filter/token must
-  // not launch a duplicate initial table and live-stat request.
+  // not launch a duplicate initial table request.
   const initialRefreshKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const key = `${filter}:${accessToken || "guest"}`;
