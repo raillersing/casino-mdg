@@ -1,6 +1,9 @@
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.db import close_old_connections, connection
+from django.test import TestCase, TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -59,7 +62,9 @@ class FundingTests(TestCase):
 
     def test_reserve_replay_apply_then_exit_refunds_pending_exactly_once(self):
         b, entry = self.enter()
-        apply_checkpoint(self.table.pk, self.checkpoint(1, [entry], [(b, {"stack": 50000})]))
+        apply_checkpoint(
+            self.table.pk, self.checkpoint(1, [entry], [(b, {"stack": 50000})])
+        )
         _, _, top = reserve_top_up(self.table, self.users[0], 10000, "top-1")
         _, _, retry = reserve_top_up(self.table, self.users[0], 10000, "top-1")
         self.assertEqual(top.pk, retry.pk)
@@ -240,13 +245,6 @@ class FundingTests(TestCase):
         self.table.refresh_from_db()
         self.assertNotEqual(self.table.status, "finished")
         self.assertEqual(self.balances(), (50000, 50000, 50000))
-
-
-from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
-
-from django.db import close_old_connections, connection
-from django.test import TransactionTestCase
 
 
 class FundingConcurrencyTests(TransactionTestCase):

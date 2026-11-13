@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -53,6 +53,10 @@ import { BotCountSelector } from "@components/game/BotCountSelector";
 import { CreateTableModal } from "@components/game/CreateTableModal";
 import { JoinPrivateTableModal } from "@components/game/JoinPrivateTableModal";
 import { PokerBuyInModal } from "@components/game/PokerBuyInModal";
+import { GameLobbyEntryActions } from "@components/game/GameLobbyEntryActions";
+import { TableAvailabilityCard } from "@components/game/TableAvailabilityCard";
+import { QuickCreateTableSheet } from "@components/game/QuickCreateTableSheet";
+import "../styles/game-lobby-v2.css";
 import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
 import { GameActivitySummary } from "@components/game/GameActivitySummary";
 import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
@@ -123,17 +127,23 @@ const QUICK_GAME_SPECS: Record<
 };
 
 export function LobbyPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const mg = i18n.language.startsWith("mg");
   const { gameType: urlGameType } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryFilter = searchParams.get("filter");
 
   const [filter, setFilter] = useState(urlGameType || queryFilter || "all");
   const isGameLobby = Boolean(
-    urlGameType && ["belote", "domino", "ludo", "rami", "poker"].includes(urlGameType),
+    urlGameType &&
+    ["belote", "domino", "ludo", "rami", "poker"].includes(urlGameType),
   );
-  const selectedGameMeta = isGameLobby && urlGameType ? GAME_SUITS[urlGameType] : null;
+  const selectedGameMeta =
+    isGameLobby && urlGameType ? GAME_SUITS[urlGameType] : null;
   const [stakeFilter, setStakeFilter] = useState("all");
+  const [seatFilter, setSeatFilter] = useState<"all" | "available" | "mine">(
+    "all",
+  );
   const [query, setQuery] = useState("");
   const [tables, setTables] = useState<GameTable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,10 +171,14 @@ export function LobbyPage() {
   const user = useGameStore((state) => state.user);
   const navigate = useNavigate();
 
+  // The URL is the source of truth for a dedicated game's matchmaking.
   const matchmakingGame = (
-    ["poker", "belote", "rami", "ludo", "domino"].includes(filter)
-      ? filter
-      : "belote"
+    urlGameType &&
+    ["poker", "belote", "rami", "ludo", "domino"].includes(urlGameType)
+      ? urlGameType
+      : ["poker", "belote", "rami", "ludo", "domino"].includes(filter)
+        ? filter
+        : "belote"
   ) as "poker" | "belote" | "rami" | "ludo" | "domino";
 
   const [matchStatus, setMatchStatus] = useState<{
@@ -174,9 +188,37 @@ export function LobbyPage() {
   }>({ human_online: 0, estimated_wait_seconds: 20, ticket: null });
 
   const [matchError, setMatchError] = useState("");
+  const [availableMatchSizes, setAvailableMatchSizes] = useState<number[]>([]);
+  const [matchSize, setMatchSize] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    // The engine-backed table capabilities remain the only source of formats.
+    const controller = new AbortController();
+    setAvailableMatchSizes([]);
+    setMatchSize(undefined);
+    fetch("/api/v1/games/table-capabilities/", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("CAPABILITIES_UNAVAILABLE");
+        return response.json() as Promise<{
+          games?: Record<string, { players: number[] }>;
+        }>;
+      })
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        const choices = payload.games?.[matchmakingGame]?.players || [];
+        setAvailableMatchSizes(choices);
+        setMatchSize(choices.includes(2) ? 2 : choices[0]);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAvailableMatchSizes([]);
+      });
+    return () => controller.abort();
+  }, [matchmakingGame]);
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
+  // React StrictMode can replay effects; a URL action must be consumed once.
+  const consumedIntentRef = useRef<string | null>(null);
   const [createTableGame, setCreateTableGame] = useState<
     "belote" | "domino" | "ludo" | "rami" | "poker"
   >("belote");
@@ -235,18 +277,32 @@ export function LobbyPage() {
         : "all",
     );
     const action = searchParams.get("action");
+    if (!action) consumedIntentRef.current = null;
+    const intentKey = `${urlGameType || "all"}:${action || ""}`;
+    if (action && consumedIntentRef.current === intentKey) return;
     if (!accessToken && (action === "join-private" || action === "create")) {
-      navigate(
-        `/auth?next=${encodeURIComponent(`/lobby?${searchParams.toString()}`)}`,
-        { replace: true },
-      );
+      const returnTo =
+        isGameLobby && urlGameType
+          ? `/lobby/${urlGameType}?${searchParams.toString()}`
+          : `/lobby?${searchParams.toString()}`;
+      navigate(`/auth?next=${encodeURIComponent(returnTo)}`, {
+        replace: true,
+      });
       return;
     }
-    if (searchParams.get("action") === "join-private" && accessToken)
+    if (action === "join-private" && accessToken) {
+      consumedIntentRef.current = intentKey;
       setShowJoinPrivate(true);
-    if (searchParams.get("action") === "matchmaking") setMobileTab("quick");
-    if (searchParams.get("action") === "create" && accessToken) {
-      const gParam = searchParams.get("game_type");
+      const next = new URLSearchParams(searchParams);
+      next.delete("action");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    if (action === "matchmaking") setMobileTab("quick");
+    if (action === "create" && accessToken) {
+      consumedIntentRef.current = intentKey;
+      // A dedicated game URL always overrides a generic game_type query.
+      const gParam = isGameLobby ? urlGameType : searchParams.get("game_type");
       if (
         gParam &&
         ["belote", "domino", "ludo", "rami", "poker"].includes(gParam)
@@ -255,9 +311,21 @@ export function LobbyPage() {
           gParam as "belote" | "domino" | "ludo" | "rami" | "poker",
         );
       }
-      setShowCreateTable(true);
+      if (isGameLobby) setShowQuickCreate(true);
+      else setShowCreateTable(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("action");
+      setSearchParams(next, { replace: true });
     }
-  }, [urlGameType, queryFilter, searchParams, accessToken, navigate]);
+  }, [
+    urlGameType,
+    queryFilter,
+    searchParams,
+    accessToken,
+    navigate,
+    isGameLobby,
+    setSearchParams,
+  ]);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [registeringTourney, setRegisteringTourney] = useState<string | null>(
@@ -400,8 +468,11 @@ export function LobbyPage() {
               game_type: status.ticket.game_type,
               metadata: { table_code: status.ticket.table_code },
             });
+            const params = status.ticket.table_id
+              ? `?table_id=${encodeURIComponent(status.ticket.table_id)}`
+              : "";
             navigate(
-              `/game/${status.ticket.game_type}/${status.ticket.table_code}`,
+              `/game/${status.ticket.game_type}/${status.ticket.table_code}${params}`,
             );
           }
         })
@@ -437,16 +508,20 @@ export function LobbyPage() {
     return () => window.clearInterval(timer);
   }, [matchStatus.ticket, matchmakingGame]);
 
-  const findHuman = async () => {
+  const findHuman = useCallback(async () => {
     if (!accessToken) {
-      navigate("/auth?next=/lobby");
+      const target =
+        isGameLobby && urlGameType
+          ? `/lobby/${urlGameType}?action=matchmaking`
+          : "/lobby?action=matchmaking";
+      navigate(`/auth?next=${encodeURIComponent(target)}`);
       return;
     }
     setMatchError("");
     setTimedOut(false);
     setWaitingSeconds(0);
     try {
-      const result = await queueMatch(accessToken, matchmakingGame);
+      const result = await queueMatch(accessToken, matchmakingGame, matchSize);
       setMatchStatus((current) => ({ ...current, ticket: result.ticket }));
       void trackEvent("matchmaking_started", {
         game_type: matchmakingGame,
@@ -457,14 +532,43 @@ export function LobbyPage() {
           game_type: result.ticket.game_type,
           metadata: { table_code: result.ticket.table_code },
         });
+        const params = result.ticket.table_id
+          ? `?table_id=${encodeURIComponent(result.ticket.table_id)}`
+          : "";
         navigate(
-          `/game/${result.ticket.game_type}/${result.ticket.table_code}`,
+          `/game/${result.ticket.game_type}/${result.ticket.table_code}${params}`,
         );
       }
     } catch (reason) {
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
     }
-  };
+  }, [
+    accessToken,
+    navigate,
+    matchmakingGame,
+    matchSize,
+    t,
+    isGameLobby,
+    urlGameType,
+  ]);
+
+  useEffect(() => {
+    if (!accessToken || searchParams.get("action") !== "matchmaking") return;
+    const intentKey = `${urlGameType || "all"}:matchmaking`;
+    if (consumedIntentRef.current === intentKey) return;
+    consumedIntentRef.current = intentKey;
+    const next = new URLSearchParams(searchParams);
+    next.delete("action");
+    setSearchParams(next, { replace: true });
+    if (isGameLobby) void findHuman();
+  }, [
+    accessToken,
+    isGameLobby,
+    urlGameType,
+    searchParams,
+    setSearchParams,
+    findHuman,
+  ]);
 
   const cancelSearch = async () => {
     if (!accessToken || !matchStatus.ticket) return;
@@ -582,6 +686,29 @@ export function LobbyPage() {
     return ["belote", "domino", "ludo", "rami", "poker"] as const;
   }, [filter]);
 
+  const createAndNavigate = async (
+    payload: CreateTablePayload,
+  ): Promise<GameTable> => {
+    if (!accessToken) {
+      navigate(
+        `/auth?next=${encodeURIComponent(`/lobby/${payload.game_type}?action=create`)}`,
+      );
+      throw new Error("AUTH_REQUIRED");
+    }
+    const response = await createTable(accessToken, payload);
+    const selected = (response.table || response) as GameTable;
+    const tableId = response.table_id || selected.id;
+    const tableCode = selected.table_code || tableId;
+    const params = new URLSearchParams({ table_id: tableId });
+    if (response.admission_token) {
+      params.set("admission_token", response.admission_token);
+    }
+    setShowCreateTable(false);
+    setShowQuickCreate(false);
+    navigate(`/game/${selected.game_type}/${tableCode}?${params.toString()}`);
+    return selected;
+  };
+
   const handleQuickCreate = async (
     gameType: "belote" | "domino" | "ludo" | "rami" | "poker",
   ) => {
@@ -653,25 +780,41 @@ export function LobbyPage() {
     };
   }, [tables, tournaments]);
 
-  const shown = tables.filter((table) => {
-    // 1. Filtrer impérativement les tables terminées ou expirées
-    if (table.status === "finished") return false;
+  const shown = tables
+    .filter((table) => {
+      // 1. Filtrer impérativement les tables terminées ou expirées
+      if (table.status === "finished") return false;
 
-    // 2. Filtrer les modes bots d'entraînement solo (ne doivent pas être dans les tables multijoueur)
-    if (table.mode === "DEMO_AI" || table.mode === "SIMULATION_SOLO")
-      return false;
+      // 2. Filtrer les modes bots d'entraînement solo (ne doivent pas être dans les tables multijoueur)
+      if (table.mode === "DEMO_AI" || table.mode === "SIMULATION_SOLO")
+        return false;
 
-    // 3. Une table publique doit avoir au moins 1 joueur actif
-    if (!table.is_private && (table.player_count ?? 0) <= 0) return false;
+      // 3. Une table publique doit avoir au moins 1 joueur actif
+      if (!table.is_private && (table.player_count ?? 0) <= 0) return false;
 
-    const matchesQuery = table.name.toLowerCase().includes(query.toLowerCase());
-    if (!matchesQuery) return false;
-    if (stakeFilter === "all") return true;
-    const minimum = Number(table.stake_amount || 0);
-    return stakeFilter === "10000"
-      ? minimum >= 10000
-      : minimum === Number(stakeFilter);
-  });
+      const matchesQuery = table.name
+        .toLowerCase()
+        .includes(query.toLowerCase());
+      if (!matchesQuery) return false;
+      if (
+        seatFilter === "available" &&
+        table.player_count >= table.max_players &&
+        !table.joined
+      )
+        return false;
+      if (seatFilter === "mine" && !table.joined) return false;
+      if (stakeFilter === "all") return true;
+      const minimum = Number(table.stake_amount || 0);
+      return stakeFilter === "10000"
+        ? minimum >= 10000
+        : minimum === Number(stakeFilter);
+    })
+    .sort((a, b) => {
+      // Put the user's own seat and joinable tables ahead of full rooms.
+      const priority = (table: GameTable) =>
+        table.joined ? 0 : table.player_count < table.max_players ? 1 : 2;
+      return priority(a) - priority(b);
+    });
 
   const shownTournaments = useMemo(() => {
     return tournaments.filter((tItem) => {
@@ -710,7 +853,8 @@ export function LobbyPage() {
                 padding: "6px 10px",
               }}
             >
-              <ArrowLeft size={16} /> {t("discovery.allGames") || "Tous les jeux"}
+              <ArrowLeft size={16} />{" "}
+              {t("discovery.allGames") || "Tous les jeux"}
             </Link>
 
             <span
@@ -727,7 +871,7 @@ export function LobbyPage() {
               Disponible :{" "}
               {typeof user?.mgaBalance === "number"
                 ? `${user.mgaBalance.toLocaleString()} Ar`
-                : "0 Ar"}
+                : "Solde indisponible"}
             </span>
           </div>
 
@@ -779,66 +923,51 @@ export function LobbyPage() {
                   color: "var(--muted)",
                 }}
               >
-                {(liveStats?.games?.[urlGameType!]?.online_players ??
-                  matchStatus.human_online) ||
-                  0}{" "}
-                en ligne · {shown.length} table(s) ouverte(s)
+                {liveStats?.games?.[urlGameType!] &&
+                  `${liveStats.games[urlGameType!].online_players} en ligne · `}
+                {shown.length} table(s) ouverte(s)
               </p>
             </div>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "10px",
-              margin: "16px 0 20px",
+          <GameLobbyEntryActions
+            gameName={selectedGameMeta.label}
+            isSearching={
+              matchStatus.ticket?.status === "queued" &&
+              matchStatus.ticket.game_type === matchmakingGame
+            }
+            waitingSeconds={waitingSeconds}
+            isCreating={quickCreating !== null}
+            availableSizes={availableMatchSizes}
+            selectedSize={
+              matchStatus.ticket?.status === "queued"
+                ? matchStatus.ticket.target_players
+                : matchSize
+            }
+            onSizeChange={setMatchSize}
+            onSearch={() => void findHuman()}
+            onCancel={() => void cancelSearch()}
+            onCreate={() => {
+              if (!accessToken) {
+                navigate(
+                  `/auth?next=${encodeURIComponent(`/lobby/${urlGameType}?action=create`)}`,
+                );
+                return;
+              }
+              setCreateTableGame(matchmakingGame);
+              setShowQuickCreate(true);
             }}
-          >
-            <button
-              type="button"
-              className="button button-secondary"
-              style={{
-                justifyContent: "center",
-                fontWeight: 600,
-                minHeight: "44px",
-                gap: "8px",
-              }}
-              onClick={() => {
-                if (!accessToken) navigate(`/auth?next=/lobby/${urlGameType}`);
-                else setShowJoinPrivate(true);
-              }}
-            >
-              <Lock size={15} /> Code privé
-            </button>
-
-            <button
-              type="button"
-              className="button button-gold"
-              style={{
-                justifyContent: "center",
-                fontWeight: 700,
-                minHeight: "44px",
-                gap: "8px",
-              }}
-              onClick={() => {
-                if (!accessToken) navigate(`/auth?next=/lobby/${urlGameType}`);
-                else {
-                  setCreateTableGame(
-                    urlGameType as
-                      | "belote"
-                      | "domino"
-                      | "ludo"
-                      | "rami"
-                      | "poker",
-                  );
-                  setShowCreateTable(true);
-                }
-              }}
-            >
-              <Plus size={16} /> Créer une table
-            </button>
-          </div>
+            onPrivateCode={() => {
+              if (!accessToken) {
+                navigate(
+                  `/auth?next=${encodeURIComponent(`/lobby/${urlGameType}?action=join-private`)}`,
+                );
+                return;
+              }
+              setShowJoinPrivate(true);
+            }}
+            error={matchError}
+          />
         </div>
       ) : (
         <div className="lobby-claude-head">
@@ -856,7 +985,8 @@ export function LobbyPage() {
                 padding: "4px 8px",
               }}
             >
-              <ArrowLeft size={15} /> {t("discovery.allGames") || "Tous les jeux"}
+              <ArrowLeft size={15} />{" "}
+              {t("discovery.allGames") || "Tous les jeux"}
             </Link>
             <div
               style={{
@@ -880,7 +1010,8 @@ export function LobbyPage() {
             </div>
             <h1>{t("discovery.lobbyTitle")}</h1>
             <p>
-              Choisissez un jeu et une table disponible pour rejoindre une partie.
+              Choisissez un jeu et une table disponible pour rejoindre une
+              partie.
             </p>
           </div>
 
@@ -891,7 +1022,8 @@ export function LobbyPage() {
               onClick={refreshData}
               title="Rafraîchir les tables"
             >
-              <RotateCw size={14} className={loading ? "spin" : ""} /> Actualiser
+              <RotateCw size={14} className={loading ? "spin" : ""} />{" "}
+              Actualiser
             </button>
             <button
               type="button"
@@ -917,13 +1049,11 @@ export function LobbyPage() {
                 if (!accessToken) navigate("/auth?next=/lobby");
                 else {
                   setCreateTableGame(
-                    ["belote", "domino", "ludo", "rami", "poker"].includes(filter)
+                    ["belote", "domino", "ludo", "rami", "poker"].includes(
+                      filter,
+                    )
                       ? (filter as
-                          | "belote"
-                          | "domino"
-                          | "ludo"
-                          | "rami"
-                          | "poker")
+                          "belote" | "domino" | "ludo" | "rami" | "poker")
                       : "belote",
                   );
                   setShowCreateTable(true);
@@ -941,342 +1071,400 @@ export function LobbyPage() {
         <>
           {/* Mobile Segmented View Switcher */}
           <div className="mobile-lobby-tabs lobby-view-tabs">
-        <button
-          type="button"
-          className={`mobile-lobby-tab ${mobileTab === "tables" ? "active" : ""}`}
-          onClick={() => {
-            haptics.tabChange();
-            setMobileTab("tables");
-            if (filter === "tournaments") setFilter("all");
-          }}
-        >
-          <Compass size={15} />
-          <span>Tables ({counts.all})</span>
-        </button>
-
-        <button
-          type="button"
-          className={`mobile-lobby-tab ${mobileTab === "quick" ? "active" : ""}`}
-          onClick={() => {
-            haptics.tabChange();
-            setMobileTab("quick");
-          }}
-        >
-          <Zap size={15} />
-          <span>Partie Rapide</span>
-        </button>
-
-        <button
-          type="button"
-          className={`mobile-lobby-tab ${mobileTab === "tournaments" ? "active" : ""}`}
-          onClick={() => {
-            haptics.tabChange();
-            setMobileTab("tournaments");
-            setFilter("tournaments");
-          }}
-        >
-          <Trophy size={15} />
-          <span>Tournois ({counts.tournaments})</span>
-        </button>
-      </div>
-
-      {/* 2. Control Deck: Instant Human Play & Solo Bot Practice */}
-      <div className="lobby-control-deck" hidden={mobileTab !== "quick"}>
-        {/* Volet 1: Partie Rapide Multijoueur */}
-        <div className="lobby-deck-panel panel-primary">
-          <div className="lobby-deck-head">
-            <div className="lobby-deck-title">
-              <Zap size={16} />
-              <span>Trouver des adversaires</span>
-            </div>
-            <span
-              style={{
-                fontSize: "11px",
-                color: "var(--gold)",
-                fontWeight: 600,
+            <button
+              type="button"
+              className={`mobile-lobby-tab ${mobileTab === "tables" ? "active" : ""}`}
+              onClick={() => {
+                haptics.tabChange();
+                setMobileTab("tables");
+                if (filter === "tournaments") setFilter("all");
               }}
             >
-              En ligne
-            </span>
+              <Compass size={15} />
+              <span>Tables ({counts.all})</span>
+            </button>
+
+            <button
+              type="button"
+              className={`mobile-lobby-tab ${mobileTab === "quick" ? "active" : ""}`}
+              onClick={() => {
+                haptics.tabChange();
+                setMobileTab("quick");
+              }}
+            >
+              <Zap size={15} />
+              <span>Partie Rapide</span>
+            </button>
+
+            <button
+              type="button"
+              className={`mobile-lobby-tab ${mobileTab === "tournaments" ? "active" : ""}`}
+              onClick={() => {
+                haptics.tabChange();
+                setMobileTab("tournaments");
+                setFilter("tournaments");
+              }}
+            >
+              <Trophy size={15} />
+              <span>Tournois ({counts.tournaments})</span>
+            </button>
           </div>
 
-          <p style={{ margin: 0, fontSize: "12.5px", color: "var(--muted)" }}>
-            Lancez une recherche de joueurs pour le jeu sélectionné.
-          </p>
+          {/* 2. Control Deck: Instant Human Play & Solo Bot Practice */}
+          <div className="lobby-control-deck" hidden={mobileTab !== "quick"}>
+            {/* Volet 1: Partie Rapide Multijoueur */}
+            <div className="lobby-deck-panel panel-primary">
+              <div className="lobby-deck-head">
+                <div className="lobby-deck-title">
+                  <Zap size={16} />
+                  <span>Trouver des adversaires</span>
+                </div>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--gold)",
+                    fontWeight: 600,
+                  }}
+                >
+                  En ligne
+                </span>
+              </div>
 
-          <div className="lobby-deck-pills">
-            {(["belote", "domino", "ludo", "rami", "poker"] as const).map(
-              (g) => {
-                const meta = GAME_SUITS[g];
-                return (
-                  <button
-                    key={g}
-                    type="button"
-                    className={`lobby-deck-pill ${matchmakingGame === g ? "active" : ""}`}
-                    onClick={() => {
-                      setFilter(g);
+              <p
+                style={{ margin: 0, fontSize: "12.5px", color: "var(--muted)" }}
+              >
+                Lancez une recherche de joueurs pour le jeu sélectionné.
+              </p>
+
+              <div className="lobby-deck-pills">
+                {(["belote", "domino", "ludo", "rami", "poker"] as const).map(
+                  (g) => {
+                    const meta = GAME_SUITS[g];
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        className={`lobby-deck-pill ${matchmakingGame === g ? "active" : ""}`}
+                        onClick={() => {
+                          setFilter(g);
+                        }}
+                      >
+                        <span style={{ color: meta.color }}>{meta.icon}</span>
+                        <span>{meta.label.split(" ")[0]}</span>
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+
+              <div className="lobby-deck-status">
+                <span>
+                  Délai d'attente :{" "}
+                  <strong>variable selon les joueurs disponibles</strong>
+                </span>
+                <span>
+                  En ligne :{" "}
+                  <strong>{matchStatus.human_online} joueur(s)</strong>
+                </span>
+              </div>
+
+              {matchStatus.ticket?.status === "queued" ? (
+                <button
+                  className="button button-gold lobby-deck-cta"
+                  type="button"
+                  onClick={() => void cancelSearch()}
+                >
+                  <Loader2 size={16} className="spin" /> Annuler la recherche (
+                  {waitingSeconds}s)
+                </button>
+              ) : (
+                <button
+                  className="button button-gold lobby-deck-cta"
+                  type="button"
+                  onClick={() => void findHuman()}
+                >
+                  <Zap size={16} /> Rejoindre une table (
+                  {GAME_SUITS[matchmakingGame]?.label.split(" ")[0]})
+                </button>
+              )}
+
+              {timedOut && matchStatus.ticket?.status === "queued" && (
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--gold)",
+                    textAlign: "center",
+                  }}
+                >
+                  Recherche prolongée. Vous pouvez patienter ou vous entraîner
+                  avec l'IA ci-contre.
+                </div>
+              )}
+
+              {matchError && (
+                <div
+                  className="error-banner"
+                  style={{ margin: 0, fontSize: "12px", padding: "8px 12px" }}
+                >
+                  {matchError}
+                </div>
+              )}
+            </div>
+
+            {/* Volet 2: Entraînement Solo (IA) */}
+            <div className="lobby-deck-panel">
+              <div className="lobby-deck-head">
+                <div className="lobby-deck-title">
+                  <Bot size={16} />
+                  <span>Entraînement Solo & Découverte (IA)</span>
+                </div>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: "#10b981",
+                    fontWeight: 600,
+                  }}
+                >
+                  100% Gratuit
+                </span>
+              </div>
+
+              <p
+                style={{ margin: 0, fontSize: "12.5px", color: "var(--muted)" }}
+              >
+                Pratiquez librement vos combinaisons et tactiques contre des
+                bots déclarés et équitables.
+              </p>
+
+              <BotCountSelector
+                gameType={matchmakingGame}
+                value={
+                  lobbyBotCounts[matchmakingGame] ??
+                  (matchmakingGame === "rami" ? 1 : 3)
+                }
+                onChange={(v) => setLobbyBotCount(matchmakingGame, v)}
+                disabled={startingSimulation === matchmakingGame}
+              />
+
+              <button
+                type="button"
+                className="button button-secondary lobby-deck-cta"
+                onClick={() => void launchSimulation(matchmakingGame)}
+                disabled={startingSimulation === matchmakingGame}
+              >
+                <Sparkles size={15} />
+                {startingSimulation === matchmakingGame
+                  ? "Lancement de la simulation..."
+                  : `Démarrer contre les Bots (${GAME_SUITS[matchmakingGame]?.label.split(" ")[0]})`}
+              </button>
+            </div>
+          </div>
+
+          {/* 3. Category Navigation Ribbon */}
+          <div className="lobby-category-ribbon">
+            {[
+              {
+                key: "all",
+                label: "Toutes les tables",
+                icon: "★",
+                count: counts.all,
+                online: liveStats?.total_online_players,
+              },
+              {
+                key: "belote",
+                label: "Belote Malagasy",
+                icon: "♥",
+                count: counts.belote,
+                online: liveStats?.games?.belote?.online_players,
+              },
+              {
+                key: "domino",
+                label: "Domino Double-Six",
+                icon: "🁓",
+                count: counts.domino,
+                online: liveStats?.games?.domino?.online_players,
+              },
+              {
+                key: "ludo",
+                label: "Ludo Mada",
+                icon: "🎲",
+                count: counts.ludo,
+                online: liveStats?.games?.ludo?.online_players,
+              },
+              {
+                key: "rami",
+                label: "Rami Malagasy",
+                icon: "♦",
+                count: counts.rami,
+                online: liveStats?.games?.rami?.online_players,
+              },
+              {
+                key: "poker",
+                label: "Poker Texas Hold'em",
+                icon: "♠",
+                count: counts.poker,
+                online: liveStats?.games?.poker?.online_players,
+              },
+              {
+                key: "tournaments",
+                label: "Tournois & Sit & Go",
+                icon: "🏆",
+                count: counts.tournaments,
+                online: 0,
+              },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={`lobby-cat-tab ${filter === tab.key ? "active" : ""}`}
+                aria-pressed={filter === tab.key}
+                onClick={() => {
+                  setFilter(tab.key);
+                  setSearchParams({ filter: tab.key });
+                }}
+              >
+                <span style={{ color: "var(--gold)" }}>{tab.icon}</span>
+                <span>{tab.label}</span>
+                <span className="lobby-cat-count">{tab.count}</span>
+                {Boolean(tab.online && tab.online > 0) && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      color: "#38bdf8",
+                      marginLeft: "4px",
+                      fontWeight: 600,
                     }}
                   >
-                    <span style={{ color: meta.color }}>{meta.icon}</span>
-                    <span>{meta.label.split(" ")[0]}</span>
-                  </button>
-                );
-              },
-            )}
-          </div>
-
-          <div className="lobby-deck-status">
-            <span>
-              Attente estimée :{" "}
-              <strong>~{matchStatus.estimated_wait_seconds || 15}s</strong>
-            </span>
-            <span>
-              En ligne : <strong>{matchStatus.human_online} joueur(s)</strong>
-            </span>
-          </div>
-
-          {matchStatus.ticket?.status === "queued" ? (
-            <button
-              className="button button-gold lobby-deck-cta"
-              type="button"
-              onClick={() => void cancelSearch()}
-            >
-              <Loader2 size={16} className="spin" /> Annuler la recherche (
-              {waitingSeconds}s)
-            </button>
-          ) : (
-            <button
-              className="button button-gold lobby-deck-cta"
-              type="button"
-              onClick={() => void findHuman()}
-            >
-              <Zap size={16} /> Rejoindre une table (
-              {GAME_SUITS[matchmakingGame]?.label.split(" ")[0]})
-            </button>
-          )}
-
-          {timedOut && matchStatus.ticket?.status === "queued" && (
-            <div
-              style={{
-                fontSize: "12px",
-                color: "var(--gold)",
-                textAlign: "center",
-              }}
-            >
-              Recherche prolongée. Vous pouvez patienter ou vous entraîner avec
-              l'IA ci-contre.
-            </div>
-          )}
-
-          {matchError && (
-            <div
-              className="error-banner"
-              style={{ margin: 0, fontSize: "12px", padding: "8px 12px" }}
-            >
-              {matchError}
-            </div>
-          )}
-        </div>
-
-        {/* Volet 2: Entraînement Solo (IA) */}
-        <div className="lobby-deck-panel">
-          <div className="lobby-deck-head">
-            <div className="lobby-deck-title">
-              <Bot size={16} />
-              <span>Entraînement Solo & Découverte (IA)</span>
-            </div>
-            <span
-              style={{ fontSize: "11px", color: "#10b981", fontWeight: 600 }}
-            >
-              100% Gratuit
-            </span>
-          </div>
-
-          <p style={{ margin: 0, fontSize: "12.5px", color: "var(--muted)" }}>
-            Pratiquez librement vos combinaisons et tactiques contre des bots
-            déclarés et équitables.
-          </p>
-
-          <BotCountSelector
-            gameType={matchmakingGame}
-            value={
-              lobbyBotCounts[matchmakingGame] ??
-              (matchmakingGame === "rami" ? 1 : 3)
-            }
-            onChange={(v) => setLobbyBotCount(matchmakingGame, v)}
-            disabled={startingSimulation === matchmakingGame}
-          />
-
-          <button
-            type="button"
-            className="button button-secondary lobby-deck-cta"
-            onClick={() => void launchSimulation(matchmakingGame)}
-            disabled={startingSimulation === matchmakingGame}
-          >
-            <Sparkles size={15} />
-            {startingSimulation === matchmakingGame
-              ? "Lancement de la simulation..."
-              : `Démarrer contre les Bots (${GAME_SUITS[matchmakingGame]?.label.split(" ")[0]})`}
-          </button>
-        </div>
-      </div>
-
-      {/* 3. Category Navigation Ribbon */}
-      <div className="lobby-category-ribbon">
-        {[
-          {
-            key: "all",
-            label: "Toutes les tables",
-            icon: "★",
-            count: counts.all,
-            online: liveStats?.total_online_players,
-          },
-          {
-            key: "belote",
-            label: "Belote Malagasy",
-            icon: "♥",
-            count: counts.belote,
-            online: liveStats?.games?.belote?.online_players,
-          },
-          {
-            key: "domino",
-            label: "Domino Double-Six",
-            icon: "🁓",
-            count: counts.domino,
-            online: liveStats?.games?.domino?.online_players,
-          },
-          {
-            key: "ludo",
-            label: "Ludo Mada",
-            icon: "🎲",
-            count: counts.ludo,
-            online: liveStats?.games?.ludo?.online_players,
-          },
-          {
-            key: "rami",
-            label: "Rami Malagasy",
-            icon: "♦",
-            count: counts.rami,
-            online: liveStats?.games?.rami?.online_players,
-          },
-          {
-            key: "poker",
-            label: "Poker Texas Hold'em",
-            icon: "♠",
-            count: counts.poker,
-            online: liveStats?.games?.poker?.online_players,
-          },
-          {
-            key: "tournaments",
-            label: "Tournois & Sit & Go",
-            icon: "🏆",
-            count: counts.tournaments,
-            online: 0,
-          },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            className={`lobby-cat-tab ${filter === tab.key ? "active" : ""}`}
-            aria-pressed={filter === tab.key}
-            onClick={() => {
-              setFilter(tab.key);
-              setSearchParams({ filter: tab.key });
-            }}
-          >
-            <span style={{ color: "var(--gold)" }}>{tab.icon}</span>
-            <span>{tab.label}</span>
-            <span className="lobby-cat-count">{tab.count}</span>
-            {Boolean(tab.online && tab.online > 0) && (
-              <span
-                style={{
-                  fontSize: "10px",
-                  color: "#38bdf8",
-                  marginLeft: "4px",
-                  fontWeight: 600,
-                }}
-              >
-                · {tab.online}👥
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* 4. Unified Search & Stakes Bar */}
-      <details className="lobby-filters-details" open={!urlGameType}>
-        <summary>Rechercher et filtrer les tables</summary>
-        <div className="lobby-search-filter-bar">
-          <div className="lobby-search-input-wrap">
-            <Search size={16} />
-            <input
-              aria-label="Rechercher une table"
-              placeholder="Rechercher une table…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            {query && (
-              <button
-                type="button"
-                aria-label="Effacer la recherche"
-                onClick={() => setQuery("")}
-                style={{
-                  border: 0,
-                  background: "none",
-                  color: "var(--muted)",
-                  cursor: "pointer",
-                  fontSize: "16px",
-                }}
-              >
-                ×
-              </button>
-            )}
-          </div>
-
-          <div
-            className="stake-chips-scroll"
-            style={{ margin: 0, flex: "none" }}
-          >
-            {[
-              { key: "all", label: "Tous les minima" },
-              { key: "0", label: "Sans minimum" },
-              { key: "200", label: "200 Ar" },
-              { key: "500", label: "500 Ar" },
-              { key: "1000", label: "1 000 Ar" },
-              { key: "2000", label: "2 000 Ar" },
-              { key: "5000", label: "5 000 Ar" },
-              { key: "10000", label: "10 000 Ar+" },
-            ].map((chip) => (
-              <button
-                key={chip.key}
-                type="button"
-                className={`stake-chip ${stakeFilter === chip.key ? "active" : ""}`}
-                onClick={() => setStakeFilter(chip.key)}
-              >
-                {chip.label}
+                    · {tab.online}👥
+                  </span>
+                )}
               </button>
             ))}
           </div>
-        </div>
-      </details>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          margin: "24px 0 14px",
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: "17px", fontWeight: 700 }}>
-          {t("discovery.online", "Tables actives en attente de joueurs")}
-        </h2>
-        {filter !== "tournaments" && (
-          <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-            {shown.length} table(s) ouverte(s)
+
+          {/* 4. Unified Search & Stakes Bar */}
+          <details className="lobby-filters-details" open={!urlGameType}>
+            <summary>Rechercher et filtrer les tables</summary>
+            <div className="lobby-search-filter-bar">
+              <div className="lobby-search-input-wrap">
+                <Search size={16} />
+                <input
+                  aria-label="Rechercher une table"
+                  placeholder="Rechercher une table…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                {query && (
+                  <button
+                    type="button"
+                    aria-label="Effacer la recherche"
+                    onClick={() => setQuery("")}
+                    style={{
+                      border: 0,
+                      background: "none",
+                      color: "var(--muted)",
+                      cursor: "pointer",
+                      fontSize: "16px",
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              <div
+                className="stake-chips-scroll"
+                style={{ margin: 0, flex: "none" }}
+              >
+                {[
+                  { key: "all", label: "Tous les minima" },
+                  { key: "0", label: "Sans minimum" },
+                  { key: "200", label: "200 Ar" },
+                  { key: "500", label: "500 Ar" },
+                  { key: "1000", label: "1 000 Ar" },
+                  { key: "2000", label: "2 000 Ar" },
+                  { key: "5000", label: "5 000 Ar" },
+                  { key: "10000", label: "10 000 Ar+" },
+                ].map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className={`stake-chip ${stakeFilter === chip.key ? "active" : ""}`}
+                    onClick={() => setStakeFilter(chip.key)}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </details>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              margin: "24px 0 14px",
+            }}
+          >
+            <h2 style={{ margin: 0, fontSize: "17px", fontWeight: 700 }}>
+              {t("discovery.online", "Tables actives en attente de joueurs")}
+            </h2>
+            {filter !== "tournaments" && (
+              <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                {shown.length} table(s) ouverte(s)
+              </span>
+            )}
+          </div>
+        </>
+      )}
+      {isGameLobby && (
+        <section
+          className="game-lobby-filters"
+          aria-label={mg ? "Hanivana latabatra" : "Filtrer les tables"}
+        >
+          <label className="game-lobby-search-field">
+            <Search size={17} aria-hidden="true" />
+            <span className="sr-only">
+              {mg ? "Hitady latabatra" : "Rechercher une table"}
+            </span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={
+                mg ? "Hitady latabatra..." : "Rechercher une table..."
+              }
+              aria-label={mg ? "Hitady latabatra" : "Rechercher une table"}
+            />
+          </label>
+          <label className="game-lobby-select-field">
+            <span className="sr-only">{mg ? "Toerana" : "Disponibilité"}</span>
+            <select
+              value={seatFilter}
+              onChange={(event) =>
+                setSeatFilter(
+                  event.target.value as "all" | "available" | "mine",
+                )
+              }
+            >
+              <option value="all">
+                {mg ? "Latabatra rehetra" : "Toutes les tables"}
+              </option>
+              <option value="available">
+                {mg ? "Misy toerana" : "Places disponibles"}
+              </option>
+              <option value="mine">{mg ? "Ny latabatro" : "Mes tables"}</option>
+            </select>
+          </label>
+        </section>
+      )}
+      {isGameLobby && (
+        <div className="game-lobby-table-heading">
+          <h2>{t("discovery.availableTables")}</h2>
+          <span>
+            {shown.length} {shown.length === 1 ? "table" : "tables"}
           </span>
-        )}
-      </div>
-      </>
+        </div>
       )}
       {/* 5. Main Content: Tournaments or Regular Table Cards Grid */}
       {filter === "tournaments" ? (
@@ -1755,8 +1943,20 @@ export function LobbyPage() {
           </div>
         </div>
       ) : (
-        <div className="lobby-cards-grid">
+        <div
+          className={isGameLobby ? "game-lobby-table-list" : "lobby-cards-grid"}
+        >
           {shown.map((table) => {
+            if (isGameLobby) {
+              return (
+                <TableAvailabilityCard
+                  key={table.id}
+                  table={table}
+                  isJoining={joining === table.id}
+                  onJoin={() => void join(table)}
+                />
+              );
+            }
             const live = table.status === "running";
             const meta = GAME_SUITS[table.game_type] ?? {
               icon: "♠",
@@ -2008,34 +2208,6 @@ export function LobbyPage() {
       {/* Actions secondaires et statistiques */}
       {isGameLobby && selectedGameMeta ? (
         <div style={{ marginTop: "24px" }}>
-          <button
-            type="button"
-            className="button button-gold button-large"
-            style={{
-              width: "100%",
-              minHeight: "48px",
-              fontWeight: 700,
-              justifyContent: "center",
-              fontSize: "15px",
-            }}
-            onClick={() => {
-              if (!accessToken) navigate(`/auth?next=/lobby/${urlGameType}`);
-              else {
-                setCreateTableGame(
-                  urlGameType as
-                    | "belote"
-                    | "domino"
-                    | "ludo"
-                    | "rami"
-                    | "poker",
-                );
-                setShowCreateTable(true);
-              }
-            }}
-          >
-            <Plus size={18} /> Créer une table de {selectedGameMeta.label.split(" ")[0]}
-          </button>
-
           <details
             className="lobby-secondary-details"
             style={{
@@ -2075,124 +2247,121 @@ export function LobbyPage() {
             />
           </details>
 
-      {/* Raccourcis de Création de Table par Jeu */}
-      {filter !== "tournaments" && (
-        <details className="lobby-quick-create-section">
-          <summary>Création express</summary>
-          <div className="lobby-quick-create-header">
-            <h2>
-              <Sparkles size={16} />
-              <span>
-                {t(
-                  "discovery.quickShortcuts",
-                  "Raccourcis de création instantanée",
-                )}
-              </span>
-            </h2>
-            <button
-              type="button"
-              className="button button-gold button-small"
-              onClick={() => {
-                if (!accessToken) navigate("/auth?next=/lobby");
-                else {
-                  setCreateTableGame(
-                    ["belote", "domino", "ludo", "rami", "poker"].includes(
-                      filter,
-                    )
-                      ? (filter as
-                          "belote" | "domino" | "ludo" | "rami" | "poker")
-                      : "belote",
+          {/* Raccourcis de Création de Table par Jeu */}
+          {filter !== "tournaments" && (
+            <details className="lobby-quick-create-section">
+              <summary>Création express</summary>
+              <div className="lobby-quick-create-header">
+                <h2>
+                  <Sparkles size={16} />
+                  <span>
+                    {t(
+                      "discovery.quickShortcuts",
+                      "Raccourcis de création instantanée",
+                    )}
+                  </span>
+                </h2>
+                <button
+                  type="button"
+                  className="button button-gold button-small"
+                  onClick={() => {
+                    if (!accessToken) navigate("/auth?next=/lobby");
+                    else {
+                      setCreateTableGame(
+                        ["belote", "domino", "ludo", "rami", "poker"].includes(
+                          filter,
+                        )
+                          ? (filter as
+                              "belote" | "domino" | "ludo" | "rami" | "poker")
+                          : "belote",
+                      );
+                      setShowCreateTable(true);
+                    }
+                  }}
+                >
+                  <Plus size={14} />{" "}
+                  {t("discovery.createCustom", "Table personnalisée")}
+                </button>
+              </div>
+
+              <div className="lobby-quick-create-grid">
+                {quickGamesToShow.map((gKey) => {
+                  const meta = GAME_SUITS[gKey];
+                  const isBusy = quickCreating === gKey;
+                  const badgeInfo = QUICK_GAME_SPECS[gKey];
+                  return (
+                    <div key={gKey} className="lobby-quick-card">
+                      <div className="lobby-quick-card-top">
+                        <div
+                          className="lobby-quick-card-suit"
+                          style={{ color: meta.color }}
+                        >
+                          {meta.icon}
+                        </div>
+                        <div className="lobby-quick-card-info">
+                          <h3>{meta.label.split(" ")[0]}</h3>
+                          <span>
+                            {badgeInfo.players} · {badgeInfo.duration} ·{" "}
+                            {badgeInfo.rule}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="lobby-quick-card-actions">
+                        <button
+                          type="button"
+                          className="button button-gold lobby-quick-instant-btn"
+                          onClick={() => void handleQuickCreate(gKey)}
+                          disabled={Boolean(quickCreating)}
+                        >
+                          {isBusy ? (
+                            <Loader2 size={14} className="spin" />
+                          ) : (
+                            <Zap size={14} />
+                          )}
+                          <span>
+                            {isBusy ? "Création..." : "Créer & Jouer"}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-secondary lobby-quick-tune-btn"
+                          title={`Personnaliser ${meta.label}`}
+                          aria-label={`Personnaliser ${meta.label}`}
+                          onClick={() => {
+                            setCreateTableGame(gKey);
+                            setShowCreateTable(true);
+                          }}
+                        >
+                          <Sliders size={15} />
+                        </button>
+                      </div>
+                    </div>
                   );
-                  setShowCreateTable(true);
-                }
-              }}
-            >
-              <Plus size={14} />{" "}
-              {t("discovery.createCustom", "Table personnalisée")}
-            </button>
-          </div>
-
-          <div className="lobby-quick-create-grid">
-            {quickGamesToShow.map((gKey) => {
-              const meta = GAME_SUITS[gKey];
-              const isBusy = quickCreating === gKey;
-              const badgeInfo = QUICK_GAME_SPECS[gKey];
-              return (
-                <div key={gKey} className="lobby-quick-card">
-                  <div className="lobby-quick-card-top">
-                    <div
-                      className="lobby-quick-card-suit"
-                      style={{ color: meta.color }}
-                    >
-                      {meta.icon}
-                    </div>
-                    <div className="lobby-quick-card-info">
-                      <h3>{meta.label.split(" ")[0]}</h3>
-                      <span>
-                        {badgeInfo.players} · {badgeInfo.duration} ·{" "}
-                        {badgeInfo.rule}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="lobby-quick-card-actions">
-                    <button
-                      type="button"
-                      className="button button-gold lobby-quick-instant-btn"
-                      onClick={() => void handleQuickCreate(gKey)}
-                      disabled={Boolean(quickCreating)}
-                    >
-                      {isBusy ? (
-                        <Loader2 size={14} className="spin" />
-                      ) : (
-                        <Zap size={14} />
-                      )}
-                      <span>{isBusy ? "Création..." : "Créer & Jouer"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-secondary lobby-quick-tune-btn"
-                      title={`Personnaliser ${meta.label}`}
-                      aria-label={`Personnaliser ${meta.label}`}
-                      onClick={() => {
-                        setCreateTableGame(gKey);
-                        setShowCreateTable(true);
-                      }}
-                    >
-                      <Sliders size={15} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </details>
-      )}
-      </>
+                })}
+              </div>
+            </details>
+          )}
+        </>
       )}
 
-      {/* Modal Riche de Création de Table */}
+      <QuickCreateTableSheet
+        game={createTableGame}
+        isOpen={showQuickCreate}
+        onClose={() => setShowQuickCreate(false)}
+        onAdvanced={() => {
+          setShowQuickCreate(false);
+          setShowCreateTable(true);
+        }}
+        onSubmit={createAndNavigate}
+      />
+
+      {/* Detailed configuration remains available from the quick sheet. */}
       <CreateTableModal
         initialGameType={createTableGame}
         isOpen={showCreateTable}
         onClose={() => setShowCreateTable(false)}
-        onSubmit={async (payload: CreateTablePayload) => {
-          if (!accessToken) {
-            navigate("/auth?next=/lobby");
-            throw new Error("AUTH_REQUIRED");
-          }
-          const res = await createTable(accessToken, payload);
-          setShowCreateTable(false);
-          const admissionQuery = res.admission_token
-            ? `?table_id=${res.table_id || res.id}&admission_token=${res.admission_token}`
-            : `?table_id=${res.table_id || res.id}`;
-          const gType =
-            res.game_type || res.table?.game_type || payload.game_type;
-          const tCode =
-            res.table_code || res.table?.table_code || res.table_id || res.id;
-          navigate(`/game/${gType}/${tCode}${admissionQuery}`);
-          return (res.table || res) as GameTable;
-        }}
+        onSubmit={createAndNavigate}
       />
 
       {/* Modal Rejoindre une Table Privée par Code */}

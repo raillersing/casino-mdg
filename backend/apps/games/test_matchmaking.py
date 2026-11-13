@@ -111,3 +111,126 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(len(first.data["bots"]), 3)
         self.assertTrue(all(bot["is_bot"] for bot in first.data["bots"]))
         self.assertEqual(BotSimulationSession.objects.count(), 1)
+
+    def test_matchmaking_supports_three_player_ludo_format(self):
+        third = User.objects.create_user(
+            email="match-third@mdg.local", phone="+261340001003", display_name="Third"
+        )
+        tickets = []
+        for user in (self.first, self.second, third):
+            self.client.force_authenticate(user)
+            response = self.client.post(
+                "/api/v1/games/matchmaking/queue/",
+                {"game_type": "ludo", "target_size": 3},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 201)
+            tickets.append(response.data["ticket"])
+        self.assertEqual([ticket["target_players"] for ticket in tickets], [3, 3, 3])
+        self.assertEqual(tickets[-1]["status"], "matched")
+        table = GameTable.objects.get(pk=tickets[-1]["table_id"])
+        self.assertEqual(table.max_players, 3)
+        self.assertEqual(TableSeat.objects.filter(table=table).count(), 3)
+
+    def test_status_scopes_ticket_to_selected_game(self):
+        self.client.force_authenticate(self.first)
+        self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        poker = self.client.get("/api/v1/games/matchmaking/status/?game_type=poker")
+        ludo = self.client.get("/api/v1/games/matchmaking/status/?game_type=ludo")
+        self.assertIsNone(poker.data["ticket"])
+        self.assertEqual(ludo.data["ticket"]["game_type"], "ludo")
+        self.assertEqual(ludo.data["ticket"]["target_players"], 2)
+
+    def test_unsupported_matchmaking_format_is_rejected_without_table(self):
+        self.client.force_authenticate(self.first)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "belote", "target_size": 3},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(GameTable.objects.count(), 0)
+
+    def test_matchmaking_joins_existing_public_room_with_present_host(self):
+        table = GameTable.objects.create(
+            table_code="human-ludo-available",
+            name="Ludo ouvert",
+            game_type="ludo",
+            stakes="Gratuit",
+            max_players=2,
+            status="open",
+            created_by=self.first,
+            mode="HUMAN_MATCH",
+            stake_amount=0,
+        )
+        TableSeat.objects.create(table=table, user=self.first, seat_index=0)
+        self.client.force_authenticate(self.first)
+        self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "ludo"},
+            format="json",
+        )
+        self.client.force_authenticate(self.second)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["ticket"]["status"], "matched")
+        self.assertEqual(response.data["ticket"]["table_id"], str(table.pk))
+        self.assertEqual(GameTable.objects.count(), 1)
+        self.assertEqual(TableSeat.objects.filter(table=table).count(), 2)
+
+    def test_matchmaking_ignores_existing_room_with_stale_host(self):
+        table = GameTable.objects.create(
+            table_code="stale-ludo-available",
+            name="Ludo sans présence",
+            game_type="ludo",
+            stakes="Gratuit",
+            max_players=2,
+            status="open",
+            created_by=self.first,
+            mode="HUMAN_MATCH",
+            stake_amount=0,
+        )
+        TableSeat.objects.create(table=table, user=self.first, seat_index=0)
+        self.client.force_authenticate(self.second)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["ticket"]["status"], "queued")
+        self.assertEqual(TableSeat.objects.filter(table=table).count(), 1)
+
+    def test_switching_games_cancels_other_pending_search(self):
+        self.client.force_authenticate(self.first)
+        old = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        next_search = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "poker", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(old.status_code, 201)
+        self.assertEqual(next_search.status_code, 201)
+        self.assertEqual(
+            MatchmakingTicket.objects.get(pk=old.data["ticket"]["ticket_id"]).status,
+            "cancelled",
+        )
+        self.client.force_authenticate(self.second)
+        second = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(second.data["ticket"]["status"], "queued")

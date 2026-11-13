@@ -1,9 +1,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import {
-  Bell,
   CircleUserRound,
-  Compass,
   UsersRound,
   Users,
   Home,
@@ -44,8 +42,8 @@ export function Layout({ children }: { children: ReactNode }) {
   // Desktop sidebar navigation items
   const sidebarNavItems = [
     { to: "/", label: t("nav.home"), icon: Home },
-    { to: "/games", label: "Jeux", icon: Gamepad2 },
-    { to: "/lobby", label: "Tables", icon: Compass },
+    { to: "/games", label: t("nav.games", "Jeux"), icon: Gamepad2 },
+    { to: "/mes-parties", label: t("nav.myGames", "Mes parties"), icon: Users },
     { to: "/clubs", label: t("nav.clubs"), icon: UsersRound },
     { to: "/wallet", label: t("nav.wallet"), icon: WalletCards },
     { to: "/profile", label: t("nav.profile"), icon: CircleUserRound },
@@ -104,7 +102,9 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!accessToken) return;
     const parts = location.pathname.split("/");
-    const game = ["play", "game"].includes(parts[1]) ? parts[2] : undefined;
+    const game = ["play", "game", "lobby"].includes(parts[1])
+      ? parts[2]
+      : undefined;
     const validGame = ["belote", "domino", "ludo", "rami", "poker"].includes(
       game || "",
     )
@@ -181,7 +181,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <span className="eyebrow">{t("social.club")}</span>
           <strong>{t("promo.title")}</strong>
           <p>{t("promo.body")}</p>
-          <Link to="/lobby" className="text-link">
+          <Link to="/games" className="text-link">
             {t("games.create")} →
           </Link>
         </div>
@@ -304,13 +304,6 @@ export function Layout({ children }: { children: ReactNode }) {
             >
               {language}
             </button>
-            <button
-              className="icon-button"
-              aria-label={t("a11y.notifications")}
-            >
-              <Bell size={18} />
-              <i />
-            </button>
             {user ? (
               <Link
                 to="/profile"
@@ -357,7 +350,11 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink
             to="/games"
             className={({ isActive }) =>
-              isActive || location.pathname.startsWith("/play/") ? "active" : ""
+              isActive ||
+              location.pathname.startsWith("/play/") ||
+              location.pathname.startsWith("/lobby/")
+                ? "active"
+                : ""
             }
           >
             <Gamepad2 size={22} />
@@ -365,12 +362,12 @@ export function Layout({ children }: { children: ReactNode }) {
           </NavLink>
 
           <NavLink
-            to="/lobby"
+            to="/mes-parties"
             className={({ isActive }) => (isActive ? "active" : "")}
             onClick={() => haptics.tabChange()}
           >
-            <Compass size={20} />
-            <span>Tables</span>
+            <Users size={20} />
+            <span>{t("nav.myGames", "Mes parties")}</span>
           </NavLink>
 
           <NavLink

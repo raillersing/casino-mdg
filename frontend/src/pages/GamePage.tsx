@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import "../styles/gameplay-ux-v2.css";
 import {
   Link,
   useNavigate,
@@ -2388,7 +2389,7 @@ export function GamePage() {
 
   return (
     <div
-      className={`game-room${handDealing ? " hand-dealing" : ""}${fourColorDeck ? " four-color-deck" : ""}${isLandscapeMode ? " table-landscape-forced" : ""}${dataSaverEnabled ? " data-saver-mode" : ""}`}
+      className={`game-room game-ux-v2${handDealing ? " hand-dealing" : ""}${fourColorDeck ? " four-color-deck" : ""}${isLandscapeMode ? " table-landscape-forced" : ""}${dataSaverEnabled ? " data-saver-mode" : ""}`}
     >
       <div className="game-room-head">
         <button
@@ -2404,14 +2405,16 @@ export function GamePage() {
           <ChevronLeft size={17} /> {t("game.leaveTable")}
         </button>
         <div>
-          <strong>{t("game.tableName")}</strong>
+          <strong>{tableMeta?.name || t("game.tableName")}</strong>
           <span>
             <i />{" "}
             {connectionState === "connected"
               ? t("game.connected")
               : connectionState === "connecting"
                 ? t("game.connecting")
-                : t("game.offline")}{" "}
+                : connectionState === "reconnecting"
+                  ? t("game.reconnecting")
+                  : t("game.offline")}{" "}
             · {isPoker ? t("games.poker") : t(`games.${gameType}`)}
           </span>
         </div>
@@ -4221,32 +4224,14 @@ export function GamePage() {
                         <strong>{String(gameState.hand_rank)}</strong>
                       </span>
                       {typeof gameState.hand_outs === "number" &&
+                        typeof gameState.hand_prob === "number" &&
                         (gameState.hand_outs as number) > 0 && (
                           <span className="hand-stats-pill hand-outs-pill">
                             🎯 <strong>{gameState.hand_outs} outs</strong> (
                             {Number(gameState.hand_prob).toFixed(0)}%)
                           </span>
                         )}
-                      {(() => {
-                        const rank = String(gameState.hand_rank);
-                        const map: Record<string, string> = {
-                          "Quinte flush": "Équité ~92%",
-                          Carré: "Équité ~99%",
-                          Full: "Équité ~85%",
-                          Couleur: "Équité ~65%",
-                          Quinte: "Équité ~60%",
-                          Brelan: "Équité ~70%",
-                          "Double paire": "Équité ~55%",
-                          Paire: "Équité ~55%",
-                          "Carte haute": "Équité ~45%",
-                        };
-                        const eq = map[rank];
-                        return eq ? (
-                          <span className="hand-stats-pill hand-equity-pill">
-                            📈 {eq}
-                          </span>
-                        ) : null;
-                      })()}
+                      {/* Only engine-computed probabilities should be displayed. */}
                       {typeof gameState.pot === "number" &&
                         typeof gameState.to_call === "number" &&
                         (gameState.to_call as number) > 0 && (
@@ -4326,7 +4311,11 @@ export function GamePage() {
           </span>
           <div>
             <strong>
-              {isMyTurn ? t("game.yourTurnAction") : "Tour des bots"}
+              {isMyTurn
+                ? t("game.yourTurnAction")
+                : demoAi
+                  ? "Tour du robot"
+                  : "Tour de l’adversaire"}
             </strong>
             <span>{t("game.chooseAction")}</span>
           </div>

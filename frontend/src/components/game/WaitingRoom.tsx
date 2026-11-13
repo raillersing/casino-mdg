@@ -45,7 +45,6 @@ const GAME_NAMES: Record<string, string> = {
 
 export function WaitingRoom({
   tableName,
-  tableCode,
   gameType,
   maxPlayers,
   currentPlayers,
@@ -58,26 +57,30 @@ export function WaitingRoom({
   onLeave,
 }: WaitingRoomProps) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
 
   const emoji = GAME_EMOJIS[gameType.toLowerCase()] || "🎮";
   const gameLabel = GAME_NAMES[gameType.toLowerCase()] || gameType;
-  const connectedCount = currentPlayers.filter(
-    (p) => p.isActive !== false,
+  const confirmedConnections = currentPlayers.filter(
+    (p) => p.isActive === true,
   ).length;
+  const seatedCount = currentPlayers.length;
   const isPoker = gameType.toLowerCase() === "poker";
   const minRequired = isPoker ? 2 : maxPlayers;
-  const remaining = Math.max(0, minRequired - connectedCount);
+  const remaining = Math.max(0, minRequired - seatedCount);
 
-  const invitationCode = accessCode || tableCode || "";
+  // A public table identifier must never be offered as a private join secret.
+  const invitationCode = isPrivate ? accessCode || "" : "";
 
   const handleCopyCode = async () => {
     if (!invitationCode) return;
     try {
       await navigator.clipboard.writeText(invitationCode);
       setCopied(true);
+      setCopyError("");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback
+      setCopyError("Copie indisponible. Sélectionnez le code manuellement.");
     }
   };
 
@@ -213,10 +216,8 @@ export function WaitingRoom({
         <Users size={18} />
         <span>
           {remaining === 0
-            ? isPoker
-              ? "Au moins 2 joueurs connectés. Lancement imminent !"
-              : "Tous les joueurs sont prêts. Lancement imminent !"
-            : `Vous êtes ${connectedCount} sur ${maxPlayers}. Encore ${remaining} joueur${remaining > 1 ? "s" : ""} pour commencer.`}
+            ? "Les places nécessaires sont occupées. En attente de la confirmation du moteur de jeu."
+            : `${seatedCount} place(s) occupée(s) sur ${maxPlayers}. Encore ${remaining} participant(s) requis.`}
         </span>
       </div>
 
@@ -244,9 +245,9 @@ export function WaitingRoom({
           }}
         >
           <span>
-            Participants ({connectedCount}/{maxPlayers})
+            Participants ({seatedCount}/{maxPlayers})
           </span>
-          <span>Place</span>
+          <span>{confirmedConnections} connexion(s) confirmée(s)</span>
         </div>
 
         {seats.map((player, index) => {
@@ -332,7 +333,9 @@ export function WaitingRoom({
                       <div style={{ fontSize: "12px", color: "#70d7ad" }}>
                         {player.isActive === false
                           ? "Reconnexion en cours"
-                          : "Connecté"}
+                          : player.isActive === true
+                            ? "Connexion confirmée"
+                            : "Présence à confirmer"}
                       </div>
                     </div>
                   ) : (
@@ -361,7 +364,7 @@ export function WaitingRoom({
       </div>
 
       {/* Private Code Card */}
-      {(isPrivate || Boolean(accessCode)) && invitationCode && (
+      {isPrivate && invitationCode && (
         <div
           style={{
             background: "var(--surface-color, #151d25)",
@@ -420,14 +423,25 @@ export function WaitingRoom({
                 borderRadius: "8px",
                 cursor: "pointer",
                 fontSize: "13px",
-                minHeight: "40px",
+                minHeight: "44px",
               }}
             >
               {copied ? <Check size={16} /> : <Copy size={16} />}
               <span>{copied ? "Copié !" : "Copier"}</span>
             </button>
           </div>
+          {copyError && (
+            <p role="alert" style={{ color: "var(--red)", margin: 0 }}>
+              {copyError}
+            </p>
+          )}
         </div>
+      )}
+      {isPrivate && !invitationCode && (
+        <p className="playing-v2-notice" role="status">
+          Le code privé n'est pas disponible pour ce compte. Demandez une
+          invitation au créateur.
+        </p>
       )}
 
       {/* Table details footer */}

@@ -78,10 +78,9 @@ test("unavailable live activity does not show a false zero", async ({
     route.fulfill({ status: 503, json: { available: false } }),
   );
   await page.goto("/");
-  await expect(
-    page.getByText("Activité temporairement indisponible"),
-  ).toBeVisible();
+  // The redesigned home intentionally does not display unverified activity.
   await expect(page.locator(".live-activity-totals")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Choisir un jeu/i })).toBeVisible();
 });
 
 test("table creation exposes only server-supported game settings", async ({

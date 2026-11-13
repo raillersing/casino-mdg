@@ -589,7 +589,7 @@ class TableApiTests(TestCase):
         mga_acc.save()
 
         self.client.force_authenticate(self.user)
-        # Create poker table: minimum 5,000 Ar, buy-in 50,000 Ar (Zynga style choice, no table max cap)
+        # Poker: minimum de 5 000 Ar, tapis initial de 50 000 Ar.
         resp = self.client.post(
             "/api/v1/games/tables/",
             {
@@ -659,7 +659,6 @@ class TableApiTests(TestCase):
         self.assertIn("Solde Ariary insuffisant", resp_high.data["detail"])
 
     def test_poker_top_up_endpoint_reserves_mga_and_updates_pending_top_up(self):
-        from apps.games.models import TableBankroll
         from apps.wallet.models import LedgerAccount
 
         mga_acc, _ = LedgerAccount.objects.get_or_create(
@@ -735,7 +734,9 @@ class TableApiTests(TestCase):
         self.assertEqual(mga_acc.balance, 50000)
         self.assertEqual(mga_acc.held_balance, 0)
 
-    def test_non_poker_games_have_fixed_participation_fee_and_reject_increased_buy_in(self):
+    def test_non_poker_games_have_fixed_participation_fee_and_reject_increased_buy_in(
+        self,
+    ):
         from apps.wallet.models import LedgerAccount
 
         mga_acc, _ = LedgerAccount.objects.get_or_create(
@@ -770,17 +771,20 @@ class TableApiTests(TestCase):
             format="json",
         )
         self.assertEqual(topup_resp.status_code, 400)
-        self.assertIn("Le rechargement de tapis n'est autorisé qu'au Poker", topup_resp.data["detail"])
+        self.assertIn(
+            "Le rechargement de tapis n'est autorisé qu'au Poker",
+            topup_resp.data["detail"],
+        )
 
-        # Joining with the exact stake (or without specifying custom buy_in) succeeds and reserves 2,000 Ar
+        # The non-Poker minimum is an eligibility gate, never a debit.
+        # This must match test_finance.py and the seat/admission contract.
         join_ok = self.client.post(
             f"/api/v1/games/tables/{table.pk}/join/",
             format="json",
         )
         self.assertEqual(join_ok.status_code, 201)
-        self.assertEqual(join_ok.data["buy_in"], 2000)
+        self.assertEqual(table.seats.get(user=self.user).buy_in, 0)
 
         mga_acc.refresh_from_db()
-        self.assertEqual(mga_acc.balance, 48000)
-        self.assertEqual(mga_acc.held_balance, 2000)
-
+        self.assertEqual(mga_acc.balance, 50000)
+        self.assertEqual(mga_acc.held_balance, 0)

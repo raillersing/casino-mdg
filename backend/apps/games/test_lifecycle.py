@@ -51,10 +51,13 @@ class TableLifecycleTests(TestCase):
         self.assertEqual(leave_table(table, self.users[0]), (True, False))
         table.refresh_from_db()
         self.assertEqual(table.status, "running")
-        with patch(
-            "apps.games.services.engine_activity",
-            return_value={str(table.pk): {"waiting": False}},
-        ), self.assertRaises(ValueError):
+        with (
+            patch(
+                "apps.games.services.engine_activity",
+                return_value={str(table.pk): {"waiting": False}},
+            ),
+            self.assertRaises(ValueError),
+        ):
             join_table(table, self.users[2])
 
     def test_creation_retry_returns_same_table_and_rejects_changed_payload(self):

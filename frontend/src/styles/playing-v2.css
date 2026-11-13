@@ -1,0 +1,140 @@
+/* Dedicated my-games journey: no speculative presence or automatic play */
+.playing-v2-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 0 92px;
+  display: grid;
+  gap: 24px;
+}
+.playing-v2-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.playing-v2-header h1,
+.playing-v2-page > h1 {
+  margin: 5px 0 8px;
+  font: 700 clamp(26px, 5vw, 40px) var(--sans);
+}
+.playing-v2-header p,
+.playing-v2-page > p {
+  color: var(--soft);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 540px;
+}
+.playing-v2-eyebrow {
+  color: var(--gold);
+  font-size: 11px;
+  letter-spacing: 0.13em;
+}
+.playing-v2-header button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 9px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: var(--panel);
+  cursor: pointer;
+}
+.playing-v2-header button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.playing-v2-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--gold-light);
+  margin-bottom: 12px;
+}
+.playing-v2-section-head h2 {
+  color: var(--text);
+  font-size: 18px;
+  margin: 0;
+}
+.playing-v2-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+}
+.playing-v2-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 176px;
+}
+.playing-v2-card h3 {
+  margin: 0;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.playing-v2-card p {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13px;
+}
+.playing-v2-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--green);
+  font-size: 12px;
+}
+.playing-v2-state-neutral {
+  color: var(--gold-light);
+}
+.playing-v2-card a,
+.playing-v2-primary,
+.playing-v2-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+.playing-v2-card a,
+.playing-v2-primary {
+  background: var(--gold);
+  color: #15100a;
+  margin-top: auto;
+}
+.playing-v2-secondary {
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: var(--panel);
+  justify-self: start;
+}
+.playing-v2-empty {
+  background: var(--panel);
+  border: 1px dashed var(--line);
+  color: var(--soft);
+  padding: 16px;
+  border-radius: 12px;
+  margin: 0;
+}
+.playing-v2-error {
+  color: var(--red);
+}
+.playing-v2-notice {
+  color: var(--gold-light);
+}
+@media (max-width: 390px) {
+  .playing-v2-header {
+    flex-direction: column;
+  }
+  .playing-v2-header button {
+    align-self: flex-start;
+  }
+}

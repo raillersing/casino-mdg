@@ -111,10 +111,17 @@ export function PokerTopUpModal({
                 border: "1px solid var(--border-color, #2a3742)",
               }}
             >
-              <div style={{ fontSize: "12px", color: "var(--text-secondary, #adb9c4)" }}>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "var(--text-secondary, #adb9c4)",
+                }}
+              >
                 Tapis actuel
               </div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff" }}>
+              <div
+                style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff" }}
+              >
                 {currentStack.toLocaleString()} Ar
               </div>
             </div>
@@ -127,10 +134,21 @@ export function PokerTopUpModal({
                 border: "1px solid var(--border-color, #2a3742)",
               }}
             >
-              <div style={{ fontSize: "12px", color: "var(--text-secondary, #adb9c4)" }}>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "var(--text-secondary, #adb9c4)",
+                }}
+              >
                 Solde MGA disponible
               </div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--accent-gold, #e1bf79)" }}>
+              <div
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: 700,
+                  color: "var(--accent-gold, #e1bf79)",
+                }}
+              >
                 {availableBalance.toLocaleString()} Ar
               </div>
             </div>
@@ -153,7 +171,8 @@ export function PokerTopUpModal({
             >
               <CheckCircle2 size={16} />
               <span>
-                +{pendingTopUp.toLocaleString()} Ar déjà réservés — ajoutés à la prochaine main.
+                +{pendingTopUp.toLocaleString()} Ar déjà réservés — ajoutés à la
+                prochaine main.
               </span>
             </div>
           )}
@@ -178,7 +197,9 @@ export function PokerTopUpModal({
               max={availableBalance}
               step="1000"
               value={selectedAmount || ""}
-              onChange={(e) => setSelectedAmount(Math.max(0, Number(e.target.value)))}
+              onChange={(e) =>
+                setSelectedAmount(Math.max(0, Number(e.target.value)))
+              }
               style={{
                 width: "100%",
                 padding: "12px 14px",
@@ -273,13 +294,17 @@ export function PokerTopUpModal({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-secondary, #adb9c4)" }}>Nouveau tapis à la prochaine main</span>
+              <span style={{ color: "var(--text-secondary, #adb9c4)" }}>
+                Nouveau tapis à la prochaine main
+              </span>
               <strong style={{ color: "var(--accent-gold, #e1bf79)" }}>
                 {previewStack.toLocaleString()} Ar
               </strong>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-secondary, #adb9c4)" }}>Solde restant disponible</span>
+              <span style={{ color: "var(--text-secondary, #adb9c4)" }}>
+                Solde restant disponible
+              </span>
               <span>{remainingBalance.toLocaleString()} Ar</span>
             </div>
           </div>
@@ -292,7 +317,8 @@ export function PokerTopUpModal({
               lineHeight: 1.4,
             }}
           >
-            Le montant sera réservé sur votre compte MGA et ajouté à votre tapis dès la fin de la main courante, sans impacter les mises en cours.
+            Le montant sera réservé sur votre compte MGA et ajouté à votre tapis
+            dès la fin de la main courante, sans impacter les mises en cours.
           </p>
 
           {error && (
@@ -329,7 +355,11 @@ export function PokerTopUpModal({
                 gap: "6px",
                 fontWeight: 700,
               }}
-              disabled={isSubmitting || selectedAmount <= 0 || selectedAmount > availableBalance}
+              disabled={
+                isSubmitting ||
+                selectedAmount <= 0 ||
+                selectedAmount > availableBalance
+              }
             >
               <ArrowUpRight size={16} />
               <span>
