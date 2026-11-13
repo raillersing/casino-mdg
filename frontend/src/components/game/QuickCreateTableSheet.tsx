@@ -49,13 +49,20 @@ export function QuickCreateTableSheet({
     const focusTimer = window.setTimeout(() => dialogRef.current?.focus(), 0);
     fetch("/api/v1/games/table-capabilities/", { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error(mg ? "Tsy misy ny fikirana." : "Réglages indisponibles.");
-        return response.json() as Promise<{ games: Record<string, Capability> }>;
+        if (!response.ok)
+          throw new Error(
+            mg ? "Tsy misy ny fikirana." : "Réglages indisponibles.",
+          );
+        return response.json() as Promise<{
+          games: Record<string, Capability>;
+        }>;
       })
       .then((payload) => {
         const next = payload.games?.[game];
         if (!next || !next.players?.length) {
-          throw new Error(mg ? "Tsy azo lalaovina ity." : "Ce jeu n'est pas disponible.");
+          throw new Error(
+            mg ? "Tsy azo lalaovina ity." : "Ce jeu n'est pas disponible.",
+          );
         }
         if (controller.signal.aborted) return;
         setCapability(next);
@@ -124,9 +131,12 @@ export function QuickCreateTableSheet({
   };
 
   return (
-    <div className="quick-table-backdrop" onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !busy) onClose();
-    }}>
+    <div
+      className="quick-table-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onClose();
+      }}
+    >
       <section
         ref={dialogRef}
         className="quick-table-sheet"
@@ -142,7 +152,8 @@ export function QuickCreateTableSheet({
               {tr("Création rapide", "Famoronana haingana")}
             </span>
             <h2 id="quick-table-title">
-              {tr("Créer une table de", "Hamorona latabatra")} {game.toUpperCase()}
+              {tr("Créer une table de", "Hamorona latabatra")}{" "}
+              {game.toUpperCase()}
             </h2>
           </div>
           <button
@@ -161,55 +172,65 @@ export function QuickCreateTableSheet({
             <Loader2 className="spin" aria-hidden="true" />
             {tr("Chargement des règles…", "Miandry ny fitsipika…")}
           </div>
-        ) : capability && (
-          <>
-            <fieldset className="quick-table-field">
-              <legend>{tr("Combien de joueurs ?", "Firy ny mpilalao?")}</legend>
-              <div className="quick-table-segments">
-                {capability.players.map((count) => (
+        ) : (
+          capability && (
+            <>
+              <fieldset className="quick-table-field">
+                <legend>
+                  {tr("Combien de joueurs ?", "Firy ny mpilalao?")}
+                </legend>
+                <div className="quick-table-segments">
+                  {capability.players.map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      aria-pressed={players === count}
+                      className={players === count ? "selected" : ""}
+                      onClick={() => setPlayers(count)}
+                    >
+                      {count}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset className="quick-table-field">
+                <legend>
+                  {tr("Qui peut rejoindre ?", "Iza no afaka miditra?")}
+                </legend>
+                <div className="quick-table-segments">
                   <button
-                    key={count}
                     type="button"
-                    aria-pressed={players === count}
-                    className={players === count ? "selected" : ""}
-                    onClick={() => setPlayers(count)}
+                    className={!privateRoom ? "selected" : ""}
+                    aria-pressed={!privateRoom}
+                    onClick={() => setPrivateRoom(false)}
                   >
-                    {count}
+                    {tr("Tout le monde", "Ny rehetra")}
                   </button>
-                ))}
-              </div>
-            </fieldset>
-            <fieldset className="quick-table-field">
-              <legend>{tr("Qui peut rejoindre ?", "Iza no afaka miditra?")}</legend>
-              <div className="quick-table-segments">
-                <button
-                  type="button"
-                  className={!privateRoom ? "selected" : ""}
-                  aria-pressed={!privateRoom}
-                  onClick={() => setPrivateRoom(false)}
-                >
-                  {tr("Tout le monde", "Ny rehetra")}
-                </button>
-                <button
-                  type="button"
-                  className={privateRoom ? "selected" : ""}
-                  aria-pressed={privateRoom}
-                  onClick={() => setPrivateRoom(true)}
-                >
-                  {tr("Sur invitation", "Nasaina ihany")}
-                </button>
-              </div>
-            </fieldset>
-            <p className="quick-table-no-stake">
-              {tr(
-                "Cette création rapide est sans mise en Ariary.",
-                "Tsy misy vola Ariary amin'ity famoronana haingana ity.",
-              )}
-            </p>
-          </>
+                  <button
+                    type="button"
+                    className={privateRoom ? "selected" : ""}
+                    aria-pressed={privateRoom}
+                    onClick={() => setPrivateRoom(true)}
+                  >
+                    {tr("Sur invitation", "Nasaina ihany")}
+                  </button>
+                </div>
+              </fieldset>
+              <p className="quick-table-no-stake">
+                {tr(
+                  "Cette création rapide est sans mise en Ariary.",
+                  "Tsy misy vola Ariary amin'ity famoronana haingana ity.",
+                )}
+              </p>
+            </>
+          )
         )}
 
-        {error && <p className="quick-table-error" role="alert">{error}</p>}
+        {error && (
+          <p className="quick-table-error" role="alert">
+            {error}
+          </p>
+        )}
 
         <div className="quick-table-actions">
           <button

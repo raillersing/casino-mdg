@@ -33,7 +33,10 @@ export function GameLobbyEntryActions({
   const tr = (fr: string, malagasy: string) => (mg ? malagasy : fr);
 
   return (
-    <section className="game-lobby-entry" aria-labelledby="game-lobby-entry-title">
+    <section
+      className="game-lobby-entry"
+      aria-labelledby="game-lobby-entry-title"
+    >
       <div className="game-lobby-entry-copy">
         <h2 id="game-lobby-entry-title">
           {tr("Jouer maintenant", "Hilalao izao")}
@@ -57,7 +60,11 @@ export function GameLobbyEntryActions({
               </span>
             </div>
           </div>
-          <button className="game-lobby-cancel" type="button" onClick={onCancel}>
+          <button
+            className="game-lobby-cancel"
+            type="button"
+            onClick={onCancel}
+          >
             {tr("Annuler", "Hanafoana")}
           </button>
         </div>
@@ -96,7 +103,11 @@ export function GameLobbyEntryActions({
           {tr("J'ai un code", "Manana kaody aho")}
         </button>
       </div>
-      {error && <p className="game-lobby-entry-error" role="alert">{error}</p>}
+      {error && (
+        <p className="game-lobby-entry-error" role="alert">
+          {error}
+        </p>
+      )}
       <p className="game-lobby-entry-note">
         <Users size={14} aria-hidden="true" />
         {tr(

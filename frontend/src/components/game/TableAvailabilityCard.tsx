@@ -62,9 +62,11 @@ export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
         type="button"
         onClick={onJoin}
         disabled={!canJoin || isJoining}
-        aria-label={alreadyJoined
-          ? tr(`Reprendre ${table.name}`, `Hiverina amin'ny ${table.name}`)
-          : tr(`Rejoindre ${table.name}`, `Hiditra amin'ny ${table.name}`)}
+        aria-label={
+          alreadyJoined
+            ? tr(`Reprendre ${table.name}`, `Hiverina amin'ny ${table.name}`)
+            : tr(`Rejoindre ${table.name}`, `Hiditra amin'ny ${table.name}`)
+        }
       >
         {isJoining ? (
           <Loader2 size={17} className="spin" aria-hidden="true" />
