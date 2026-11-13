@@ -402,30 +402,75 @@ export function LobbyPage() {
 
   useEffect(() => {
     if (filter === "tournaments") return;
-    const interval = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        getTables(filter === "all" ? "Tous" : filter, accessToken || undefined)
-          .then((payload) => setTables(payload.results))
-          .catch(() => undefined);
+    let mounted = true;
+    let inFlight = false;
+    const refreshVisibleTables = async () => {
+      if (
+        !mounted ||
+        inFlight ||
+        document.visibilityState !== "visible" ||
+        !navigator.onLine
+      ) return;
+      inFlight = true;
+      try {
+        const payload = await getTables(
+          filter === "all" ? "Tous" : filter,
+          accessToken || undefined,
+        );
+        if (mounted) setTables(payload.results);
+      } catch {
+        // Preserve the last known list on transient mobile network errors.
+      } finally {
+        inFlight = false;
       }
-    }, 5000);
-    return () => clearInterval(interval);
+    };
+    const resume = () => {
+      if (document.visibilityState === "visible") void refreshVisibleTables();
+    };
+    // Manual refresh remains available; polling is less costly on 3G/4G.
+    const timer = window.setInterval(() => void refreshVisibleTables(), 15000);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
+    };
   }, [filter, accessToken]);
 
   useEffect(() => {
     let mounted = true;
-    const fetchStats = () => {
-      getLiveStats()
-        .then((data) => {
-          if (mounted) setLiveStats(data);
-        })
-        .catch(() => undefined);
+    let inFlight = false;
+    const fetchStats = async () => {
+      if (
+        !mounted ||
+        inFlight ||
+        document.visibilityState !== "visible" ||
+        !navigator.onLine
+      ) return;
+      inFlight = true;
+      try {
+        const data = await getLiveStats();
+        if (mounted) setLiveStats(data);
+      } catch {
+        // Unverified activity must never be replaced by a fabricated zero.
+      } finally {
+        inFlight = false;
+      }
     };
-    fetchStats();
-    const timer = window.setInterval(fetchStats, 15000);
+    const resume = () => {
+      if (document.visibilityState === "visible") void fetchStats();
+    };
+    // refreshData performs the initial fetch and handles manual refreshes.
+    const timer = window.setInterval(() => void fetchStats(), 30000);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
     return () => {
       mounted = false;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
     };
   }, []);
 
@@ -435,27 +480,53 @@ export function LobbyPage() {
 
   useEffect(() => {
     if (!accessToken) return;
-    const refresh = () =>
-      Promise.all([
-        sendMatchmakingHeartbeat(accessToken, matchmakingGame),
-        getMatchmakingStatus(accessToken, matchmakingGame),
-      ])
-        .then(([, status]) =>
+    let mounted = true;
+    let inFlight = false;
+    const refresh = async () => {
+      if (
+        !mounted ||
+        inFlight ||
+        document.visibilityState !== "visible" ||
+        !navigator.onLine
+      ) return;
+      inFlight = true;
+      try {
+        const [, status] = await Promise.all([
+          sendMatchmakingHeartbeat(accessToken, matchmakingGame),
+          getMatchmakingStatus(accessToken, matchmakingGame),
+        ]);
+        if (mounted) {
           setMatchStatus({
             human_online: status.human_online,
             estimated_wait_seconds: status.estimated_wait_seconds,
             ticket: status.ticket,
-          }),
-        )
-        .catch(() => undefined);
+          });
+        }
+      } catch {
+        // Preserve the ticket until the next successful status request.
+      } finally {
+        inFlight = false;
+      }
+    };
+    const resume = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
     void refresh();
-    const timer = window.setInterval(refresh, 15000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(() => void refresh(), 15000);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
+    };
   }, [accessToken, matchmakingGame]);
 
   useEffect(() => {
     if (!accessToken || matchStatus.ticket?.status !== "queued") return;
     const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible" || !navigator.onLine) return;
       void getMatchmakingStatus(accessToken, matchmakingGame)
         .then((status) => {
           setMatchStatus({
