@@ -154,3 +154,57 @@ class MatchmakingApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(GameTable.objects.count(), 0)
+
+    def test_matchmaking_joins_existing_public_room_with_present_host(self):
+        table = GameTable.objects.create(
+            table_code="human-ludo-available",
+            name="Ludo ouvert",
+            game_type="ludo",
+            stakes="Gratuit",
+            max_players=2,
+            status="open",
+            created_by=self.first,
+            mode="HUMAN_MATCH",
+            stake_amount=0,
+        )
+        TableSeat.objects.create(table=table, user=self.first, seat_index=0)
+        self.client.force_authenticate(self.first)
+        self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "ludo"},
+            format="json",
+        )
+        self.client.force_authenticate(self.second)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["ticket"]["status"], "matched")
+        self.assertEqual(response.data["ticket"]["table_id"], str(table.pk))
+        self.assertEqual(GameTable.objects.count(), 1)
+        self.assertEqual(TableSeat.objects.filter(table=table).count(), 2)
+
+    def test_matchmaking_ignores_existing_room_with_stale_host(self):
+        table = GameTable.objects.create(
+            table_code="stale-ludo-available",
+            name="Ludo sans présence",
+            game_type="ludo",
+            stakes="Gratuit",
+            max_players=2,
+            status="open",
+            created_by=self.first,
+            mode="HUMAN_MATCH",
+            stake_amount=0,
+        )
+        TableSeat.objects.create(table=table, user=self.first, seat_index=0)
+        self.client.force_authenticate(self.second)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["ticket"]["status"], "queued")
+        self.assertEqual(TableSeat.objects.filter(table=table).count(), 1)
