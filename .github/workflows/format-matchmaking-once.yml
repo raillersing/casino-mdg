@@ -1,4 +1,5 @@
 name: Format matchmaking reliability patch once
+# Final alignment includes cancellation-race recovery and its browser regression test.
 
 on:
   push:
