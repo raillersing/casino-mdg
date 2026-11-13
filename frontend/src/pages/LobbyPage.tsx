@@ -1284,7 +1284,7 @@ export function LobbyPage() {
       )}
       {isGameLobby && (
         <div className="game-lobby-table-heading">
-          <h2>{t("discovery.online", "Tables disponibles")}</h2>
+          <h2>{t("discovery.availableTables")}</h2>
           <span>{shown.length} {shown.length === 1 ? "table" : "tables"}</span>
         </div>
       )}
