@@ -108,3 +108,19 @@ test("the catalog offers a direct practice action for the selected game", async 
   ).toBeVisible();
   await expect(page.locator(".discovery-card-button")).toHaveCount(5);
 });
+
+
+for (const game of ["belote", "domino", "ludo", "rami", "poker"] as const) {
+  test(`game-first actions are available directly on mobile for ${game}`, async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.route("**/api/v1/games/tables/**", (route) =>
+      route.fulfill({ json: { results: [] } }),
+    );
+    await page.goto(`/lobby/${game}`);
+    await expect(page.getByRole("button", { name: /Trouver des joueurs pour/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Créer une table" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "J'ai un code" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tables disponibles" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}
