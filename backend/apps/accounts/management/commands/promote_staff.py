@@ -96,7 +96,8 @@ class Command(BaseCommand):
                 self.style.SUCCESS(
                     f"\nNouveau compte créé et promu ADMIN / STAFF avec succès :\n"
                     f"ID: {user.id} | Téléphone: {user.phone} | Nom: {user.display_name}\n"
-                    f"Vous pouvez vous connecter avec ce numéro sur le site pour accéder au Back-office (/backoffice)."
+                    "Vous pouvez vous connecter avec ce numéro sur le site "
+                    "pour accéder au Back-office (/backoffice)."
                 )
             )
             return
@@ -119,7 +120,8 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"\nSuccès ! L'utilisateur {user.display_name} ({user.phone}) est désormais ADMIN / STAFF.\n"
+                f"\nSuccès ! L'utilisateur {user.display_name} ({user.phone}) "
+                "est désormais ADMIN / STAFF.\n"
                 f"Il peut accéder au Back-office via l'URL : /backoffice"
             )
         )
