@@ -435,7 +435,6 @@
   }
 }
 
-
 /* Reload-safe recovery: a backend-confirmed seat is always one tap away. */
 .game-lobby-recovery {
   display: grid;
@@ -444,7 +443,7 @@
   margin: 12px 0;
   border: 1px solid var(--gold);
   border-radius: 14px;
-  background: rgba(211, 176, 107, .09);
+  background: rgba(211, 176, 107, 0.09);
 }
 .game-lobby-recovery strong {
   color: var(--gold-light);

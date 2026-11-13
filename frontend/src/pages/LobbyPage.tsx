@@ -493,7 +493,6 @@ export function LobbyPage() {
         Math.floor((Date.now() - Date.parse(ticket.created_at)) / 1000),
       );
       setWaitingSeconds(elapsed);
-
     };
     updateWaiting();
     const timer = window.setInterval(updateWaiting, 1000);
@@ -1230,18 +1229,19 @@ export function LobbyPage() {
                 </button>
               )}
 
-              {waitingSeconds >= 20 && matchStatus.ticket?.status === "queued" && (
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--gold)",
-                    textAlign: "center",
-                  }}
-                >
-                  Recherche prolongée. Vous pouvez patienter ou vous entraîner
-                  avec l'IA ci-contre.
-                </div>
-              )}
+              {waitingSeconds >= 20 &&
+                matchStatus.ticket?.status === "queued" && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--gold)",
+                      textAlign: "center",
+                    }}
+                  >
+                    Recherche prolongée. Vous pouvez patienter ou vous entraîner
+                    avec l'IA ci-contre.
+                  </div>
+                )}
 
               {matchError && (
                 <div

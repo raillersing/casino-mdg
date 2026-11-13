@@ -252,7 +252,9 @@ class MatchmakingApiTests(TestCase):
             format="json",
         )
         self.assertEqual(heartbeat.data["status"], "searching")
-        self.assertEqual(PlayerPresence.objects.get(user=self.first).status, "searching")
+        self.assertEqual(
+            PlayerPresence.objects.get(user=self.first).status, "searching"
+        )
         status = self.client.get("/api/v1/games/matchmaking/status/?game_type=ludo")
         self.assertIsNone(status.data["estimated_wait_seconds"])
         self.assertIsNone(status.data["timeout_seconds"])
@@ -269,7 +271,9 @@ class MatchmakingApiTests(TestCase):
         MatchmakingTicket.objects.filter(pk=ticket.pk).update(
             updated_at=timezone.now() - timedelta(minutes=2)
         )
-        stale_status = self.client.get("/api/v1/games/matchmaking/status/?game_type=ludo")
+        stale_status = self.client.get(
+            "/api/v1/games/matchmaking/status/?game_type=ludo"
+        )
         self.assertIsNone(stale_status.data["ticket"])
         self.assertEqual(stale_status.data["queued"], 0)
 
@@ -299,9 +303,9 @@ class MatchmakingApiTests(TestCase):
             {"game_type": "ludo", "target_size": 2},
             format="json",
         )
-        MatchmakingTicket.objects.filter(
-            pk=old.data["ticket"]["ticket_id"]
-        ).update(updated_at=timezone.now() - timedelta(minutes=3))
+        MatchmakingTicket.objects.filter(pk=old.data["ticket"]["ticket_id"]).update(
+            updated_at=timezone.now() - timedelta(minutes=3)
+        )
         new = self.client.post(
             "/api/v1/games/matchmaking/queue/",
             {"game_type": "ludo", "target_size": 2},

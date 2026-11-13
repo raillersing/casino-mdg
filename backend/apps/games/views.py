@@ -49,7 +49,6 @@ from .table_rules import CAPABILITIES, validate_table_settings
 from .test_games import create_draw_entry, draw_now, ensure_test_catalog, play_instant
 
 
-
 def game_result_signature_payload(
     game_id, game_type, outcome, amount, metadata, player_id=None
 ):

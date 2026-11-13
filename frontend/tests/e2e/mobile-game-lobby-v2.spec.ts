@@ -96,12 +96,12 @@ for (const width of [320, 390, 1440]) {
       page.getByRole("heading", { name: "Tables disponibles" }),
     ).toBeVisible();
     await expect(page.locator(".game-lobby-table-card")).toHaveCount(3);
-    await expect(
-      page.locator(".game-lobby-table-card h3").first(),
-    ).toHaveText("Ma partie");
-    await expect(
-      page.locator(".game-lobby-table-card h3").nth(1),
-    ).toHaveText("Table ouverte");
+    await expect(page.locator(".game-lobby-table-card h3").first()).toHaveText(
+      "Ma partie",
+    );
+    await expect(page.locator(".game-lobby-table-card h3").nth(1)).toHaveText(
+      "Table ouverte",
+    );
     await expect(
       page.getByRole("button", { name: "Rejoindre Table ouverte" }),
     ).toBeEnabled();
@@ -204,14 +204,22 @@ test("matchmaking remains tied to the selected game and can be cancelled", async
 
   await page.route("**/api/v1/games/matchmaking/**", (route) => {
     const url = route.request().url();
-    if (url.includes("matchmaking/queue/") && route.request().method() === "POST") {
+    if (
+      url.includes("matchmaking/queue/") &&
+      route.request().method() === "POST"
+    ) {
       const body = route.request().postDataJSON() as { game_type: string };
       queuedGames.push(body.game_type);
       return route.fulfill({ json: { ticket, created: true } });
     }
-    if (url.includes("matchmaking/queue/ludo-ticket/") && route.request().method() === "DELETE") {
+    if (
+      url.includes("matchmaking/queue/ludo-ticket/") &&
+      route.request().method() === "DELETE"
+    ) {
       cancelled.push("ludo-ticket");
-      return route.fulfill({ json: { ticket: { ...ticket, status: "cancelled" } } });
+      return route.fulfill({
+        json: { ticket: { ...ticket, status: "cancelled" } },
+      });
     }
     if (url.includes("matchmaking/status/")) {
       return route.fulfill({
@@ -229,11 +237,18 @@ test("matchmaking remains tied to the selected game and can be cancelled", async
   });
 
   await page.goto("/lobby/ludo");
-  await page.getByRole("button", { name: /Trouver des joueurs pour Ludo/i }).click();
+  await page
+    .getByRole("button", { name: /Trouver des joueurs pour Ludo/i })
+    .click();
   await expect(page.getByText("Recherche en cours")).toBeVisible();
   expect(queuedGames).toEqual(["ludo"]);
-  await page.locator(".game-lobby-searching").getByRole("button", { name: "Annuler" }).click();
-  await expect(page.getByRole("button", { name: /Trouver des joueurs pour Ludo/i })).toBeVisible();
+  await page
+    .locator(".game-lobby-searching")
+    .getByRole("button", { name: "Annuler" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: /Trouver des joueurs pour Ludo/i }),
+  ).toBeVisible();
   expect(cancelled).toEqual(["ludo-ticket"]);
 });
 
@@ -298,7 +313,6 @@ test("returning from authentication can resume Ludo matchmaking", async ({
   await expect(page).not.toHaveURL(/action=matchmaking/);
 });
 
-
 test("per-game filters distinguish free seats and my reserved table", async ({
   page,
 }) => {
@@ -310,13 +324,18 @@ test("per-game filters distinguish free seats and my reserved table", async ({
   await expect(page.locator(".game-lobby-table-card")).toHaveCount(2);
   await page.getByLabel("Disponibilité").selectOption("mine");
   await expect(page.locator(".game-lobby-table-card")).toHaveCount(1);
-  await expect(page.locator(".game-lobby-table-card")).toContainText("Ma partie");
+  await expect(page.locator(".game-lobby-table-card")).toContainText(
+    "Ma partie",
+  );
   await page.getByLabel("Disponibilité").selectOption("all");
-  await page.getByRole("searchbox", { name: "Rechercher une table" }).fill("ouverte");
+  await page
+    .getByRole("searchbox", { name: "Rechercher une table" })
+    .fill("ouverte");
   await expect(page.locator(".game-lobby-table-card")).toHaveCount(1);
-  await expect(page.locator(".game-lobby-table-card")).toContainText("Table ouverte");
+  await expect(page.locator(".game-lobby-table-card")).toContainText(
+    "Table ouverte",
+  );
 });
-
 
 test("reload shows a deliberate resume action for an already matched player", async ({
   page,
@@ -355,11 +374,15 @@ test("reload shows a deliberate resume action for an already matched player", as
   );
   await page.setViewportSize({ width: 390, height: 850 });
   await page.goto("/lobby/ludo");
-  const resume = page.getByRole("link", { name: "Rejoindre ma partie", exact: true });
+  const resume = page.getByRole("link", {
+    name: "Rejoindre ma partie",
+    exact: true,
+  });
   await expect(resume).toBeVisible();
   await expect(page).toHaveURL(/\/lobby\/ludo/);
   await expect(resume).toHaveAttribute(
-    "href", "/game/ludo/LUDO-FOUND?table_id=matched-room-id",
+    "href",
+    "/game/ludo/LUDO-FOUND?table_id=matched-room-id",
   );
   await resume.click();
   await expect(page).toHaveURL(/\/game\/ludo\/LUDO-FOUND/);
@@ -402,7 +425,9 @@ test("long-running matchmaking remains cancellable without a fictitious timeout"
   );
   await page.goto("/lobby/ludo");
   await expect(page.getByText("Recherche en cours")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Annuler", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Annuler", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(/Temps écoulé.*2[5-9]s/)).toBeVisible();
   await expect(page.getByText(/Délai dépassé/)).toHaveCount(0);
 });
