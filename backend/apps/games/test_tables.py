@@ -589,7 +589,7 @@ class TableApiTests(TestCase):
         mga_acc.save()
 
         self.client.force_authenticate(self.user)
-        # Create poker table: minimum 5,000 Ar, buy-in 50,000 Ar (Zynga style choice, no table max cap)
+        # Poker: minimum de 5 000 Ar, tapis initial de 50 000 Ar.
         resp = self.client.post(
             "/api/v1/games/tables/",
             {
@@ -659,7 +659,6 @@ class TableApiTests(TestCase):
         self.assertIn("Solde Ariary insuffisant", resp_high.data["detail"])
 
     def test_poker_top_up_endpoint_reserves_mga_and_updates_pending_top_up(self):
-        from apps.games.models import TableBankroll
         from apps.wallet.models import LedgerAccount
 
         mga_acc, _ = LedgerAccount.objects.get_or_create(
