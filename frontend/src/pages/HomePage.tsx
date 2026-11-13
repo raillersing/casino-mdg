@@ -1,83 +1,23 @@
 import { useEffect, useState } from "react";
-import { useGameStore } from "@stores/gameStore";
-import { Link, useNavigate } from "react-router-dom";
-import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
-import {
-  ArrowRight,
-  Users,
-  Bot,
-  Compass,
-  KeyRound,
-  Zap,
-  Loader2,
-} from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Bot, KeyRound, Plus, UsersRound, Gamepad2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { startBotSimulation } from "@services/games";
-import { createGuestToken } from "@services/auth";
+import { useGameStore } from "@stores/gameStore";
+import "../styles/home-game-v2.css";
 
-interface GameDef {
-  id: "belote" | "domino" | "ludo" | "rami" | "poker";
-  name: string;
-  players: string;
-  desc: string;
-  kind: "cards" | "board";
-  color: string;
-}
+type ResumableGame = { id: string; table_code: string; game_type: string; name: string };
 
-const FEATURED_GAMES: GameDef[] = [
-  {
-    id: "belote",
-    name: "Belote Malagasy",
-    players: "4 joueurs · En équipe",
-    desc: "Remportez les plis avec votre partenaire. Atouts et annonces traditionnelles.",
-    kind: "cards",
-    color: "rose",
-  },
-  {
-    id: "domino",
-    name: "Domino Double-Six",
-    players: "2 à 4 joueurs",
-    desc: "Associez vos dominos et videz votre main avant vos adversaires.",
-    kind: "board",
-    color: "amber",
-  },
-  {
-    id: "ludo",
-    name: "Ludo Mada",
-    players: "2 à 4 joueurs",
-    desc: "Sortez sur un 6 et ramenez vos quatre pions à la maison centrale.",
-    kind: "board",
-    color: "green",
-  },
-  {
-    id: "rami",
-    name: "Rami Malagasy",
-    players: "2 à 4 joueurs",
-    desc: "Formez des tierces, suites et combinaisons de cartes pour poser votre jeu.",
-    kind: "cards",
-    color: "blue",
-  },
-  {
-    id: "poker",
-    name: "Poker Texas Hold’em",
-    players: "2 à 9 joueurs",
-    desc: "Composez votre meilleure main à 5 cartes et remportez le pot en Ariary.",
-    kind: "cards",
-    color: "gold",
-  },
-];
+const FEATURED = [
+  { id: "belote", name: "Belote Malagasy", players: "4 joueurs · 2 équipes" },
+  { id: "ludo", name: "Ludo Mada", players: "2 à 4 joueurs" },
+] as const;
 
 export function HomePage() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
+  const { i18n } = useTranslation();
+  const mg = i18n.language.startsWith("mg");
+  const tr = (fr: string, malagasy: string) => (mg ? malagasy : fr);
   const token = useGameStore((state) => state.accessToken);
-  const setSession = useGameStore((state) => state.setSession);
-  const setGuestMode = useGameStore((state) => state.setGuestMode);
-
-  const [resumable, setResumable] = useState<
-    Array<{ id: string; table_code: string; game_type: string; name: string }>
-  >([]);
-  const [launchingGame, setLaunchingGame] = useState<string | null>(null);
+  const [resumable, setResumable] = useState<ResumableGame[]>([]);
 
   useEffect(() => {
     setResumable([]);
@@ -87,203 +27,125 @@ export function HomePage() {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
     })
-      .then(async (r) => {
-        if (!r.ok) throw Error();
-        return r.json();
+      .then(async (response) => {
+        if (!response.ok) throw new Error("RESUME_UNAVAILABLE");
+        return (await response.json()) as { results: ResumableGame[] };
       })
-      .then((data) => setResumable(data.results || []))
+      .then((data) => {
+        if (!controller.signal.aborted) setResumable(data.results || []);
+      })
       .catch(() => undefined);
     return () => controller.abort();
   }, [token]);
 
-  const handleSoloPlay = async (gameId: "belote" | "domino" | "ludo" | "rami" | "poker") => {
-    setLaunchingGame(gameId);
-    try {
-      let currentToken = token;
-      if (!currentToken) {
-        const guest = await createGuestToken("Invité");
-        setSession(guest.access, guest.refresh);
-        setGuestMode(guest.user.display_name, guest.wallet.balance);
-        currentToken = guest.access;
-      }
-      const botCount = gameId === "rami" ? 1 : 3;
-      const idempotencyKey = `home-solo-${gameId}-${Date.now()}`;
-      const session = await startBotSimulation(
-        currentToken,
-        gameId,
-        "balanced",
-        idempotencyKey,
-        botCount,
-      );
-      navigate(
-        `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}${session.admission_token ? `&admission_token=${session.admission_token}` : ""}`,
-      );
-    } catch (err) {
-      console.error("Solo launch failed", err);
-      navigate(`/lobby/${gameId}`);
-    } finally {
-      setLaunchingGame(null);
-    }
-  };
-
-  const actions = [
-    { key: "online", icon: Compass, to: "/lobby" },
-    { key: "friends", icon: Users, to: "/lobby?action=create" },
-    { key: "practice", icon: Bot, to: "/games?intent=practice" },
-  ];
-
   return (
-    <div className="club-home">
-      {/* 1. Hero */}
-      <section className="club-home-hero" aria-labelledby="home-title">
-        <img
-          src="/images/games/belote-cover.webp"
-          alt=""
-          width="960"
-          height="640"
-        />
-        <div className="club-home-hero-copy">
-          <span className="eyebrow">MDG GAME CLUB</span>
-          <h1 id="home-title">{t("welcome.title") || "Une partie, ensemble ?"}</h1>
-          <p>{t("welcome.intro") || "Vos classiques malagasy, à partager entre proches ou avec de nouveaux partenaires."}</p>
-          <div className="club-home-actions">
-            <Link className="button button-gold" to="/games">
-              {t("welcome.choose") || "Choisir un jeu"} <ArrowRight size={18} />
+    <div className="club-home home-game-v2">
+      <section className="home-game-hero" aria-labelledby="home-title">
+        <img src="/images/games/belote-cover.webp" width="960" height="640" alt="" />
+        <div className="home-game-hero-content">
+          <span className="home-game-eyebrow">MDG GAME CLUB</span>
+          <h1 id="home-title">
+            {tr("Une partie, ensemble ?", "Andao hiara-hilalao?")}
+          </h1>
+          <p>{tr(
+            "Belote, Ludo, Domino, Rami et Poker. Choisissez votre jeu, trouvez une table et amusez-vous.",
+            "Beloty, Ludo, Dôminô, Ramy sy Poker. Misafidiana lalao ary mitadiava latabatra.",
+          )}</p>
+          <div className="home-game-hero-actions">
+            <Link to="/games" className="home-game-primary">
+              <Gamepad2 size={19} aria-hidden="true" />
+              {tr("Choisir un jeu", "Hisafidy lalao")}
+              <ArrowRight size={18} aria-hidden="true" />
             </Link>
-            <Link
-              className="button button-secondary"
-              to="/lobby?action=join-private"
-            >
-              <KeyRound size={17} />
-              {t("welcome.join") || "J’ai un code privé"}
+            <Link to="/lobby?action=join-private" className="home-game-secondary">
+              <KeyRound size={18} aria-hidden="true" />
+              {tr("J'ai un code d'invitation", "Manana kaody fanasana aho")}
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 2. Reprendre ma partie si active */}
       {resumable.length > 0 && (
-        <section aria-label={t("welcome.resume") || "Reprendre une partie"}>
-          <h2>{t("welcome.resume") || "Reprendre une partie"}</h2>
-          {resumable.map((table) => (
-            <Link
-              className="button button-gold"
-              key={table.id}
-              to={`/game/${table.game_type}/${table.table_code}`}
-              style={{ margin: "4px" }}
-            >
-              {table.name} <ArrowRight size={16} />
-            </Link>
-          ))}
+        <section className="home-game-resume" aria-labelledby="home-resume-title">
+          <div className="home-game-section-heading">
+            <h2 id="home-resume-title">
+              {tr("Reprendre ma partie", "Hanohy ny lalaoko")}
+            </h2>
+            <Link to="/mes-parties">{tr("Mes parties", "Ny lalaoko")}</Link>
+          </div>
+          <div className="home-game-resume-list">
+            {resumable.slice(0, 3).map((table) => (
+              <Link
+                key={table.id}
+                to={`/game/${table.game_type}/${table.table_code}?table_id=${encodeURIComponent(table.id)}`}
+              >
+                <span><strong>{table.name}</strong><small>{table.game_type.toUpperCase()}</small></span>
+                <ArrowRight size={19} aria-hidden="true" />
+              </Link>
+            ))}
+          </div>
         </section>
       )}
 
-      {/* Live Activity Ticker */}
-      <LiveStatsTicker />
-
-      {/* 3. Les 5 Jeux Phares - Grille Directe & Jouable en 1-Clic */}
-      <section aria-labelledby="home-featured-games" style={{ marginTop: "24px" }}>
-        <div className="discovery-section-head">
-          <div>
-            <span className="eyebrow">5 Classiques Malagasy</span>
-            <h2 id="home-featured-games">Choisissez votre jeu & jouez</h2>
-          </div>
-          <Link to="/games" className="text-link">
-            {t("discovery.allGames") || "Tous les jeux"} <ArrowRight size={16} />
-          </Link>
+      <section aria-labelledby="home-intents" className="home-game-intents">
+        <div className="home-game-section-heading">
+          <h2 id="home-intents">
+            {tr("Comment voulez-vous jouer ?", "Ahoana no tianao hilalaovana?")}
+          </h2>
         </div>
-
-        <div className="discovery-grid" style={{ marginTop: "16px" }}>
-          {FEATURED_GAMES.map((game) => {
-            const isLaunching = launchingGame === game.id;
-            return (
-              <div key={game.id} className="discovery-game">
-                <div className={`discovery-card discovery-${game.color}`}>
-                  <div className="discovery-art" aria-hidden="true">
-                    <img
-                      src={`/images/games/${game.id}-cover.webp`}
-                      alt=""
-                      loading="lazy"
-                      width={960}
-                      height={640}
-                    />
-                  </div>
-                  <div className="discovery-card-copy">
-                    <span className="discovery-players">{game.players}</span>
-                    <h3>{game.name}</h3>
-                    <p>{game.desc}</p>
-                  </div>
-                </div>
-
-                {/* 2 Actions Directes en 1 clic */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "8px",
-                    marginTop: "8px",
-                    padding: "0 4px",
-                  }}
-                >
-                  <Link
-                    to={`/lobby/${game.id}`}
-                    className="button button-gold button-small"
-                    style={{
-                      justifyContent: "center",
-                      fontWeight: 600,
-                      textDecoration: "none",
-                    }}
-                  >
-                    <Zap size={15} /> Voir les tables
-                  </Link>
-
-                  <button
-                    type="button"
-                    className="button button-secondary button-small"
-                    disabled={isLaunching}
-                    onClick={() => handleSoloPlay(game.id)}
-                    style={{ justifyContent: "center", fontWeight: 600 }}
-                  >
-                    {isLaunching ? (
-                      <>
-                        <Loader2 size={15} className="spin" /> Lancement...
-                      </>
-                    ) : (
-                      <>
-                        <Bot size={15} /> Solo vs IA
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+        <div className="home-game-intention-list">
+          <Link to="/games" className="home-game-intent">
+            <span className="home-game-intent-icon"><UsersRound aria-hidden="true" size={23} /></span>
+            <span><strong>{tr("Jouer avec d'autres", "Hilalao amin'ny hafa")}</strong>
+              <small>{tr("Tables ouvertes et recherche de joueurs", "Latabatra misokatra sy fitadiavana mpilalao")}</small></span>
+            <ArrowRight aria-hidden="true" size={18} />
+          </Link>
+          <Link to="/games?intent=create" className="home-game-intent">
+            <span className="home-game-intent-icon"><Plus aria-hidden="true" size={23} /></span>
+            <span><strong>{tr("Créer une table", "Hamorona latabatra")}</strong>
+              <small>{tr("Inviter vos proches ou jouer en public", "Hanasa namana na hilalao amin'ny rehetra")}</small></span>
+            <ArrowRight aria-hidden="true" size={18} />
+          </Link>
+          <Link to="/games?intent=practice" className="home-game-intent">
+            <span className="home-game-intent-icon"><Bot aria-hidden="true" size={23} /></span>
+            <span><strong>{tr("S'entraîner en solo", "Hanao fanazaran-tena irery")}</strong>
+              <small>{tr("Parties contre des robots identifiés", "Hilalao amin'ny milina")}</small></span>
+            <ArrowRight aria-hidden="true" size={18} />
+          </Link>
         </div>
       </section>
 
-      {/* 4. Comment voulez-vous jouer ? (3 intentions) */}
-      <section aria-labelledby="home-intents" style={{ marginTop: "32px" }}>
-        <h2 id="home-intents">{t("welcome.how") || "Comment voulez-vous jouer ?"}</h2>
-        <div className="club-home-intents">
-          {actions.map(({ key, icon: Icon, to }) => (
-            <Link to={to} key={key}>
-              <Icon size={25} />
-              <h3>{t(`welcome.${key}`)}</h3>
-              <p>{t(`welcome.${key}Desc`)}</p>
-              <ArrowRight size={18} />
+      <section aria-labelledby="home-featured-games" className="home-game-featured">
+        <div className="home-game-section-heading">
+          <h2 id="home-featured-games">
+            {tr("Découvrir un jeu", "Hahita lalao")}
+          </h2>
+          <Link to="/games">{tr("Tous les jeux", "Ny lalao rehetra")}</Link>
+        </div>
+        <div className="home-game-featured-list">
+          {FEATURED.map((game) => (
+            <Link key={game.id} to={`/lobby/${game.id}`} className="home-game-featured-card">
+              <img
+                src={`/images/games/${game.id}-cover.webp`}
+                width="480" height="320" loading="lazy" alt=""
+              />
+              <span>
+                <strong>{game.name}</strong>
+                <small>{game.players}</small>
+                <em>{tr("Voir les tables", "Hijery latabatra")} <ArrowRight size={15} aria-hidden="true" /></em>
+              </span>
             </Link>
           ))}
         </div>
       </section>
-
-      {/* 5. Aide / Support */}
-      <aside className="club-home-help" aria-label={t("welcome.helpTitle") || "Une première partie ?"}>
-        <h2>{t("welcome.helpTitle") || "Une première partie ?"}</h2>
-        <p>{t("welcome.help") || "Choisissez un jeu, découvrez ses règles, puis entraînez-vous ou invitez vos proches."}</p>
-        <Link to="/support" className="text-link">
-          {t("welcome.support") || "Besoin d’aide ?"} <ArrowRight size={16} />
+      <div className="home-game-footer-links">
+        <Link to="/lobby">
+          {tr("Trouver une table", "Hitady latabatra")} <ArrowRight size={16} />
         </Link>
-      </aside>
+        <Link to="/support">
+          {tr("Besoin d'aide ?", "Mila fanampiana?")} <ArrowRight size={16} />
+        </Link>
+      </div>
     </div>
   );
 }
