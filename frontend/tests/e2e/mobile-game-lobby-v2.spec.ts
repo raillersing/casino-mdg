@@ -236,3 +236,64 @@ test("matchmaking remains tied to the selected game and can be cancelled", async
   await expect(page.getByRole("button", { name: /Trouver des joueurs pour Ludo/i })).toBeVisible();
   expect(cancelled).toEqual(["ludo-ticket"]);
 });
+
+test("the chosen game and quick-create intent survive authentication", async ({
+  page,
+}) => {
+  await mockSignedIn(page);
+  await mockTableList(page, []);
+  await page.route("**/api/v1/games/table-capabilities/", (route) =>
+    route.fulfill({
+      json: { games: { ludo: { players: [2, 3, 4], defaults: {} } } },
+    }),
+  );
+  await page.goto("/lobby/ludo?action=create");
+  const dialog = page.getByRole("dialog", { name: /Créer une table de LUDO/ });
+  await expect(dialog).toBeVisible();
+  await expect(page).not.toHaveURL(/action=create/);
+  await dialog.getByRole("button", { name: "Fermer" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/lobby\/ludo$/);
+});
+
+test("returning from authentication can resume Ludo matchmaking", async ({
+  page,
+}) => {
+  await mockSignedIn(page);
+  await mockTableList(page, []);
+  const queued: string[] = [];
+  const ticket = {
+    ticket_id: "resume-ludo",
+    game_type: "ludo",
+    table_id: null,
+    table_code: null,
+    status: "queued",
+    created_at: new Date().toISOString(),
+    waiting_seconds: 0,
+    timeout_seconds: 60,
+  };
+  await page.route("**/api/v1/games/matchmaking/**", (route) => {
+    const url = route.request().url();
+    if (url.includes("queue/") && route.request().method() === "POST") {
+      const body = route.request().postDataJSON() as { game_type: string };
+      queued.push(body.game_type);
+      return route.fulfill({ json: { ticket, created: true } });
+    }
+    if (url.includes("status/")) {
+      return route.fulfill({
+        json: {
+          game_type: "ludo",
+          human_online: 0,
+          queued: 0,
+          estimated_wait_seconds: 0,
+          ticket: null,
+        },
+      });
+    }
+    return route.fulfill({ json: { status: "online", game_type: "ludo" } });
+  });
+  await page.goto("/lobby/ludo?action=matchmaking");
+  await expect(page.getByText("Recherche en cours")).toBeVisible();
+  expect(queued).toEqual(["ludo"]);
+  await expect(page).not.toHaveURL(/action=matchmaking/);
+});
