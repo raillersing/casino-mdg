@@ -199,14 +199,14 @@ export type MatchmakingTicket = {
   table_code: string | null;
   created_at: string;
   waiting_seconds: number;
-  timeout_seconds: number;
+  timeout_seconds: number | null;
 };
 export type MatchmakingStatus = {
   game_type: string | null;
   human_online: number;
   queued: number;
-  estimated_wait_seconds: number;
-  timeout_seconds: number;
+  estimated_wait_seconds: number | null;
+  timeout_seconds: number | null;
   ticket: MatchmakingTicket | null;
 };
 
