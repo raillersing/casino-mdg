@@ -591,8 +591,22 @@ export function LobbyPage() {
   const cancelSearch = async () => {
     if (!accessToken || !matchStatus.ticket) return;
     try {
-      await cancelMatch(accessToken, matchStatus.ticket.ticket_id);
+      const response = await cancelMatch(
+        accessToken,
+        matchStatus.ticket.ticket_id,
+      );
+      // Cancellation can race a successful server allocation. Never erase
+      // the only visible way back to a seat that has already been assigned.
+      queueSeenRef.current = false;
+      if (response.ticket.status === "matched") {
+        setMatchStatus((current) => ({ ...current, ticket: response.ticket }));
+        setMatchError(
+          "La partie a été trouvée avant l'annulation. Rejoignez-la ci-dessous.",
+        );
+        return;
+      }
       setMatchStatus((current) => ({ ...current, ticket: null }));
+      setMatchError("");
       setWaitingSeconds(0);
       void trackEvent("matchmaking_cancelled", { game_type: matchmakingGame });
     } catch (reason) {
