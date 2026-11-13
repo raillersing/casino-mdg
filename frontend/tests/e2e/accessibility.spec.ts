@@ -67,3 +67,23 @@ test("mobile navigation reaches the games catalog accessibly", async ({
   ).toHaveAttribute("aria-current", "page");
   await expectAccessible(page);
 });
+
+
+test("my parties empty state is accessible on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/mes-parties");
+  await expect(page.getByRole("heading", { name: "Mes parties" })).toBeVisible();
+  await expectAccessible(page);
+});
+
+test("selected-game lobby entry and availability filters are accessible", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/api/v1/games/tables/**", (route) =>
+    route.fulfill({ json: { results: [] } }),
+  );
+  await page.goto("/lobby/ludo");
+  await expect(page.getByRole("heading", { name: "Tables disponibles" })).toBeVisible();
+  await expectAccessible(page);
+});
