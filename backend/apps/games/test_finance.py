@@ -1,6 +1,9 @@
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.db import close_old_connections, connection
+from django.test import TestCase, TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -242,13 +245,6 @@ class FundingTests(TestCase):
         self.table.refresh_from_db()
         self.assertNotEqual(self.table.status, "finished")
         self.assertEqual(self.balances(), (50000, 50000, 50000))
-
-
-from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
-
-from django.db import close_old_connections, connection
-from django.test import TransactionTestCase
 
 
 class FundingConcurrencyTests(TransactionTestCase):
