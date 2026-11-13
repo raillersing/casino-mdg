@@ -432,7 +432,6 @@ test("long-running matchmaking remains cancellable without a fictitious timeout"
   await expect(page.getByText(/Délai dépassé/)).toHaveCount(0);
 });
 
-
 test("cancel versus match race preserves access to an already assigned table", async ({
   page,
 }) => {
@@ -489,6 +488,9 @@ test("cancel versus match race preserves access to an already assigned table", a
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Rejoindre ma partie" }),
-  ).toHaveAttribute("href", "/game/ludo/LUDO-ALLOCATED?table_id=allocated-table");
+  ).toHaveAttribute(
+    "href",
+    "/game/ludo/LUDO-ALLOCATED?table_id=allocated-table",
+  );
   await expect(page).toHaveURL(/\/lobby\/ludo/);
 });
