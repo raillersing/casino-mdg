@@ -410,7 +410,8 @@ export function LobbyPage() {
         inFlight ||
         document.visibilityState !== "visible" ||
         !navigator.onLine
-      ) return;
+      )
+        return;
       inFlight = true;
       try {
         const payload = await getTables(
@@ -448,7 +449,8 @@ export function LobbyPage() {
         inFlight ||
         document.visibilityState !== "visible" ||
         !navigator.onLine
-      ) return;
+      )
+        return;
       inFlight = true;
       try {
         const data = await getLiveStats();
@@ -494,7 +496,8 @@ export function LobbyPage() {
         inFlight ||
         document.visibilityState !== "visible" ||
         !navigator.onLine
-      ) return;
+      )
+        return;
       inFlight = true;
       try {
         const [, status] = await Promise.all([
