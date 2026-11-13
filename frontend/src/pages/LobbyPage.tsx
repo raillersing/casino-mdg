@@ -250,10 +250,15 @@ export function LobbyPage() {
       );
       return;
     }
-    if (searchParams.get("action") === "join-private" && accessToken)
+    if (action === "join-private" && accessToken) {
       setShowJoinPrivate(true);
-    if (searchParams.get("action") === "matchmaking") setMobileTab("quick");
-    if (searchParams.get("action") === "create" && accessToken) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("action");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    if (action === "matchmaking") setMobileTab("quick");
+    if (action === "create" && accessToken) {
       const gParam = searchParams.get("game_type");
       if (
         gParam &&
@@ -263,9 +268,13 @@ export function LobbyPage() {
           gParam as "belote" | "domino" | "ludo" | "rami" | "poker",
         );
       }
-      setShowCreateTable(true);
+      if (isGameLobby) setShowQuickCreate(true);
+      else setShowCreateTable(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("action");
+      setSearchParams(next, { replace: true });
     }
-  }, [urlGameType, queryFilter, searchParams, accessToken, navigate]);
+  }, [urlGameType, queryFilter, searchParams, accessToken, navigate, isGameLobby, setSearchParams]);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [registeringTourney, setRegisteringTourney] = useState<string | null>(
@@ -408,8 +417,11 @@ export function LobbyPage() {
               game_type: status.ticket.game_type,
               metadata: { table_code: status.ticket.table_code },
             });
+            const params = status.ticket.table_id
+              ? `?table_id=${encodeURIComponent(status.ticket.table_id)}`
+              : "";
             navigate(
-              `/game/${status.ticket.game_type}/${status.ticket.table_code}`,
+              `/game/${status.ticket.game_type}/${status.ticket.table_code}${params}`,
             );
           }
         })
@@ -445,9 +457,12 @@ export function LobbyPage() {
     return () => window.clearInterval(timer);
   }, [matchStatus.ticket, matchmakingGame]);
 
-  const findHuman = async () => {
+  const findHuman = useCallback(async () => {
     if (!accessToken) {
-      navigate("/auth?next=/lobby");
+      const target = isGameLobby && urlGameType
+        ? `/lobby/${urlGameType}?action=matchmaking`
+        : "/lobby?action=matchmaking";
+      navigate(`/auth?next=${encodeURIComponent(target)}`);
       return;
     }
     setMatchError("");
@@ -465,14 +480,25 @@ export function LobbyPage() {
           game_type: result.ticket.game_type,
           metadata: { table_code: result.ticket.table_code },
         });
+        const params = result.ticket.table_id
+          ? `?table_id=${encodeURIComponent(result.ticket.table_id)}`
+          : "";
         navigate(
-          `/game/${result.ticket.game_type}/${result.ticket.table_code}`,
+          `/game/${result.ticket.game_type}/${result.ticket.table_code}${params}`,
         );
       }
     } catch (reason) {
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
     }
-  };
+  }, [accessToken, navigate, matchmakingGame, t, isGameLobby, urlGameType]);
+
+  useEffect(() => {
+    if (!accessToken || searchParams.get("action") !== "matchmaking") return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("action");
+    setSearchParams(next, { replace: true });
+    if (isGameLobby) void findHuman();
+  }, [accessToken, isGameLobby, searchParams, setSearchParams, findHuman]);
 
   const cancelSearch = async () => {
     if (!accessToken || !matchStatus.ticket) return;
@@ -821,7 +847,10 @@ export function LobbyPage() {
 
           <GameLobbyEntryActions
             gameName={selectedGameMeta.label}
-            isSearching={matchStatus.ticket?.status === "queued"}
+            isSearching={
+              matchStatus.ticket?.status === "queued" &&
+              matchStatus.ticket.game_type === matchmakingGame
+            }
             waitingSeconds={waitingSeconds}
             isCreating={quickCreating !== null}
             onSearch={() => void findHuman()}
