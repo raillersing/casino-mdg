@@ -28,7 +28,6 @@ import {
 import {
   cancelMatch,
   createTable,
-  getLiveStats,
   getMatchmakingStatus,
   getTables,
   joinTable,
@@ -37,7 +36,6 @@ import {
   sendMatchmakingHeartbeat,
   type CreateTablePayload,
   type GameTable,
-  type LiveStatsResponse,
   type MatchmakingTicket,
 } from "@services/games";
 import {
@@ -58,6 +56,7 @@ import { TableAvailabilityCard } from "@components/game/TableAvailabilityCard";
 import { QuickCreateTableSheet } from "@components/game/QuickCreateTableSheet";
 import "../styles/game-lobby-v2.css";
 import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
+import { useLiveStats } from "@hooks/useLiveStats";
 import { GameActivitySummary } from "@components/game/GameActivitySummary";
 import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
 import { haptics } from "@utils/haptics";
@@ -224,7 +223,9 @@ export function LobbyPage() {
   >("belote");
   const [quickCreating, setQuickCreating] = useState<string | null>(null);
   const [showJoinPrivate, setShowJoinPrivate] = useState(false);
-  const [liveStats, setLiveStats] = useState<LiveStatsResponse | null>(null);
+  // The ticker and the per-game summary share a single React Query cache.
+  const { data: activityData, isError: activityUnavailable } = useLiveStats();
+  const liveStats = activityUnavailable ? null : activityData;
   const [startingSimulation, setStartingSimulation] = useState<string | null>(
     null,
   );
@@ -384,9 +385,6 @@ export function LobbyPage() {
   const refreshData = useCallback(() => {
     setLoading(true);
     setError("");
-    getLiveStats()
-      .then(setLiveStats)
-      .catch(() => undefined);
     if (filter === "tournaments") {
       getTournaments(accessToken || "")
         .then((res) => setTournaments(res.results || []))
@@ -402,60 +400,104 @@ export function LobbyPage() {
 
   useEffect(() => {
     if (filter === "tournaments") return;
-    const interval = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        getTables(filter === "all" ? "Tous" : filter, accessToken || undefined)
-          .then((payload) => setTables(payload.results))
-          .catch(() => undefined);
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [filter, accessToken]);
-
-  useEffect(() => {
     let mounted = true;
-    const fetchStats = () => {
-      getLiveStats()
-        .then((data) => {
-          if (mounted) setLiveStats(data);
-        })
-        .catch(() => undefined);
+    let inFlight = false;
+    const refreshVisibleTables = async () => {
+      if (
+        !mounted ||
+        inFlight ||
+        document.visibilityState !== "visible" ||
+        !navigator.onLine
+      )
+        return;
+      inFlight = true;
+      try {
+        const payload = await getTables(
+          filter === "all" ? "Tous" : filter,
+          accessToken || undefined,
+        );
+        if (mounted) setTables(payload.results);
+      } catch {
+        // Preserve the last known list on transient mobile network errors.
+      } finally {
+        inFlight = false;
+      }
     };
-    fetchStats();
-    const timer = window.setInterval(fetchStats, 15000);
+    const resume = () => {
+      if (document.visibilityState === "visible") void refreshVisibleTables();
+    };
+    // Manual refresh remains available; polling is less costly on 3G/4G.
+    const timer = window.setInterval(() => void refreshVisibleTables(), 15000);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
     return () => {
       mounted = false;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
     };
-  }, []);
+  }, [filter, accessToken]);
 
+  // StrictMode replays effects in development. The same filter/token must
+  // not launch a duplicate initial table request.
+  const initialRefreshKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const key = `${filter}:${accessToken || "guest"}`;
+    if (initialRefreshKeyRef.current === key) return;
+    initialRefreshKeyRef.current = key;
     refreshData();
-  }, [refreshData]);
+  }, [refreshData, filter, accessToken]);
 
   useEffect(() => {
     if (!accessToken) return;
-    const refresh = () =>
-      Promise.all([
-        sendMatchmakingHeartbeat(accessToken, matchmakingGame),
-        getMatchmakingStatus(accessToken, matchmakingGame),
-      ])
-        .then(([, status]) =>
+    let mounted = true;
+    let inFlight = false;
+    const refresh = async () => {
+      if (
+        !mounted ||
+        inFlight ||
+        document.visibilityState !== "visible" ||
+        !navigator.onLine
+      )
+        return;
+      inFlight = true;
+      try {
+        const [, status] = await Promise.all([
+          sendMatchmakingHeartbeat(accessToken, matchmakingGame),
+          getMatchmakingStatus(accessToken, matchmakingGame),
+        ]);
+        if (mounted) {
           setMatchStatus({
             human_online: status.human_online,
             estimated_wait_seconds: status.estimated_wait_seconds,
             ticket: status.ticket,
-          }),
-        )
-        .catch(() => undefined);
+          });
+        }
+      } catch {
+        // Preserve the ticket until the next successful status request.
+      } finally {
+        inFlight = false;
+      }
+    };
+    const resume = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
     void refresh();
-    const timer = window.setInterval(refresh, 15000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(() => void refresh(), 15000);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
+    };
   }, [accessToken, matchmakingGame]);
 
   useEffect(() => {
     if (!accessToken || matchStatus.ticket?.status !== "queued") return;
     const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible" || !navigator.onLine) return;
       void getMatchmakingStatus(accessToken, matchmakingGame)
         .then((status) => {
           setMatchStatus({
