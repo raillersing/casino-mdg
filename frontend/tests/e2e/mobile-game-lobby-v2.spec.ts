@@ -316,3 +316,93 @@ test("per-game filters distinguish free seats and my reserved table", async ({
   await expect(page.locator(".game-lobby-table-card")).toHaveCount(1);
   await expect(page.locator(".game-lobby-table-card")).toContainText("Table ouverte");
 });
+
+
+test("reload shows a deliberate resume action for an already matched player", async ({
+  page,
+}) => {
+  await mockSignedIn(page);
+  await mockTableList(page, []);
+  await page.route("**/api/v1/games/table-capabilities/", (route) =>
+    route.fulfill({
+      json: { games: { ludo: { players: [2, 3, 4], defaults: {} } } },
+    }),
+  );
+  await page.route("**/api/v1/games/matchmaking/heartbeat/", (route) =>
+    route.fulfill({ json: { status: "online", game_type: "ludo" } }),
+  );
+  await page.route("**/api/v1/games/matchmaking/status/**", (route) =>
+    route.fulfill({
+      json: {
+        game_type: "ludo",
+        human_online: 2,
+        queued: 0,
+        estimated_wait_seconds: null,
+        timeout_seconds: null,
+        ticket: {
+          ticket_id: "persisted-match",
+          game_type: "ludo",
+          status: "matched",
+          target_players: 2,
+          table_code: "LUDO-FOUND",
+          table_id: "matched-room-id",
+          created_at: new Date().toISOString(),
+          waiting_seconds: 0,
+          timeout_seconds: null,
+        },
+      },
+    }),
+  );
+  await page.setViewportSize({ width: 390, height: 850 });
+  await page.goto("/lobby/ludo");
+  const resume = page.getByRole("link", { name: "Rejoindre ma partie", exact: true });
+  await expect(resume).toBeVisible();
+  await expect(page).toHaveURL(/\/lobby\/ludo/);
+  await expect(resume).toHaveAttribute(
+    "href", "/game/ludo/LUDO-FOUND?table_id=matched-room-id",
+  );
+  await resume.click();
+  await expect(page).toHaveURL(/\/game\/ludo\/LUDO-FOUND/);
+});
+
+test("long-running matchmaking remains cancellable without a fictitious timeout", async ({
+  page,
+}) => {
+  await mockSignedIn(page);
+  await mockTableList(page, []);
+  await page.route("**/api/v1/games/table-capabilities/", (route) =>
+    route.fulfill({
+      json: { games: { ludo: { players: [2, 3, 4], defaults: {} } } },
+    }),
+  );
+  await page.route("**/api/v1/games/matchmaking/heartbeat/", (route) =>
+    route.fulfill({ json: { status: "searching", game_type: "ludo" } }),
+  );
+  await page.route("**/api/v1/games/matchmaking/status/**", (route) =>
+    route.fulfill({
+      json: {
+        game_type: "ludo",
+        human_online: 1,
+        queued: 1,
+        estimated_wait_seconds: null,
+        timeout_seconds: null,
+        ticket: {
+          ticket_id: "still-waiting",
+          game_type: "ludo",
+          status: "queued",
+          target_players: 2,
+          table_id: null,
+          table_code: null,
+          created_at: new Date(Date.now() - 25_000).toISOString(),
+          waiting_seconds: 25,
+          timeout_seconds: null,
+        },
+      },
+    }),
+  );
+  await page.goto("/lobby/ludo");
+  await expect(page.getByText("Recherche en cours")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Annuler", exact: true })).toBeVisible();
+  await expect(page.getByText(/Temps écoulé.*2[5-9]s/)).toBeVisible();
+  await expect(page.getByText(/Délai dépassé/)).toHaveCount(0);
+});
