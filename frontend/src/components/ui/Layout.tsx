@@ -1,7 +1,6 @@
 import { ReactNode, useState, useEffect } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import {
-  Bell,
   CircleUserRound,
   UsersRound,
   Users,
@@ -302,13 +301,6 @@ export function Layout({ children }: { children: ReactNode }) {
               aria-label={t("a11y.changeLanguage")}
             >
               {language}
-            </button>
-            <button
-              className="icon-button"
-              aria-label={t("a11y.notifications")}
-            >
-              <Bell size={18} />
-              <i />
             </button>
             {user ? (
               <Link
