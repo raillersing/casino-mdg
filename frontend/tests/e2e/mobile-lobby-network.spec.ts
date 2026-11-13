@@ -24,6 +24,9 @@ test("lobby tables poll after fifteen seconds and refresh on foreground", async 
   await expect.poll(() => tableRequests).toBe(1);
   await page.clock.fastForward(10000);
   await expect.poll(() => tableRequests).toBe(2);
+  // The in-flight guard intentionally ignores foreground events until the
+  // previous response settles; allow its async resolution before triggering.
+  await page.waitForTimeout(250);
 
   await page.evaluate(() => {
     document.dispatchEvent(new Event("visibilitychange"));
