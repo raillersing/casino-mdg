@@ -1282,6 +1282,12 @@ export function LobbyPage() {
       </div>
       </>
       )}
+      {isGameLobby && (
+        <div className="game-lobby-table-heading">
+          <h2>{t("discovery.online", "Tables disponibles")}</h2>
+          <span>{shown.length} {shown.length === 1 ? "table" : "tables"}</span>
+        </div>
+      )}
       {/* 5. Main Content: Tournaments or Regular Table Cards Grid */}
       {filter === "tournaments" ? (
         <div className="tournaments-lobby-section">
