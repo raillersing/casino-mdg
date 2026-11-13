@@ -72,7 +72,7 @@ def queue_player(user, game_type, target_size=None):
     if capacity not in CAPABILITIES[game_type]["players"]:
         raise ValueError("Format de table invalide.")
     ticket.target_players = capacity
-    ticket.save(update_fields=["target_players"])
+    ticket.save(update_fields=["target_players", "updated_at"])
 
     # Prefer a compatible public, free table with a recently present human
     # host. A stale seat alone must not count as a waiting player.
