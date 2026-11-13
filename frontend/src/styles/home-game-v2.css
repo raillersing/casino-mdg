@@ -1,0 +1,37 @@
+.home-game-v2{display:grid;gap:30px;max-width:1160px;margin:0 auto;padding:4px 0 80px}
+.home-game-hero{position:relative;isolation:isolate;min-height:320px;overflow:hidden;display:flex;align-items:end;border:1px solid var(--line);border-radius:22px;background:var(--panel)}
+.home-game-hero>img{position:absolute;z-index:-2;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 45%}
+.home-game-hero:after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(0deg,rgba(8,11,18,.99) 8%,rgba(8,11,18,.85) 47%,rgba(8,11,18,.25) 100%)}
+.home-game-hero-content{padding:24px;width:100%}
+.home-game-eyebrow{color:var(--gold-light);font-size:11px;letter-spacing:.13em;font-weight:700}
+.home-game-hero h1{font:600 clamp(29px,6vw,48px)/1.13 var(--serif);margin:10px 0}
+.home-game-hero p{font-size:14px;line-height:1.6;max-width:490px;color:#e5e8ed;margin:0 0 17px}
+.home-game-hero-actions{display:flex;flex-wrap:wrap;gap:9px}
+.home-game-primary,.home-game-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;border-radius:11px;padding:11px 16px;font-weight:700}
+.home-game-primary{background:var(--gold);color:#16120a}
+.home-game-secondary{border:1px solid rgba(255,255,255,.38);background:rgba(0,0,0,.35);color:#fff}
+.home-game-section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.home-game-section-heading h2{font:700 clamp(18px,4vw,24px)/1.3 var(--sans);margin:0}
+.home-game-section-heading>a{color:var(--gold-light);font-size:13px;white-space:nowrap}
+.home-game-intention-list{display:grid;gap:10px}
+.home-game-intent{display:flex;align-items:center;gap:14px;min-height:76px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.home-game-intent-icon{display:grid;place-items:center;flex:none;width:43px;height:43px;border-radius:11px;background:rgba(211,176,107,.1);color:var(--gold-light)}
+.home-game-intent>span:nth-child(2){display:grid;gap:4px;flex:1;min-width:0}
+.home-game-intent strong{font-size:15px}
+.home-game-intent small{color:var(--soft);font-size:12px;line-height:1.4}
+.home-game-intent>svg{color:var(--gold-light);flex-shrink:0}
+.home-game-featured-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.home-game-featured-card{display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);background:var(--panel);border-radius:15px}
+.home-game-featured-card img{width:100%;aspect-ratio:1.7;object-fit:cover}
+.home-game-featured-card>span{display:grid;gap:5px;padding:13px}
+.home-game-featured-card strong{font-size:16px}
+.home-game-featured-card small{font-size:12px;color:var(--soft)}
+.home-game-featured-card em{display:flex;align-items:center;gap:5px;color:var(--gold-light);font:700 13px var(--sans);margin-top:8px}
+.home-game-resume-list{display:grid;gap:8px}
+.home-game-resume-list>a{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel);border:1px solid var(--line);padding:13px;border-radius:12px}
+.home-game-resume-list>a span{display:grid;gap:3px}
+.home-game-resume-list small{color:var(--soft)}
+.home-game-footer-links{display:flex;gap:18px;flex-wrap:wrap}
+.home-game-footer-links a{display:flex;align-items:center;gap:5px;color:var(--gold-light);min-height:44px}
+@media(min-width:850px){.home-game-v2{gap:42px}.home-game-hero{min-height:420px}.home-game-hero-content{padding:38px}.home-game-hero:after{background:linear-gradient(90deg,rgba(8,11,18,.96) 0%,rgba(8,11,18,.85) 42%,rgba(8,11,18,.22) 100%)}.home-game-intention-list{grid-template-columns:repeat(3,minmax(0,1fr))}.home-game-intent{align-items:flex-start;min-height:160px;flex-direction:column}.home-game-intent>svg{align-self:end;margin-top:auto}.home-game-featured-card{flex-direction:row}.home-game-featured-card img{width:48%;aspect-ratio:1;object-fit:cover}.home-game-featured-card>span{padding:20px;align-content:center}}
+@media(max-width:370px){.home-game-hero-content{padding:16px}.home-game-hero-actions>a{width:100%}.home-game-featured-card strong{font-size:14px}}
