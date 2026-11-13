@@ -249,10 +249,12 @@ export function LobbyPage() {
     const intentKey = `${urlGameType || "all"}:${action || ""}`;
     if (action && consumedIntentRef.current === intentKey) return;
     if (!accessToken && (action === "join-private" || action === "create")) {
-      navigate(
-        `/auth?next=${encodeURIComponent(`/lobby?${searchParams.toString()}`)}`,
-        { replace: true },
-      );
+      const returnTo = isGameLobby && urlGameType
+        ? `/lobby/${urlGameType}?${searchParams.toString()}`
+        : `/lobby?${searchParams.toString()}`;
+      navigate(`/auth?next=${encodeURIComponent(returnTo)}`, {
+        replace: true,
+      });
       return;
     }
     if (action === "join-private" && accessToken) {
