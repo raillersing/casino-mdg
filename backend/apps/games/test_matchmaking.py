@@ -477,3 +477,44 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["ticket"]["status"], "queued")
         self.assertEqual(TableSeat.objects.filter(table=room).count(), 1)
+
+
+    @patch("apps.games.services.engine_activity")
+    def test_poker_running_table_cannot_admit_during_started_hand(self, activity):
+        from apps.games.services import join_table
+
+        room = GameTable.objects.create(
+            table_code="running-poker-hand",
+            name="Poker running",
+            game_type="poker",
+            max_players=6,
+            created_by=self.first,
+            status="running",
+        )
+        TableSeat.objects.create(table=room, user=self.first, seat_index=0)
+        activity.return_value = {str(room.pk): {"waiting": False, "started": True}}
+        with self.assertRaisesRegex(ValueError, "déjà commencé"):
+            join_table(room, self.second)
+        self.assertFalse(room.seats.filter(user=self.second).exists())
+        room.refresh_from_db()
+        self.assertEqual(room.status, "running")
+
+    @patch("apps.games.services.engine_activity")
+    def test_running_room_can_admit_only_when_engine_explicitly_waits(self, activity):
+        from apps.games.services import join_table
+
+        room = GameTable.objects.create(
+            table_code="waiting-poker-intermission",
+            name="Poker intermission",
+            game_type="poker",
+            max_players=6,
+            created_by=self.first,
+            status="running",
+        )
+        TableSeat.objects.create(table=room, user=self.first, seat_index=0)
+        activity.return_value = {str(room.pk): {"waiting": True, "started": True}}
+        seat, created = join_table(room, self.second)
+        self.assertTrue(created)
+        self.assertEqual(seat.user_id, self.second.pk)
+        room.refresh_from_db()
+        self.assertEqual(room.status, "open")
