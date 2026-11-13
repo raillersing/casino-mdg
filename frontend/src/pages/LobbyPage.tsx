@@ -183,9 +183,9 @@ export function LobbyPage() {
 
   const [matchStatus, setMatchStatus] = useState<{
     human_online: number;
-    estimated_wait_seconds: number;
+    estimated_wait_seconds: number | null;
     ticket: MatchmakingTicket | null;
-  }>({ human_online: 0, estimated_wait_seconds: 20, ticket: null });
+  }>({ human_online: 0, estimated_wait_seconds: null, ticket: null });
 
   const [matchError, setMatchError] = useState("");
   const [availableMatchSizes, setAvailableMatchSizes] = useState<number[]>([]);
@@ -214,7 +214,7 @@ export function LobbyPage() {
     return () => controller.abort();
   }, [matchmakingGame]);
   const [waitingSeconds, setWaitingSeconds] = useState(0);
-  const [timedOut, setTimedOut] = useState(false);
+  const queueSeenRef = useRef(false);
   const [showCreateTable, setShowCreateTable] = useState(false);
   const [showQuickCreate, setShowQuickCreate] = useState(false);
   // React StrictMode can replay effects; a URL action must be consumed once.
@@ -493,20 +493,39 @@ export function LobbyPage() {
         Math.floor((Date.now() - Date.parse(ticket.created_at)) / 1000),
       );
       setWaitingSeconds(elapsed);
-      if (elapsed >= ticket.timeout_seconds) {
-        setTimedOut((current) => {
-          if (!current)
-            void trackEvent("matchmaking_timeout", {
-              game_type: matchmakingGame,
-            });
-          return true;
-        });
-      }
     };
     updateWaiting();
     const timer = window.setInterval(updateWaiting, 1000);
     return () => window.clearInterval(timer);
   }, [matchStatus.ticket, matchmakingGame]);
+
+  // A matched ticket discovered on page load must remain a user-controlled
+  // resume action. If this view observed the active queue, redirect when the
+  // backend actually matches the players (also handles heartbeat/poll races).
+  useEffect(() => {
+    queueSeenRef.current = false;
+  }, [matchmakingGame]);
+
+  useEffect(() => {
+    const ticket = matchStatus.ticket;
+    if (ticket?.game_type !== matchmakingGame) return;
+    if (ticket.status === "queued") {
+      queueSeenRef.current = true;
+      return;
+    }
+    if (
+      ticket.status === "matched" &&
+      queueSeenRef.current &&
+      ticket.table_id &&
+      ticket.table_code
+    ) {
+      queueSeenRef.current = false;
+      navigate(
+        `/game/${ticket.game_type}/${ticket.table_code}?table_id=${encodeURIComponent(ticket.table_id)}`,
+        { replace: true },
+      );
+    }
+  }, [matchStatus.ticket, matchmakingGame, navigate]);
 
   const findHuman = useCallback(async () => {
     if (!accessToken) {
@@ -518,7 +537,6 @@ export function LobbyPage() {
       return;
     }
     setMatchError("");
-    setTimedOut(false);
     setWaitingSeconds(0);
     try {
       const result = await queueMatch(accessToken, matchmakingGame, matchSize);
@@ -573,9 +591,22 @@ export function LobbyPage() {
   const cancelSearch = async () => {
     if (!accessToken || !matchStatus.ticket) return;
     try {
-      await cancelMatch(accessToken, matchStatus.ticket.ticket_id);
+      const response = await cancelMatch(
+        accessToken,
+        matchStatus.ticket.ticket_id,
+      );
+      // Cancellation can race a successful server allocation. Never erase
+      // the only visible way back to a seat that has already been assigned.
+      queueSeenRef.current = false;
+      if (response.ticket.status === "matched") {
+        setMatchStatus((current) => ({ ...current, ticket: response.ticket }));
+        setMatchError(
+          "La partie a été trouvée avant l'annulation. Rejoignez-la ci-dessous.",
+        );
+        return;
+      }
       setMatchStatus((current) => ({ ...current, ticket: null }));
-      setTimedOut(false);
+      setMatchError("");
       setWaitingSeconds(0);
       void trackEvent("matchmaking_cancelled", { game_type: matchmakingGame });
     } catch (reason) {
@@ -930,6 +961,20 @@ export function LobbyPage() {
             </div>
           </div>
 
+          {matchStatus.ticket?.status === "matched" &&
+            matchStatus.ticket.table_id &&
+            matchStatus.ticket.table_code && (
+              <div className="game-lobby-recovery" role="status">
+                <strong>Une partie vous attend</strong>
+                <span>Votre place est réservée dans la table trouvée.</span>
+                <Link
+                  to={`/game/${matchStatus.ticket.game_type}/${matchStatus.ticket.table_code}?table_id=${encodeURIComponent(matchStatus.ticket.table_id)}`}
+                  className="button button-gold"
+                >
+                  Rejoindre ma partie
+                </Link>
+              </div>
+            )}
           <GameLobbyEntryActions
             gameName={selectedGameMeta.label}
             isSearching={
@@ -1168,6 +1213,16 @@ export function LobbyPage() {
                 </span>
               </div>
 
+              {matchStatus.ticket?.status === "matched" &&
+                matchStatus.ticket.table_id &&
+                matchStatus.ticket.table_code && (
+                  <Link
+                    className="button button-gold lobby-deck-cta"
+                    to={`/game/${matchStatus.ticket.game_type}/${matchStatus.ticket.table_code}?table_id=${encodeURIComponent(matchStatus.ticket.table_id)}`}
+                  >
+                    Rejoindre ma partie trouvée
+                  </Link>
+                )}
               {matchStatus.ticket?.status === "queued" ? (
                 <button
                   className="button button-gold lobby-deck-cta"
@@ -1188,18 +1243,19 @@ export function LobbyPage() {
                 </button>
               )}
 
-              {timedOut && matchStatus.ticket?.status === "queued" && (
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--gold)",
-                    textAlign: "center",
-                  }}
-                >
-                  Recherche prolongée. Vous pouvez patienter ou vous entraîner
-                  avec l'IA ci-contre.
-                </div>
-              )}
+              {waitingSeconds >= 20 &&
+                matchStatus.ticket?.status === "queued" && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--gold)",
+                      textAlign: "center",
+                    }}
+                  >
+                    Recherche prolongée. Vous pouvez patienter ou vous entraîner
+                    avec l'IA ci-contre.
+                  </div>
+                )}
 
               {matchError && (
                 <div

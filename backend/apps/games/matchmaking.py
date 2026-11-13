@@ -7,11 +7,23 @@ from .models import GameTable, MatchmakingTicket, PlayerPresence
 from .services import join_table
 
 PRESENCE_TTL = timedelta(seconds=30)
+# The frontend sends a heartbeat every 15 seconds; tolerate brief mobile
+# interruptions without treating indefinitely abandoned searches as active.
+QUEUE_TTL = timedelta(seconds=45)
 
 
 def active_presence(game_type=None):
     cutoff = timezone.now() - PRESENCE_TTL
     queryset = PlayerPresence.objects.filter(last_seen_at__gte=cutoff)
+    if game_type:
+        queryset = queryset.filter(game_type=game_type)
+    return queryset
+
+
+def active_queued_tickets(game_type=None):
+    queryset = MatchmakingTicket.objects.filter(
+        status="queued", updated_at__gte=timezone.now() - QUEUE_TTL
+    )
     if game_type:
         queryset = queryset.filter(game_type=game_type)
     return queryset
@@ -30,6 +42,11 @@ def queue_player(user, game_type, target_size=None):
         user=user,
         defaults={"game_type": game_type, "status": "searching", "last_seen_at": now},
     )
+    # Expire a ticket whose browser stopped sending the queue heartbeat;
+    # a returning user must explicitly begin a fresh search.
+    MatchmakingTicket.objects.select_for_update().filter(
+        user=user, status="queued", updated_at__lt=now - QUEUE_TTL
+    ).update(status="cancelled", updated_at=now)
     # A human should not remain matchable in two games simultaneously.
     MatchmakingTicket.objects.select_for_update().filter(
         user=user, status="queued"
@@ -55,7 +72,7 @@ def queue_player(user, game_type, target_size=None):
     if capacity not in CAPABILITIES[game_type]["players"]:
         raise ValueError("Format de table invalide.")
     ticket.target_players = capacity
-    ticket.save(update_fields=["target_players"])
+    ticket.save(update_fields=["target_players", "updated_at"])
 
     # Prefer a compatible public, free table with a recently present human
     # host. A stale seat alone must not count as a waiting player.
@@ -94,10 +111,9 @@ def queue_player(user, game_type, target_size=None):
         return ticket, created
 
     candidates = list(
-        MatchmakingTicket.objects.select_for_update()
+        active_queued_tickets(game_type)
+        .select_for_update()
         .filter(
-            game_type=game_type,
-            status="queued",
             target_players=capacity,
             user_id__in=active_presence(game_type).values("user_id"),
         )

@@ -1,6 +1,8 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -33,7 +35,7 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(heartbeat.status_code, 200)
         status = self.client.get("/api/v1/games/matchmaking/status/?game_type=poker")
         self.assertEqual(status.data["human_online"], 1)
-        self.assertEqual(status.data["estimated_wait_seconds"], 20)
+        self.assertIsNone(status.data["estimated_wait_seconds"])
         self.assertEqual(PlayerPresence.objects.count(), 1)
 
     def test_queue_is_idempotent_and_second_human_gets_a_table(self):
@@ -75,7 +77,7 @@ class MatchmakingApiTests(TestCase):
             format="json",
         )
         status = self.client.get("/api/v1/games/matchmaking/status/?game_type=rami")
-        self.assertEqual(status.data["estimated_wait_seconds"], 0)
+        self.assertIsNone(status.data["estimated_wait_seconds"])
 
     def test_cancel_removes_ticket_from_queue(self):
         self.client.force_authenticate(self.first)
@@ -234,3 +236,115 @@ class MatchmakingApiTests(TestCase):
             format="json",
         )
         self.assertEqual(second.data["ticket"]["status"], "queued")
+
+    def test_queue_heartbeat_preserves_search_and_never_invents_a_deadline(self):
+        self.client.force_authenticate(self.first)
+        queued = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(queued.status_code, 201)
+        self.assertIsNone(queued.data["ticket"]["timeout_seconds"])
+        heartbeat = self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "ludo"},
+            format="json",
+        )
+        self.assertEqual(heartbeat.data["status"], "searching")
+        self.assertEqual(
+            PlayerPresence.objects.get(user=self.first).status, "searching"
+        )
+        status = self.client.get("/api/v1/games/matchmaking/status/?game_type=ludo")
+        self.assertIsNone(status.data["estimated_wait_seconds"])
+        self.assertIsNone(status.data["timeout_seconds"])
+        self.assertEqual(status.data["ticket"]["status"], "queued")
+
+    def test_stale_ticket_is_not_visible_and_cannot_match(self):
+        self.client.force_authenticate(self.first)
+        old = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        ticket = MatchmakingTicket.objects.get(pk=old.data["ticket"]["ticket_id"])
+        MatchmakingTicket.objects.filter(pk=ticket.pk).update(
+            updated_at=timezone.now() - timedelta(minutes=2)
+        )
+        stale_status = self.client.get(
+            "/api/v1/games/matchmaking/status/?game_type=ludo"
+        )
+        self.assertIsNone(stale_status.data["ticket"])
+        self.assertEqual(stale_status.data["queued"], 0)
+
+        self.client.force_authenticate(self.second)
+        fresh = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(fresh.data["ticket"]["status"], "queued")
+        self.assertEqual(GameTable.objects.count(), 0)
+
+        self.client.force_authenticate(self.first)
+        heartbeat = self.client.post(
+            "/api/v1/games/matchmaking/heartbeat/",
+            {"game_type": "ludo"},
+            format="json",
+        )
+        self.assertEqual(heartbeat.data["status"], "online")
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, "cancelled")
+
+    def test_returning_player_starts_a_new_search_after_expiry(self):
+        self.client.force_authenticate(self.first)
+        old = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        MatchmakingTicket.objects.filter(pk=old.data["ticket"]["ticket_id"]).update(
+            updated_at=timezone.now() - timedelta(minutes=3)
+        )
+        new = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(new.status_code, 201)
+        self.assertNotEqual(
+            old.data["ticket"]["ticket_id"], new.data["ticket"]["ticket_id"]
+        )
+        self.assertEqual(
+            MatchmakingTicket.objects.get(pk=old.data["ticket"]["ticket_id"]).status,
+            "cancelled",
+        )
+
+    def test_only_seated_players_can_resume_a_live_match(self):
+        self.client.force_authenticate(self.first)
+        self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.client.force_authenticate(self.second)
+        final = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(final.data["ticket"]["status"], "matched")
+        status = self.client.get("/api/v1/games/matchmaking/status/?game_type=ludo")
+        self.assertEqual(status.data["ticket"]["status"], "matched")
+        table = GameTable.objects.get(pk=final.data["ticket"]["table_id"])
+        TableSeat.objects.filter(table=table, user=self.second).delete()
+        status_without_seat = self.client.get(
+            "/api/v1/games/matchmaking/status/?game_type=ludo"
+        )
+        self.assertIsNone(status_without_seat.data["ticket"])
+
+        self.client.force_authenticate(self.first)
+        table.status = "finished"
+        table.save(update_fields=["status"])
+        finished = self.client.get("/api/v1/games/matchmaking/status/?game_type=ludo")
+        self.assertIsNone(finished.data["ticket"])

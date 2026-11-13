@@ -434,3 +434,36 @@
     grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
   }
 }
+
+/* Reload-safe recovery: a backend-confirmed seat is always one tap away. */
+.game-lobby-recovery {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  margin: 12px 0;
+  border: 1px solid var(--gold);
+  border-radius: 14px;
+  background: rgba(211, 176, 107, 0.09);
+}
+.game-lobby-recovery strong {
+  color: var(--gold-light);
+  font-size: 16px;
+}
+.game-lobby-recovery span {
+  color: var(--soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.game-lobby-recovery a {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: stretch;
+  text-align: center;
+}
+@media (min-width: 650px) {
+  .game-lobby-recovery a {
+    justify-self: start;
+  }
+}
