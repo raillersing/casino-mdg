@@ -785,7 +785,7 @@ export function LobbyPage() {
               Disponible :{" "}
               {typeof user?.mgaBalance === "number"
                 ? `${user.mgaBalance.toLocaleString()} Ar`
-                : "0 Ar"}
+                : "Solde indisponible"}
             </span>
           </div>
 
@@ -837,10 +837,9 @@ export function LobbyPage() {
                   color: "var(--muted)",
                 }}
               >
-                {(liveStats?.games?.[urlGameType!]?.online_players ??
-                  matchStatus.human_online) ||
-                  0}{" "}
-                en ligne · {shown.length} table(s) ouverte(s)
+                {liveStats?.games?.[urlGameType!] &&
+                  `${liveStats.games[urlGameType!].online_players} en ligne · `}
+                {shown.length} table(s) ouverte(s)
               </p>
             </div>
           </div>
