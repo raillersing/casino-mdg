@@ -1,4 +1,10 @@
 /* Game-first, mobile-first lobby. Keep these selectors separate from legacy styles. */
+.game-lobby-format{border:0;padding:0;margin:0;min-width:0}
+.game-lobby-format legend{font-size:13px;color:var(--soft);font-weight:700;margin-bottom:7px}
+.game-lobby-format-options{display:flex;gap:7px;flex-wrap:wrap}
+.game-lobby-format-options button{flex:1 1 70px;min-height:44px;padding:8px 12px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);border-radius:10px;font-weight:600}
+.game-lobby-format-options button.selected{border-color:var(--gold);background:rgba(211,176,107,.16);color:var(--gold-light)}
+
 .game-lobby-entry {
   display: grid;
   gap: 12px;
