@@ -43,7 +43,7 @@ for (const width of [1440, 390, 320]) {
     await expect(page.getByText("Aucun jeu trouvé.")).toBeVisible();
     await page.getByRole("button", { name: "Voir tous les jeux" }).click();
     await expect(page.locator(".discovery-card")).toHaveCount(5);
-    await page.getByRole("link", { name: "Voir les tables" }).click();
+    await page.getByRole("link", { name: "Voir les tables", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Trouvez votre table" }),
     ).toBeVisible();

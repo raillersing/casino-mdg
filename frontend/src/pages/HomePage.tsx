@@ -20,8 +20,18 @@ type ResumableGame = {
 };
 
 const FEATURED = [
-  { id: "belote", name: "Belote Malagasy", players: "4 joueurs · 2 équipes", playersMg: "Mpilalao 4 · Ekipa 2" },
-  { id: "ludo", name: "Ludo Mada", players: "2 à 4 joueurs", playersMg: "Mpilalao 2 ka hatramin'ny 4" },
+  {
+    id: "belote",
+    name: "Belote Malagasy",
+    players: "4 joueurs · 2 équipes",
+    playersMg: "Mpilalao 4 · Ekipa 2",
+  },
+  {
+    id: "ludo",
+    name: "Ludo Mada",
+    players: "2 à 4 joueurs",
+    playersMg: "Mpilalao 2 ka hatramin'ny 4",
+  },
 ] as const;
 
 export function HomePage() {

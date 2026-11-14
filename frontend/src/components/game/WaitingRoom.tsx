@@ -84,7 +84,12 @@ export function WaitingRoom({
       setCopyError("");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setCopyError(tr("Copie indisponible. Sélectionnez le code manuellement.", "Tsy azo adika ny kaody. Safidio sy adikao mivantana."));
+      setCopyError(
+        tr(
+          "Copie indisponible. Sélectionnez le code manuellement.",
+          "Tsy azo adika ny kaody. Safidio sy adikao mivantana.",
+        ),
+      );
     }
   };
 
@@ -130,7 +135,9 @@ export function WaitingRoom({
           }}
         >
           <ArrowLeft size={16} />
-          <span>{tr("Tables", "Latabatra")} {gameLabel}</span>
+          <span>
+            {tr("Tables", "Latabatra")} {gameLabel}
+          </span>
         </Link>
         <button
           type="button"
@@ -196,7 +203,13 @@ export function WaitingRoom({
           }}
         >
           <span>{emoji}</span>
-          <span>{tableName || tr(`${gameLabel} entre amis`, `${gameLabel} miaraka amin'ny namana`)}</span>
+          <span>
+            {tableName ||
+              tr(
+                `${gameLabel} entre amis`,
+                `${gameLabel} miaraka amin'ny namana`,
+              )}
+          </span>
         </h1>
       </div>
 
@@ -258,9 +271,13 @@ export function WaitingRoom({
           }}
         >
           <span>
-            {tr("Places réservées", "Toerana voatokana")} ({seatedCount}/{maxPlayers})
+            {tr("Places réservées", "Toerana voatokana")} ({seatedCount}/
+            {maxPlayers})
           </span>
-          <span>{confirmedConnections} {tr("connexion(s) confirmée(s)", "fifandraisana voamarina")}</span>
+          <span>
+            {confirmedConnections}{" "}
+            {tr("connexion(s) confirmée(s)", "fifandraisana voamarina")}
+          </span>
         </div>
 
         {seats.map((player, index) => {
@@ -347,8 +364,14 @@ export function WaitingRoom({
                         {player.isActive === false
                           ? tr("Reconnexion en cours", "Miverina mifandray")
                           : player.isActive === true
-                            ? tr("Connexion confirmée", "Voamarina ny fifandraisana")
-                            : tr("Présence à confirmer", "Mbola tsy voamarina ny fisiana")}
+                            ? tr(
+                                "Connexion confirmée",
+                                "Voamarina ny fifandraisana",
+                              )
+                            : tr(
+                                "Présence à confirmer",
+                                "Mbola tsy voamarina ny fisiana",
+                              )}
                       </div>
                     </div>
                   ) : (
@@ -397,7 +420,10 @@ export function WaitingRoom({
                 color: "var(--text-secondary, #adb9c4)",
               }}
             >
-              {tr("Table privée — Partagez ce code à vos amis", "Latabatra manokana — Zarao amin'ny namana ity kaody ity")}
+              {tr(
+                "Table privée — Partagez ce code à vos amis",
+                "Latabatra manokana — Zarao amin'ny namana ity kaody ity",
+              )}
             </span>
           </div>
           <div
@@ -440,7 +466,9 @@ export function WaitingRoom({
               }}
             >
               {copied ? <Check size={16} /> : <Copy size={16} />}
-              <span>{copied ? tr("Copié !", "Voadika !") : tr("Copier", "Adika")}</span>
+              <span>
+                {copied ? tr("Copié !", "Voadika !") : tr("Copier", "Adika")}
+              </span>
             </button>
           </div>
           {copyError && (
@@ -474,7 +502,9 @@ export function WaitingRoom({
         <span>
           {tr("Participation", "Fandraisana anjara")} :{" "}
           <strong>
-            {stakeAmount > 0 ? `${stakeAmount.toLocaleString()} Ar` : tr("Gratuit", "Maimaim-poana")}
+            {stakeAmount > 0
+              ? `${stakeAmount.toLocaleString()} Ar`
+              : tr("Gratuit", "Maimaim-poana")}
           </strong>
         </span>
         <span style={{ margin: "0 8px" }}>·</span>
@@ -483,7 +513,8 @@ export function WaitingRoom({
         </span>
         <span style={{ margin: "0 8px" }}>·</span>
         <span>
-          {tr("Tour de", "Fotoana isaky ny fihodinana")} <strong>{turnDuration}s</strong>
+          {tr("Tour de", "Fotoana isaky ny fihodinana")}{" "}
+          <strong>{turnDuration}s</strong>
         </span>
       </div>
     </div>
