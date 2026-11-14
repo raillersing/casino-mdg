@@ -11,7 +11,7 @@ test("lobby tables poll after fifteen seconds and refresh on foreground", async 
     return route.fulfill({ json: { results: [] } });
   });
   await page.route("**/api/v1/games/live-stats/", (route) =>
-    route.fulfill({ json: { games: {} } }),
+    route.fulfill({ json: { running_tables_verified: true, games: {} } }),
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/lobby/ludo");
@@ -44,7 +44,9 @@ test("lobby initial data refresh does not duplicate its live-stat request", asyn
   );
   await page.route("**/api/v1/games/live-stats/", (route) => {
     liveStatsRequests += 1;
-    return route.fulfill({ json: { games: {} } });
+    return route.fulfill({
+      json: { running_tables_verified: true, games: {} },
+    });
   });
   await page.goto("/lobby/ludo");
   await expect(

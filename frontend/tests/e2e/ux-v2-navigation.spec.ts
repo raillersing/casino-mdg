@@ -34,12 +34,19 @@ async function signIn(page: Page) {
   );
   await page.route("**/api/v1/wallet/balance/", (route) =>
     route.fulfill({
-      json: { balance: 0, held_balance: 0, mga_balance: 0, mga_held_balance: 0 },
+      json: {
+        balance: 0,
+        held_balance: 0,
+        mga_balance: 0,
+        mga_held_balance: 0,
+      },
     }),
   );
 }
 
-test("mobile navigation puts games and my parties within one tap", async ({ page }) => {
+test("mobile navigation puts games and my parties within one tap", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const nav = page.locator(".bottom-nav");
@@ -49,83 +56,145 @@ test("mobile navigation puts games and my parties within one tap", async ({ page
   await expect(page).toHaveURL(/\/games$/);
   await nav.getByRole("link", { name: "Mes parties" }).click();
   await expect(page).toHaveURL(/\/mes-parties$/);
-  await expect(page.getByRole("heading", { name: "Mes parties" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Mes parties" }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: "Se connecter" })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-    .toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });
 
-test("home offers a clear public-games path and does not show false activity", async ({ page }) => {
+test("home offers a clear public-games path and does not show false activity", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Une partie, ensemble ?" })).toBeVisible();
-  await expect(page.locator(".home-game-primary")).toHaveAttribute("href", "/games?intent=matchmaking");
-  await expect(page.getByRole("link", { name: /Créer une table/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Une partie, ensemble ?" }),
+  ).toBeVisible();
+  await expect(page.locator(".home-game-primary")).toHaveAttribute(
+    "href",
+    "/games?intent=matchmaking",
+  );
+  await expect(
+    page.getByRole("link", { name: /Créer une table/i }),
+  ).toBeVisible();
   await expect(page.locator(".live-activity-totals")).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-    .toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });
 
-test("my parties distinguishes engine-confirmed games from reserved seats", async ({ page }) => {
+test("my parties distinguishes engine-confirmed games from reserved seats", async ({
+  page,
+}) => {
   await signIn(page);
   await page.route("**/api/v1/games/tables/**", (route) =>
     route.fulfill({
-      json: { results: [mine, { ...mine, id: "waiting-id", name: "Table en attente", table_code: "LUDO-WAIT", status: "open" }] },
+      json: {
+        results: [
+          mine,
+          {
+            ...mine,
+            id: "waiting-id",
+            name: "Table en attente",
+            table_code: "LUDO-WAIT",
+            status: "open",
+          },
+        ],
+      },
     }),
   );
   await page.route("**/api/v1/games/resumable/", (route) =>
     route.fulfill({ json: { results: [mine] } }),
   );
   await page.goto("/mes-parties");
-  const live = page.getByRole("region", { name: /Parties en cours confirmées/i });
+  const live = page.getByRole("region", {
+    name: /Parties en cours confirmées/i,
+  });
   await expect(live.getByText("Ma partie Ludo")).toBeVisible();
   const waiting = page.getByRole("region", { name: /Mes autres tables/i });
   await expect(waiting.getByText("Table en attente")).toBeVisible();
   await expect(waiting.getByText("Ma partie Ludo")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: /Reprendre la partie/i }))
-    .toHaveAttribute("href", /\/game\/ludo\/LUDO-MINE/);
+  await expect(
+    page.getByRole("link", { name: /Reprendre la partie/i }),
+  ).toHaveAttribute("href", /\/game\/ludo\/LUDO-MINE/);
 });
 
-test("the catalog preserves create intent for the selected game", async ({ page }) => {
+test("the catalog preserves create intent for the selected game", async ({
+  page,
+}) => {
   await signIn(page);
   await page.route("**/api/v1/games/tables/**", (route) =>
     route.fulfill({ json: { results: [] } }),
   );
   await page.route("**/api/v1/games/table-capabilities/", (route) =>
-    route.fulfill({ json: { games: { belote: { players: [4], defaults: { target_score: 1001 } } } } }),
+    route.fulfill({
+      json: {
+        games: { belote: { players: [4], defaults: { target_score: 1001 } } },
+      },
+    }),
   );
   await page.goto("/games?intent=create");
-  await expect(page.getByRole("heading", { name: "Pour quel jeu créer une table ?" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Pour quel jeu créer une table ?" }),
+  ).toBeVisible();
   await page.locator(".discovery-card").first().click();
   await expect(page).toHaveURL(/\/lobby\/belote/);
-  await expect(page.getByRole("dialog", { name: /Créer une table de BELOTE/ })).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: /Créer une table de BELOTE/ }),
+  ).toBeVisible();
 });
 
-test("the catalog offers a direct practice action for the selected game", async ({ page }) => {
+test("the catalog offers a direct practice action for the selected game", async ({
+  page,
+}) => {
   await page.goto("/games?intent=practice");
   await expect(
-    page.getByRole("heading", { name: "À quel jeu voulez-vous vous entraîner ?" }),
+    page.getByRole("heading", {
+      name: "À quel jeu voulez-vous vous entraîner ?",
+    }),
   ).toBeVisible();
   await expect(page.locator(".discovery-card-button")).toHaveCount(5);
 });
 
-
 for (const game of ["belote", "domino", "ludo", "rami", "poker"] as const) {
-  test(`game-first actions are available directly on mobile for ${game}`, async ({ page }) => {
+  test(`game-first actions are available directly on mobile for ${game}`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 360, height: 780 });
     await page.route("**/api/v1/games/tables/**", (route) =>
       route.fulfill({ json: { results: [] } }),
     );
     await page.goto(`/lobby/${game}`);
-    await expect(page.getByRole("button", { name: /Trouver des joueurs pour/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Créer une table" }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "J'ai un code" }).first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Tables disponibles" })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect(
+      page.getByRole("button", { name: /Trouver des joueurs pour/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Créer une table" }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "J'ai un code" }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Tables disponibles" }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
   });
 }
 
-test("home and catalog launch matchmaking without another lobby click", async ({ page }) => {
+test("home and catalog launch matchmaking without another lobby click", async ({
+  page,
+}) => {
   await signIn(page);
   await page.route("**/api/v1/games/tables/**", (route) =>
     route.fulfill({ json: { results: [] } }),
@@ -136,10 +205,29 @@ test("home and catalog launch matchmaking without another lobby click", async ({
   await page.route("**/api/v1/games/matchmaking/heartbeat/", (route) =>
     route.fulfill({ json: { status: "online", game_type: "belote" } }),
   );
-  await page.route("**/api/v1/games/matchmaking/status/**", (route) =>
-    route.fulfill({ json: { human_online: 0, estimated_wait_seconds: null, ticket: null } }),
-  );
   let queueCalls = 0;
+  let releaseInitialStatus!: () => void;
+  const initialStatusGate = new Promise<void>((resolve) => {
+    releaseInitialStatus = resolve;
+  });
+  await page.route("**/api/v1/games/matchmaking/status/**", async (route) => {
+    const queuedAtRequest = queueCalls > 0;
+    if (!queuedAtRequest) await initialStatusGate;
+    await route.fulfill({
+      json: {
+        human_online: 0,
+        estimated_wait_seconds: null,
+        ticket: queuedAtRequest
+          ? {
+              id: "quick-play-belote",
+              game_type: "belote",
+              status: "queued",
+              target_players: 4,
+            }
+          : null,
+      },
+    });
+  });
   await page.route("**/api/v1/games/matchmaking/queue/", async (route) => {
     const payload = route.request().postDataJSON() as { game_type: string };
     expect(payload.game_type).toBe("belote");
@@ -156,6 +244,9 @@ test("home and catalog launch matchmaking without another lobby click", async ({
         created: true,
       },
     });
+    // Release an older status response after the queue response was sent.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    releaseInitialStatus();
   });
   await page.goto("/");
   await page.locator(".home-game-primary").click();
@@ -163,25 +254,32 @@ test("home and catalog launch matchmaking without another lobby click", async ({
   await page.locator(".discovery-card").first().click();
   await expect(page).toHaveURL(/\/lobby\/belote/);
   await expect(page.locator(".game-lobby-searching")).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(page.locator(".game-lobby-searching")).toBeVisible();
   expect(queueCalls).toBe(1);
 });
 
-test("featured games link to matchmaking, catalog retains table browsing", async ({ page }) => {
+test("featured games link to matchmaking, catalog retains table browsing", async ({
+  page,
+}) => {
   await page.goto("/");
-  await expect(page.locator(".home-game-featured-card").first()).toHaveAttribute(
-    "href",
-    "/lobby/belote?action=matchmaking",
-  );
+  await expect(
+    page.locator(".home-game-featured-card").first(),
+  ).toHaveAttribute("href", "/lobby/belote?action=matchmaking");
   await page.goto("/games");
   const firstGame = page.locator(".discovery-game").first();
-  await expect(firstGame.locator(".discovery-card")).toHaveAttribute("href", "/lobby/belote");
-  await expect(firstGame.getByRole("link", { name: "Jouer en ligne" })).toHaveAttribute(
+  await expect(firstGame.locator(".discovery-card")).toHaveAttribute(
     "href",
-    "/lobby/belote?action=matchmaking",
+    "/lobby/belote",
   );
+  await expect(
+    firstGame.getByRole("link", { name: "Jouer en ligne" }),
+  ).toHaveAttribute("href", "/lobby/belote?action=matchmaking");
 });
 
-test("an unauthenticated direct-play entry keeps the game intent across login", async ({ page }) => {
+test("an unauthenticated direct-play entry keeps the game intent across login", async ({
+  page,
+}) => {
   await page.route("**/api/v1/games/tables/**", (route) =>
     route.fulfill({ json: { results: [] } }),
   );
