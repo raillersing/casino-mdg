@@ -18,7 +18,17 @@ export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
   const free = Math.max(0, capacity - reserved);
   const alreadyJoined = table.joined === true;
   const isFull = free === 0;
-  const canJoin = table.status !== "finished" && (alreadyJoined || !isFull);
+  // A seat already owned by the user can be resumed; new admissions require
+  // an open, public table with a free seat. The server still makes the final decision.
+  const canJoin = alreadyJoined
+    ? table.status !== "finished"
+    : table.status === "open" && !table.is_private && !isFull;
+  const statusLabel =
+    table.status === "finished"
+      ? tr("Terminée", "Vita")
+      : table.status === "running"
+        ? tr("En cours", "Efa mandeha")
+        : tr("En attente", "Miandry");
 
   return (
     <article className="game-lobby-table-card">
@@ -31,9 +41,7 @@ export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
           </span>
         </div>
         <span className="game-lobby-table-status">
-          {table.status === "running"
-            ? tr("En cours", "Efa mandeha")
-            : tr("En attente", "Miandry")}
+          {statusLabel}
         </span>
       </div>
 
@@ -41,9 +49,11 @@ export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
         <span>
           {alreadyJoined
             ? tr("Vous avez une place", "Manana toerana ianao")
-            : isFull
-              ? tr("Complet", "Feno")
-              : `${free} ${tr("place(s) libre(s)", "toerana malalaka")}`}
+            : table.is_private
+              ? tr("Sur invitation", "Amin'ny fanasana")
+              : isFull
+                ? tr("Complet", "Feno")
+                : `${free} ${tr("place(s) libre(s)", "toerana malalaka")}`}
         </span>
         <span>
           {table.stake_amount && table.stake_amount > 0
@@ -77,9 +87,15 @@ export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
           ? tr("Connexion…", "Miditra…")
           : alreadyJoined
             ? tr("Reprendre la partie", "Hanohy ny lalao")
-            : isFull
-              ? tr("Table complète", "Feno ny latabatra")
-              : tr("Rejoindre la table", "Hiditra amin'ny latabatra")}
+            : table.status === "running"
+              ? tr("Partie commencée", "Efa nanomboka")
+              : table.status === "finished"
+                ? tr("Partie terminée", "Vita ny lalao")
+                : table.is_private
+                  ? tr("Code requis", "Mila kaody")
+                  : isFull
+                    ? tr("Table complète", "Feno ny latabatra")
+                    : tr("Rejoindre la table", "Hiditra amin'ny latabatra")}
       </button>
     </article>
   );
