@@ -78,7 +78,6 @@ def queue_player(user, game_type, target_size=None):
 
     # Prefer a compatible public, free table with a recently present human
     # host. A stale seat alone must not count as a waiting player.
-    fresh_users = set(active_presence(game_type).values_list("user_id", flat=True))
     public_tables = (
         GameTable.objects.filter(
             game_type=game_type,
@@ -95,24 +94,21 @@ def queue_player(user, game_type, target_size=None):
     )
     # A lobby heartbeat is NOT evidence that a human is inside this table.
     # Match only to seats with a live, authenticated human engine connection.
-    candidates_with_fresh_seats = [
-        (table, list(table.seats.all()))
-        for table in public_tables
-    ]
-    candidates_with_fresh_seats = [
+    candidate_tables = [
         (table, seats)
-        for table, seats in candidates_with_fresh_seats
-        if 0 < len(seats) < capacity
-        and any(seat.user_id in fresh_users for seat in seats)
+        for table in public_tables
+        if 0 < len(seats := list(table.seats.all())) < capacity
     ]
-    if candidates_with_fresh_seats:
+    # A player may be connected to the game engine without visiting the
+    # lobby. Do not require a separate lobby heartbeat as a precondition.
+    if candidate_tables:
         try:
             live_tables = engine_activity()
         except (requests.RequestException, ValueError, KeyError, TypeError):
             live_tables = {}
     else:
         live_tables = {}
-    for existing_table, seats in candidates_with_fresh_seats:
+    for existing_table, seats in candidate_tables:
         live_entry = live_tables.get(str(existing_table.pk))
         if not isinstance(live_entry, dict):
             continue
@@ -123,7 +119,7 @@ def queue_player(user, game_type, target_size=None):
             continue
         verified_humans = {str(item) for item in engine_humans if isinstance(item, str)}
         if not any(
-            seat.user_id in fresh_users and str(seat.user_id) in verified_humans
+            str(seat.user_id) in verified_humans
             for seat in seats
         ):
             continue
