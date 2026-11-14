@@ -94,11 +94,11 @@ def queue_player(user, game_type, target_size=None):
     )
     # A lobby heartbeat is NOT evidence that a human is inside this table.
     # Match only to seats with a live, authenticated human engine connection.
-    candidate_tables = [
-        (table, seats)
-        for table in public_tables
-        if 0 < len(seats := list(table.seats.all())) < capacity
-    ]
+    candidate_tables = []
+    for table in public_tables:
+        seats = list(table.seats.all())
+        if 0 < len(seats) < capacity:
+            candidate_tables.append((table, seats))
     # A player may be connected to the game engine without visiting the
     # lobby. Do not require a separate lobby heartbeat as a precondition.
     if candidate_tables:
