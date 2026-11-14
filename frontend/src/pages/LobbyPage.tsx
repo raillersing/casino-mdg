@@ -425,7 +425,10 @@ export function LobbyPage() {
           filter === "all" ? "Tous" : filter,
           accessToken || undefined,
         );
-        if (mounted) setTables(payload.results);
+        if (mounted) {
+          setTables(payload.results);
+          setTableLoadError("");
+        }
       } catch {
         // Preserve the last known list on transient mobile network errors.
       } finally {
