@@ -358,7 +358,6 @@ class MatchmakingApiTests(TestCase):
         finished = self.client.get("/api/v1/games/matchmaking/status/?game_type=ludo")
         self.assertIsNone(finished.data["ticket"])
 
-
     @patch("apps.games.matchmaking.engine_activity")
     def test_lobby_heartbeat_is_not_live_table_presence(self, activity):
         room = GameTable.objects.create(
@@ -375,9 +374,7 @@ class MatchmakingApiTests(TestCase):
             {"game_type": "ludo"},
             format="json",
         )
-        activity.return_value = {
-            str(room.pk): {"waiting": True, "humans": []}
-        }
+        activity.return_value = {str(room.pk): {"waiting": True, "humans": []}}
         self.client.force_authenticate(self.second)
         response = self.client.post(
             "/api/v1/games/matchmaking/queue/",
@@ -480,7 +477,6 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(response.data["ticket"]["status"], "queued")
         self.assertEqual(TableSeat.objects.filter(table=room).count(), 1)
 
-
     @patch("apps.games.services.engine_activity")
     def test_poker_running_table_cannot_admit_during_started_hand(self, activity):
         from apps.games.services import join_table
@@ -521,7 +517,6 @@ class MatchmakingApiTests(TestCase):
         room.refresh_from_db()
         self.assertEqual(room.status, "open")
 
-
     @patch("apps.games.matchmaking.engine_activity")
     def test_connected_host_is_matchable_without_a_lobby_heartbeat(self, activity):
         room = GameTable.objects.create(
@@ -533,10 +528,7 @@ class MatchmakingApiTests(TestCase):
         )
         TableSeat.objects.create(table=room, user=self.first, seat_index=0)
         activity.return_value = {
-            str(room.pk): {
-                "waiting": True,
-                "humans": [str(self.first.pk)],
-            }
+            str(room.pk): {"waiting": True, "humans": [str(self.first.pk)]}
         }
         # The first player is connected to the game, not refreshing the lobby.
         self.assertFalse(PlayerPresence.objects.filter(user=self.first).exists())
