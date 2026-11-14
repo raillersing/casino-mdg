@@ -518,3 +518,33 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(seat.user_id, self.second.pk)
         room.refresh_from_db()
         self.assertEqual(room.status, "open")
+
+
+    @patch("apps.games.matchmaking.engine_activity")
+    def test_connected_host_is_matchable_without_a_lobby_heartbeat(self, activity):
+        room = GameTable.objects.create(
+            table_code="game-engine-presence-only",
+            name="Waiting with host connected",
+            game_type="ludo",
+            max_players=2,
+            created_by=self.first,
+        )
+        TableSeat.objects.create(table=room, user=self.first, seat_index=0)
+        activity.return_value = {
+            str(room.pk): {
+                "waiting": True,
+                "humans": [str(self.first.pk)],
+            }
+        }
+        # The first player is connected to the game, not refreshing the lobby.
+        self.assertFalse(PlayerPresence.objects.filter(user=self.first).exists())
+        self.client.force_authenticate(self.second)
+        response = self.client.post(
+            "/api/v1/games/matchmaking/queue/",
+            {"game_type": "ludo", "target_size": 2},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["ticket"]["status"], "matched")
+        self.assertEqual(response.data["ticket"]["table_id"], str(room.pk))
+        self.assertEqual(TableSeat.objects.filter(table=room).count(), 2)
