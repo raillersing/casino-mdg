@@ -1,8 +1,10 @@
 from datetime import timedelta
 
+import requests
 from django.db import connection, transaction
 from django.utils import timezone
 
+from .live_activity import engine_activity
 from .models import GameTable, MatchmakingTicket, PlayerPresence
 from .services import join_table
 
@@ -74,9 +76,8 @@ def queue_player(user, game_type, target_size=None):
     ticket.target_players = capacity
     ticket.save(update_fields=["target_players", "updated_at"])
 
-    # Prefer a compatible public, free table with a recently present human
-    # host. A stale seat alone must not count as a waiting player.
-    fresh_users = set(active_presence(game_type).values_list("user_id", flat=True))
+    # Prefer a public, free table with a verified connected human.
+    # A reserved seat or a lobby heartbeat alone is not table presence.
     public_tables = (
         GameTable.objects.filter(
             game_type=game_type,
@@ -91,11 +92,33 @@ def queue_player(user, game_type, target_size=None):
         .prefetch_related("seats")
         .order_by("created_at")[:50]
     )
-    for existing_table in public_tables:
-        seats = list(existing_table.seats.all())
-        if not 0 < len(seats) < capacity:
+    # A lobby heartbeat is NOT evidence that a human is inside this table.
+    # Match only to seats with a live, authenticated human engine connection.
+    candidate_tables = []
+    for table in public_tables:
+        seats = list(table.seats.all())
+        if 0 < len(seats) < capacity:
+            candidate_tables.append((table, seats))
+    # A player may be connected to the game engine without visiting the
+    # lobby. Do not require a separate lobby heartbeat as a precondition.
+    if candidate_tables:
+        try:
+            live_tables = engine_activity()
+        except (requests.RequestException, ValueError, KeyError, TypeError):
+            live_tables = {}
+    else:
+        live_tables = {}
+    for existing_table, seats in candidate_tables:
+        live_entry = live_tables.get(str(existing_table.pk))
+        if not isinstance(live_entry, dict):
             continue
-        if not any(seat.user_id in fresh_users for seat in seats):
+        if live_entry.get("waiting") is not True:
+            continue
+        engine_humans = live_entry.get("humans")
+        if not isinstance(engine_humans, list):
+            continue
+        verified_humans = {str(item) for item in engine_humans if isinstance(item, str)}
+        if not any(str(seat.user_id) in verified_humans for seat in seats):
             continue
         # join_table performs its own row-level lock and rechecks seats.
         try:

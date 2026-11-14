@@ -120,9 +120,10 @@ def join_table(table, user, buy_in=None):
     if table.status == "running":
         try:
             live = engine_activity().get(str(table.pk), {})
-            waiting = live.get("waiting") is True or (
-                table.game_type == "poker" and live.get("started") is True
-            )
+            # A running game may accept an additional seat only while the
+            # engine explicitly advertises the room as waiting. "started"
+            # alone cannot prove that a Poker hand is safe for late entry.
+            waiting = live.get("waiting") is True
         except (requests.RequestException, ValueError):
             waiting = False
         if not waiting:
