@@ -52,6 +52,7 @@ import { useWebSocket } from "@hooks/useWebSocket";
 import { trackEvent } from "@services/analytics";
 import { TableExitModal } from "@components/game/TableExitModal";
 import { WaitingRoom, type WaitingPlayer } from "@components/game/WaitingRoom";
+import { isConfirmedConnection } from "@utils/playerPresence";
 import { PokerBuyInModal } from "@components/game/PokerBuyInModal";
 import { PokerTopUpModal } from "@components/game/PokerTopUpModal";
 import { getSeatPosition } from "@utils/tableLayout";
@@ -770,7 +771,7 @@ export function GamePage() {
         String(p.id) === String(tableMeta.created_by_id),
       ),
       isBot: Boolean(p.is_bot),
-      isActive: p.is_active !== false,
+      isActive: isConfirmedConnection(p.is_active),
     }));
   }, [statePlayers, tableMeta?.created_by_id]);
   const isWaitingRoom = useMemo(() => {
