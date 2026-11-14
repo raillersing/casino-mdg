@@ -84,7 +84,7 @@ export function WaitingRoom({
       setCopyError("");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setCopyError("Copie indisponible. Sélectionnez le code manuellement.");
+      setCopyError(tr("Copie indisponible. Sélectionnez le code manuellement.", "Tsy azo adika ny kaody. Safidio sy adikao mivantana."));
     }
   };
 
@@ -196,12 +196,14 @@ export function WaitingRoom({
           }}
         >
           <span>{emoji}</span>
-          <span>{tableName || `${gameLabel} entre amis`}</span>
+          <span>{tableName || tr(`${gameLabel} entre amis`, `${gameLabel} miaraka amin'ny namana`)}</span>
         </h1>
       </div>
 
       {/* Notice Banner */}
-      <div role="status" aria-live="polite"
+      <div
+        role="status"
+        aria-live="polite"
         style={{
           padding: "14px 16px",
           borderRadius: "12px",
@@ -221,8 +223,14 @@ export function WaitingRoom({
         <Users size={18} />
         <span>
           {remaining === 0
-            ? "Les places nécessaires sont occupées. En attente de la confirmation du moteur de jeu."
-            : `${seatedCount} place(s) occupée(s) sur ${maxPlayers}. Encore ${remaining} participant(s) requis.`}
+            ? tr(
+                "Les places nécessaires sont occupées. En attente de la confirmation du moteur de jeu.",
+                "Efa voatokana ny toerana ilaina. Miandry ny fanamafisan'ny rafitra lalao.",
+              )
+            : tr(
+                `${seatedCount} place(s) réservée(s) sur ${maxPlayers}. Encore ${remaining} participant(s) requis.`,
+                `${seatedCount}/${maxPlayers} ny toerana voatokana. Mbola mila mpilalao ${remaining}.`,
+              )}
         </span>
       </div>
 
@@ -337,10 +345,10 @@ export function WaitingRoom({
                       </div>
                       <div style={{ fontSize: "12px", color: "#70d7ad" }}>
                         {player.isActive === false
-                          ? "Reconnexion en cours"
+                          ? tr("Reconnexion en cours", "Miverina mifandray")
                           : player.isActive === true
-                            ? "Connexion confirmée"
-                            : "Présence à confirmer"}
+                            ? tr("Connexion confirmée", "Voamarina ny fifandraisana")
+                            : tr("Présence à confirmer", "Mbola tsy voamarina ny fisiana")}
                       </div>
                     </div>
                   ) : (
@@ -389,7 +397,7 @@ export function WaitingRoom({
                 color: "var(--text-secondary, #adb9c4)",
               }}
             >
-              Table privée — Partagez ce code à vos amis
+              {tr("Table privée — Partagez ce code à vos amis", "Latabatra manokana — Zarao amin'ny namana ity kaody ity")}
             </span>
           </div>
           <div
@@ -444,8 +452,10 @@ export function WaitingRoom({
       )}
       {isPrivate && !invitationCode && (
         <p className="playing-v2-notice" role="status">
-          Le code privé n'est pas disponible pour ce compte. Demandez une
-          invitation au créateur.
+          {tr(
+            "Le code privé n'est pas disponible pour ce compte. Demandez une invitation au créateur.",
+            "Tsy misy kaody manokana ho an'ity kaonty ity. Mangataha fanasana amin'ny mpamorona.",
+          )}
         </p>
       )}
 
@@ -469,7 +479,7 @@ export function WaitingRoom({
         </span>
         <span style={{ margin: "0 8px" }}>·</span>
         <span>
-          <strong>{maxPlayers}</strong> places
+          <strong>{maxPlayers}</strong> {tr("places", "toerana")}
         </span>
         <span style={{ margin: "0 8px" }}>·</span>
         <span>
