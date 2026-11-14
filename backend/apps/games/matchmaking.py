@@ -76,8 +76,8 @@ def queue_player(user, game_type, target_size=None):
     ticket.target_players = capacity
     ticket.save(update_fields=["target_players", "updated_at"])
 
-    # Prefer a compatible public, free table with a recently present human
-    # host. A stale seat alone must not count as a waiting player.
+    # Prefer a public, free table with a verified connected human.
+    # A reserved seat or a lobby heartbeat alone is not table presence.
     public_tables = (
         GameTable.objects.filter(
             game_type=game_type,
@@ -118,10 +118,7 @@ def queue_player(user, game_type, target_size=None):
         if not isinstance(engine_humans, list):
             continue
         verified_humans = {str(item) for item in engine_humans if isinstance(item, str)}
-        if not any(
-            str(seat.user_id) in verified_humans
-            for seat in seats
-        ):
+        if not any(str(seat.user_id) in verified_humans for seat in seats):
             continue
         # join_table performs its own row-level lock and rechecks seats.
         try:
