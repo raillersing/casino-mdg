@@ -180,3 +180,14 @@ test("featured games link to matchmaking, catalog retains table browsing", async
     "/lobby/belote?action=matchmaking",
   );
 });
+
+test("an unauthenticated direct-play entry keeps the game intent across login", async ({ page }) => {
+  await page.route("**/api/v1/games/tables/**", (route) =>
+    route.fulfill({ json: { results: [] } }),
+  );
+  await page.goto("/lobby/ludo?action=matchmaking");
+  await expect(page).toHaveURL(/\/auth\?next=/);
+  expect(new URL(page.url()).searchParams.get("next")).toBe(
+    "/lobby/ludo?action=matchmaking",
+  );
+});
