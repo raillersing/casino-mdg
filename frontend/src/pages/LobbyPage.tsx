@@ -2253,7 +2253,7 @@ export function LobbyPage() {
                           <h3>{meta.label.split(" ")[0]}</h3>
                           <span>
                             {mg
-                              ? "Misafidiana ny isan'ny mpilalao · Tsy misy mise"
+                              ? "Safidio ny isan'ny mpilalao · Tsy misy vola"
                               : "Nombre de joueurs au choix · Sans mise"}
                           </span>
                         </div>
