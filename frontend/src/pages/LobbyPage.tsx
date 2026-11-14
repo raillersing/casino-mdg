@@ -149,6 +149,7 @@ export function LobbyPage() {
   const [error, setError] = useState("");
   const [tableLoadError, setTableLoadError] = useState("");
   const [joining, setJoining] = useState<string | null>(null);
+  const [tableJoinError, setTableJoinError] = useState<{ id: string; message: string } | null>(null);
   const [pokerBuyInTable, setPokerBuyInTable] = useState<GameTable | null>(
     null,
   );
@@ -725,6 +726,7 @@ export function LobbyPage() {
   };
 
   const join = async (table: GameTable, buyIn?: number) => {
+    setTableJoinError(null);
     let token = accessToken;
     if (!token) {
       try {
@@ -759,11 +761,12 @@ export function LobbyPage() {
         metadata: { table_code: result.table.table_code, buy_in: buyIn },
       });
     } catch (reason) {
-      setError(
+      const message =
         reason instanceof Error
           ? reason.message
-          : "Impossible de rejoindre la table.",
-      );
+          : "Impossible de rejoindre la table.";
+      setTableJoinError({ id: table.id, message });
+      setError(message);
     } finally {
       setJoining(null);
     }
@@ -1954,6 +1957,7 @@ export function LobbyPage() {
                   key={table.id}
                   table={table}
                   isJoining={joining === table.id}
+                  error={tableJoinError?.id === table.id ? tableJoinError.message : undefined}
                   onJoin={() => void join(table)}
                 />
               );
