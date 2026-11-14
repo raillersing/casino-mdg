@@ -72,59 +72,6 @@ const GAME_SUITS: Record<
   domino: { icon: "🁓", color: "#f59e0b", label: "Domino Double-Six" },
 };
 
-const QUICK_GAME_SPECS: Record<
-  "belote" | "domino" | "ludo" | "rami" | "poker",
-  {
-    players: string;
-    duration: string;
-    rule: string;
-    preset: {
-      max_players: number;
-      turn_duration: number;
-      rules_config: Record<string, number>;
-    };
-  }
-> = {
-  belote: {
-    players: "4 Joueurs",
-    duration: "30s / tour",
-    rule: "501 pts",
-    preset: {
-      max_players: 4,
-      turn_duration: 30,
-      rules_config: { target_score: 501 },
-    },
-  },
-  domino: {
-    players: "4 Joueurs",
-    duration: "15s Blitz",
-    rule: "Double-Six",
-    preset: { max_players: 4, turn_duration: 15, rules_config: {} },
-  },
-  ludo: {
-    players: "4 Joueurs",
-    duration: "15s Blitz",
-    rule: "Course 4 Pions",
-    preset: { max_players: 4, turn_duration: 15, rules_config: {} },
-  },
-  rami: {
-    players: "2 Joueurs",
-    duration: "30s / tour",
-    rule: "7 Cartes Knock",
-    preset: { max_players: 2, turn_duration: 30, rules_config: {} },
-  },
-  poker: {
-    players: "6 Joueurs",
-    duration: "30s / tour",
-    rule: "Blinds 25/50",
-    preset: {
-      max_players: 6,
-      turn_duration: 30,
-      rules_config: { small_blind: 25 },
-    },
-  },
-};
-
 export function LobbyPage() {
   const { t, i18n } = useTranslation();
   const mg = i18n.language.startsWith("mg");
@@ -2293,7 +2240,6 @@ export function LobbyPage() {
                 {quickGamesToShow.map((gKey) => {
                   const meta = GAME_SUITS[gKey];
                   const isBusy = quickCreating === gKey;
-                  const badgeInfo = QUICK_GAME_SPECS[gKey];
                   return (
                     <div key={gKey} className="lobby-quick-card">
                       <div className="lobby-quick-card-top">
@@ -2306,8 +2252,9 @@ export function LobbyPage() {
                         <div className="lobby-quick-card-info">
                           <h3>{meta.label.split(" ")[0]}</h3>
                           <span>
-                            {badgeInfo.players} · {badgeInfo.duration} ·{" "}
-                            {badgeInfo.rule}
+                            {mg
+                              ? "Misafidiana ny isan'ny mpilalao · Tsy misy mise"
+                              : "Nombre de joueurs au choix · Sans mise"}
                           </span>
                         </div>
                       </div>
@@ -2325,7 +2272,13 @@ export function LobbyPage() {
                             <Zap size={14} />
                           )}
                           <span>
-                            {isBusy ? "Création..." : "Créer & Jouer"}
+                            {isBusy
+                              ? mg
+                                ? "Manomana..."
+                                : "Préparation..."
+                              : mg
+                                ? "Hamorona latabatra"
+                                : "Créer une table"}
                           </span>
                         </button>
                         <button
