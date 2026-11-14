@@ -195,7 +195,8 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(GameTable.objects.count(), 1)
         self.assertEqual(TableSeat.objects.filter(table=table).count(), 2)
 
-    def test_matchmaking_ignores_existing_room_with_stale_host(self):
+    @patch("apps.games.matchmaking.engine_activity", return_value={})
+    def test_matchmaking_ignores_existing_room_with_stale_host(self, activity):
         table = GameTable.objects.create(
             table_code="stale-ludo-available",
             name="Ludo sans présence",
@@ -217,6 +218,7 @@ class MatchmakingApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["ticket"]["status"], "queued")
         self.assertEqual(TableSeat.objects.filter(table=table).count(), 1)
+        activity.assert_called_once()
 
     def test_switching_games_cancels_other_pending_search(self):
         self.client.force_authenticate(self.first)
