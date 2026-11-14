@@ -19,6 +19,9 @@ test("primary lobby actions expose keyboard focus and 44px targets", async ({ pa
   const play = page.locator(".game-lobby-find");
   await expect(play).toBeVisible();
   await play.focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  await expect(play).toBeFocused();
   const style = await play.evaluate((element) => {
     const computed = getComputedStyle(element);
     return { outline: computed.outlineStyle, height: element.getBoundingClientRect().height };
