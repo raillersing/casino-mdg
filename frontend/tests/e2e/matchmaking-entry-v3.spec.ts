@@ -56,7 +56,8 @@ test("rapid taps submit only one matchmaking queue request", async ({ page }) =>
   });
 
   await page.goto("/lobby/ludo");
-  const search = page.getByRole("button", { name: /Trouver des joueurs pour Ludo/i });
+  const search = page.locator(".game-lobby-find");
+  await expect(search).toHaveAccessibleName(/Trouver des joueurs pour Ludo/i);
   await search.click();
   await expect(search).toBeDisabled();
   await expect(search.getByText("Lancement de la recherche…")).toBeVisible();
