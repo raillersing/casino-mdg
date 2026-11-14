@@ -281,7 +281,12 @@ export function LobbyPage() {
     if (!action) consumedIntentRef.current = null;
     const intentKey = `${urlGameType || "all"}:${action || ""}`;
     if (action && consumedIntentRef.current === intentKey) return;
-    if (!accessToken && (action === "join-private" || action === "create")) {
+    if (
+      !accessToken &&
+      (action === "join-private" ||
+        action === "create" ||
+        (action === "matchmaking" && isGameLobby))
+    ) {
       const returnTo =
         isGameLobby && urlGameType
           ? `/lobby/${urlGameType}?${searchParams.toString()}`
