@@ -876,10 +876,12 @@ export function LobbyPage() {
                 border: "1px solid rgba(211, 176, 107, 0.25)",
               }}
             >
-              Disponible :{" "}
+              {mg ? "Azo ampiasaina" : "Disponible"} :{" "}
               {typeof user?.mgaBalance === "number"
                 ? `${user.mgaBalance.toLocaleString()} Ar`
-                : "Solde indisponible"}
+                : mg
+                  ? "Tsy azo jerena ny solde"
+                  : "Solde indisponible"}
             </span>
           </div>
 
@@ -913,7 +915,7 @@ export function LobbyPage() {
                 className="home-eyebrow"
                 style={{ color: selectedGameMeta.color }}
               >
-                1 · Tables du jeu choisi
+                {mg ? "1 · Latabatry ny lalao voafidy" : "1 · Tables du jeu choisi"}
               </span>
               <h1
                 style={{
@@ -932,8 +934,8 @@ export function LobbyPage() {
                 }}
               >
                 {liveStats?.games?.[urlGameType!] &&
-                  `${liveStats.games[urlGameType!].online_players} en ligne · `}
-                {shown.length} table(s) ouverte(s)
+                  `${liveStats.games[urlGameType!].online_players} ${mg ? "mifandray" : "en ligne"} · `}
+                {shown.length} {mg ? "latabatra misokatra" : "table(s) ouverte(s)"}
               </p>
             </div>
           </div>
@@ -942,13 +944,13 @@ export function LobbyPage() {
             matchStatus.ticket.table_id &&
             matchStatus.ticket.table_code && (
               <div className="game-lobby-recovery" role="status">
-                <strong>Une partie vous attend</strong>
-                <span>Votre place est réservée dans la table trouvée.</span>
+                <strong>{mg ? "Misy lalao miandry anao" : "Une partie vous attend"}</strong>
+                <span>{mg ? "Voatokana ny toeranao amin'ny latabatra hita." : "Votre place est réservée dans la table trouvée."}</span>
                 <Link
                   to={`/game/${matchStatus.ticket.game_type}/${matchStatus.ticket.table_code}?table_id=${encodeURIComponent(matchStatus.ticket.table_id)}`}
                   className="button button-gold"
                 >
-                  Rejoindre ma partie
+                  {mg ? "Hiditra amin'ny lalaoko" : "Rejoindre ma partie"}
                 </Link>
               </div>
             )}
