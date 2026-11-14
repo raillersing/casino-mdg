@@ -66,7 +66,7 @@ export function WaitingRoom({
   const emoji = GAME_EMOJIS[gameType.toLowerCase()] || "🎮";
   const gameLabel = GAME_NAMES[gameType.toLowerCase()] || gameType;
   const confirmedConnections = currentPlayers.filter(
-    (p) => p.isActive === true,
+    (p) => !p.isBot && p.isActive === true,
   ).length;
   const seatedCount = currentPlayers.length;
   const isPoker = gameType.toLowerCase() === "poker";
