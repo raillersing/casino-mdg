@@ -6,10 +6,11 @@ interface Props {
   table: GameTable;
   isJoining: boolean;
   onJoin: () => void;
+  error?: string;
 }
 
 /** A seat reservation is not proof that a player is connected. */
-export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
+export function TableAvailabilityCard({ table, isJoining, onJoin, error }: Props) {
   const { i18n } = useTranslation();
   const mg = i18n.language.startsWith("mg");
   const tr = (fr: string, malagasy: string) => (mg ? malagasy : fr);
@@ -18,11 +19,12 @@ export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
   const free = Math.max(0, capacity - reserved);
   const alreadyJoined = table.joined === true;
   const isFull = free === 0;
-  // A seat already owned by the user can be resumed; new admissions require
-  // an open, public table with a free seat. The server still makes the final decision.
+  // A running table may still accept a player according to the engine (e.g.
+  // Poker or a not-yet-started session). Never infer that from status alone:
+  // leave the authoritative admission decision to the backend.
   const canJoin = alreadyJoined
     ? table.status !== "finished"
-    : table.status === "open" && !table.is_private && !isFull;
+    : table.status !== "finished" && !table.is_private && !isFull;
   const statusLabel =
     table.status === "finished"
       ? tr("Terminée", "Vita")
@@ -88,7 +90,7 @@ export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
           : alreadyJoined
             ? tr("Reprendre la partie", "Hanohy ny lalao")
             : table.status === "running"
-              ? tr("Partie commencée", "Efa nanomboka")
+              ? tr("Demander une place", "Hangataka toerana")
               : table.status === "finished"
                 ? tr("Partie terminée", "Vita ny lalao")
                 : table.is_private
@@ -97,6 +99,7 @@ export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
                     ? tr("Table complète", "Feno ny latabatra")
                     : tr("Rejoindre la table", "Hiditra amin'ny latabatra")}
       </button>
+      {error && <p className="game-lobby-table-error" role="alert">{error}</p>}
     </article>
   );
 }
