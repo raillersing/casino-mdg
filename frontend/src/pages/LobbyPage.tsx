@@ -801,6 +801,7 @@ export function LobbyPage() {
       return;
     }
     setCreateTableGame(gameType);
+    setQuickCreating(gameType);
     setShowQuickCreate(true);
   };
 
@@ -2334,9 +2335,13 @@ export function LobbyPage() {
       <QuickCreateTableSheet
         game={createTableGame}
         isOpen={showQuickCreate}
-        onClose={() => setShowQuickCreate(false)}
+        onClose={() => {
+          setShowQuickCreate(false);
+          setQuickCreating(null);
+        }}
         onAdvanced={() => {
           setShowQuickCreate(false);
+          setQuickCreating(null);
           setShowCreateTable(true);
         }}
         onSubmit={createAndNavigate}
