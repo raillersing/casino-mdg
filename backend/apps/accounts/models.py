@@ -41,6 +41,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     email = models.EmailField(_("email"), unique=True)
     email_verified_at = models.DateTimeField(null=True, blank=True)
+    phone_verified_at = models.DateTimeField(null=True, blank=True)
     phone = models.CharField(_("téléphone"), max_length=20, unique=True)
     display_name = models.CharField(_("nom affiché"), max_length=50)
     avatar = models.URLField(blank=True)
