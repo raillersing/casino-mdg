@@ -27,12 +27,8 @@ class PrivateTableCodeVisibilityTests(TestCase):
             display_name="Outsider",
         )
         self.club = Club.objects.create(name="Club prive", owner=self.creator)
-        ClubMembership.objects.create(
-            club=self.club, user=self.creator, role="owner"
-        )
-        ClubMembership.objects.create(
-            club=self.club, user=self.member, role="member"
-        )
+        ClubMembership.objects.create(club=self.club, user=self.creator, role="owner")
+        ClubMembership.objects.create(club=self.club, user=self.member, role="member")
         self.table = GameTable.objects.create(
             table_code="private-club-code-001",
             name="Table du club",
@@ -49,10 +45,10 @@ class PrivateTableCodeVisibilityTests(TestCase):
         self.client.force_authenticate(user=user)
         response = self.client.get("/api/v1/games/tables/")
         self.assertEqual(response.status_code, 200)
-        matches = [
-            item for item in response.data["results"]
-            if item["id"] == str(self.table.id)
-        ]
+        matches = []
+        for item in response.data["results"]:
+            if item["id"] == str(self.table.id):
+                matches.append(item)
         self.assertEqual(len(matches), 1)
         return matches[0]
 
@@ -66,17 +62,13 @@ class PrivateTableCodeVisibilityTests(TestCase):
         self.assertEqual(visible["access_code"], "AB1234")
 
     def test_seated_club_member_can_share_code_after_admission(self):
-        TableSeat.objects.create(
-            table=self.table, user=self.member, seat_index=1
-        )
+        TableSeat.objects.create(table=self.table, user=self.member, seat_index=1)
         visible = self._visible_table(self.member)
         self.assertEqual(visible["access_code"], "AB1234")
 
     def test_unseated_club_member_cannot_read_code_from_admission_response(self):
         self.client.force_authenticate(user=self.member)
-        response = self.client.post(
-            f"/api/v1/games/tables/{self.table.id}/admission/"
-        )
+        response = self.client.post(f"/api/v1/games/tables/{self.table.id}/admission/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["role"], "spectator")
         self.assertIsNone(response.data["table"]["access_code"])
@@ -102,11 +94,8 @@ class PrivateTableCodeVisibilityTests(TestCase):
         )
         self.client.force_authenticate(user=self.creator)
         response = self.client.get("/api/v1/games/tables/")
-        item = next(
-            x for x in response.data["results"]
-            if x["id"] == str(private.id)
-        )
-        self.assertEqual(item["access_code"], "CD4567")
+        visible = {entry["id"]: entry for entry in response.data["results"]}
+        self.assertEqual(visible[str(private.id)]["access_code"], "CD4567")
         self.client.force_authenticate(user=self.outsider)
         response = self.client.post(
             f"/api/v1/games/tables/{private.id}/join/",
