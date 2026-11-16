@@ -1,4 +1,4 @@
-"""Five-game REST contracts for staging: distinct accounts, free human seats, no fake engine state."""
+"""Five-game REST contracts with real seats and safe admission rules."""
 
 from django.test import TestCase
 from rest_framework.test import APIClient
