@@ -391,7 +391,7 @@ export function ProfilePage() {
                   maxLength={6}
                   value={emailCode}
                   onChange={(event) =>
-                    setEmailCode(event.target.value.replace(/\\D/g, ""))
+                    setEmailCode(event.target.value.replace(/\D/g, ""))
                   }
                 />
                 <button
