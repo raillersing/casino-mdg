@@ -70,6 +70,7 @@ test("completes the local OTP onboarding journey", async ({ page }) => {
   );
 
   await page.goto("/auth");
+  await page.getByRole("button", { name: "SMS", exact: true }).click();
   await page.locator(".phone-field input").fill("340000000");
   await page.getByRole("button", { name: /Recevoir mon code/i }).click();
   await expect(page.locator(".auth-code-field")).toBeVisible();
@@ -82,6 +83,54 @@ test("completes the local OTP onboarding journey", async ({ page }) => {
   await expect(
     page.evaluate(() => localStorage.getItem("mdg_access_token")),
   ).resolves.toBe("access-token");
+});
+
+test("allows email OTP onboarding with a verified contact email", async ({ page }) => {
+  await page.route("**/api/v1/auth/email/request/", (route) =>
+    route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        request_id: "email-uuid",
+        expires_in: 300,
+        email_sent: true,
+      }),
+    }),
+  );
+  await page.route("**/api/v1/auth/email/verify/", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        access: "email-access-token",
+        refresh: "email-refresh-token",
+        user: {
+          id: "email-user-1",
+          display_name: "Miora",
+          phone: "+261340000000",
+          email: "miora@example.com",
+          email_verified: true,
+          xp: 0,
+          level: 1,
+          is_staff: false,
+        },
+        wallet: { balance: 10000, currency: "SIM" },
+      }),
+    }),
+  );
+  await page.goto("/auth");
+  await page.getByRole("button", { name: "Email", exact: true }).click();
+  await page.getByLabel("Adresse email").fill("miora@example.com");
+  await page.locator(".phone-field input").fill("340000000");
+  await page.getByRole("button", { name: /Recevoir mon code/i }).click();
+  await expect(page.locator(".auth-code-field")).toBeVisible();
+  await page.locator(".auth-code-field").fill("123456");
+  await page.locator(".auth-name-field").fill("Miora");
+  await page.getByRole("button", { name: /Entrer dans le club/i }).click();
+  await expect(page).toHaveURL(/\\/$/);
+  await expect(
+    page.evaluate(() => localStorage.getItem("mdg_access_token")),
+  ).resolves.toBe("email-access-token");
 });
 
 test("switches the core home screen to Malagasy", async ({ page }) => {
