@@ -33,6 +33,10 @@ Les nouveaux événements ne collectent ni code OTP, ni code d'invitation de tab
 - Vérifier sur staging que le nombre d'événements est cohérent avec les actions réelles, sans considérer une déconnexion comme un jeu terminé.
 - La recette réelle à deux comptes de l'Issue #57 reste obligatoire avant publication.
 
-## Suite de modularisation
+## Modularisation du lot 7
 
-Le découpage des grandes pages `LobbyPage.tsx` et `GamePage.tsx` doit conserver les mêmes contrats API, états de présence, codes d'admission, règles de jeu et invariants MGA. Extraire progressivement les fonctions de présentation et de filtrage avec tests, puis l'orchestration WebSocket / matchmaking dans des PR séparées.
+La PR #68 a isolé les sélecteurs de tables (`frontend/src/utils/lobbyTables.ts`, avec tests), les éléments de rendu de sièges/cartes (`GameTablePrimitives.tsx`) et les helpers purs de présentation (`gamePresentation.ts` et `gameAvatar.ts`).
+
+La PR #69 extrait les vues de résumé et commandes de jeu (`GameStateSummary.tsx`, `GameSpecificControls.tsx`). Les effets sonores sont injectés par le parent ; aucune règle moteur n'est dupliquée dans les nouveaux modules.
+
+**Reste en dette technique** : le contrôleur de matchmaking et la logique de session/réconciliation WebSocket sont encore dans les pages principales. Leur extraction ultérieure doit préserver les contrats d'admission, l'absence de faux sièges connectés, les cas de reprise et les invariants MGA. Ces composants sont publiables uniquement après CI et recette réelle #57.
