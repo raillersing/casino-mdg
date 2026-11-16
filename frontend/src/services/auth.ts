@@ -103,6 +103,8 @@ export function getCurrentUser(token: string) {
       id: string;
       display_name: string;
       phone: string;
+      email: string;
+      email_verified: boolean;
       xp: number;
       level: number;
       is_staff: boolean;
@@ -142,6 +144,8 @@ export function updateCurrentUser(token: string, displayName: string) {
       id: string;
       display_name: string;
       phone: string;
+      email: string;
+      email_verified: boolean;
       xp: number;
       level: number;
       is_staff: boolean;
