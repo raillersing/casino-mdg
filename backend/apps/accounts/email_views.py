@@ -41,7 +41,9 @@ def send_challenge(*, email, phone="", user=None, purpose):
         email__iexact=email,
         created_at__gte=now - timedelta(seconds=30),
     ).exists():
-        return Response({"detail": "Veuillez patienter avant de redemander un code."}, status=429)
+        return Response(
+            {"detail": "Veuillez patienter avant de redemander un code."}, status=429
+        )
     code = f"{secrets.randbelow(1_000_000):06d}"
     challenge = EmailOTPChallenge.objects.create(
         email=email,
@@ -53,12 +55,20 @@ def send_challenge(*, email, phone="", user=None, purpose):
     )
     if not send_email_otp(email, code):
         challenge.delete()
-        return Response({"detail": "Service email indisponible. Réessayez plus tard."}, status=503)
+        return Response(
+            {"detail": "Service email indisponible. Réessayez plus tard."}, status=503
+        )
     EmailOTPChallenge.objects.filter(
-        email__iexact=email, purpose=purpose, consumed_at__isnull=True,
+        email__iexact=email,
+        purpose=purpose,
+        consumed_at__isnull=True,
     ).exclude(pk=challenge.pk).update(consumed_at=timezone.now())
     return Response(
-        {"request_id": str(challenge.request_id), "expires_in": 300, "email_sent": True},
+        {
+            "request_id": str(challenge.request_id),
+            "expires_in": 300,
+            "email_sent": True,
+        },
         status=201,
     )
 
@@ -126,17 +136,25 @@ class VerifyEmailOTPView(APIView):
     def post(self, request):
         challenge = consume_challenge(request, "login")
         if not challenge:
-            return Response({"detail": "Code invalide, expiré ou déjà utilisé."}, status=400)
+            return Response(
+                {"detail": "Code invalide, expiré ou déjà utilisé."}, status=400
+            )
 
         # Never permit a mail address to take over a phone already in the DB.
         user = User.objects.select_for_update().filter(phone=challenge.phone).first()
-        linked = User.objects.select_for_update().filter(
-            email__iexact=challenge.email
-        ).first()
-        if (user and user.email.lower() != challenge.email) or (
-            linked and linked.phone != challenge.phone
-        ) or (user and not user.is_active):
-            return Response({"detail": "Association des coordonnées impossible."}, status=409)
+        linked = (
+            User.objects.select_for_update()
+            .filter(email__iexact=challenge.email)
+            .first()
+        )
+        if (
+            (user and user.email.lower() != challenge.email)
+            or (linked and linked.phone != challenge.phone)
+            or (user and not user.is_active)
+        ):
+            return Response(
+                {"detail": "Association des coordonnées impossible."}, status=409
+            )
 
         if user is None:
             try:
@@ -206,13 +224,17 @@ class VerifyEmailBindingView(APIView):
     def post(self, request):
         challenge = consume_challenge(request, "bind")
         if not challenge or challenge.user_id != request.user.pk:
-            return Response({"detail": "Code invalide, expiré ou déjà utilisé."}, status=400)
+            return Response(
+                {"detail": "Code invalide, expiré ou déjà utilisé."}, status=400
+            )
         user = User.objects.select_for_update().get(pk=request.user.pk)
         if user.email_verified_at is not None:
             return Response({"detail": "Adresse déjà vérifiée."}, status=409)
-        if User.objects.filter(email__iexact=challenge.email).exclude(
-            pk=user.pk
-        ).exists():
+        if (
+            User.objects.filter(email__iexact=challenge.email)
+            .exclude(pk=user.pk)
+            .exists()
+        ):
             return Response({"detail": "Adresse non disponible."}, status=409)
         user.email = challenge.email
         user.email_verified_at = timezone.now()
