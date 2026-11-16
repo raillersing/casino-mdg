@@ -94,6 +94,7 @@ export function GamesPage() {
   const intent = searchParams.get("intent");
   const isCreating = intent === "create";
   const isPracticing = intent === "practice";
+  const isMatching = intent === "matchmaking";
   const { i18n } = useTranslation();
   const mg = i18n.language.startsWith("mg");
   const token = useGameStore((state) => state.accessToken);
@@ -155,7 +156,11 @@ export function GamesPage() {
               ? mg
                 ? "Iza no lalao hianaranao?"
                 : "À quel jeu voulez-vous vous entraîner ?"
-              : t("discovery.catalogTitle")}
+              : isMatching
+                ? mg
+                  ? "Inona no lalao tianao hiarahana milalao?"
+                  : "À quel jeu voulez-vous jouer en ligne ?"
+                : t("discovery.catalogTitle")}
         </h1>
         <p>
           {isCreating
@@ -166,7 +171,11 @@ export function GamesPage() {
               ? mg
                 ? "Misafidiana lalao hianarana miaraka amin'ny milina."
                 : "Choisissez un jeu pour vous entraîner avec des robots identifiés."
-              : t("discovery.intro")}
+              : isMatching
+                ? mg
+                  ? "Misafidiana lalao. Hanomboka avy hatrany ny fitadiavana mpilalao."
+                  : "Choisissez un jeu pour lancer la recherche de joueurs."
+                : t("discovery.intro")}
         </p>
       </header>
 
@@ -232,7 +241,9 @@ export function GamesPage() {
                     to={
                       isCreating
                         ? `/lobby/${game.id}?action=create`
-                        : `/lobby/${game.id}`
+                        : isMatching
+                          ? `/lobby/${game.id}?action=matchmaking`
+                          : `/lobby/${game.id}`
                     }
                     className={`discovery-card discovery-${game.color}`}
                   >
@@ -243,7 +254,13 @@ export function GamesPage() {
                           ? mg
                             ? "Hamorona latabatra"
                             : "Créer une table"
-                          : t("discovery.chooseGame")
+                          : isMatching
+                            ? mg
+                              ? "Hitady mpilalao"
+                              : "Trouver des joueurs"
+                            : mg
+                              ? "Hijery latabatra"
+                              : "Voir les tables"
                       }
                     />
                   </Link>
@@ -260,9 +277,9 @@ export function GamesPage() {
                 >
                   <Link
                     to={
-                      isCreating
-                        ? `/lobby/${game.id}?action=create`
-                        : `/lobby/${game.id}`
+                      isMatching
+                        ? `/lobby/${game.id}`
+                        : `/lobby/${game.id}?action=matchmaking`
                     }
                     className="button button-gold button-small"
                     style={{
@@ -272,32 +289,42 @@ export function GamesPage() {
                     }}
                   >
                     <Zap size={14} />{" "}
-                    {isCreating
+                    {isMatching
                       ? mg
-                        ? "Hamorona latabatra"
-                        : "Créer une table"
-                      : mg
                         ? "Hijery latabatra"
-                        : "Accéder aux tables"}
+                        : "Voir les tables"
+                      : mg
+                        ? "Hilalao amin'ny hafa"
+                        : "Jouer en ligne"}
                   </Link>
 
-                  <button
-                    type="button"
-                    className="button button-secondary button-small"
-                    disabled={isLaunching}
-                    onClick={() => handleSoloPlay(game.id)}
-                    style={{ justifyContent: "center", fontWeight: 600 }}
-                  >
-                    {isLaunching ? (
-                      <>
-                        <Loader2 size={14} className="spin" /> Lancement...
-                      </>
-                    ) : (
-                      <>
-                        <Bot size={14} /> Solo vs IA
-                      </>
-                    )}
-                  </button>
+                  {isPracticing ? (
+                    <Link
+                      to={`/lobby/${game.id}`}
+                      className="button button-secondary button-small"
+                      style={{ justifyContent: "center", fontWeight: 600 }}
+                    >
+                      {mg ? "Hijery latabatra" : "Voir les tables"}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button button-secondary button-small"
+                      disabled={isLaunching}
+                      onClick={() => void handleSoloPlay(game.id)}
+                      style={{ justifyContent: "center", fontWeight: 600 }}
+                    >
+                      {isLaunching ? (
+                        <>
+                          <Loader2 size={14} className="spin" /> Lancement...
+                        </>
+                      ) : (
+                        <>
+                          <Bot size={14} /> Solo vs IA
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             );

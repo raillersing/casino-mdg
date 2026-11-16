@@ -71,9 +71,9 @@ export function HomePage() {
             )}
           </p>
           <div className="home-game-hero-actions">
-            <Link to="/games" className="home-game-primary">
+            <Link to="/games?intent=matchmaking" className="home-game-primary">
               <Gamepad2 size={19} aria-hidden="true" />
-              {tr("Choisir un jeu", "Hisafidy lalao")}
+              {tr("Jouer en ligne", "Hilalao amin'ny hafa")}
               <ArrowRight size={18} aria-hidden="true" />
             </Link>
             <Link
@@ -122,7 +122,7 @@ export function HomePage() {
           </h2>
         </div>
         <div className="home-game-intention-list">
-          <Link to="/games" className="home-game-intent">
+          <Link to="/games?intent=matchmaking" className="home-game-intent">
             <span className="home-game-intent-icon">
               <UsersRound aria-hidden="true" size={23} />
             </span>
@@ -188,7 +188,7 @@ export function HomePage() {
           {FEATURED.map((game) => (
             <Link
               key={game.id}
-              to={`/lobby/${game.id}`}
+              to={`/lobby/${game.id}?action=matchmaking`}
               className="home-game-featured-card"
             >
               <img
@@ -202,7 +202,7 @@ export function HomePage() {
                 <strong>{game.name}</strong>
                 <small>{game.players}</small>
                 <em>
-                  {tr("Voir les tables", "Hijery latabatra")}{" "}
+                  {tr("Jouer maintenant", "Hilalao izao")}{" "}
                   <ArrowRight size={15} aria-hidden="true" />
                 </em>
               </span>

@@ -59,7 +59,7 @@ test("home offers a clear public-games path and does not show false activity", a
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Une partie, ensemble ?" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Choisir un jeu/i })).toBeVisible();
+  await expect(page.locator(".home-game-primary")).toHaveAttribute("href", "/games?intent=matchmaking");
   await expect(page.getByRole("link", { name: /Créer une table/i })).toBeVisible();
   await expect(page.locator(".live-activity-totals")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
@@ -124,3 +124,96 @@ for (const game of ["belote", "domino", "ludo", "rami", "poker"] as const) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 }
+
+test("home and catalog launch matchmaking without another lobby click", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.route("**/api/v1/games/tables/**", (route) =>
+    route.fulfill({ json: { results: [] } }),
+  );
+  await page.route("**/api/v1/games/table-capabilities/", (route) =>
+    route.fulfill({ json: { games: { belote: { players: [4] } } } }),
+  );
+  await page.route("**/api/v1/games/matchmaking/heartbeat/", (route) =>
+    route.fulfill({ json: { status: "online", game_type: "belote" } }),
+  );
+  let queueCalls = 0;
+  let releaseInitialStatus!: () => void;
+  const initialStatusGate = new Promise<void>((resolve) => {
+    releaseInitialStatus = resolve;
+  });
+  await page.route("**/api/v1/games/matchmaking/status/**", async (route) => {
+    const queuedAtRequest = queueCalls > 0;
+    if (!queuedAtRequest) await initialStatusGate;
+    await route.fulfill({
+      json: {
+        human_online: 0,
+        estimated_wait_seconds: null,
+        ticket: queuedAtRequest
+          ? {
+              id: "quick-play-belote",
+              game_type: "belote",
+              status: "queued",
+              target_players: 4,
+            }
+          : null,
+      },
+    });
+  });
+  await page.route("**/api/v1/games/matchmaking/queue/", async (route) => {
+    const payload = route.request().postDataJSON() as { game_type: string };
+    expect(payload.game_type).toBe("belote");
+    queueCalls += 1;
+    await route.fulfill({
+      json: {
+        ticket: {
+          id: "quick-play-belote",
+          game_type: "belote",
+          status: "queued",
+          target_players: 4,
+          created_at: new Date().toISOString(),
+        },
+        created: true,
+      },
+    });
+    // Release an older status response after the queue response was sent.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    releaseInitialStatus();
+  });
+  await page.goto("/");
+  await page.locator(".home-game-primary").click();
+  await expect(page).toHaveURL(/\/games\?intent=matchmaking/);
+  await page.locator(".discovery-card").first().click();
+  await expect(page).toHaveURL(/\/lobby\/belote/);
+  await expect(page.locator(".game-lobby-searching")).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(page.locator(".game-lobby-searching")).toBeVisible();
+  expect(queueCalls).toBe(1);
+});
+
+test("featured games link to matchmaking, catalog retains table browsing", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".home-game-featured-card").first()).toHaveAttribute(
+    "href",
+    "/lobby/belote?action=matchmaking",
+  );
+  await page.goto("/games");
+  const firstGame = page.locator(".discovery-game").first();
+  await expect(firstGame.locator(".discovery-card")).toHaveAttribute("href", "/lobby/belote");
+  await expect(firstGame.getByRole("link", { name: "Jouer en ligne" })).toHaveAttribute(
+    "href",
+    "/lobby/belote?action=matchmaking",
+  );
+});
+
+test("an unauthenticated direct-play entry keeps the game intent across login", async ({ page }) => {
+  await page.route("**/api/v1/games/tables/**", (route) =>
+    route.fulfill({ json: { results: [] } }),
+  );
+  await page.goto("/lobby/ludo?action=matchmaking");
+  await expect(page).toHaveURL(/\/auth\?next=/);
+  expect(new URL(page.url()).searchParams.get("next")).toBe(
+    "/lobby/ludo?action=matchmaking",
+  );
+});
