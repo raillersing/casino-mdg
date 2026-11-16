@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Bot,
+  Compass,
   Eye,
   Lock,
   Plus,
@@ -1911,7 +1912,7 @@ export function LobbyPage() {
           gameName={isGameLobby ? selectedGameMeta?.label : undefined}
           failed={Boolean(tableLoadError)}
           filtered={Boolean(
-            query.trim() || stakeFilter !== "all" || seatFilter !== "all"
+            query.trim() || stakeFilter !== "all" || seatFilter !== "all",
           )}
           onReset={() => {
             setQuery("");
