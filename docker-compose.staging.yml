@@ -1,0 +1,204 @@
+# Isolated integration environment. Never combine with docker-compose.prod.yml.
+# Only frontend is published, and only on VPS loopback.
+name: casino-mdg-staging
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${STAGING_DB_USER:?Set STAGING_DB_USER}
+      POSTGRES_PASSWORD: ${STAGING_DB_PASSWORD:?Set STAGING_DB_PASSWORD}
+      POSTGRES_DB: ${STAGING_DB_NAME:?Set STAGING_DB_NAME}
+    volumes:
+      - staging-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${STAGING_DB_USER:?Set STAGING_DB_USER} -d ${STAGING_DB_NAME:?Set STAGING_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - staging-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${STAGING_RABBITMQ_USER:?Set STAGING_RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${STAGING_RABBITMQ_PASSWORD:?Set STAGING_RABBITMQ_PASSWORD}
+    volumes:
+      - staging-rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ENV: staging
+      DEBUG: "False"
+      SECURE_SSL_REDIRECT: "False"
+      DJANGO_SECRET_KEY: ${STAGING_DJANGO_SECRET_KEY:?Set STAGING_DJANGO_SECRET_KEY}
+      JWT_SECRET: ${STAGING_JWT_SECRET:?Set STAGING_JWT_SECRET}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${STAGING_DB_NAME:?Set STAGING_DB_NAME}
+      DB_USER: ${STAGING_DB_USER:?Set STAGING_DB_USER}
+      DB_PASSWORD: ${STAGING_DB_PASSWORD:?Set STAGING_DB_PASSWORD}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${STAGING_RABBITMQ_USER:?Set STAGING_RABBITMQ_USER}:${STAGING_RABBITMQ_PASSWORD:?Set STAGING_RABBITMQ_PASSWORD}@rabbitmq:5672//
+      ALLOWED_HOSTS: ${STAGING_ALLOWED_HOSTS:?Set STAGING_ALLOWED_HOSTS}
+      CORS_ALLOWED_ORIGINS: ${STAGING_ORIGIN:?Set STAGING_ORIGIN}
+      GAME_ENGINE_INTERNAL_URL: http://game-engine:8080
+      GAME_ENGINE_BOT_SECRET: ${STAGING_ENGINE_BOT_SECRET:?Set STAGING_ENGINE_BOT_SECRET}
+      GAME_ENGINE_RESULT_SECRET: ${STAGING_ENGINE_RESULT_SECRET:?Set STAGING_ENGINE_RESULT_SECRET}
+      PAYMENT_WEBHOOK_SECRET: ${STAGING_PAYMENT_WEBHOOK_SECRET:?Set STAGING_PAYMENT_WEBHOOK_SECRET}
+      OTP_FALLBACK_DISPLAY: "False"
+    volumes:
+      - staging-media:/app/media
+      - staging-static:/app/staticfiles
+    command: >-
+      sh -c "python manage.py migrate --noinput &&
+      python manage.py collectstatic --noinput &&
+      gunicorn config.wsgi:application --bind 0.0.0.0:8000
+      --workers 2 --threads 2 --timeout 60 --access-logfile - --error-logfile -"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz/', timeout=5)"]
+      start_period: 90s
+      interval: 10s
+      timeout: 6s
+      retries: 12
+
+  game-engine:
+    build:
+      context: ./game-engine
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ACTIVITY_OUTBOX_DIR: /var/lib/casino-activity
+      GAME_ENGINE_ADDR: ":8080"
+      BACKEND_INTERNAL_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${STAGING_JWT_SECRET:?Set STAGING_JWT_SECRET}
+      GAME_ENGINE_BOT_SECRET: ${STAGING_ENGINE_BOT_SECRET:?Set STAGING_ENGINE_BOT_SECRET}
+      GAME_ENGINE_RESULT_SECRET: ${STAGING_ENGINE_RESULT_SECRET:?Set STAGING_ENGINE_RESULT_SECRET}
+      NODE_ID: casino-staging-1
+    volumes:
+      - staging-engine-activity:/var/lib/casino-activity
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      game-engine:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${STAGING_PORT:-18081}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 6s
+      retries: 10
+
+  # Enable background jobs only when testing asynchronous workflows.
+  celery-worker:
+    profiles: ["background"]
+    build:
+      context: ./backend
+      target: production
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ENV: staging
+      DEBUG: "False"
+      DJANGO_SECRET_KEY: ${STAGING_DJANGO_SECRET_KEY:?Set STAGING_DJANGO_SECRET_KEY}
+      JWT_SECRET: ${STAGING_JWT_SECRET:?Set STAGING_JWT_SECRET}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${STAGING_DB_NAME:?Set STAGING_DB_NAME}
+      DB_USER: ${STAGING_DB_USER:?Set STAGING_DB_USER}
+      DB_PASSWORD: ${STAGING_DB_PASSWORD:?Set STAGING_DB_PASSWORD}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${STAGING_RABBITMQ_USER:?Set STAGING_RABBITMQ_USER}:${STAGING_RABBITMQ_PASSWORD:?Set STAGING_RABBITMQ_PASSWORD}@rabbitmq:5672//
+      GAME_ENGINE_INTERNAL_URL: http://game-engine:8080
+      GAME_ENGINE_BOT_SECRET: ${STAGING_ENGINE_BOT_SECRET:?Set STAGING_ENGINE_BOT_SECRET}
+      GAME_ENGINE_RESULT_SECRET: ${STAGING_ENGINE_RESULT_SECRET:?Set STAGING_ENGINE_RESULT_SECRET}
+      PAYMENT_WEBHOOK_SECRET: ${STAGING_PAYMENT_WEBHOOK_SECRET:?Set STAGING_PAYMENT_WEBHOOK_SECRET}
+      OTP_FALLBACK_DISPLAY: "False"
+    command: celery -A config worker --loglevel=info --concurrency=2
+
+  celery-beat:
+    profiles: ["background"]
+    build:
+      context: ./backend
+      target: production
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ENV: staging
+      DEBUG: "False"
+      DJANGO_SECRET_KEY: ${STAGING_DJANGO_SECRET_KEY:?Set STAGING_DJANGO_SECRET_KEY}
+      JWT_SECRET: ${STAGING_JWT_SECRET:?Set STAGING_JWT_SECRET}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${STAGING_DB_NAME:?Set STAGING_DB_NAME}
+      DB_USER: ${STAGING_DB_USER:?Set STAGING_DB_USER}
+      DB_PASSWORD: ${STAGING_DB_PASSWORD:?Set STAGING_DB_PASSWORD}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://${STAGING_RABBITMQ_USER:?Set STAGING_RABBITMQ_USER}:${STAGING_RABBITMQ_PASSWORD:?Set STAGING_RABBITMQ_PASSWORD}@rabbitmq:5672//
+      GAME_ENGINE_INTERNAL_URL: http://game-engine:8080
+      GAME_ENGINE_BOT_SECRET: ${STAGING_ENGINE_BOT_SECRET:?Set STAGING_ENGINE_BOT_SECRET}
+      GAME_ENGINE_RESULT_SECRET: ${STAGING_ENGINE_RESULT_SECRET:?Set STAGING_ENGINE_RESULT_SECRET}
+      PAYMENT_WEBHOOK_SECRET: ${STAGING_PAYMENT_WEBHOOK_SECRET:?Set STAGING_PAYMENT_WEBHOOK_SECRET}
+      OTP_FALLBACK_DISPLAY: "False"
+    command: celery -A config beat --loglevel=info
+
+volumes:
+  staging-postgres:
+  staging-redis:
+  staging-rabbitmq:
+  staging-media:
+  staging-static:
+  staging-engine-activity:
