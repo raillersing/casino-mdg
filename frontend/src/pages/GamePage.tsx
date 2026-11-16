@@ -53,6 +53,19 @@ import { trackEvent } from "@services/analytics";
 import { TableExitModal } from "@components/game/TableExitModal";
 import { WaitingRoom, type WaitingPlayer } from "@components/game/WaitingRoom";
 import { isConfirmedConnection } from "@utils/playerPresence";
+import {
+  AVATAR_COLORS,
+  PlayerSeat,
+  PlayingCard,
+  avatarColor,
+} from "@components/game/GameTablePrimitives";
+import {
+  actionLabel,
+  badgeForSeat,
+  cardView,
+  pokerPhaseLabel,
+  tokenSubject,
+} from "@utils/gamePresentation";
 import { PokerBuyInModal } from "@components/game/PokerBuyInModal";
 import { PokerTopUpModal } from "@components/game/PokerTopUpModal";
 import { getSeatPosition } from "@utils/tableLayout";
@@ -86,31 +99,9 @@ const BOT_NAMES = [
   "Vola",
   "Hanta",
 ];
-const AVATAR_COLORS = [
-  "#e57373",
-  "#ba68c8",
-  "#64b5f6",
-  "#4db6ac",
-  "#ffb74d",
-  "#a1887f",
-  "#90a4ae",
-  "#f06292",
-  "#7986cb",
-  "#4dd0e1",
-  "#81c784",
-  "#fff176",
-];
 function botNameForSeat(index: number) {
   return BOT_NAMES[index % BOT_NAMES.length];
 }
-function avatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
 type SoundKind =
   | "deal"
   | "chip"
@@ -5212,242 +5203,6 @@ export function GamePage() {
         </div>
       )}
     </div>
-  );
-}
-
-function PlayerSeat({
-  pos,
-  name,
-  chips,
-  bet = 0,
-  active = false,
-  folded = false,
-  action = "",
-  badge = "",
-  thinking = false,
-  botChat,
-  playerChat,
-  seatStyle,
-  hasCards = false,
-  stats,
-}: {
-  pos: string;
-  name: string;
-  chips: string;
-  bet?: number;
-  active?: boolean;
-  folded?: boolean;
-  action?: string;
-  badge?: string;
-  thinking?: boolean;
-  botChat?: { text: string; emote: string };
-  playerChat?: string | null;
-  seatStyle?: React.CSSProperties;
-  hasCards?: boolean;
-  stats?: string;
-}) {
-  const avColor = avatarColor(name);
-  const activeBubble =
-    playerChat || (botChat ? `${botChat.emote} ${botChat.text}` : null);
-  return (
-    <div
-      className={`player-seat seat-${pos} ${active ? "active-seat" : ""} ${folded ? "folded-seat" : ""}`}
-      style={seatStyle}
-      title={stats ? `${name} — ${stats}` : name}
-    >
-      <div className="seat-avatar" style={{ background: avColor }}>
-        {name[0]}
-      </div>
-      <div>
-        <strong>{name}</strong>
-        <span>{chips}</span>
-        {stats && <small className="seat-stats">{stats}</small>}
-      </div>
-      {badge && (
-        <i
-          className={`seat-badge ${badge.includes("D") ? "seat-dealer" : badge.includes("BB") ? "seat-big-blind" : badge.includes("SB") ? "seat-small-blind" : ""}`}
-        >
-          {badge}
-        </i>
-      )}
-      {action && <b className="seat-action-bubble">{action}</b>}
-      {thinking && !activeBubble && (
-        <span className="seat-thinking-bubble">…</span>
-      )}
-      {activeBubble && <span className="seat-chat-bubble">{activeBubble}</span>}
-      {bet > 0 && <span className="seat-bet-chip">{bet}</span>}
-      {hasCards && (
-        <div className="seat-hole-cards">
-          <span className="seat-card-back" />
-          <span className="seat-card-back" />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function badgeForSeat(
-  player: Record<string, unknown> | undefined,
-  state: Record<string, unknown> | null,
-) {
-  if (!player || !state) return "";
-  const playerId = String(player.id || "");
-  const badges: string[] = [];
-  if (state.button_player_id != null) {
-    if (playerId === String(state.button_player_id || "")) badges.push("D");
-    if (playerId === String(state.small_blind_player_id || ""))
-      badges.push("SB");
-    if (playerId === String(state.big_blind_player_id || "")) badges.push("BB");
-  }
-  return badges.join(" · ");
-}
-function PlayingCard({
-  value,
-  suit,
-  suitIndex,
-  red,
-  hidden,
-  selected,
-  onClick,
-  className = "",
-  style,
-}: {
-  value: string;
-  suit: string;
-  suitIndex?: number;
-  red?: boolean;
-  hidden?: boolean;
-  selected?: boolean;
-  onClick?: () => void;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  const suitClass =
-    suitIndex !== undefined
-      ? ["suit-club", "suit-diamond", "suit-heart", "suit-spade"][suitIndex] ||
-        ""
-      : "";
-  const isRed =
-    red || ["♦", "♥"].includes(suit) || suitIndex === 1 || suitIndex === 2;
-
-  if (hidden) {
-    return (
-      <div
-        className={`playing-card hidden-card card-deluxe ${className}`}
-        onClick={onClick}
-        style={style}
-      >
-        <div className="card-back-pattern">
-          <span className="card-back-emblem">✦</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={style}
-      className={`playing-card card-deluxe ${suitClass} ${isRed ? "card-red red" : "card-black"} ${selected ? "selected" : ""} ${className}`}
-    >
-      <div className="card-corner card-corner-tl">
-        <span className="card-val">{value}</span>
-        <span className="card-sym">{suit}</span>
-      </div>
-      <div className="card-center-suit">
-        <span>{suit}</span>
-      </div>
-      <div className="card-corner card-corner-br">
-        <span className="card-val">{value}</span>
-        <span className="card-sym">{suit}</span>
-      </div>
-    </button>
-  );
-}
-
-function cardView(card: { rank: number; suit: number }) {
-  const suits = ["♣", "♦", "♥", "♠"];
-  const ranks: Record<number, string> = {
-    2: "2",
-    3: "3",
-    4: "4",
-    5: "5",
-    6: "6",
-    7: "7",
-    8: "8",
-    9: "9",
-    10: "10",
-    11: "J",
-    12: "Q",
-    13: "K",
-    14: "A",
-  };
-  return {
-    value: ranks[card.rank] || "?",
-    suit: suits[card.suit] || "",
-    suitIndex: card.suit,
-    red: card.suit === 1 || card.suit === 2,
-  };
-}
-
-function tokenSubject(token: string | null) {
-  if (!token) return "";
-  try {
-    const payload = JSON.parse(
-      atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
-    ) as { sub?: string };
-    return payload.sub || "";
-  } catch {
-    return "";
-  }
-}
-
-function pokerPhaseLabel(phase: string) {
-  return (
-    (
-      {
-        preflop: "Préflop",
-        flop: "Flop",
-        turn: "Turn",
-        river: "River",
-        showdown: "Showdown",
-      } as Record<string, string>
-    )[phase] || phase
-  );
-}
-
-function actionLabel(action: string, phase?: string) {
-  if (action === "street_changed") {
-    return phase === "showdown"
-      ? "Showdown"
-      : `${pokerPhaseLabel(phase || "")} distribué`;
-  }
-  return (
-    (
-      {
-        fold: "Se couche",
-        check: "Check",
-        call: "Suit",
-        bet: "Mise",
-        raise: "Relance",
-        all_in: "Tapis (All-in)",
-        new_hand: "Nouvelle manche",
-        hand_started: "Manche lancée",
-        hand_summary: "Fin de manche",
-        post_sb: "Petite blinde",
-        post_bb: "Grosse blinde",
-        showdown: "Abattage (Showdown)",
-        play_card: "Carte jouée",
-        draw: "Pioche",
-        discard: "Défausse",
-        roll_dice: "Lancer de dé",
-        move_pawn: "Déplacement pion",
-        play_tile: "Pose domino",
-        draw_tile: "Pioche domino",
-        pass: "Passe",
-      } as Record<string, string>
-    )[action] || action
   );
 }
 
