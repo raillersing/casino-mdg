@@ -30,7 +30,12 @@ import {
 } from "@services/responsibleGaming";
 import { ResponsibleGamingModal } from "@components/ResponsibleGamingModal";
 import { useTranslation } from "react-i18next";
-import { updateCurrentUser } from "@services/auth";
+import {
+  getCurrentUser,
+  requestEmailBinding,
+  updateCurrentUser,
+  verifyEmailBinding,
+} from "@services/auth";
 import {
   claimDailyMission,
   getDailyMissions,
@@ -75,6 +80,12 @@ export function ProfilePage() {
   const [editNameValue, setEditNameValue] = useState("");
   const [editNameSaving, setEditNameSaving] = useState(false);
   const [editNameError, setEditNameError] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailRequestId, setEmailRequestId] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   const handleLogout = () => {
     logout();
@@ -108,6 +119,71 @@ export function ProfilePage() {
       );
     } finally {
       setEditNameSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!accessToken) return;
+    getCurrentUser(accessToken)
+      .then((profile) => {
+        const current = useGameStore.getState().user;
+        setUser({
+          ...current,
+          id: profile.id,
+          displayName: profile.display_name,
+          phone: profile.phone,
+          email: profile.email,
+          emailVerified: profile.email_verified,
+          xp: profile.xp,
+          level: profile.level,
+          balance: current?.balance ?? 0,
+          isStaff: profile.is_staff,
+        });
+      })
+      .catch(() => undefined);
+  }, [accessToken, setUser]);
+
+  const handleEmailRequest = async () => {
+    if (!accessToken) return;
+    setEmailBusy(true);
+    setEmailError("");
+    setEmailMessage("");
+    try {
+      const result = await requestEmailBinding(accessToken, contactEmail);
+      setEmailRequestId(result.request_id);
+      setEmailMessage("Code envoyé à l'adresse indiquée.");
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Envoi impossible.");
+    } finally {
+      setEmailBusy(false);
+    }
+  };
+
+  const handleEmailVerify = async () => {
+    if (!accessToken) return;
+    setEmailBusy(true);
+    setEmailError("");
+    try {
+      const result = await verifyEmailBinding(
+        accessToken,
+        emailRequestId,
+        emailCode,
+      );
+      const current = useGameStore.getState().user;
+      if (current) {
+        setUser({
+          ...current,
+          email: result.email,
+          emailVerified: result.email_verified,
+        });
+      }
+      setEmailRequestId("");
+      setEmailCode("");
+      setEmailMessage("Adresse email vérifiée et associée à votre compte.");
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Code invalide.");
+    } finally {
+      setEmailBusy(false);
     }
   };
 
@@ -267,6 +343,76 @@ export function ProfilePage() {
           <ChevronRight size={16} />
         </Link>
       </div>
+      <section className="activity-card" aria-label="Informations de contact">
+        <div className="section-heading compact">
+          <div>
+            <span className="eyebrow">Informations du compte</span>
+            <h2>Adresse email</h2>
+          </div>
+        </div>
+        <p>
+          {user?.email && !user.email.endsWith(".local")
+            ? user.email
+            : "Aucune adresse email personnelle associée"}
+          {" · "}
+          {user?.emailVerified ? "Vérifiée" : "Non vérifiée"}
+        </p>
+        {!user?.emailVerified && accessToken && (
+          <div style={{ display: "grid", gap: "10px", marginTop: "12px" }}>
+            <label htmlFor="profile-contact-email" className="field-label">
+              Associer une adresse email à votre compte
+            </label>
+            <input
+              id="profile-contact-email"
+              className="auth-name-field"
+              type="email"
+              autoComplete="email"
+              placeholder="exemple@domaine.com"
+              value={contactEmail}
+              onChange={(event) => setContactEmail(event.target.value)}
+            />
+            <button
+              type="button"
+              className="button button-outline"
+              disabled={emailBusy || !contactEmail.includes("@")}
+              onClick={() => void handleEmailRequest()}
+            >
+              Envoyer un code de vérification
+            </button>
+            {emailRequestId && (
+              <>
+                <label htmlFor="profile-email-code" className="field-label">
+                  Code reçu par email
+                </label>
+                <input
+                  id="profile-email-code"
+                  className="auth-name-field"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={emailCode}
+                  onChange={(event) =>
+                    setEmailCode(event.target.value.replace(/\D/g, ""))
+                  }
+                />
+                <button
+                  type="button"
+                  className="button button-gold"
+                  disabled={emailBusy || emailCode.length !== 6}
+                  onClick={() => void handleEmailVerify()}
+                >
+                  Confirmer mon email
+                </button>
+              </>
+            )}
+            {emailMessage && <p role="status">{emailMessage}</p>}
+            {emailError && (
+              <p role="alert" className="auth-error">
+                {emailError}
+              </p>
+            )}
+          </div>
+        )}
+      </section>
       {user?.isStaff && (
         <section className="activity-card staff-access-card">
           <div className="section-heading compact">

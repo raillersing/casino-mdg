@@ -154,6 +154,15 @@ services:
       GAME_ENGINE_INTERNAL_URL: http://game-engine:8080
       GAME_ENGINE_BOT_SECRET: ${GAME_ENGINE_BOT_SECRET}
       GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET}
+      # Email login is off until a secure SMTP provider is configured.
+      EMAIL_OTP_ENABLED: ${EMAIL_OTP_ENABLED:-False}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
+      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-False}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
       # Production OTP requires a functioning SMS provider (no code fallback).
       SMS_GATEWAY_URL: ${SMS_GATEWAY_URL:-}
       SMS_GATEWAY_API_KEY: ${SMS_GATEWAY_API_KEY:-}

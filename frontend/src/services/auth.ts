@@ -3,6 +3,7 @@ type OtpRequestResponse = {
   expires_in: number;
   dev_code?: string;
   sms_sent?: boolean;
+  email_sent?: boolean;
 };
 
 type AuthResponse = {
@@ -12,6 +13,8 @@ type AuthResponse = {
     id: string;
     display_name: string;
     phone: string;
+    email: string;
+    email_verified: boolean;
     xp: number;
     level: number;
     is_staff: boolean;
@@ -42,6 +45,55 @@ export function verifyOtp(phone: string, code: string, displayName: string) {
   });
 }
 
+export function requestEmailOtp(phone: string, email: string) {
+  return post<OtpRequestResponse>("email/request/", { phone, email });
+}
+
+export function verifyEmailOtp(
+  requestId: string,
+  code: string,
+  displayName: string,
+) {
+  return post<AuthResponse>("email/verify/", {
+    request_id: requestId,
+    code,
+    display_name: displayName,
+  });
+}
+
+export async function requestEmailBinding(token: string, email: string) {
+  const response = await fetch("/api/v1/auth/me/email/request/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new Error(payload.detail || "Envoi email impossible.");
+  return payload as OtpRequestResponse;
+}
+
+export async function verifyEmailBinding(
+  token: string,
+  requestId: string,
+  code: string,
+) {
+  const response = await fetch("/api/v1/auth/me/email/verify/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ request_id: requestId, code }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.detail || "Code invalide.");
+  return payload as { email: string; email_verified: boolean };
+}
+
 export function getCurrentUser(token: string) {
   return fetch("/api/v1/auth/me/", {
     headers: { Authorization: `Bearer ${token}` },
@@ -52,6 +104,8 @@ export function getCurrentUser(token: string) {
       id: string;
       display_name: string;
       phone: string;
+      email: string;
+      email_verified: boolean;
       xp: number;
       level: number;
       is_staff: boolean;
@@ -91,6 +145,8 @@ export function updateCurrentUser(token: string, displayName: string) {
       id: string;
       display_name: string;
       phone: string;
+      email: string;
+      email_verified: boolean;
       xp: number;
       level: number;
       is_staff: boolean;

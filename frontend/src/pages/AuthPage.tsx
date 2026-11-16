@@ -11,11 +11,22 @@ import {
 } from "lucide-react";
 import { useGameStore } from "@stores/gameStore";
 import { useTranslation } from "react-i18next";
-import { createGuestToken, requestOtp, verifyOtp } from "@/services/auth";
+import {
+  createGuestToken,
+  requestEmailOtp,
+  requestOtp,
+  verifyEmailOtp,
+  verifyOtp,
+} from "@/services/auth";
 
 export function AuthPage() {
   const { t } = useTranslation();
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState<"email" | "sms">(
+    "email",
+  );
+  const [emailRequestId, setEmailRequestId] = useState("");
   const [code, setCode] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [step, setStep] = useState<"phone" | "code" | "done">("phone");
@@ -43,7 +54,11 @@ export function AuthPage() {
     setLoading(true);
     setError("");
     try {
-      const result = await requestOtp(phone);
+      const result =
+        deliveryMethod === "email"
+          ? await requestEmailOtp(phone, email.trim())
+          : await requestOtp(phone);
+      setEmailRequestId(deliveryMethod === "email" ? result.request_id : "");
       setDevCode(result.dev_code);
       setSmsSent(Boolean(result.sms_sent));
       if (result.dev_code) {
@@ -66,11 +81,20 @@ export function AuthPage() {
     setLoading(true);
     setError("");
     try {
-      const result = await verifyOtp(phone, code, displayName || "Joueur MDG");
+      const result =
+        deliveryMethod === "email"
+          ? await verifyEmailOtp(
+              emailRequestId,
+              code,
+              displayName || "Joueur MDG",
+            )
+          : await verifyOtp(phone, code, displayName || "Joueur MDG");
       setUser({
         id: result.user.id,
         displayName: result.user.display_name,
-        email: `${result.user.phone}@mdg.local`,
+        email: result.user.email,
+        emailVerified: result.user.email_verified,
+        phone: result.user.phone,
         xp: result.user.xp,
         level: result.user.level,
         balance: result.wallet.balance,
@@ -136,13 +160,66 @@ export function AuthPage() {
             </h1>
             <p className="auth-intro">
               {step === "phone"
-                ? "Entrez votre numéro malgache (Telma, Orange, Airtel). Un code de sécurité à 6 chiffres vous sera attribué pour sécuriser vos jetons."
-                : smsSent
-                  ? `Un code à 6 chiffres a été envoyé par SMS au numéro indiqué.`
-                  : `Vérification sécurisée pour votre numéro.`}
+                ? deliveryMethod === "email"
+                  ? "Indiquez votre adresse email et votre numéro de téléphone. Un code sera envoyé à votre boîte mail. Le numéro identifie votre compte, mais n'est pas vérifié par email."
+                  : "Indiquez votre numéro de téléphone pour recevoir un code SMS."
+                : deliveryMethod === "email"
+                  ? "Un code à six chiffres a été envoyé à votre adresse email."
+                  : smsSent
+                    ? "Un code à six chiffres a été envoyé par SMS."
+                    : "Vérification en attente pour votre numéro."}
             </p>
             {step === "phone" ? (
               <>
+                <div
+                  role="group"
+                  aria-label="Méthode de vérification"
+                  style={{ display: "flex", gap: "10px", marginBottom: "16px" }}
+                >
+                  <button
+                    type="button"
+                    className={`button ${deliveryMethod === "email" ? "button-gold" : "button-outline"}`}
+                    aria-pressed={deliveryMethod === "email"}
+                    onClick={() => {
+                      setDeliveryMethod("email");
+                      setError("");
+                    }}
+                  >
+                    Email
+                  </button>
+                  <button
+                    type="button"
+                    className={`button ${deliveryMethod === "sms" ? "button-gold" : "button-outline"}`}
+                    aria-pressed={deliveryMethod === "sms"}
+                    onClick={() => {
+                      setDeliveryMethod("sms");
+                      setError("");
+                    }}
+                  >
+                    SMS
+                  </button>
+                </div>
+                {deliveryMethod === "email" && (
+                  <>
+                    <label className="field-label" htmlFor="auth-email">
+                      Adresse email
+                    </label>
+                    <input
+                      id="auth-email"
+                      type="email"
+                      autoComplete="email"
+                      className="auth-name-field"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="exemple@domaine.com"
+                      required
+                    />
+                    <p style={{ fontSize: "12px", color: "var(--muted)" }}>
+                      Si votre ancien compte n'a pas encore d'email, associez-en
+                      un depuis votre profil après vous être connecté.
+                    </p>
+                  </>
+                )}
                 <label className="field-label">
                   {t("auth.phone", "Numéro de téléphone portable")}
                 </label>
@@ -171,7 +248,11 @@ export function AuthPage() {
                 <button
                   type="button"
                   className="button button-gold full"
-                  disabled={loading || phone.replace(/^0/, "").length < 8}
+                  disabled={
+                    loading ||
+                    phone.replace(/^0/, "").length < 8 ||
+                    (deliveryMethod === "email" && !email.includes("@"))
+                  }
                   onClick={() => void handleRequest()}
                 >
                   {loading ? (
@@ -303,7 +384,7 @@ export function AuthPage() {
                       />
                       {smsSent
                         ? "SMS envoyé ! Code de confirmation direct :"
-                        : "Code de vérification disponible :"}
+                        : "Code local de développement :"}
                     </span>
                     <strong
                       style={{
@@ -378,7 +459,12 @@ export function AuthPage() {
                   <button
                     type="button"
                     className="auth-resend"
-                    onClick={() => setStep("phone")}
+                    onClick={() => {
+                      setStep("phone");
+                      setCode("");
+                      setDevCode(undefined);
+                      setEmailRequestId("");
+                    }}
                     style={{
                       background: "none",
                       border: 0,
@@ -387,7 +473,9 @@ export function AuthPage() {
                       fontSize: "12px",
                     }}
                   >
-                    {t("authUi.changePhone", "Changer de numéro")}
+                    {deliveryMethod === "email"
+                      ? "Modifier mes coordonnées"
+                      : t("authUi.changePhone", "Changer de numéro")}
                   </button>
                 </div>
               </>
