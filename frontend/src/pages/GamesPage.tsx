@@ -5,6 +5,7 @@ import { ArrowRight, Search, Users, Bot, Zap, Loader2 } from "lucide-react";
 import { useGameStore } from "@stores/gameStore";
 import { startBotSimulation } from "@services/games";
 import { createGuestToken } from "@services/auth";
+import { trackEvent } from "@services/analytics";
 
 const games = [
   {
@@ -122,6 +123,10 @@ export function GamesPage() {
   const handleSoloPlay = async (
     gameId: "belote" | "domino" | "ludo" | "rami" | "poker",
   ) => {
+    void trackEvent("game_selected", {
+      game_type: gameId,
+      metadata: { source: "catalog", intent: "practice" },
+    });
     setLaunchingGame(gameId);
     try {
       let currentToken = token;
@@ -140,6 +145,11 @@ export function GamesPage() {
         idempotencyKey,
         botCount,
       );
+      void trackEvent("bot_simulation_started", {
+        game_type: gameId,
+        mode: "DEMO_AI",
+        metadata: { source: "catalog" },
+      });
       navigate(
         `/game/${session.game_type}/${session.table_code}?mode=demo_ai&session=${session.session_id}&table_id=${session.table_id}${session.admission_token ? `&admission_token=${session.admission_token}` : ""}`,
       );
@@ -260,6 +270,19 @@ export function GamesPage() {
                           : `/lobby/${game.id}`
                     }
                     className={`discovery-card discovery-${game.color}`}
+                    onClick={() =>
+                      void trackEvent("game_selected", {
+                        game_type: game.id,
+                        metadata: {
+                          source: "catalog",
+                          intent: isCreating
+                            ? "create"
+                            : isMatching
+                              ? "matchmaking"
+                              : "browse",
+                        },
+                      })
+                    }
                   >
                     <CatalogGameCard
                       game={game}
@@ -296,6 +319,15 @@ export function GamesPage() {
                         : `/lobby/${game.id}?action=matchmaking`
                     }
                     className="button button-gold button-small"
+                    onClick={() =>
+                      void trackEvent("game_selected", {
+                        game_type: game.id,
+                        metadata: {
+                          source: "catalog_secondary",
+                          intent: isMatching ? "browse" : "matchmaking",
+                        },
+                      })
+                    }
                     style={{
                       justifyContent: "center",
                       fontWeight: 600,
