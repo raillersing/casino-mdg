@@ -90,6 +90,41 @@ class HumanFiveGameAcceptanceContractTests(TestCase):
                 )
                 self.assertEqual(table.status, "open")
 
+    def test_matchmaking_assembles_each_supported_game_capacity(self):
+        capabilities = self.clients[0].get(
+            "/api/v1/games/table-capabilities/"
+        ).data["games"]
+        for game in ("belote", "ludo", "domino", "rami", "poker"):
+            with self.subTest(game=game):
+                capacity = min(capabilities[game]["players"])
+                ticket_ids = []
+                for index in range(capacity):
+                    queued = self.clients[index].post(
+                        "/api/v1/games/matchmaking/queue/",
+                        {"game_type": game, "target_size": capacity},
+                        format="json",
+                    )
+                    self.assertEqual(queued.status_code, 201)
+                    ticket_ids.append(queued.data["ticket"]["ticket_id"])
+                    self.assertEqual(
+                        queued.data["ticket"]["status"],
+                        "matched" if index == capacity - 1 else "queued",
+                    )
+                self.assertEqual(len(set(ticket_ids)), capacity)
+                status = self.clients[0].get(
+                    f"/api/v1/games/matchmaking/status/?game_type={game}"
+                )
+                self.assertEqual(status.status_code, 200)
+                ticket = status.data["ticket"]
+                self.assertEqual(ticket["status"], "matched")
+                table = GameTable.objects.get(pk=ticket["table_id"])
+                self.assertEqual(table.game_type, game)
+                self.assertEqual(table.max_players, capacity)
+                self.assertEqual(table.stake_amount, 0)
+                self.assertEqual(
+                    TableSeat.objects.filter(table=table).count(), capacity
+                )
+
     def test_private_code_is_not_visible_until_invited_player_joins(self):
         creator, outsider = self.clients[0], self.clients[1]
         created = creator.post(
