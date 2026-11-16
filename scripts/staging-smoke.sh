@@ -9,6 +9,10 @@ if ! [[ "$BASE_URL" =~ ^https?:// ]]; then
   exit 2
 fi
 
+# Refuse accidental smoke tests against a non-staging frontend.
+echo "Verifying CasinoMDG staging identity at $BASE_URL/__staging__/identity"
+curl --fail --silent --show-error --max-time 15 "$BASE_URL/__staging__/identity" \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d == {"environment":"staging","application":"casino-mdg"}, d'
 echo "Checking frontend at $BASE_URL/"
 curl --fail --silent --show-error --max-time 15 --output /dev/null "$BASE_URL/"
 echo "Checking Django through Nginx at $BASE_URL/api/v1/ping/"
