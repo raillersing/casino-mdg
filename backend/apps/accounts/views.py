@@ -68,21 +68,22 @@ class RequestOTPView(APIView):
         )
 
         sms_sent = send_sms_otp(phone, code)
+        if not sms_sent and not settings.DEBUG:
+            # Never disclose or keep an undelivered login secret in production.
+            challenge.delete()
+            return Response(
+                {"detail": "Service SMS momentanément indisponible. Réessayez plus tard."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         response = {
             "request_id": challenge.request_id,
             "expires_in": 300,
             "sms_sent": sms_sent,
         }
-
-        # Deliver code in response if debug mode, or if SMS provider not available/configured,
-        # or if OTP_FALLBACK_DISPLAY is enabled, ensuring players are never blocked
-        allow_fallback = (
-            not sms_sent
-            or settings.DEBUG
-            or os.getenv("OTP_FALLBACK_DISPLAY", "true").lower() in ("true", "1", "yes")
-        )
-        if allow_fallback:
+        # Development-only convenience; ignored in production even if a
+        # legacy OTP_FALLBACK_DISPLAY variable is configured.
+        if settings.DEBUG:
             response["dev_code"] = code
 
         return Response(response, status=status.HTTP_201_CREATED)
@@ -126,7 +127,8 @@ class VerifyOTPView(APIView):
             challenge.save(update_fields=["attempts"])
 
             is_valid = check_password(code, challenge.code_hash)
-            bypass_code = os.getenv("OTP_BYPASS_CODE", "").strip()
+            # The emergency bypass must never authenticate production users.
+            bypass_code = os.getenv("OTP_BYPASS_CODE", "").strip() if settings.DEBUG else ""
             if not is_valid and bypass_code and code == bypass_code:
                 is_valid = True
 
