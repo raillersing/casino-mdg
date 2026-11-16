@@ -83,7 +83,11 @@ export function AuthPage() {
     try {
       const result =
         deliveryMethod === "email"
-          ? await verifyEmailOtp(emailRequestId, code, displayName || "Joueur MDG")
+          ? await verifyEmailOtp(
+              emailRequestId,
+              code,
+              displayName || "Joueur MDG",
+            )
           : await verifyOtp(phone, code, displayName || "Joueur MDG");
       setUser({
         id: result.user.id,
@@ -380,7 +384,7 @@ export function AuthPage() {
                       />
                       {smsSent
                         ? "SMS envoyé ! Code de confirmation direct :"
-                        : "Code local de développement :"} 
+                        : "Code local de développement :"}
                     </span>
                     <strong
                       style={{
