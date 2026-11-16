@@ -80,7 +80,9 @@ test("unavailable live activity does not show a false zero", async ({
   await page.goto("/");
   // The redesigned home intentionally does not display unverified activity.
   await expect(page.locator(".live-activity-totals")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: /Choisir un jeu/i })).toBeVisible();
+  const playLink = page.getByRole("link", { name: "Jouer en ligne" });
+  await expect(playLink).toBeVisible();
+  await expect(playLink).toHaveAttribute("href", "/games?intent=matchmaking");
 });
 
 test("table creation exposes only server-supported game settings", async ({
