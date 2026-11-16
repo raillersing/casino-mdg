@@ -8,6 +8,7 @@
 - Aucun `container_name` global, aucun réseau ou volume de production partagé.
 - PostgreSQL, Redis, RabbitMQ, backend et moteur de jeu accessibles uniquement sur le réseau Docker du staging. Un seul port hôte est ouvert, **sur 127.0.0.1** : `STAGING_PORT` (18081 par défaut).
 - Aucun identifiant de paiement ni données de production dans le staging ; n'utiliser que des comptes de test et de faux montants. Les services Celery sont optionnels (profil `background`) afin de limiter tout effet non souhaité.
+- **OTP** : le staging tourne avec `DEBUG=False`. Si le fournisseur SMS est absent ou en panne, l'API renvoie HTTP 503 sans révéler de code. Pour créer deux comptes de test par téléphone, connecter uniquement une passerelle SMS de test via `STAGING_SMS_GATEWAY_URL` et `STAGING_SMS_GATEWAY_API_KEY`, ou provisionner les comptes de manière contrôlée et isolée. Aucun contournement de code OTP n'est autorisé en production.
 - Le fichier `.env.staging` est ignoré par Git. Ne jamais injecter de secrets dans le dépôt ou dans les logs.
 
 ## Préparer et lancer sur un serveur possédant Docker Compose
