@@ -82,7 +82,7 @@ func storeFinance(record financeRecord) error {
 		return err
 	}
 	syncErr := directory.Sync()
-	closeErr := directory.Close()
+	closeErr = directory.Close()
 	if syncErr != nil {
 		return syncErr
 	}
