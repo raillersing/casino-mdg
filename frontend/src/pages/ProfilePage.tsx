@@ -409,7 +409,7 @@ export function ProfilePage() {
               <p role="alert" className="auth-error">
                 {emailError}
               </p>
-            )
+            )}
           </div>
         )}
       </section>
