@@ -71,7 +71,8 @@ export async function requestEmailBinding(token: string, email: string) {
     body: JSON.stringify({ email }),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.detail || "Envoi email impossible.");
+  if (!response.ok)
+    throw new Error(payload.detail || "Envoi email impossible.");
   return payload as OtpRequestResponse;
 }
 
