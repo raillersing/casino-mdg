@@ -40,6 +40,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     ]
 
     email = models.EmailField(_("email"), unique=True)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
     phone = models.CharField(_("téléphone"), max_length=20, unique=True)
     display_name = models.CharField(_("nom affiché"), max_length=50)
     avatar = models.URLField(blank=True)
@@ -99,4 +100,27 @@ class OTPChallenge(models.Model):
 
     class Meta:
         db_table = "otp_challenges"
+        ordering = ["-created_at"]
+
+
+class EmailOTPChallenge(models.Model):
+    """Single-use, time-limited challenge bound to a purpose and email address."""
+
+    PURPOSES = [("login", "Connexion"), ("bind", "Associer un email")]
+
+    email = models.EmailField(db_index=True)
+    phone = models.CharField(max_length=20, blank=True)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True
+    )
+    purpose = models.CharField(max_length=10, choices=PURPOSES)
+    code_hash = models.CharField(max_length=128)
+    request_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "email_otp_challenges"
         ordering = ["-created_at"]
