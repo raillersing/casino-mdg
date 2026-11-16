@@ -1,6 +1,7 @@
 """Email login and authenticated email binding; SMS auth remains unchanged."""
 
 import secrets
+import uuid
 from datetime import timedelta
 
 from django.contrib.auth.hashers import check_password, make_password
@@ -66,6 +67,10 @@ def consume_challenge(request, purpose):
     request_id = request.data.get("request_id")
     code = str(request.data.get("code", "")).strip()
     if not request_id or not (len(code) == 6 and code.isdigit()):
+        return None
+    try:
+        request_id = uuid.UUID(str(request_id))
+    except (TypeError, ValueError, AttributeError):
         return None
     challenge = (
         EmailOTPChallenge.objects.select_for_update()
