@@ -196,7 +196,14 @@ jobs:
       
       - name: Run Prettier
         working-directory: frontend
-        run: npx prettier --check "src/**/*.{ts,tsx,css}"
+        run: |
+          if ! npx prettier --check "src/**/*.{ts,tsx,css}"; then
+            # Print the formatting diff to make CI issues reproducible.
+            for file in src/pages/AuthPage.tsx src/pages/ProfilePage.tsx src/services/auth.ts; do
+              npx prettier "$file" | diff -u "$file" - || true
+            done
+            exit 1
+          fi
 
   frontend-build:
     name: Frontend Build
