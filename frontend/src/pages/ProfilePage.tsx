@@ -405,7 +405,11 @@ export function ProfilePage() {
               </>
             )}
             {emailMessage && <p role="status">{emailMessage}</p>}
-            {emailError && <p role="alert" className="auth-error">{emailError}</p>}
+            {emailError && (
+              <p role="alert" className="auth-error">
+                {emailError}
+              </p>
+            )
           </div>
         )}
       </section>
