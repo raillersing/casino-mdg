@@ -16,6 +16,11 @@ class Migration(migrations.Migration):
             name="email_verified_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
+        migrations.AddField(
+            model_name="user",
+            name="phone_verified_at",
+            field=models.DateTimeField(blank=True, null=True),
+        ),
         migrations.CreateModel(
             name="EmailOTPChallenge",
             fields=[
