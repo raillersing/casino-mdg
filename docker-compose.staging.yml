@@ -75,7 +75,9 @@ services:
       GAME_ENGINE_BOT_SECRET: ${STAGING_ENGINE_BOT_SECRET:?Set STAGING_ENGINE_BOT_SECRET}
       GAME_ENGINE_RESULT_SECRET: ${STAGING_ENGINE_RESULT_SECRET:?Set STAGING_ENGINE_RESULT_SECRET}
       PAYMENT_WEBHOOK_SECRET: ${STAGING_PAYMENT_WEBHOOK_SECRET:?Set STAGING_PAYMENT_WEBHOOK_SECRET}
-      OTP_FALLBACK_DISPLAY: "False"
+      # Optional staging-only SMS gateway; never reuse production credentials.
+      SMS_GATEWAY_URL: ${STAGING_SMS_GATEWAY_URL:-}
+      SMS_GATEWAY_API_KEY: ${STAGING_SMS_GATEWAY_API_KEY:-}
     volumes:
       - staging-media:/app/media
       - staging-static:/app/staticfiles

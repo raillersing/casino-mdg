@@ -154,7 +154,12 @@ services:
       GAME_ENGINE_INTERNAL_URL: http://game-engine:8080
       GAME_ENGINE_BOT_SECRET: ${GAME_ENGINE_BOT_SECRET}
       GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET}
-      OTP_FALLBACK_DISPLAY: ${OTP_FALLBACK_DISPLAY:-true}
+      # Production OTP requires a functioning SMS provider (no code fallback).
+      SMS_GATEWAY_URL: ${SMS_GATEWAY_URL:-}
+      SMS_GATEWAY_API_KEY: ${SMS_GATEWAY_API_KEY:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
     volumes:
       - backend_media:/app/media
       - backend_static:/app/staticfiles

@@ -1,7 +1,7 @@
 """
 SMS Gateway Dispatcher for Casino MDG.
 Supports Twilio, Africa's Talking, Orange SMS Madagascar, or generic HTTP Webhook.
-Gracefully falls back to logging and dev mode if no external provider is configured.
+Returns delivery status without disclosing OTP secrets in application logs.
 """
 
 import logging
@@ -44,22 +44,17 @@ def send_sms_otp(phone: str, code: str) -> bool:
                 timeout=6,
             )
             if response.status_code in (200, 201):
-                logger.info(f"[SMS Gateway: Twilio] SMS OTP delivered to {phone}")
+                logger.info("[SMS Gateway: Twilio] SMS OTP accepted by provider")
                 return True
             else:
                 logger.warning(
-                    (
-                        "[SMS Gateway: Twilio] Failed to deliver to "
-                        f"{phone}"
-                        ": "
-                        f"{response.status_code}"
-                        " - "
-                        f"{response.text}"
-                    )
+                    "[SMS Gateway: Twilio] SMS rejected; HTTP %s",
+                    response.status_code,
                 )
         except Exception as exc:
             logger.error(
-                f"[SMS Gateway: Twilio] Connection error sending to {phone}: {exc}"
+                "[SMS Gateway: Twilio] SMS request failed (%s)",
+                type(exc).__name__,
             )
 
     # 2. Try Generic HTTP Gateway if configured
@@ -77,24 +72,19 @@ def send_sms_otp(phone: str, code: str) -> bool:
                 timeout=6,
             )
             if response.status_code in (200, 201):
-                logger.info(f"[SMS Gateway: Webhook] SMS OTP delivered to {phone}")
+                logger.info("[SMS Gateway: Webhook] SMS OTP accepted by provider")
                 return True
             else:
                 logger.warning(
-                    (
-                        "[SMS Gateway: Webhook] Failed to deliver to "
-                        f"{phone}"
-                        ": "
-                        f"{response.status_code}"
-                        " - "
-                        f"{response.text}"
-                    )
+                    "[SMS Gateway: Webhook] SMS rejected; HTTP %s",
+                    response.status_code,
                 )
         except Exception as exc:
             logger.error(
-                f"[SMS Gateway: Webhook] Connection error sending to {phone}: {exc}"
+                "[SMS Gateway: Webhook] SMS request failed (%s)",
+                type(exc).__name__,
             )
 
-    # 3. Fallback / Log
-    logger.info(f"[SMS Gateway: Local Fallback] Code OTP généré pour {phone}: {code}")
+    # Never log the OTP, even if no gateway is configured.
+    logger.warning("[SMS Gateway] OTP delivery unavailable")
     return False
