@@ -88,12 +88,15 @@ class HumanFiveGameAcceptanceContractTests(TestCase):
                         user__in=self.players[:capacity]
                     ).exists()
                 )
-                self.assertEqual(table.status, "open")
+                # A filled table changes the DB status to running even
+                # before WebSocket connections prove that gameplay has begun.
+                table.refresh_from_db()
+                self.assertEqual(table.status, "running")
 
     def test_matchmaking_assembles_each_supported_game_capacity(self):
-        capabilities = self.clients[0].get(
-            "/api/v1/games/table-capabilities/"
-        ).data["games"]
+        capabilities = (
+            self.clients[0].get("/api/v1/games/table-capabilities/").data["games"]
+        )
         for game in ("belote", "ludo", "domino", "rami", "poker"):
             with self.subTest(game=game):
                 capacity = min(capabilities[game]["players"])
