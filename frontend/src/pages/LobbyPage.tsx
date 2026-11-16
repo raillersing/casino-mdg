@@ -190,6 +190,8 @@ export function LobbyPage() {
   const [matchError, setMatchError] = useState("");
   const [queuePending, setQueuePending] = useState(false);
   const queueRequestInFlightRef = useRef(false);
+  // Ignore status responses issued before a queue request or cancellation.
+  const matchmakingRevisionRef = useRef(0);
   const [availableMatchSizes, setAvailableMatchSizes] = useState<number[]>([]);
   const [matchSize, setMatchSize] = useState<number | undefined>(undefined);
   useEffect(() => {
@@ -470,12 +472,13 @@ export function LobbyPage() {
       )
         return;
       inFlight = true;
+      const revision = matchmakingRevisionRef.current;
       try {
         const [, status] = await Promise.all([
           sendMatchmakingHeartbeat(accessToken, matchmakingGame),
           getMatchmakingStatus(accessToken, matchmakingGame),
         ]);
-        if (mounted) {
+        if (mounted && revision === matchmakingRevisionRef.current) {
           setMatchStatus({
             human_online: status.human_online,
             estimated_wait_seconds: status.estimated_wait_seconds,
@@ -507,8 +510,10 @@ export function LobbyPage() {
     if (!accessToken || matchStatus.ticket?.status !== "queued") return;
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible" || !navigator.onLine) return;
+      const revision = matchmakingRevisionRef.current;
       void getMatchmakingStatus(accessToken, matchmakingGame)
         .then((status) => {
+          if (revision !== matchmakingRevisionRef.current) return;
           setMatchStatus({
             human_online: status.human_online,
             estimated_wait_seconds: status.estimated_wait_seconds,
@@ -591,6 +596,7 @@ export function LobbyPage() {
     // requests from this mounted lobby. The server is still authoritative.
     if (queueRequestInFlightRef.current) return;
     queueRequestInFlightRef.current = true;
+    matchmakingRevisionRef.current += 1;
     setQueuePending(true);
     setMatchError("");
     setWaitingSeconds(0);
@@ -649,6 +655,7 @@ export function LobbyPage() {
 
   const cancelSearch = async () => {
     if (!accessToken || !matchStatus.ticket) return;
+    matchmakingRevisionRef.current += 1;
     try {
       const response = await cancelMatch(
         accessToken,

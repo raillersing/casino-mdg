@@ -125,7 +125,9 @@ for (const game of ["belote", "domino", "ludo", "rami", "poker"] as const) {
   });
 }
 
-test("home and catalog launch matchmaking without another lobby click", async ({ page }) => {
+test("home and catalog launch matchmaking without another lobby click", async ({
+  page,
+}) => {
   await signIn(page);
   await page.route("**/api/v1/games/tables/**", (route) =>
     route.fulfill({ json: { results: [] } }),
@@ -136,10 +138,29 @@ test("home and catalog launch matchmaking without another lobby click", async ({
   await page.route("**/api/v1/games/matchmaking/heartbeat/", (route) =>
     route.fulfill({ json: { status: "online", game_type: "belote" } }),
   );
-  await page.route("**/api/v1/games/matchmaking/status/**", (route) =>
-    route.fulfill({ json: { human_online: 0, estimated_wait_seconds: null, ticket: null } }),
-  );
   let queueCalls = 0;
+  let releaseInitialStatus!: () => void;
+  const initialStatusGate = new Promise<void>((resolve) => {
+    releaseInitialStatus = resolve;
+  });
+  await page.route("**/api/v1/games/matchmaking/status/**", async (route) => {
+    const queuedAtRequest = queueCalls > 0;
+    if (!queuedAtRequest) await initialStatusGate;
+    await route.fulfill({
+      json: {
+        human_online: 0,
+        estimated_wait_seconds: null,
+        ticket: queuedAtRequest
+          ? {
+              id: "quick-play-belote",
+              game_type: "belote",
+              status: "queued",
+              target_players: 4,
+            }
+          : null,
+      },
+    });
+  });
   await page.route("**/api/v1/games/matchmaking/queue/", async (route) => {
     const payload = route.request().postDataJSON() as { game_type: string };
     expect(payload.game_type).toBe("belote");
@@ -156,12 +177,17 @@ test("home and catalog launch matchmaking without another lobby click", async ({
         created: true,
       },
     });
+    // Release an older status response after the queue response was sent.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    releaseInitialStatus();
   });
   await page.goto("/");
   await page.locator(".home-game-primary").click();
   await expect(page).toHaveURL(/\/games\?intent=matchmaking/);
   await page.locator(".discovery-card").first().click();
   await expect(page).toHaveURL(/\/lobby\/belote/);
+  await expect(page.locator(".game-lobby-searching")).toBeVisible();
+  await page.waitForTimeout(500);
   await expect(page.locator(".game-lobby-searching")).toBeVisible();
   expect(queueCalls).toBe(1);
 });
