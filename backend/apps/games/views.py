@@ -110,7 +110,18 @@ def table_payload(table, request):
         "turn_duration": getattr(table, "turn_duration", 15) or 15,
         "rules_config": getattr(table, "rules_config", {}) or {},
         "rules_version": table.rules_version,
-        "access_code": table.access_code if table.is_private else None,
+        # Club membership alone grants table visibility, not the invitation secret.
+        # Only the creator or a seated participant may share the private code.
+        "access_code": (
+            table.access_code
+            if table.is_private
+            and request.user.is_authenticated
+            and (
+                table.created_by_id == request.user.pk
+                or table.seats.filter(user=request.user).exists()
+            )
+            else None
+        ),
         "player_count": table.seats.count(),
         "max_players": table.max_players,
         "status": table.status,
