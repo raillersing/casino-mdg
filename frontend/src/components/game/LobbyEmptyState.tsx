@@ -36,16 +36,31 @@ export function LobbyEmptyState({
       )}
       <h3>
         {failed
-          ? tr("Impossible de charger les tables.", "Tsy azo alaina ny latabatra.")
+          ? tr(
+              "Impossible de charger les tables.",
+              "Tsy azo alaina ny latabatra.",
+            )
           : filtered
-            ? tr("Aucune table pour ces filtres.", "Tsy misy latabatra mifanaraka amin'ny sivana.")
-            : tr("Aucune table disponible pour le moment.", "Tsy mbola misy latabatra azo idirana.")}
+            ? tr(
+                "Aucune table pour ces filtres.",
+                "Tsy misy latabatra mifanaraka amin'ny sivana.",
+              )
+            : tr(
+                "Aucune table disponible pour le moment.",
+                "Tsy mbola misy latabatra azo idirana.",
+              )}
       </h3>
       <p>
         {failed
-          ? tr("Vérifiez votre connexion et réessayez.", "Jereo ny fifandraisana ary andramo indray.")
+          ? tr(
+              "Vérifiez votre connexion et réessayez.",
+              "Jereo ny fifandraisana ary andramo indray.",
+            )
           : filtered
-            ? tr("Retirez les filtres pour retrouver toutes les tables.", "Esory ny sivana mba hahitana ny latabatra rehetra.")
+            ? tr(
+                "Retirez les filtres pour retrouver toutes les tables.",
+                "Esory ny sivana mba hahitana ny latabatra rehetra.",
+              )
             : gameName
               ? tr(
                   `Vous pouvez chercher des adversaires pour ${gameName}, ou créer votre propre table.`,
@@ -58,21 +73,37 @@ export function LobbyEmptyState({
       </p>
       <div className="lobby-empty-v3-actions">
         {failed ? (
-          <button type="button" className="button button-gold" onClick={onRefresh}>
+          <button
+            type="button"
+            className="button button-gold"
+            onClick={onRefresh}
+          >
             <RefreshCw size={17} aria-hidden="true" />
             {tr("Réessayer", "Andramo indray")}
           </button>
         ) : filtered ? (
-          <button type="button" className="button button-gold" onClick={onReset}>
+          <button
+            type="button"
+            className="button button-gold"
+            onClick={onReset}
+          >
             {tr("Effacer les filtres", "Esory ny sivana")}
           </button>
         ) : (
           <>
-            <button type="button" className="button button-gold" onClick={onFindPlayers}>
+            <button
+              type="button"
+              className="button button-gold"
+              onClick={onFindPlayers}
+            >
               <Users size={17} aria-hidden="true" />
               {tr("Trouver des joueurs", "Hitady mpilalao")}
             </button>
-            <button type="button" className="button button-secondary" onClick={onCreate}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={onCreate}
+            >
               <Plus size={17} aria-hidden="true" />
               {tr("Créer une table", "Hamorona latabatra")}
             </button>

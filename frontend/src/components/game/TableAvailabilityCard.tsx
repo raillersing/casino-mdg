@@ -10,7 +10,12 @@ interface Props {
 }
 
 /** A seat reservation is not proof that a player is connected. */
-export function TableAvailabilityCard({ table, isJoining, onJoin, error }: Props) {
+export function TableAvailabilityCard({
+  table,
+  isJoining,
+  onJoin,
+  error,
+}: Props) {
   const { i18n } = useTranslation();
   const mg = i18n.language.startsWith("mg");
   const tr = (fr: string, malagasy: string) => (mg ? malagasy : fr);
@@ -42,9 +47,7 @@ export function TableAvailabilityCard({ table, isJoining, onJoin, error }: Props
             {reserved}/{capacity} {tr("places réservées", "toerana voatokana")}
           </span>
         </div>
-        <span className="game-lobby-table-status">
-          {statusLabel}
-        </span>
+        <span className="game-lobby-table-status">{statusLabel}</span>
       </div>
 
       <div className="game-lobby-table-details">
@@ -99,7 +102,11 @@ export function TableAvailabilityCard({ table, isJoining, onJoin, error }: Props
                     ? tr("Table complète", "Feno ny latabatra")
                     : tr("Rejoindre la table", "Hiditra amin'ny latabatra")}
       </button>
-      {error && <p className="game-lobby-table-error" role="alert">{error}</p>}
+      {error && (
+        <p className="game-lobby-table-error" role="alert">
+          {error}
+        </p>
+      )}
     </article>
   );
 }

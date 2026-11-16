@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Bot,
+  Compass,
   Eye,
   Lock,
   Plus,
@@ -96,7 +97,10 @@ export function LobbyPage() {
   const [error, setError] = useState("");
   const [tableLoadError, setTableLoadError] = useState("");
   const [joining, setJoining] = useState<string | null>(null);
-  const [tableJoinError, setTableJoinError] = useState<{ id: string; message: string } | null>(null);
+  const [tableJoinError, setTableJoinError] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
   const [pokerBuyInTable, setPokerBuyInTable] = useState<GameTable | null>(
     null,
   );
@@ -138,6 +142,7 @@ export function LobbyPage() {
   const [matchError, setMatchError] = useState("");
   const [queuePending, setQueuePending] = useState(false);
   const queueRequestInFlightRef = useRef(false);
+  const matchmakingRevisionRef = useRef(0);
   const [availableMatchSizes, setAvailableMatchSizes] = useState<number[]>([]);
   const [matchSize, setMatchSize] = useState<number | undefined>(undefined);
   useEffect(() => {
@@ -421,12 +426,13 @@ export function LobbyPage() {
       )
         return;
       inFlight = true;
+      const revision = matchmakingRevisionRef.current;
       try {
         const [, status] = await Promise.all([
           sendMatchmakingHeartbeat(accessToken, matchmakingGame),
           getMatchmakingStatus(accessToken, matchmakingGame),
         ]);
-        if (mounted) {
+        if (mounted && revision === matchmakingRevisionRef.current) {
           setMatchStatus({
             human_online: status.human_online,
             estimated_wait_seconds: status.estimated_wait_seconds,
@@ -458,8 +464,10 @@ export function LobbyPage() {
     if (!accessToken || matchStatus.ticket?.status !== "queued") return;
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible" || !navigator.onLine) return;
+      const revision = matchmakingRevisionRef.current;
       void getMatchmakingStatus(accessToken, matchmakingGame)
         .then((status) => {
+          if (revision !== matchmakingRevisionRef.current) return;
           setMatchStatus({
             human_online: status.human_online,
             estimated_wait_seconds: status.estimated_wait_seconds,
@@ -542,6 +550,7 @@ export function LobbyPage() {
     // requests from this mounted lobby. The server is still authoritative.
     if (queueRequestInFlightRef.current) return;
     queueRequestInFlightRef.current = true;
+    matchmakingRevisionRef.current += 1;
     setQueuePending(true);
     setMatchError("");
     setWaitingSeconds(0);
@@ -600,6 +609,7 @@ export function LobbyPage() {
 
   const cancelSearch = async () => {
     if (!accessToken || !matchStatus.ticket) return;
+    matchmakingRevisionRef.current += 1;
     try {
       const response = await cancelMatch(
         accessToken,
@@ -915,7 +925,9 @@ export function LobbyPage() {
                 className="home-eyebrow"
                 style={{ color: selectedGameMeta.color }}
               >
-                {mg ? "1 · Latabatry ny lalao voafidy" : "1 · Tables du jeu choisi"}
+                {mg
+                  ? "1 · Latabatry ny lalao voafidy"
+                  : "1 · Tables du jeu choisi"}
               </span>
               <h1
                 style={{
@@ -935,7 +947,8 @@ export function LobbyPage() {
               >
                 {liveStats?.games?.[urlGameType!] &&
                   `${liveStats.games[urlGameType!].online_players} ${mg ? "mifandray" : "en ligne"} · `}
-                {shown.length} {mg ? "latabatra misokatra" : "table(s) ouverte(s)"}
+                {shown.length}{" "}
+                {mg ? "latabatra misokatra" : "table(s) ouverte(s)"}
               </p>
             </div>
           </div>
@@ -944,8 +957,14 @@ export function LobbyPage() {
             matchStatus.ticket.table_id &&
             matchStatus.ticket.table_code && (
               <div className="game-lobby-recovery" role="status">
-                <strong>{mg ? "Misy lalao miandry anao" : "Une partie vous attend"}</strong>
-                <span>{mg ? "Voatokana ny toeranao amin'ny latabatra hita." : "Votre place est réservée dans la table trouvée."}</span>
+                <strong>
+                  {mg ? "Misy lalao miandry anao" : "Une partie vous attend"}
+                </strong>
+                <span>
+                  {mg
+                    ? "Voatokana ny toeranao amin'ny latabatra hita."
+                    : "Votre place est réservée dans la table trouvée."}
+                </span>
                 <Link
                   to={`/game/${matchStatus.ticket.game_type}/${matchStatus.ticket.table_code}?table_id=${encodeURIComponent(matchStatus.ticket.table_id)}`}
                   className="button button-gold"
@@ -1870,7 +1889,7 @@ export function LobbyPage() {
           gameName={isGameLobby ? selectedGameMeta?.label : undefined}
           failed={Boolean(tableLoadError)}
           filtered={Boolean(
-            query.trim() || stakeFilter !== "all" || seatFilter !== "all"
+            query.trim() || stakeFilter !== "all" || seatFilter !== "all",
           )}
           onReset={() => {
             setQuery("");
@@ -1906,7 +1925,11 @@ export function LobbyPage() {
                   key={table.id}
                   table={table}
                   isJoining={joining === table.id}
-                  error={tableJoinError?.id === table.id ? tableJoinError.message : undefined}
+                  error={
+                    tableJoinError?.id === table.id
+                      ? tableJoinError.message
+                      : undefined
+                  }
                   onJoin={() => void join(table)}
                 />
               );

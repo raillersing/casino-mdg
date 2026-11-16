@@ -14,7 +14,13 @@
 }
 
 /* All primary journeys must be operable with keyboard and thumb navigation. */
-:is(.home-game-v2, .discovery-page, .is-game-lobby, .playing-v2-page, .quick-table-backdrop)
+:is(
+    .home-game-v2,
+    .discovery-page,
+    .is-game-lobby,
+    .playing-v2-page,
+    .quick-table-backdrop
+  )
   :is(a, button, input, select, summary):focus-visible,
 .bottom-nav > a:focus-visible {
   outline: 3px solid var(--ux-focus-ring);
@@ -58,9 +64,30 @@
   html {
     scroll-behavior: auto;
   }
-  :is(.home-game-v2, .discovery-page, .is-game-lobby, .playing-v2-page, .quick-table-backdrop) *,
-  :is(.home-game-v2, .discovery-page, .is-game-lobby, .playing-v2-page, .quick-table-backdrop) *::before,
-  :is(.home-game-v2, .discovery-page, .is-game-lobby, .playing-v2-page, .quick-table-backdrop) *::after {
+  :is(
+      .home-game-v2,
+      .discovery-page,
+      .is-game-lobby,
+      .playing-v2-page,
+      .quick-table-backdrop
+    )
+    *,
+  :is(
+      .home-game-v2,
+      .discovery-page,
+      .is-game-lobby,
+      .playing-v2-page,
+      .quick-table-backdrop
+    )
+    *::before,
+  :is(
+      .home-game-v2,
+      .discovery-page,
+      .is-game-lobby,
+      .playing-v2-page,
+      .quick-table-backdrop
+    )
+    *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

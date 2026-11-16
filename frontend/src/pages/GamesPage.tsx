@@ -88,7 +88,9 @@ function CatalogGameCard({
         />
       </div>
       <div className="discovery-card-copy">
-        <span className="discovery-players">{mg ? game.playersMg : game.players}</span>
+        <span className="discovery-players">
+          {mg ? game.playersMg : game.players}
+        </span>
         <h3>{game.name}</h3>
         <p>{mg ? game.descriptionMg : game.description}</p>
         <span className="discovery-card-action">
