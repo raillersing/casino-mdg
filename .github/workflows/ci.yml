@@ -321,6 +321,17 @@ jobs:
       - name: Validate isolated staging Compose configuration
         run: docker compose --env-file .env.staging.example -f docker-compose.staging.yml config --quiet
 
+      - name: Set up Node.js for staging acceptance safety tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Does not connect to staging or read test secrets; checks guardrails only.
+      - name: Test staging acceptance safety guards
+        run: |
+          node --check scripts/staging-live-acceptance.mjs
+          node --test scripts/staging-live-acceptance.test.mjs
+
   # ───────────────────────────────────────────
   # Security scan
   # ───────────────────────────────────────────
