@@ -36,7 +36,7 @@ func (s *Server) fundingOperations(id string) ([]room.FundingOperation, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("funding backend status %d", resp.StatusCode)
 	}
@@ -63,7 +63,7 @@ func storeFinance(record financeRecord) error {
 		return err
 	}
 	name := file.Name()
-	defer os.Remove(name)
+	defer func() { _ = os.Remove(name) }()
 	if _, err = file.Write(body); err == nil {
 		err = file.Sync()
 	}
@@ -81,8 +81,12 @@ func storeFinance(record financeRecord) error {
 	if err != nil {
 		return err
 	}
-	defer directory.Close()
-	return directory.Sync()
+	syncErr := directory.Sync()
+	closeErr = directory.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
 }
 func readFinance(path string) (financeRecord, error) {
 	var record financeRecord
@@ -114,7 +118,7 @@ func (s *Server) deliverFinance(record financeRecord) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("financial checkpoint pending: %d", resp.StatusCode)
 	}
@@ -256,6 +260,10 @@ func archiveSettledFinance(path string) error {
 	if err != nil {
 		return err
 	}
-	defer handle.Close()
-	return handle.Sync()
+	syncErr := handle.Sync()
+	closeErr := handle.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
 }

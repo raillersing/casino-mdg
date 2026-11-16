@@ -230,7 +230,7 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		log.Printf("WebSocket upgrade failed: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := &Client{
 		conn:             conn,
@@ -266,7 +266,7 @@ func (s *Server) readPump(client *Client) {
 		if wasCurrent && client.tableID != "" && !client.spectator {
 			s.roomManager.DisconnectPlayer(client.tableID, client.playerID)
 		}
-		client.conn.Close()
+		_ = client.conn.Close()
 	}()
 
 	client.conn.SetReadLimit(64 * 1024)
@@ -300,7 +300,7 @@ func (s *Server) writePump(client *Client) {
 	ticker := time.NewTicker(15 * time.Second)
 	defer func() {
 		ticker.Stop()
-		client.conn.Close()
+		_ = client.conn.Close()
 	}()
 
 	for {
@@ -1113,7 +1113,7 @@ func (s *Server) notifySessionComplete(tableID string) {
 			log.Printf("notify session complete failed table=%s: %v", tableID, err)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode >= 400 {
 			log.Printf("notify session complete rejected table=%s: status=%d", tableID, resp.StatusCode)
 		}
@@ -1162,7 +1162,7 @@ func (s *Server) notifyS2SSettlement(tableID, gameType string, results []S2SSett
 			log.Printf("notify s2s settlement failed table=%s: %v", tableID, err)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode >= 400 {
 			log.Printf("notify s2s settlement rejected table=%s status=%d", tableID, resp.StatusCode)
 		}

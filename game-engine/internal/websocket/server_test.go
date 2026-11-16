@@ -51,7 +51,7 @@ func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
 	if response.StatusCode != 101 {
 		t.Fatalf("status=%d", response.StatusCode)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
 		t.Fatal(err)
 	}
@@ -102,13 +102,13 @@ func TestWebSocketReconnectRestoresSequencePrivateStateAndResync(t *testing.T) {
 	}
 
 	first := connect("player-1")
-	defer first.Close()
+	defer func() { _ = first.Close() }()
 	var firstState Message
 	if err := first.ReadJSON(&firstState); err != nil {
 		t.Fatal(err)
 	}
 	second := connect("player-2")
-	defer second.Close()
+	defer func() { _ = second.Close() }()
 	var secondState Message
 	if err := second.ReadJSON(&secondState); err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestWebSocketReconnectRestoresSequencePrivateStateAndResync(t *testing.T) {
 	_ = first.Close()
 
 	reconnected := connect("player-1")
-	defer reconnected.Close()
+	defer func() { _ = reconnected.Close() }()
 	var restored Message
 	if err := reconnected.ReadJSON(&restored); err != nil {
 		t.Fatal(err)
@@ -201,7 +201,7 @@ func TestFoldPublishesSignedLossResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestInternalBotTokenJoinsAsBotAndCannotBeForgedByPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bot dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID, PlayerID: "bot-1", Payload: map[string]interface{}{"role": "spectator"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestAuthenticatedWebSocketProvisionsRoomFromJoinPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: "table-code-01", Payload: map[string]string{"game_type": "belote"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +354,7 @@ func TestSpectatorReceivesStateButCannotAct(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID, Payload: map[string]interface{}{"role": "spectator"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +393,7 @@ func TestWebSocketRejectsArbitraryRoomProvisionWithoutAdmissionTicket(t *testing
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: "arbitrary-table-999", Payload: map[string]string{"game_type": "poker"}}); err != nil {
 		t.Fatal(err)
@@ -440,7 +440,7 @@ func TestWebSocketAdmissionTokenBindsToSpecificTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Try to join table B with ticket for table A
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: tableB.ID}); err != nil {
@@ -493,9 +493,9 @@ func TestRamiKnockSettlementAndHMAC(t *testing.T) {
 	}
 
 	c0 := connect("r0")
-	defer c0.Close()
+	defer func() { _ = c0.Close() }()
 	c1 := connect("r1")
-	defer c1.Close()
+	defer func() { _ = c1.Close() }()
 
 	seq := manager.TableSequence(table.ID)
 	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "knock", Sequence: seq}); err != nil {
@@ -588,9 +588,9 @@ func TestBeloteGameOverBroadcastToAllPlayers(t *testing.T) {
 	}
 
 	c0 := connect("b0")
-	defer c0.Close()
+	defer func() { _ = c0.Close() }()
 	c1 := connect("b1")
-	defer c1.Close()
+	defer func() { _ = c1.Close() }()
 
 	seq := manager.TableSequence(table.ID)
 	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "new_hand", Sequence: seq}); err != nil {
@@ -737,7 +737,7 @@ func TestBuyInAndTopUpAction(t *testing.T) {
 	if resp.StatusCode != 101 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
 		t.Fatal(err)

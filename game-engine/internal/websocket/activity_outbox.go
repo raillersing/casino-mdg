@@ -74,7 +74,7 @@ func (s *Server) persistActivity(event activityEvent) {
 		return
 	}
 	name := file.Name()
-	defer os.Remove(name)
+	defer func() { _ = os.Remove(name) }()
 	if _, err = file.Write(body); err == nil {
 		err = file.Sync()
 	}
@@ -113,7 +113,7 @@ func (s *Server) dispatchHumanActivity() {
 		if err != nil {
 			return
 		}
-		response.Body.Close()
+		_ = response.Body.Close()
 		if response.StatusCode >= 200 && response.StatusCode < 300 {
 			_ = os.Remove(name)
 		} else if response.StatusCode == http.StatusBadRequest || response.StatusCode == http.StatusNotFound {

@@ -771,9 +771,10 @@ func botShouldBluff(profile, position, phase string, board []poker.Card, table *
 		baseProb = 0.02
 	}
 	// Late position favours bluffs
-	if position == "late" {
+	switch position {
+	case "late":
 		baseProb += 0.10
-	} else if position == "early" {
+	case "early":
 		baseProb -= 0.05
 	}
 	// Dry board favours bluffs (few draws)
@@ -1383,7 +1384,7 @@ func (m *Manager) applyAction(tableID, playerID, action string, expectedSequence
 	if !table.IsActive {
 		return Event{}, false, fmt.Errorf("table is closed")
 	}
-	if _, ok := table.Players[playerID]; !ok && !(action == "new_hand" && playerID == "") {
+	if _, ok := table.Players[playerID]; !ok && (action != "new_hand" || playerID != "") {
 		permitted := serverTimeout && table.GameType == "poker" && (action == "check" || action == "fold") && !table.ActionDeadline.IsZero() && !time.Now().Before(table.ActionDeadline)
 		if !permitted {
 			return Event{}, false, fmt.Errorf("player is not seated")
@@ -1427,11 +1428,12 @@ func (m *Manager) applyAction(tableID, playerID, action string, expectedSequence
 			return Event{}, false, fmt.Errorf("current round is not finished")
 		}
 
-		if table.GameType == "poker" {
+		switch table.GameType {
+		case "poker":
 			if err := startNextPokerHand(table); err != nil {
 				return Event{}, false, err
 			}
-		} else if table.GameType == "belote" {
+		case "belote":
 			// Cumulate previous round scores before resetting
 			if round, ok := table.State.(*belote.Round); ok {
 				if round.Phase == "finished" {
@@ -1465,15 +1467,15 @@ func (m *Manager) applyAction(tableID, playerID, action string, expectedSequence
 			if err := initializeBeloteRound(table); err != nil {
 				return Event{}, false, err
 			}
-		} else if table.GameType == "rami" {
+		case "rami":
 			if err := initializeRamiGame(table); err != nil {
 				return Event{}, false, err
 			}
-		} else if table.GameType == "ludo" {
+		case "ludo":
 			if err := initializeLudoGame(table); err != nil {
 				return Event{}, false, err
 			}
-		} else if table.GameType == "domino" {
+		case "domino":
 			if err := initializeDominoGame(table); err != nil {
 				return Event{}, false, err
 			}
