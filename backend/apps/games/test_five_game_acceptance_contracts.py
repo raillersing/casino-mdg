@@ -68,7 +68,9 @@ class HumanFiveGameAcceptanceContractTests(TestCase):
                     self.assertIn("admission_token", joined.data)
                     seat_indexes.append(joined.data["seat_index"])
                 self.assertEqual(len(set(seat_indexes)), capacity)
-                self.assertEqual(TableSeat.objects.filter(table=table).count(), capacity)
+                self.assertEqual(
+                    TableSeat.objects.filter(table=table).count(), capacity
+                )
 
                 for index in range(capacity):
                     admission = self.clients[index].post(
@@ -125,6 +127,4 @@ class HumanFiveGameAcceptanceContractTests(TestCase):
             format="json",
         )
         self.assertEqual(admitted.status_code, 201, admitted.data)
-        self.assertEqual(
-            TableSeat.objects.filter(table_id=table_id).count(), 2
-        )
+        self.assertEqual(TableSeat.objects.filter(table_id=table_id).count(), 2)
