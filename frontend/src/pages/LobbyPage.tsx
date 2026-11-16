@@ -574,6 +574,10 @@ export function LobbyPage() {
         );
       }
     } catch (reason) {
+      void trackEvent("matchmaking_failed", {
+        game_type: matchmakingGame,
+        metadata: { source: "lobby" },
+      });
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
     } finally {
       queueRequestInFlightRef.current = false;
@@ -705,6 +709,10 @@ export function LobbyPage() {
       return;
     }
     setJoining(table.id);
+    void trackEvent("table_join_attempted", {
+      game_type: table.game_type,
+      metadata: { source: "lobby" },
+    });
     try {
       const result = await joinTable(table.id, token, undefined, buyIn);
       setTables((current) =>
@@ -724,6 +732,10 @@ export function LobbyPage() {
           : "Impossible de rejoindre la table.";
       setTableJoinError({ id: table.id, message });
       setError(message);
+      void trackEvent("table_join_failed", {
+        game_type: table.game_type,
+        metadata: { source: "lobby" },
+      });
     } finally {
       setJoining(null);
     }
@@ -748,7 +760,23 @@ export function LobbyPage() {
       );
       throw new Error("AUTH_REQUIRED");
     }
-    const response = await createTable(accessToken, payload);
+    void trackEvent("table_creation_started", {
+      game_type: payload.game_type,
+      metadata: { source: "lobby" },
+    });
+    const response = await createTable(accessToken, payload).catch(
+      (reason: unknown) => {
+        void trackEvent("table_creation_failed", {
+          game_type: payload.game_type,
+          metadata: { source: "lobby" },
+        });
+        throw reason;
+      },
+    );
+    void trackEvent("table_created", {
+      game_type: payload.game_type,
+      metadata: { source: "lobby" },
+    });
     const selected = (response.table || response) as GameTable;
     const tableId = response.table_id || selected.id;
     const tableCode = selected.table_code || tableId;

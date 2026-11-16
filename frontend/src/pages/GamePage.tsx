@@ -634,6 +634,7 @@ export function GamePage() {
   >([]);
   const [resultMessage, setResultMessage] = useState("");
   const closedTableRef = useRef<string | null>(null);
+  const observedEngineStateRef = useRef<string | null>(null);
   const [gameState, setGameState] = useState<Record<string, unknown> | null>(
     null,
   );
@@ -1261,6 +1262,19 @@ export function GamePage() {
             }
             prevBeloteTrickLenRef.current = nextTrick.length;
             setGameState(state.game_state);
+            // This event means an engine state was actually received, not
+            // that a full game was started or completed. Count once per table.
+            if (
+              engineTableId &&
+              observedEngineStateRef.current !== engineTableId
+            ) {
+              observedEngineStateRef.current = engineTableId;
+              void trackEvent("engine_state_received", {
+                game_type: gameType,
+                mode: demoAi ? "DEMO_AI" : "HUMAN_MATCH",
+                metadata: { source: "game_engine" },
+              });
+            }
             // Auto-redeal when belote everyone passed during bidding
             if (phase === "all_passed" && gameType === "belote") {
               window.setTimeout(() => {

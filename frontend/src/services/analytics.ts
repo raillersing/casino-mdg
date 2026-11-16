@@ -20,7 +20,16 @@ export type ProductEventName =
   | "invite_joined"
   | "reconnection_succeeded"
   | "heartbeat_latency"
-  | "table_joined";
+  | "table_joined"
+  // UX telemetry: click/attempt/success/state-received are distinct.
+  | "game_selected"
+  | "table_creation_started"
+  | "table_created"
+  | "table_creation_failed"
+  | "table_join_attempted"
+  | "table_join_failed"
+  | "matchmaking_failed"
+  | "engine_state_received";
 
 type EventContext = {
   mode?: string;

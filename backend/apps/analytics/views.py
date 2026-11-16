@@ -74,6 +74,15 @@ EVENT_NAMES = {
     "bot_simulation_completed",
     "demo_connected",
     "table_joined",
+    # Client-observed UX steps, not backend proofs of a completed game.
+    "game_selected",
+    "table_creation_started",
+    "table_created",
+    "table_creation_failed",
+    "table_join_attempted",
+    "table_join_failed",
+    "matchmaking_failed",
+    "engine_state_received",
     "invite_sent",
     "invite_joined",
     "reconnection_succeeded",
@@ -166,6 +175,28 @@ class ProductEventSummaryView(APIView):
                     "demo_started": counts.get("demo_started", 0),
                     "test_game_played": counts.get("test_game_played", 0),
                     "first_game_completed": completed,
+                },
+                # Raw client telemetry counts; never treat these as unique
+                # conversions or proof of admission / completed gameplay.
+                "play_journey": {
+                    "source": "client_telemetry",
+                    "unit": "events",
+                    "events": {
+                        name: counts.get(name, 0)
+                        for name in (
+                            "game_selected",
+                            "matchmaking_started",
+                            "human_match_found",
+                            "matchmaking_failed",
+                            "table_creation_started",
+                            "table_created",
+                            "table_creation_failed",
+                            "table_join_attempted",
+                            "table_joined",
+                            "table_join_failed",
+                            "engine_state_received",
+                        )
+                    },
                 },
                 "errors_per_completed_game": (
                     round(counts.get("game_error", 0) / completed, 2)

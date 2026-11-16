@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useGameStore } from "@stores/gameStore";
+import { trackEvent } from "@services/analytics";
 import "../styles/home-game-v2.css";
 
 type ResumableGame = {
@@ -199,6 +200,12 @@ export function HomePage() {
             <Link
               key={game.id}
               to={`/lobby/${game.id}?action=matchmaking`}
+              onClick={() =>
+                void trackEvent("game_selected", {
+                  game_type: game.id,
+                  metadata: { source: "home_featured", intent: "matchmaking" },
+                })
+              }
               className="home-game-featured-card"
             >
               <img
