@@ -78,6 +78,7 @@ EVENT_NAMES = {
     "game_selected",
     "table_creation_started",
     "table_created",
+    "table_creation_failed",
     "table_join_attempted",
     "table_join_failed",
     "matchmaking_failed",
