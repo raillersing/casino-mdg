@@ -35,7 +35,7 @@ jobs:
       
       - name: Run black
         working-directory: backend
-        run: black --check .
+        run: black --check --diff .
       
       - name: Run isort
         working-directory: backend
