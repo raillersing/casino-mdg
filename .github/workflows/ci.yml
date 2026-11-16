@@ -318,6 +318,9 @@ jobs:
       - name: Validate Compose configuration
         run: docker compose config --quiet
 
+      - name: Validate isolated staging Compose configuration
+        run: docker compose --env-file .env.staging.example -f docker-compose.staging.yml config --quiet
+
   # ───────────────────────────────────────────
   # Security scan
   # ───────────────────────────────────────────
