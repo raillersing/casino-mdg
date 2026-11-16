@@ -51,7 +51,7 @@ func TestAuthenticatedWebSocketJoinsAndPublishesSequencedAction(t *testing.T) {
 	if response.StatusCode != 101 {
 		t.Fatalf("status=%d", response.StatusCode)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestFoldPublishesSignedLossResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestInternalBotTokenJoinsAsBotAndCannotBeForgedByPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bot dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID, PlayerID: "bot-1", Payload: map[string]interface{}{"role": "spectator"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestAuthenticatedWebSocketProvisionsRoomFromJoinPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: "table-code-01", Payload: map[string]string{"game_type": "belote"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +354,7 @@ func TestSpectatorReceivesStateButCannotAct(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID, Payload: map[string]interface{}{"role": "spectator"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +393,7 @@ func TestWebSocketRejectsArbitraryRoomProvisionWithoutAdmissionTicket(t *testing
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: "arbitrary-table-999", Payload: map[string]string{"game_type": "poker"}}); err != nil {
 		t.Fatal(err)
@@ -440,7 +440,7 @@ func TestWebSocketAdmissionTokenBindsToSpecificTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Try to join table B with ticket for table A
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: tableB.ID}); err != nil {
@@ -737,7 +737,7 @@ func TestBuyInAndTopUpAction(t *testing.T) {
 	if resp.StatusCode != 101 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if err := conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
 		t.Fatal(err)

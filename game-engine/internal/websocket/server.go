@@ -230,7 +230,7 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		log.Printf("WebSocket upgrade failed: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := &Client{
 		conn:             conn,
