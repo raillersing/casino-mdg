@@ -72,7 +72,7 @@ class RequestOTPView(APIView):
             # Never disclose or keep an undelivered login secret in production.
             challenge.delete()
             return Response(
-                {"detail": "Service SMS momentanément indisponible. Réessayez plus tard."},
+                {"detail": "Service SMS indisponible. Réessayez plus tard."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
@@ -128,7 +128,9 @@ class VerifyOTPView(APIView):
 
             is_valid = check_password(code, challenge.code_hash)
             # The emergency bypass must never authenticate production users.
-            bypass_code = os.getenv("OTP_BYPASS_CODE", "").strip() if settings.DEBUG else ""
+            bypass_code = ""
+            if settings.DEBUG:
+                bypass_code = os.getenv("OTP_BYPASS_CODE", "").strip()
             if not is_valid and bypass_code and code == bypass_code:
                 is_valid = True
 
