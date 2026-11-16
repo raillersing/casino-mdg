@@ -20,8 +20,18 @@ type ResumableGame = {
 };
 
 const FEATURED = [
-  { id: "belote", name: "Belote Malagasy", players: "4 joueurs · 2 équipes" },
-  { id: "ludo", name: "Ludo Mada", players: "2 à 4 joueurs" },
+  {
+    id: "belote",
+    name: "Belote Malagasy",
+    players: "4 joueurs · 2 équipes",
+    playersMg: "Mpilalao 4 · Ekipa 2",
+  },
+  {
+    id: "ludo",
+    name: "Ludo Mada",
+    players: "2 à 4 joueurs",
+    playersMg: "Mpilalao 2 ka hatramin'ny 4",
+  },
 ] as const;
 
 export function HomePage() {
@@ -200,7 +210,7 @@ export function HomePage() {
               />
               <span>
                 <strong>{game.name}</strong>
-                <small>{game.players}</small>
+                <small>{mg ? game.playersMg : game.players}</small>
                 <em>
                   {tr("Jouer maintenant", "Hilalao izao")}{" "}
                   <ArrowRight size={15} aria-hidden="true" />

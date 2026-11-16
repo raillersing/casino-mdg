@@ -332,7 +332,7 @@ export function Layout({ children }: { children: ReactNode }) {
           onClose={() => setShowSocialModal(false)}
         />
 
-        {/* Bottom Navigation Bar (mobile) — 5 onglets tactiles haute-visibilité */}
+        {/* Bottom Navigation Bar (mobile) — 4 onglets tactiles haute-visibilité */}
         <nav
           className={`bottom-nav ${isGamePage ? "hidden" : ""}`}
           aria-label={`${t("a11y.primaryNavigation")} — mobile barre`}
@@ -358,7 +358,7 @@ export function Layout({ children }: { children: ReactNode }) {
             }
           >
             <Gamepad2 size={22} />
-            <span>Jeux</span>
+            <span>{t("nav.games")}</span>
           </NavLink>
 
           <NavLink

@@ -1,0 +1,104 @@
+/*
+ * Casino-MDG — task-first UX tokens for game discovery, matching and tables.
+ * Extend the existing dark visual identity rather than introduce a second theme.
+ */
+:root {
+  --ux-touch-target: 44px;
+  --ux-space-inline: clamp(12px, 3vw, 24px);
+  --ux-radius-control: 12px;
+  --ux-border-subtle: var(--line);
+  --ux-focus-ring: var(--gold-light);
+  --ux-status-success: var(--green);
+  --ux-status-error: var(--red);
+  --ux-content-max: 1160px;
+}
+
+/* All primary journeys must be operable with keyboard and thumb navigation. */
+:is(
+    .home-game-v2,
+    .discovery-page,
+    .is-game-lobby,
+    .playing-v2-page,
+    .quick-table-backdrop
+  )
+  :is(a, button, input, select, summary):focus-visible,
+.bottom-nav > a:focus-visible {
+  outline: 3px solid var(--ux-focus-ring);
+  outline-offset: 3px;
+}
+
+:is(.home-game-v2, .discovery-page, .is-game-lobby, .playing-v2-page)
+  :is(.button, .game-lobby-table-join, .game-lobby-other-actions button) {
+  min-height: var(--ux-touch-target);
+}
+
+:is(.discovery-page, .is-game-lobby) :is(input, select) {
+  min-height: var(--ux-touch-target);
+}
+
+.bottom-nav > a {
+  min-height: 48px;
+}
+
+/* Never let long table names, translated CTAs or network errors overflow. */
+.game-lobby-table-name,
+.game-lobby-table-name h3,
+.game-lobby-entry-copy,
+.lobby-empty-v3,
+.discovery-card-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Button availability has a visible non-color cue. */
+.game-lobby-table-join:disabled,
+.game-lobby-find:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.game-lobby-table-join:disabled {
+  border-style: dashed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  :is(
+      .home-game-v2,
+      .discovery-page,
+      .is-game-lobby,
+      .playing-v2-page,
+      .quick-table-backdrop
+    )
+    *,
+  :is(
+      .home-game-v2,
+      .discovery-page,
+      .is-game-lobby,
+      .playing-v2-page,
+      .quick-table-backdrop
+    )
+    *::before,
+  :is(
+      .home-game-v2,
+      .discovery-page,
+      .is-game-lobby,
+      .playing-v2-page,
+      .quick-table-backdrop
+    )
+    *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .game-lobby-format-options button[aria-pressed="true"],
+  .quick-table-segments button[aria-pressed="true"],
+  .bottom-nav > a.active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

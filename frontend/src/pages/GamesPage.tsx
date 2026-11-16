@@ -13,7 +13,9 @@ const games = [
     symbol: "♥",
     kind: "cards",
     players: "4 joueurs · En équipe",
+    playersMg: "Mpilalao 4 · Ekipa 2",
     description: "Remportez les plis avec votre partenaire.",
+    descriptionMg: "Mandresia pli miaraka amin'ny mpiara-milalao aminao.",
     color: "rose",
   },
   {
@@ -22,7 +24,9 @@ const games = [
     symbol: "⚅",
     kind: "board",
     players: "2 à 4 joueurs",
+    playersMg: "Mpilalao 2 ka hatramin'ny 4",
     description: "Associez vos dominos et videz votre main.",
+    descriptionMg: "Ampifandraiso ny domino ary lanio ireo eny an-tananao.",
     color: "amber",
   },
   {
@@ -31,7 +35,9 @@ const games = [
     symbol: "⚄",
     kind: "board",
     players: "2 à 4 joueurs",
+    playersMg: "Mpilalao 2 ka hatramin'ny 4",
     description: "Ramenez vos quatre pions à la maison.",
+    descriptionMg: "Avereno any an-trano ny pion-nao efatra.",
     color: "green",
   },
   {
@@ -40,7 +46,9 @@ const games = [
     symbol: "♦",
     kind: "cards",
     players: "2 à 4 joueurs",
+    playersMg: "Mpilalao 2 ka hatramin'ny 4",
     description: "Formez des suites et des groupes de cartes.",
+    descriptionMg: "Mamoròna andiana karatra sy vondrona.",
     color: "blue",
   },
   {
@@ -49,7 +57,9 @@ const games = [
     symbol: "♠",
     kind: "cards",
     players: "2 à 9 joueurs",
+    playersMg: "Mpilalao 2 ka hatramin'ny 9",
     description: "Composez votre meilleure main à cinq cartes.",
+    descriptionMg: "Amboary ny fitambaran-karatra dimy tsara indrindra.",
     color: "gold",
   },
 ] as const;
@@ -63,6 +73,8 @@ function CatalogGameCard({
   game: CatalogGame;
   actionLabel: string;
 }) {
+  const { i18n } = useTranslation();
+  const mg = i18n.language.startsWith("mg");
   return (
     <>
       <div className="discovery-art" aria-hidden="true">
@@ -76,9 +88,11 @@ function CatalogGameCard({
         />
       </div>
       <div className="discovery-card-copy">
-        <span className="discovery-players">{game.players}</span>
+        <span className="discovery-players">
+          {mg ? game.playersMg : game.players}
+        </span>
         <h3>{game.name}</h3>
-        <p>{game.description}</p>
+        <p>{mg ? game.descriptionMg : game.description}</p>
         <span className="discovery-card-action">
           {actionLabel} <ArrowRight size={17} aria-hidden="true" />
         </span>

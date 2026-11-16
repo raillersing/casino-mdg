@@ -109,10 +109,15 @@ export function GameLobbyEntryActions({
           type="button"
           onClick={onSearch}
           disabled={isCreating || isStarting}
-          aria-label={tr(
-            `Trouver des joueurs pour ${gameName}`,
-            `Hitady mpilalao amin'ny ${gameName}`,
-          )}
+          aria-busy={isStarting}
+          aria-label={
+            isStarting
+              ? tr("Lancement de la recherche…", "Manomboka ny fikarohana…")
+              : tr(
+                  `Trouver des joueurs pour ${gameName}`,
+                  `Hitady mpilalao amin'ny ${gameName}`,
+                )
+          }
         >
           {isStarting ? (
             <Loader2 size={20} className="spin" aria-hidden="true" />

@@ -41,7 +41,7 @@ test("table loading error is not misrepresented as zero availability", async ({ 
   await expect(empty.getByRole("button", { name: "Réessayer" })).toBeVisible();
 });
 
-test("new admission is offered only for open, public, non-full tables", async ({ page }) => {
+test("admission is offered for public tables with free seats, subject to server approval", async ({ page }) => {
   await page.route("**/api/v1/games/tables/**", (route) =>
     route.fulfill({
       json: {
@@ -60,7 +60,7 @@ test("new admission is offered only for open, public, non-full tables", async ({
   await expect(cards.filter({ hasText: "Table ouverte" }).getByRole("button"))
     .toBeEnabled();
   await expect(cards.filter({ hasText: "Partie commencée" }).getByRole("button"))
-    .toBeDisabled();
+    .toBeEnabled();
   await expect(cards.filter({ hasText: "Table privée" }).getByRole("button"))
     .toBeDisabled();
   await expect(cards.filter({ hasText: "Table complète" }).getByRole("button"))

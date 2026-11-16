@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Copy, Check, Users, ArrowLeft, LogOut, Shield } from "lucide-react";
 
 export interface WaitingPlayer {
@@ -56,13 +57,16 @@ export function WaitingRoom({
   connectionError,
   onLeave,
 }: WaitingRoomProps) {
+  const { i18n } = useTranslation();
+  const mg = i18n.language.startsWith("mg");
+  const tr = (fr: string, malagasy: string) => (mg ? malagasy : fr);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState("");
 
   const emoji = GAME_EMOJIS[gameType.toLowerCase()] || "🎮";
   const gameLabel = GAME_NAMES[gameType.toLowerCase()] || gameType;
   const confirmedConnections = currentPlayers.filter(
-    (p) => p.isActive === true,
+    (p) => !p.isBot && p.isActive === true,
   ).length;
   const seatedCount = currentPlayers.length;
   const isPoker = gameType.toLowerCase() === "poker";
@@ -80,7 +84,12 @@ export function WaitingRoom({
       setCopyError("");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setCopyError("Copie indisponible. Sélectionnez le code manuellement.");
+      setCopyError(
+        tr(
+          "Copie indisponible. Sélectionnez le code manuellement.",
+          "Tsy azo adika ny kaody. Safidio sy adikao mivantana.",
+        ),
+      );
     }
   };
 
@@ -126,7 +135,9 @@ export function WaitingRoom({
           }}
         >
           <ArrowLeft size={16} />
-          <span>Tables {gameLabel}</span>
+          <span>
+            {tr("Tables", "Latabatra")} {gameLabel}
+          </span>
         </Link>
         <button
           type="button"
@@ -146,12 +157,13 @@ export function WaitingRoom({
           }}
         >
           <LogOut size={14} />
-          <span>Quitter</span>
+          <span>{tr("Quitter", "Hiala")}</span>
         </button>
       </div>
 
       {connectionError && (
         <p
+          role="alert"
           className="form-error game-connection-error"
           style={{
             margin: "12px 0",
@@ -178,7 +190,7 @@ export function WaitingRoom({
             fontWeight: 600,
           }}
         >
-          Salle d'attente · Présence
+          {tr("Salle d'attente · Présence", "Efitra fiandrasana · Fisiana")}
         </span>
         <h1
           style={{
@@ -191,12 +203,20 @@ export function WaitingRoom({
           }}
         >
           <span>{emoji}</span>
-          <span>{tableName || `${gameLabel} entre amis`}</span>
+          <span>
+            {tableName ||
+              tr(
+                `${gameLabel} entre amis`,
+                `${gameLabel} miaraka amin'ny namana`,
+              )}
+          </span>
         </h1>
       </div>
 
       {/* Notice Banner */}
       <div
+        role="status"
+        aria-live="polite"
         style={{
           padding: "14px 16px",
           borderRadius: "12px",
@@ -216,8 +236,14 @@ export function WaitingRoom({
         <Users size={18} />
         <span>
           {remaining === 0
-            ? "Les places nécessaires sont occupées. En attente de la confirmation du moteur de jeu."
-            : `${seatedCount} place(s) occupée(s) sur ${maxPlayers}. Encore ${remaining} participant(s) requis.`}
+            ? tr(
+                "Les places nécessaires sont occupées. En attente de la confirmation du moteur de jeu.",
+                "Efa voatokana ny toerana ilaina. Miandry ny fanamafisan'ny rafitra lalao.",
+              )
+            : tr(
+                `${seatedCount} place(s) réservée(s) sur ${maxPlayers}. Encore ${remaining} participant(s) requis.`,
+                `${seatedCount}/${maxPlayers} ny toerana voatokana. Mbola mila mpilalao ${remaining}.`,
+              )}
         </span>
       </div>
 
@@ -245,9 +271,13 @@ export function WaitingRoom({
           }}
         >
           <span>
-            Participants ({seatedCount}/{maxPlayers})
+            {tr("Places réservées", "Toerana voatokana")} ({seatedCount}/
+            {maxPlayers})
           </span>
-          <span>{confirmedConnections} connexion(s) confirmée(s)</span>
+          <span>
+            {confirmedConnections}{" "}
+            {tr("connexion(s) confirmée(s)", "fifandraisana voamarina")}
+          </span>
         </div>
 
         {seats.map((player, index) => {
@@ -326,16 +356,22 @@ export function WaitingRoom({
                               textTransform: "uppercase",
                             }}
                           >
-                            Créateur
+                            {tr("Créateur", "Mpamorona")}
                           </span>
                         )}
                       </div>
                       <div style={{ fontSize: "12px", color: "#70d7ad" }}>
                         {player.isActive === false
-                          ? "Reconnexion en cours"
+                          ? tr("Reconnexion en cours", "Miverina mifandray")
                           : player.isActive === true
-                            ? "Connexion confirmée"
-                            : "Présence à confirmer"}
+                            ? tr(
+                                "Connexion confirmée",
+                                "Voamarina ny fifandraisana",
+                              )
+                            : tr(
+                                "Présence à confirmer",
+                                "Mbola tsy voamarina ny fisiana",
+                              )}
                       </div>
                     </div>
                   ) : (
@@ -345,7 +381,7 @@ export function WaitingRoom({
                         fontSize: "13px",
                       }}
                     >
-                      Place libre
+                      {tr("Place libre", "Toerana malalaka")}
                     </div>
                   )}
                 </div>
@@ -356,7 +392,7 @@ export function WaitingRoom({
                   color: "var(--text-secondary, #adb9c4)",
                 }}
               >
-                Siège {index + 1}
+                {tr("Siège", "Toerana")} {index + 1}
               </span>
             </div>
           );
@@ -384,7 +420,10 @@ export function WaitingRoom({
                 color: "var(--text-secondary, #adb9c4)",
               }}
             >
-              Table privée — Partagez ce code à vos amis
+              {tr(
+                "Table privée — Partagez ce code à vos amis",
+                "Latabatra manokana — Zarao amin'ny namana ity kaody ity",
+              )}
             </span>
           </div>
           <div
@@ -427,7 +466,9 @@ export function WaitingRoom({
               }}
             >
               {copied ? <Check size={16} /> : <Copy size={16} />}
-              <span>{copied ? "Copié !" : "Copier"}</span>
+              <span>
+                {copied ? tr("Copié !", "Voadika !") : tr("Copier", "Adika")}
+              </span>
             </button>
           </div>
           {copyError && (
@@ -439,8 +480,10 @@ export function WaitingRoom({
       )}
       {isPrivate && !invitationCode && (
         <p className="playing-v2-notice" role="status">
-          Le code privé n'est pas disponible pour ce compte. Demandez une
-          invitation au créateur.
+          {tr(
+            "Le code privé n'est pas disponible pour ce compte. Demandez une invitation au créateur.",
+            "Tsy misy kaody manokana ho an'ity kaonty ity. Mangataha fanasana amin'ny mpamorona.",
+          )}
         </p>
       )}
 
@@ -457,18 +500,21 @@ export function WaitingRoom({
         }}
       >
         <span>
-          Participation :{" "}
+          {tr("Participation", "Fandraisana anjara")} :{" "}
           <strong>
-            {stakeAmount > 0 ? `${stakeAmount.toLocaleString()} Ar` : "Gratuit"}
+            {stakeAmount > 0
+              ? `${stakeAmount.toLocaleString()} Ar`
+              : tr("Gratuit", "Maimaim-poana")}
           </strong>
         </span>
         <span style={{ margin: "0 8px" }}>·</span>
         <span>
-          <strong>{maxPlayers}</strong> places
+          <strong>{maxPlayers}</strong> {tr("places", "toerana")}
         </span>
         <span style={{ margin: "0 8px" }}>·</span>
         <span>
-          Tour de <strong>{turnDuration}s</strong>
+          {tr("Tour de", "Fotoana isaky ny fihodinana")}{" "}
+          <strong>{turnDuration}s</strong>
         </span>
       </div>
     </div>

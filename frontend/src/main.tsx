@@ -6,6 +6,7 @@ import { DeviceProvider } from "./hooks/DeviceProvider";
 import App from "./App";
 import "./i18n";
 import "./styles/index.css";
+import "./styles/ux-journeys-v3.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
