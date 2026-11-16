@@ -142,6 +142,22 @@ class VerifyOTPView(APIView):
                     },
                     status=400,
                 )
+            # An email-only account has never proved control of its phone.
+            # Do not let a future SMS login take over that verified mailbox.
+            if User.objects.filter(
+                phone=phone,
+                email_verified_at__isnull=False,
+                phone_verified_at__isnull=True,
+            ).exists():
+                return Response(
+                    {
+                        "detail": (
+                            "Compte créé avec email : utilisez la connexion "
+                            "par email ou contactez l'assistance."
+                        )
+                    },
+                    status=409,
+                )
             challenge.consumed_at = timezone.now()
             challenge.save(update_fields=["consumed_at"])
             user, created = User.objects.get_or_create(
@@ -154,6 +170,9 @@ class VerifyOTPView(APIView):
             if not created and request.data.get("display_name"):
                 user.display_name = str(request.data["display_name"])[:50]
                 user.save(update_fields=["display_name"])
+            if user.phone_verified_at is None:
+                user.phone_verified_at = timezone.now()
+                user.save(update_fields=["phone_verified_at"])
         from apps.wallet.services import credit_simulation_bonus
 
         account, _, _ = credit_simulation_bonus(user)
