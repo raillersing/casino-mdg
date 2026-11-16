@@ -190,6 +190,7 @@ class ProductEventSummaryView(APIView):
                             "matchmaking_failed",
                             "table_creation_started",
                             "table_created",
+                            "table_creation_failed",
                             "table_join_attempted",
                             "table_joined",
                             "table_join_failed",
