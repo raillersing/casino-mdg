@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 interface Props {
   gameName: string;
   isSearching: boolean;
+  isStarting: boolean;
   waitingSeconds: number;
   isCreating: boolean;
   availableSizes?: number[];
@@ -23,6 +24,7 @@ interface Props {
 export function GameLobbyEntryActions({
   gameName,
   isSearching,
+  isStarting,
   waitingSeconds,
   isCreating,
   availableSizes,
@@ -58,6 +60,7 @@ export function GameLobbyEntryActions({
       {availableSizes &&
         availableSizes.length > 1 &&
         !isSearching &&
+        !isStarting &&
         onSizeChange && (
           <fieldset
             className="game-lobby-format"
@@ -105,15 +108,23 @@ export function GameLobbyEntryActions({
           className="game-lobby-find"
           type="button"
           onClick={onSearch}
-          disabled={isCreating}
+          disabled={isCreating || isStarting}
           aria-label={tr(
             `Trouver des joueurs pour ${gameName}`,
             `Hitady mpilalao amin'ny ${gameName}`,
           )}
         >
-          <Search size={20} aria-hidden="true" />
+          {isStarting ? (
+            <Loader2 size={20} className="spin" aria-hidden="true" />
+          ) : (
+            <Search size={20} aria-hidden="true" />
+          )}
           <span>
-            <strong>{tr("Trouver des joueurs", "Hitady mpilalao")}</strong>
+            <strong>
+              {isStarting
+                ? tr("Lancement de la recherche…", "Manomboka ny fikarohana…")
+                : tr("Trouver des joueurs", "Hitady mpilalao")}
+            </strong>
             <small>
               {tr("Matchmaking automatique", "Fampiarahana ho azy")}
             </small>

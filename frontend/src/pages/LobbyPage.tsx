@@ -189,6 +189,8 @@ export function LobbyPage() {
   }>({ human_online: 0, estimated_wait_seconds: null, ticket: null });
 
   const [matchError, setMatchError] = useState("");
+  const [queuePending, setQueuePending] = useState(false);
+  const queueRequestInFlightRef = useRef(false);
   // Ignore status responses issued before a queue request or cancellation.
   const matchmakingRevisionRef = useRef(0);
   const [availableMatchSizes, setAvailableMatchSizes] = useState<number[]>([]);
@@ -591,7 +593,12 @@ export function LobbyPage() {
       navigate(`/auth?next=${encodeURIComponent(target)}`);
       return;
     }
+    // A double tap or StrictMode remount must never send concurrent queue
+    // requests from this mounted lobby. The server is still authoritative.
+    if (queueRequestInFlightRef.current) return;
+    queueRequestInFlightRef.current = true;
     matchmakingRevisionRef.current += 1;
+    setQueuePending(true);
     setMatchError("");
     setWaitingSeconds(0);
     try {
@@ -615,6 +622,9 @@ export function LobbyPage() {
       }
     } catch (reason) {
       setMatchError(reason instanceof Error ? reason.message : t("app.error"));
+    } finally {
+      queueRequestInFlightRef.current = false;
+      setQueuePending(false);
     }
   }, [
     accessToken,
@@ -1003,6 +1013,7 @@ export function LobbyPage() {
               matchStatus.ticket?.status === "queued" &&
               matchStatus.ticket.game_type === matchmakingGame
             }
+            isStarting={queuePending}
             waitingSeconds={waitingSeconds}
             isCreating={quickCreating !== null}
             availableSizes={availableMatchSizes}
