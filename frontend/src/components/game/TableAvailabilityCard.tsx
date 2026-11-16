@@ -40,9 +40,7 @@ export function TableAvailabilityCard({ table, isJoining, onJoin }: Props) {
             {reserved}/{capacity} {tr("places réservées", "toerana voatokana")}
           </span>
         </div>
-        <span className="game-lobby-table-status">
-          {statusLabel}
-        </span>
+        <span className="game-lobby-table-status">{statusLabel}</span>
       </div>
 
       <div className="game-lobby-table-details">
