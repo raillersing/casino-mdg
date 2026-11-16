@@ -6,7 +6,6 @@ from .email_views import (
     VerifyEmailBindingView,
     VerifyEmailOTPView,
 )
-
 from .views import (
     GuestTokenView,
     MeView,
