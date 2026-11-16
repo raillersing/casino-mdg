@@ -111,9 +111,7 @@ class EmailOTPChallenge(models.Model):
 
     email = models.EmailField(db_index=True)
     phone = models.CharField(max_length=20, blank=True)
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, null=True, blank=True
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     purpose = models.CharField(max_length=10, choices=PURPOSES)
     code_hash = models.CharField(max_length=128)
     request_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
