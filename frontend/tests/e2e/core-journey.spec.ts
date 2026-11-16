@@ -127,7 +127,7 @@ test("allows email OTP onboarding with a verified contact email", async ({ page 
   await page.locator(".auth-code-field").fill("123456");
   await page.locator(".auth-name-field").fill("Miora");
   await page.getByRole("button", { name: /Entrer dans le club/i }).click();
-  await expect(page).toHaveURL(/\\/$/);
+  await expect(page).toHaveURL(/\/$/);
   await expect(
     page.evaluate(() => localStorage.getItem("mdg_access_token")),
   ).resolves.toBe("email-access-token");
