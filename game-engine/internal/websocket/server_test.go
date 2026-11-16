@@ -102,13 +102,13 @@ func TestWebSocketReconnectRestoresSequencePrivateStateAndResync(t *testing.T) {
 	}
 
 	first := connect("player-1")
-	defer first.Close()
+	defer func() { _ = first.Close() }()
 	var firstState Message
 	if err := first.ReadJSON(&firstState); err != nil {
 		t.Fatal(err)
 	}
 	second := connect("player-2")
-	defer second.Close()
+	defer func() { _ = second.Close() }()
 	var secondState Message
 	if err := second.ReadJSON(&secondState); err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestWebSocketReconnectRestoresSequencePrivateStateAndResync(t *testing.T) {
 	_ = first.Close()
 
 	reconnected := connect("player-1")
-	defer reconnected.Close()
+	defer func() { _ = reconnected.Close() }()
 	var restored Message
 	if err := reconnected.ReadJSON(&restored); err != nil {
 		t.Fatal(err)
@@ -493,9 +493,9 @@ func TestRamiKnockSettlementAndHMAC(t *testing.T) {
 	}
 
 	c0 := connect("r0")
-	defer c0.Close()
+	defer func() { _ = c0.Close() }()
 	c1 := connect("r1")
-	defer c1.Close()
+	defer func() { _ = c1.Close() }()
 
 	seq := manager.TableSequence(table.ID)
 	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "knock", Sequence: seq}); err != nil {
@@ -588,9 +588,9 @@ func TestBeloteGameOverBroadcastToAllPlayers(t *testing.T) {
 	}
 
 	c0 := connect("b0")
-	defer c0.Close()
+	defer func() { _ = c0.Close() }()
 	c1 := connect("b1")
-	defer c1.Close()
+	defer func() { _ = c1.Close() }()
 
 	seq := manager.TableSequence(table.ID)
 	if err := c0.WriteJSON(Message{Type: MsgAction, TableID: table.ID, Action: "new_hand", Sequence: seq}); err != nil {

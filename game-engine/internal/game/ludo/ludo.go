@@ -173,11 +173,12 @@ func (g *Game) MovePawn(pawnID int) error {
 	pawn := &currPlayer.Pawns[pawnID]
 	roll := g.LastRoll
 
-	if pawn.State == PawnBase {
+	switch pawn.State {
+	case PawnBase:
 		// Exit yard into start square
 		pawn.State = PawnTrack
 		pawn.Position = StartPositions[currPlayer.Color]
-	} else if pawn.State == PawnTrack {
+	case PawnTrack:
 		startPos := StartPositions[currPlayer.Color]
 		// Track distance relative to player's start position
 		curDist := (pawn.Position - startPos + TrackLength) % TrackLength
@@ -201,7 +202,7 @@ func (g *Game) MovePawn(pawnID int) error {
 			// Check capture of opponent's pawns
 			g.captureOpponentsAt(pawn.Position, currPlayer.Color)
 		}
-	} else if pawn.State == PawnHomePath {
+	case PawnHomePath:
 		newPos := pawn.Position + roll
 		if newPos == HomePathLength {
 			pawn.State = PawnHome

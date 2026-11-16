@@ -10,7 +10,7 @@ import (
 func (s *Server) LiveActivity(w http.ResponseWriter, r *http.Request) {
 	received := r.Header.Get("X-Game-Engine-Secret")
 	if received == "" || s.config.ResultSecret == "" || !hmac.Equal([]byte(received), []byte(s.config.ResultSecret)) {
-		http.Error(w, "unauthorized", 403)
+		http.Error(w, "unauthorized", http.StatusForbidden)
 		return
 	}
 	type activeTable struct {

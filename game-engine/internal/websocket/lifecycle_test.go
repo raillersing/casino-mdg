@@ -27,7 +27,7 @@ func TestClosedRoomCannotBeRecreatedUsingOldAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	if err = conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
 		t.Fatal(err)
@@ -90,7 +90,7 @@ func TestForcedDominoActionsAreBroadcastAndFinishBlockedGame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetReadDeadline(time.Now().Add(4 * time.Second))
 	if err = conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
 		t.Fatal(err)
@@ -141,7 +141,7 @@ func TestSocketCannotActOnAnotherJoinedTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	if err = conn.WriteJSON(Message{Type: MsgJoin, TableID: first.ID}); err != nil {
 		t.Fatal(err)
@@ -173,7 +173,7 @@ func TestExistingPrivateRoomStillRequiresSeatAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
 	if err = conn.WriteJSON(Message{Type: MsgJoin, TableID: table.ID}); err != nil {
 		t.Fatal(err)

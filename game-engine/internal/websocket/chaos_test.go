@@ -137,7 +137,9 @@ func TestChaosFailoverAndDistributedFencingBetweenNodes(t *testing.T) {
 	}
 
 	// 2. CHAOS INJECTION: Abrupt crash of Node 1
-	conn1.Close()
+	if err := conn1.Close(); err != nil {
+		t.Fatalf("close node 1 connection: %v", err)
+	}
 	httpServer1.Close()
 
 	// Release Node 1 lease in Redis to simulate failure detection / lease expiration
@@ -154,7 +156,7 @@ func TestChaosFailoverAndDistributedFencingBetweenNodes(t *testing.T) {
 	if resp2.StatusCode != 101 {
 		t.Fatalf("node 2 expected 101, got %d", resp2.StatusCode)
 	}
-	defer conn2.Close()
+	defer func() { _ = conn2.Close() }()
 
 	// Join table on Node 2 (triggers snapshot restore from Redis + lease acquisition with incremented generation)
 	if err := conn2.WriteJSON(joinMsg); err != nil {
