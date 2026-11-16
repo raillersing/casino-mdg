@@ -53,6 +53,7 @@ import { JoinPrivateTableModal } from "@components/game/JoinPrivateTableModal";
 import { PokerBuyInModal } from "@components/game/PokerBuyInModal";
 import { GameLobbyEntryActions } from "@components/game/GameLobbyEntryActions";
 import { TableAvailabilityCard } from "@components/game/TableAvailabilityCard";
+import { LobbyEmptyState } from "@components/game/LobbyEmptyState";
 import { QuickCreateTableSheet } from "@components/game/QuickCreateTableSheet";
 import "../styles/game-lobby-v2.css";
 import { LiveStatsTicker } from "@components/game/LiveStatsTicker";
@@ -147,6 +148,7 @@ export function LobbyPage() {
   const [tables, setTables] = useState<GameTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tableLoadError, setTableLoadError] = useState("");
   const [joining, setJoining] = useState<string | null>(null);
   const [pokerBuyInTable, setPokerBuyInTable] = useState<GameTable | null>(
     null,
@@ -392,6 +394,7 @@ export function LobbyPage() {
   const refreshData = useCallback(() => {
     setLoading(true);
     setError("");
+    setTableLoadError("");
     if (filter === "tournaments") {
       getTournaments(accessToken || "")
         .then((res) => setTournaments(res.results || []))
@@ -401,7 +404,7 @@ export function LobbyPage() {
     }
     getTables(filter === "all" ? "Tous" : filter, accessToken || undefined)
       .then((payload) => setTables(payload.results))
-      .catch((reason: Error) => setError(reason.message))
+      .catch((reason: Error) => setTableLoadError(reason.message))
       .finally(() => setLoading(false));
   }, [filter, accessToken]);
 
@@ -794,55 +797,20 @@ export function LobbyPage() {
     return selected;
   };
 
-  const handleQuickCreate = async (
+  // Use the capabilities API in QuickCreateTableSheet instead of hard-coded
+  // presets from the legacy quick-card UI.
+  const handleQuickCreate = (
     gameType: "belote" | "domino" | "ludo" | "rami" | "poker",
   ) => {
-    let token = accessToken;
-    if (!token) {
-      try {
-        const auth = await createGuestToken(guestName || "Invité Salon");
-        setSession(auth.access, auth.refresh);
-        setGuestMode(auth.user.display_name, auth.wallet.balance);
-        token = auth.access;
-      } catch {
-        navigate("/auth?next=/lobby");
-        return;
-      }
-    }
-    setQuickCreating(gameType);
-    setError("");
-    try {
-      const spec = QUICK_GAME_SPECS[gameType];
-      const randomSuffix = Math.floor(100 + Math.random() * 900);
-      const name = `${GAME_SUITS[gameType].label.split(" ")[0]} #${randomSuffix}`;
-      const payload: CreateTablePayload = {
-        idempotency_key: `quick-${gameType}-${Date.now()}-${randomSuffix}`,
-        name,
-        game_type: gameType,
-        max_players: spec.preset.max_players,
-        turn_duration: spec.preset.turn_duration,
-        rules_config: spec.preset.rules_config,
-        is_private: false,
-        stake_amount: 0,
-      };
-      const table = await createTable(token, payload);
-      haptics.buttonTap();
-      const admissionParam = (table as unknown as { admission_token?: string })
-        .admission_token
-        ? `&admission_token=${(table as unknown as { admission_token?: string }).admission_token}`
-        : "";
+    if (!accessToken) {
       navigate(
-        `/game/${table.game_type}/${table.table_code}?table_id=${table.id}${admissionParam}`,
+        `/auth?next=${encodeURIComponent(`/lobby/${gameType}?action=create`)}`,
       );
-    } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Impossible de créer la table instantanée.",
-      );
-    } finally {
-      setQuickCreating(null);
+      return;
     }
+    setCreateTableGame(gameType);
+    setQuickCreating(gameType);
+    setShowQuickCreate(true);
   };
 
   const counts = useMemo(() => {
@@ -1940,118 +1908,35 @@ export function LobbyPage() {
           ))}
         </div>
       ) : shown.length === 0 ? (
-        <div
-          className="empty-note lobby-empty-state"
-          style={{
-            padding: "48px 24px",
-            textAlign: "center",
-            borderRadius: "16px",
-            background: "rgba(255, 255, 255, 0.02)",
-            border: "1px dashed rgba(255, 255, 255, 0.12)",
+        <LobbyEmptyState
+          gameName={isGameLobby ? selectedGameMeta?.label : undefined}
+          failed={Boolean(tableLoadError)}
+          filtered={Boolean(
+            query.trim() || stakeFilter !== "all" || seatFilter !== "all",
+          )}
+          onReset={() => {
+            setQuery("");
+            setStakeFilter("all");
+            setSeatFilter("all");
           }}
-        >
-          <div
-            style={{
-              width: "52px",
-              height: "52px",
-              borderRadius: "50%",
-              background: "rgba(211, 176, 107, 0.12)",
-              color: "var(--gold)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 14px",
-            }}
-          >
-            <Compass size={26} />
-          </div>
-          <p
-            style={{
-              fontSize: "16px",
-              color: "#fff",
-              margin: "0 0 8px",
-              fontWeight: 700,
-            }}
-          >
-            {query || stakeFilter !== "all"
-              ? "Aucune table ne correspond à vos filtres actuels."
-              : "Aucune table ouverte pour le moment."}
-          </p>
-          <p
-            style={{
-              fontSize: "13.5px",
-              color: "var(--muted)",
-              margin: "0 auto 20px",
-              maxWidth: "460px",
-              lineHeight: 1.5,
-            }}
-          >
-            {query || stakeFilter !== "all"
-              ? "Essayez de modifier votre recherche ou vos critères de mise."
-              : "Les tables s'ouvrent dès qu'un joueur en crée une. Créez votre table en quelques clics ou lancez une recherche matchmaking !"}
-          </p>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "10px",
-              flexWrap: "wrap",
-            }}
-          >
-            {query || stakeFilter !== "all" ? (
-              <button
-                type="button"
-                className="button button-secondary button-small"
-                onClick={() => {
-                  setQuery("");
-                  setStakeFilter("all");
-                }}
-              >
-                Réinitialiser les filtres
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="button button-gold button-small"
-                  onClick={() => {
-                    if (!accessToken) navigate("/auth?next=/lobby");
-                    else {
-                      setCreateTableGame(
-                        ["belote", "domino", "ludo", "rami", "poker"].includes(
-                          filter,
-                        )
-                          ? (filter as
-                              "belote" | "domino" | "ludo" | "rami" | "poker")
-                          : "belote",
-                      );
-                      setShowCreateTable(true);
-                    }
-                  }}
-                >
-                  <Plus size={15} /> Créer une table
-                </button>
-                <button
-                  type="button"
-                  className="button button-secondary button-small"
-                  onClick={() => void findHuman()}
-                >
-                  <Zap size={14} /> Matchmaking{" "}
-                  {GAME_SUITS[matchmakingGame]?.label.split(" ")[0]}
-                </button>
-                <button
-                  type="button"
-                  className="button button-secondary button-small"
-                  onClick={() => void launchSimulation(matchmakingGame)}
-                  disabled={startingSimulation !== null}
-                >
-                  <Bot size={14} /> Jouer contre les Bots
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+          onRefresh={refreshData}
+          onFindPlayers={() => {
+            if (isGameLobby) void findHuman();
+            else navigate("/games?intent=matchmaking");
+          }}
+          onCreate={() => {
+            if (!accessToken) {
+              const target = isGameLobby
+                ? `/lobby/${matchmakingGame}?action=create`
+                : "/games?intent=create";
+              navigate(`/auth?next=${encodeURIComponent(target)}`);
+              return;
+            }
+            setCreateTableGame(matchmakingGame);
+            if (isGameLobby) setShowQuickCreate(true);
+            else navigate("/games?intent=create");
+          }}
+        />
       ) : (
         <div
           className={isGameLobby ? "game-lobby-table-list" : "lobby-cards-grid"}
@@ -2421,7 +2306,7 @@ export function LobbyPage() {
                         <button
                           type="button"
                           className="button button-gold lobby-quick-instant-btn"
-                          onClick={() => void handleQuickCreate(gKey)}
+                          onClick={() => handleQuickCreate(gKey)}
                           disabled={Boolean(quickCreating)}
                         >
                           {isBusy ? (
@@ -2458,9 +2343,13 @@ export function LobbyPage() {
       <QuickCreateTableSheet
         game={createTableGame}
         isOpen={showQuickCreate}
-        onClose={() => setShowQuickCreate(false)}
+        onClose={() => {
+          setShowQuickCreate(false);
+          setQuickCreating(null);
+        }}
         onAdvanced={() => {
           setShowQuickCreate(false);
+          setQuickCreating(null);
           setShowCreateTable(true);
         }}
         onSubmit={createAndNavigate}
