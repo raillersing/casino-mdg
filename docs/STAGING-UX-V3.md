@@ -45,6 +45,34 @@ docker compose --project-name casino-mdg-staging --env-file .env.staging \
 
 `down` conserve les volumes isolés. **Ne jamais utiliser `down -v` sans sauvegarde** : cela détruirait la base de test. Ne pas exécuter ces commandes dans le projet Compose de production.
 
+## Recette automatisable sur **vrai** staging (API + moteur)
+
+Le fichier `scripts/staging-live-acceptance.mjs` effectue des opérations **réelles** et **mutantes**, exclusivement sur une instance de staging isolée : création de tables gratuites, admissions avec plusieurs comptes, connexion WebSocket au moteur, réception d'un véritable état de jeu et vérification de l'accès privé. Il quitte les tables qu'il a créées à la fin, même en cas d'erreur (nettoyage best-effort). Aucun paiement, aucune mise positive et aucun compte de production ne doivent être utilisés.
+
+**Prérequis :** staging lancé sur le serveur, tunnel SSH local ouvert, Node.js 22+, **quatre comptes de test distincts** et leurs JWT d'accès de staging. La Belote réclame quatre joueurs selon `/api/v1/games/table-capabilities/`, contrairement aux autres jeux qui acceptent au moins deux joueurs. Les comptes doivent être préparés sur le staging, par la passerelle SMS de test ou un provisionnement contrôlé ; ne jamais contourner l'OTP de production.
+
+Exemple d'utilisation depuis le poste client avec le tunnel SSH vers `127.0.0.1:18081` :
+
+```bash
+# Lire les JWT depuis une source sûre, sans les écrire dans Git, les URLs
+# ou les arguments de commande visibles dans l'historique.
+read -rsp 'JWT staging compte 1: ' STAGING_TOKEN_1; echo
+read -rsp 'JWT staging compte 2: ' STAGING_TOKEN_2; echo
+read -rsp 'JWT staging compte 3: ' STAGING_TOKEN_3; echo
+read -rsp 'JWT staging compte 4: ' STAGING_TOKEN_4; echo
+export STAGING_TOKEN_1 STAGING_TOKEN_2 STAGING_TOKEN_3 STAGING_TOKEN_4
+STAGING_BASE_URL=http://127.0.0.1:18081 \
+STAGING_ACCEPTANCE_CONFIRM=yes-create-free-test-tables \
+  node scripts/staging-live-acceptance.mjs
+unset STAGING_TOKEN_1 STAGING_TOKEN_2 STAGING_TOKEN_3 STAGING_TOKEN_4
+```
+
+Le programme **refuse** toute URL qui n'est pas un hôte loopback avec port explicite non standard. Il exige une réponse `/__staging__/identity` valant `{"environment":"staging","application":"casino-mdg"}` **avant toute écriture**, fournie exclusivement par `frontend/nginx.staging.conf` monté dans la stack de staging.
+
+**Ce qu'il valide :** les contrats de format annoncés par l'API pour les cinq jeux, les places uniques, les tokens d'admission serveur, un état reçu sur chaque socket du moteur, l'absence de visibilité d'une table privée et le refus d'entrée sans code. Les résultats ne contiennent pas de tokens ou de codes privés. Le programme ne valide **ni une partie terminée, ni un tour effectivement joué, ni le matchmaking de file d'attente, ni les flux financiers, ni l'UX mobile/FR/MG**. En cas de crash ou d'interruption, vérifier et supprimer manuellement les tables de test restantes.
+
+Les tests CI `node --test scripts/staging-live-acceptance.test.mjs` **n'exécutent pas** ce parcours réel : ils vérifient uniquement les garde-fous du programme sans accéder à une application distante ni à des secrets. Les tests Django `test_five_game_acceptance_contracts.py` valident la cohérence de l'API en base de test locale, pas la connexion à un moteur distant.
+
 ## Protocole de recette réelle — Issue #57
 
 Préparer **deux comptes de test distincts**, deux navigateurs/profils séparés, et des jeux sans mise financière réelle. Pour chacun des cinq jeux (Belote, Domino, Ludo, Rami, Poker) :
