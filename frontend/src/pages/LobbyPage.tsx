@@ -61,6 +61,7 @@ import { useLiveStats } from "@hooks/useLiveStats";
 import { GameActivitySummary } from "@components/game/GameActivitySummary";
 import { UniquePlayerStats } from "@components/game/UniquePlayerStats";
 import { haptics } from "@utils/haptics";
+import { countActiveLobbyTables, selectLobbyTables } from "@utils/lobbyTables";
 
 const GAME_SUITS: Record<
   string,
@@ -806,61 +807,15 @@ export function LobbyPage() {
     setShowQuickCreate(true);
   };
 
-  const counts = useMemo(() => {
-    // Ne comptabiliser que les vraies tables humaines actives (non terminées, avec au moins 1 joueur)
-    const validTables = tables.filter(
-      (t) =>
-        t.status !== "finished" &&
-        t.mode !== "DEMO_AI" &&
-        t.mode !== "SIMULATION_SOLO" &&
-        (t.is_private || (t.player_count ?? 0) > 0),
-    );
-    return {
-      all: validTables.length,
-      belote: validTables.filter((t) => t.game_type === "belote").length,
-      domino: validTables.filter((t) => t.game_type === "domino").length,
-      ludo: validTables.filter((t) => t.game_type === "ludo").length,
-      rami: validTables.filter((t) => t.game_type === "rami").length,
-      poker: validTables.filter((t) => t.game_type === "poker").length,
+  const counts = useMemo(
+    () => ({
+      ...countActiveLobbyTables(tables),
       tournaments: tournaments.length,
-    };
-  }, [tables, tournaments]);
+    }),
+    [tables, tournaments],
+  );
 
-  const shown = tables
-    .filter((table) => {
-      // 1. Filtrer impérativement les tables terminées ou expirées
-      if (table.status === "finished") return false;
-
-      // 2. Filtrer les modes bots d'entraînement solo (ne doivent pas être dans les tables multijoueur)
-      if (table.mode === "DEMO_AI" || table.mode === "SIMULATION_SOLO")
-        return false;
-
-      // 3. Une table publique doit avoir au moins 1 joueur actif
-      if (!table.is_private && (table.player_count ?? 0) <= 0) return false;
-
-      const matchesQuery = table.name
-        .toLowerCase()
-        .includes(query.toLowerCase());
-      if (!matchesQuery) return false;
-      if (
-        seatFilter === "available" &&
-        table.player_count >= table.max_players &&
-        !table.joined
-      )
-        return false;
-      if (seatFilter === "mine" && !table.joined) return false;
-      if (stakeFilter === "all") return true;
-      const minimum = Number(table.stake_amount || 0);
-      return stakeFilter === "10000"
-        ? minimum >= 10000
-        : minimum === Number(stakeFilter);
-    })
-    .sort((a, b) => {
-      // Put the user's own seat and joinable tables ahead of full rooms.
-      const priority = (table: GameTable) =>
-        table.joined ? 0 : table.player_count < table.max_players ? 1 : 2;
-      return priority(a) - priority(b);
-    });
+  const shown = selectLobbyTables(tables, { query, seatFilter, stakeFilter });
 
   const shownTournaments = useMemo(() => {
     return tournaments.filter((tItem) => {
