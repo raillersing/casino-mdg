@@ -3,9 +3,9 @@ name: CI/CD Pipeline
 on:
   workflow_dispatch:
   push:
-    branches: [master, main, develop, feature/*, feat/**]
+    branches: [master, main, develop, feature/*, feat/**, fix/**]
   pull_request:
-    branches: [master, main, develop]
+    branches: [master, main, develop, feature/*, feat/**, fix/**]
 
 env:
   PYTHON_VERSION: "3.12"
