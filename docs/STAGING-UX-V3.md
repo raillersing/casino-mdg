@@ -8,7 +8,7 @@
 - Aucun `container_name` global, aucun réseau ou volume de production partagé.
 - PostgreSQL, Redis, RabbitMQ, backend et moteur de jeu accessibles uniquement sur le réseau Docker du staging. Un seul port hôte est ouvert, **sur 127.0.0.1** : `STAGING_PORT` (18081 par défaut).
 - Aucun identifiant de paiement ni données de production dans le staging ; n'utiliser que des comptes de test et de faux montants. Les services Celery sont optionnels (profil `background`) afin de limiter tout effet non souhaité.
-- **OTP** : le staging tourne avec `DEBUG=False`. Si le fournisseur SMS est absent ou en panne, l'API renvoie HTTP 503 sans révéler de code. Pour créer deux comptes de test par téléphone, connecter uniquement une passerelle SMS de test via `STAGING_SMS_GATEWAY_URL` et `STAGING_SMS_GATEWAY_API_KEY`, ou provisionner les comptes de manière contrôlée et isolée. Aucun contournement de code OTP n'est autorisé en production.
+- **OTP** : staging avec `DEBUG=False`. Sans passerelle SMS, des codes peuvent être envoyés par **email** si un véritable serveur SMTP de staging est configuré (`STAGING_EMAIL_OTP_ENABLED=True`, hôte, TLS, expéditeur, identifiants). Sinon, l’API renvoie HTTP 503 sans code divulgué. Les comptes historiques sans email vérifié doivent d’abord l’associer depuis une session authentifiée ; les nouvelles inscriptions par email ne prouvent pas la possession du téléphone. Voir `docs/EMAIL-OTP-FALLBACK.md`. Aucun argent réel ni contournement OTP.
 - Le fichier `.env.staging` est ignoré par Git. Ne jamais injecter de secrets dans le dépôt ou dans les logs.
 
 ## Préparer et lancer sur un serveur possédant Docker Compose
@@ -49,7 +49,7 @@ docker compose --project-name casino-mdg-staging --env-file .env.staging \
 
 Le fichier `scripts/staging-live-acceptance.mjs` effectue des opérations **réelles** et **mutantes**, exclusivement sur une instance de staging isolée : création de tables gratuites, admissions avec plusieurs comptes, connexion WebSocket au moteur, réception d'un véritable état de jeu et vérification de l'accès privé. Il quitte les tables qu'il a créées à la fin, même en cas d'erreur (nettoyage best-effort). Aucun paiement, aucune mise positive et aucun compte de production ne doivent être utilisés.
 
-**Prérequis :** staging lancé sur le serveur, tunnel SSH local ouvert, Node.js 22+, **quatre comptes de test distincts** et leurs JWT d'accès de staging. La Belote réclame quatre joueurs selon `/api/v1/games/table-capabilities/`, contrairement aux autres jeux qui acceptent au moins deux joueurs. Les comptes doivent être préparés sur le staging, par la passerelle SMS de test ou un provisionnement contrôlé ; ne jamais contourner l'OTP de production.
+**Prérequis :** staging lancé sur le serveur, tunnel SSH local ouvert, Node.js 22+, **quatre comptes de test distincts** et leurs JWT d'accès de staging. La Belote réclame quatre joueurs selon `/api/v1/games/table-capabilities/`, contrairement aux autres jeux qui acceptent au moins deux joueurs. Les comptes doivent être préparés sur le staging, par la passerelle SMS de test, un SMTP de test ou un provisionnement contrôlé ; ne jamais contourner l'OTP de production.
 
 Exemple d'utilisation depuis le poste client avec le tunnel SSH vers `127.0.0.1:18081` :
 
