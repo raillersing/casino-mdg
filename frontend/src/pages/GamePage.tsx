@@ -53,12 +53,8 @@ import { trackEvent } from "@services/analytics";
 import { TableExitModal } from "@components/game/TableExitModal";
 import { WaitingRoom, type WaitingPlayer } from "@components/game/WaitingRoom";
 import { isConfirmedConnection } from "@utils/playerPresence";
-import {
-  AVATAR_COLORS,
-  PlayerSeat,
-  PlayingCard,
-  avatarColor,
-} from "@components/game/GameTablePrimitives";
+import { PlayerSeat, PlayingCard } from "@components/game/GameTablePrimitives";
+import { AVATAR_COLORS, avatarColor } from "@utils/gameAvatar";
 import {
   actionLabel,
   badgeForSeat,
