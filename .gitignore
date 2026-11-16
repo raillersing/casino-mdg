@@ -36,6 +36,7 @@ frontend/test-results/
 .env
 .env.local
 .env.production
+.env.staging
 .venv/
 venv/
 
