@@ -46,6 +46,14 @@ def initiate_payment_intent(
     Initie une transaction Mobile Money (dépôt ou retrait) avec vérification de conformité KYC,
     sécurisation du solde et appel à la passerelle opérateur.
     """
+    # This application is still in a SIM/sandbox pilot.
+    # Explicitly refuse live PSP execution even if a caller bypasses
+    # the API and invokes this service directly.
+    if sandbox is not True:
+        raise ValidationError(
+            "Les paiements réels ne sont pas autorisés : mode sandbox obligatoire."
+        )
+
     if provider not in dict(WebhookInboxEvent.PROVIDERS):
         raise ValidationError(f"Opérateur '{provider}' non supporté.")
 
