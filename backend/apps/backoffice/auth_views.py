@@ -50,6 +50,10 @@ class BackofficeAuthChannelsView(APIView):
             return Response({"detail": "Justification requise (10 à 255 caractères)."}, status=400)
         if type(revision) is not int or revision < 0:
             return Response({"detail": "Révision invalide."}, status=400)
+        if not TOTPDevice.objects.filter(
+            user=request.user, confirmed=True
+        ).exists():
+            return Response({"detail": "Appareil MFA requis."}, status=403)
 
         record, _ = AuthChannelPolicy.objects.select_for_update().get_or_create(
             pk=1,
