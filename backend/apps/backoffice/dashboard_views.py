@@ -1219,10 +1219,13 @@ class LiveDashboardView(APIView):
                         "estimated_concurrent_users": estimated_ccu,
                         "production_readiness_score": None,
                         "readiness_pillars": None,
-                        "readiness_evidence": (
-                            "not_assessed",
-                            "No reproducible staging load test and security gate",
-                        ),
+                        "readiness_evidence": {
+                            "status": "not_assessed",
+                            "description": (
+                                "Aucun test de charge staging reproductible et "
+                                "aucun audit complet de sécurité enregistré"
+                            ),
+                        },
                         "capacity_tiers": capacity_tiers,
                     },
                 },
