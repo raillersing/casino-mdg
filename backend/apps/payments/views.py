@@ -37,6 +37,19 @@ class PaymentWebhookView(APIView):
     authentication_classes = []
 
     def post(self, request, provider):
+        # No generic sandbox webhook should settle funds in a deployed instance
+        # unless an operator explicitly enabled an isolated sandbox test path.
+        if not settings.DEBUG:
+            key = settings.PAYMENT_WEBHOOK_SECRET
+            if (
+                not settings.PAYMENT_SANDBOX_WEBHOOKS_ENABLED
+                or key == "dev-webhook-secret-change-me"
+                or len(key) < 32
+            ):
+                return Response(
+                    {"detail": "Réception des webhooks sandbox désactivée."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
         if provider not in dict(WebhookInboxEvent.PROVIDERS):
             return Response(
                 {"detail": "Opérateur inconnu."}, status=status.HTTP_404_NOT_FOUND
