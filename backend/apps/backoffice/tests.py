@@ -398,12 +398,17 @@ class AuditTests(TestCase):
             display_name="Currency",
         )
         ProductEvent.objects.create(
-            user=player, event_name="table_created",
-            game_type="belote", session_id="client-only",
+            user=player,
+            event_name="table_created",
+            game_type="belote",
+            session_id="client-only",
         )
         GameResult.objects.create(
             game_id="00000000-0000-0000-0000-000000000088",
-            user=player, game_type="belote", outcome="win", amount=900000,
+            user=player,
+            game_type="belote",
+            outcome="win",
+            amount=900000,
         )
         for code, currency, kind, direction, amount in (
             ("SIM-DEP", "SIM", "deposit", "credit", 40000),
@@ -417,9 +422,13 @@ class AuditTests(TestCase):
             ("MGA-WD", "MGA", "withdrawal", "debit", 1000),
         ):
             WalletTransaction.objects.create(
-                transaction_code=code, user=player,
-                currency_code=currency, type=kind,
-                direction=direction, amount=amount, status="completed",
+                transaction_code=code,
+                user=player,
+                currency_code=currency,
+                type=kind,
+                direction=direction,
+                amount=amount,
+                status="completed",
             )
 
         client = APIClient()
@@ -437,12 +446,8 @@ class AuditTests(TestCase):
         self.assertEqual(executive["financial_overview"]["deposits_volume_mga"], 6000)
         self.assertEqual(executive["financial_overview"]["bonus_volume_mga"], 0)
         self.assertEqual(executive["sim_overview"]["completed_bonus_sim"], 5000)
-        self.assertEqual(
-            executive["sim_overview"]["completed_game_debits_sim"], 70000
-        )
+        self.assertEqual(executive["sim_overview"]["completed_game_debits_sim"], 70000)
         self.assertEqual(
             executive["leaderboards"]["top_winners"][0]["total_won_mga"], 1100
         )
-        self.assertEqual(
-            executive["by_game_analytics"][1]["ggr_mga"], 0
-        )
+        self.assertEqual(executive["by_game_analytics"][1]["ggr_mga"], 0)
