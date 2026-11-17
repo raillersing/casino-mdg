@@ -199,7 +199,7 @@ jobs:
         run: |
           if ! npx prettier --check "src/**/*.{ts,tsx,css}"; then
             # Print the formatting diff to make CI issues reproducible.
-            for file in src/pages/AuthPage.tsx src/pages/ProfilePage.tsx src/services/auth.ts src/components/backoffice/AuthChannelsPanel.tsx src/services/backofficeAuth.ts; do
+            for file in src/pages/AuthPage.tsx src/pages/ProfilePage.tsx src/services/auth.ts src/components/backoffice/AuthChannelsPanel.tsx src/services/backofficeAuth.ts src/components/backoffice/OperationsReportsPanel.tsx src/services/backofficeReports.ts src/pages/BackofficePage.tsx src/components/backoffice/LiveCommandCenter.tsx; do
               npx prettier "$file" | diff -u "$file" - || true
             done
             exit 1
