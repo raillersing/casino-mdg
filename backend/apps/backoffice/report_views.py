@@ -212,7 +212,7 @@ class BackofficeLiveTablesView(APIView):
         if status != "all":
             queryset = queryset.filter(status=status)
         total = queryset.count()
-        entries = queryset[offset : offset + limit]
+        entries = queryset[offset:][:limit]
         return Response(
             {
                 "count": total,
