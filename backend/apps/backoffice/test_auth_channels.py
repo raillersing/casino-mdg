@@ -66,7 +66,7 @@ class BackofficeAuthChannelTests(TestCase):
         self.assertFalse(AuthChannelPolicy.objects.exists())
 
     def test_admin_totp_confirmed_policy_change_blocks_old_challenges(self):
-        device = TOTPDevice.objects.create(
+        TOTPDevice.objects.create(
             user=self.admin, name="Security key", confirmed=True
         )
         self.client.force_authenticate(self.admin)
