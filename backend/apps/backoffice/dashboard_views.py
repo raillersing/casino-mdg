@@ -635,64 +635,9 @@ class LiveDashboardView(APIView):
         )
         estimated_ccu = max(ws_ccu, online_5m + active_human_seats)
 
-        capacity_tiers = [
-            {
-                "tier_id": "500_ccu",
-                "label": "Palier R1 · 500 CCU (Pilote & Lancement Régional)",
-                "target_ccu": 500,
-                "status": "ready",
-                "estimated_ws_lookups_per_sec": 50_000,
-                "estimated_http_req_per_sec": 135,
-                "estimated_db_writes_per_sec": 54,
-                "headroom_pct": 82,
-                "bottleneck_analysis": (
-                    "Architecture actuelle fonctionnelle. Latence WS < 15ms en local, "
-                    "4 workers Gunicorn absorbent ~135 req/s."
-                ),
-            },
-            {
-                "tier_id": "1k_ccu",
-                "label": "Palier R1.5 · 1 000 CCU (Production Nationale)",
-                "target_ccu": 1_000,
-                "status": "warning",
-                "estimated_ws_lookups_per_sec": 200_000,
-                "estimated_http_req_per_sec": 270,
-                "estimated_db_writes_per_sec": 107,
-                "headroom_pct": 45,
-                "bottleneck_analysis": (
-                    "Verrouillage sérialisé `SELECT FOR UPDATE` sur le compte unique `platform` "
-                    "(plafond ~250 tx/s) et `CONN_MAX_AGE=0` sans PgBouncer."
-                ),
-            },
-            {
-                "tier_id": "10k_ccu",
-                "label": "Palier R2 · 10 000 CCU (Scale-Out Afrique & Europe)",
-                "target_ccu": 10_000,
-                "status": "critical",
-                "estimated_ws_lookups_per_sec": 20_000_000,
-                "estimated_http_req_per_sec": 2_699,
-                "estimated_db_writes_per_sec": 1_067,
-                "headroom_pct": 12,
-                "bottleneck_analysis": (
-                    "Scan global O(N) sur `s.clients` (20M lookups/s), orage d'écriture SQL "
-                    "`heartbeat_latency` (69M lignes/jour) et `AnonRateThrottle` derrière Nginx."
-                ),
-            },
-            {
-                "tier_id": "50k_ccu",
-                "label": "Palier R3 · 50 000+ CCU (Cluster Mondial Multi-Région)",
-                "target_ccu": 50_000,
-                "status": "blocked",
-                "estimated_ws_lookups_per_sec": 500_000_000,
-                "estimated_http_req_per_sec": 13_495,
-                "estimated_db_writes_per_sec": 5_333,
-                "headroom_pct": 0,
-                "bottleneck_analysis": (
-                    "Exige indexation WebSocket par table O(1), Redis Pub/Sub inter-nœuds avec "
-                    "fencing strict, sharding du compte `platform` (N=64) et règlement S2S."
-                ),
-            },
-        ]
+        # Load-test projections and static readiness scores are not observed data.
+        # Do not claim a capacity tier is ready without reproducible evidence.
+        capacity_tiers = []
 
         # ─── 3. FLUX DE JOUEURS & MATCHMAKING (PLAYER FLOW) ─────────────────
         queued_tickets = MatchmakingTicket.objects.filter(status="queued")
@@ -1272,14 +1217,12 @@ class LiveDashboardView(APIView):
                     "concurrency_and_capacity": {
                         "websocket_clients_ccu": ws_ccu,
                         "estimated_concurrent_users": estimated_ccu,
-                        "production_readiness_score": 88,
-                        "readiness_pillars": {
-                            "rng_and_game_rules": 96,
-                            "security_and_kyc": 90,
-                            "realtime_ws_engine": 88,
-                            "database_and_ledger_scale": 84,
-                            "global_edge_infrastructure": 82,
-                        },
+                        "production_readiness_score": None,
+                        "readiness_pillars": None,
+                        "readiness_evidence": (
+                            "not_assessed",
+                            "No reproducible staging load test and security gate",
+                        ),
                         "capacity_tiers": capacity_tiers,
                     },
                 },
