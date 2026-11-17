@@ -6,6 +6,11 @@ from .auth_views import BackofficeAuthChannelsView
 from .dashboard_views import LiveDashboardView
 from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliationView
 from .players_views import PlayerDetailView, PlayerDirectoryView
+from .report_views import (
+    BackofficeLiveTablesView,
+    BackofficeOperationalReportView,
+    BackofficeReportCSVView,
+)
 from .sim_views import (
     SimAdjustmentDecisionView,
     SimAdjustmentListCreateView,
@@ -15,6 +20,21 @@ from .sim_views import (
 from .views import AuditEventListView
 
 urlpatterns = [
+    path(
+        "reports/overview/",
+        BackofficeOperationalReportView.as_view(),
+        name="backoffice-report-overview",
+    ),
+    path(
+        "reports/export.csv",
+        BackofficeReportCSVView.as_view(),
+        name="backoffice-report-export",
+    ),
+    path(
+        "games/tables/",
+        BackofficeLiveTablesView.as_view(),
+        name="backoffice-live-tables",
+    ),
     path("players/", PlayerDirectoryView.as_view(), name="backoffice-players"),
     path(
         "players/<int:player_id>/",
