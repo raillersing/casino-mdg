@@ -12,6 +12,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.backoffice.auth_policy import channel_allowed
 from apps.backoffice.services import record_audit
 
 from .authentication import decode_refresh_token, encode_token
@@ -43,6 +44,8 @@ class RequestOTPView(APIView):
     throttle_classes = [OTPRequestThrottle]
 
     def post(self, request):
+        if not channel_allowed("sms"):
+            return Response({"detail": "Connexion SMS désactivée."}, status=503)
         try:
             phone = normalize_phone(request.data.get("phone"))
         except ValueError as exc:
@@ -95,6 +98,8 @@ class VerifyOTPView(APIView):
     throttle_classes = [OTPVerifyThrottle]
 
     def post(self, request):
+        if not channel_allowed("sms"):
+            return Response({"detail": "Connexion SMS désactivée."}, status=503)
         try:
             phone = normalize_phone(request.data.get("phone"))
         except ValueError as exc:
