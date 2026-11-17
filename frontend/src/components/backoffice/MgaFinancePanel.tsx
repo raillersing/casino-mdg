@@ -98,7 +98,11 @@ export function MgaFinancePanel({ token }: { token: string }) {
           {loading ? "Actualisation…" : "Actualiser"}
         </button>
       </div>
-      {error && <p role="alert" className="auth-error">{error}</p>}
+      {error && (
+        <p role="alert" className="auth-error">
+          {error}
+        </p>
+      )}
       {summary && (
         <>
           <div className="stats-grid" aria-label="Aperçu MGA non rapproché">
@@ -152,7 +156,10 @@ export function MgaFinancePanel({ token }: { token: string }) {
             </div>
           </div>
           {summary.warnings.map((warning) => (
-            <p key={warning} style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+            <p
+              key={warning}
+              style={{ color: "var(--muted)", fontSize: "0.82rem" }}
+            >
               {warning}
             </p>
           ))}
@@ -166,11 +173,13 @@ export function MgaFinancePanel({ token }: { token: string }) {
             <div className="activity-row" key={intent.id}>
               <div>
                 <strong>
-                  {intent.provider} · {intent.direction} · {fmt(intent.amount_mga)} MGA
+                  {intent.provider} · {intent.direction} ·{" "}
+                  {fmt(intent.amount_mga)} MGA
                 </strong>
                 <span>
                   Joueur #{intent.player_id} · {intent.status}
-                  {" · "}{intent.sandbox ? "Simulation" : "Non classifié"}
+                  {" · "}
+                  {intent.sandbox ? "Simulation" : "Non classifié"}
                 </span>
                 <small>
                   {new Date(intent.created_at).toLocaleString("fr-FR")}
