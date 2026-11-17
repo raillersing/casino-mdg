@@ -182,6 +182,12 @@ def settle_payment_intent(
     Rapprochement comptable définitif d'un PaymentIntent après notification du webhook opérateur.
     Exécute les écritures de débit/crédit en partie double dans le grand livre (Ledger).
     """
+    if not settings.DEBUG and not (
+        isinstance(intent.metadata, dict) and intent.metadata.get("sandbox") is True
+    ):
+        raise ValidationError(
+            "Impossible de solder un paiement non attesté comme sandbox."
+        )
     if intent.status == "completed":
         return intent  # Déjà rapproché
 
@@ -222,6 +228,7 @@ def settle_payment_intent(
                 metadata={
                     "payment_intent_id": str(intent.id),
                     "provider": intent.provider,
+                    "sandbox": True,
                 },
                 processed_at=now,
             )
@@ -296,6 +303,7 @@ def settle_payment_intent(
                 metadata={
                     "payment_intent_id": str(intent.id),
                     "provider": intent.provider,
+                    "sandbox": True,
                 },
                 processed_at=now,
             )
