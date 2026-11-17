@@ -210,6 +210,10 @@ GAME_ENGINE_RESULT_SECRET = os.getenv(
 PAYMENT_WEBHOOK_SECRET = os.getenv(
     "PAYMENT_WEBHOOK_SECRET", "dev-webhook-secret-change-me"
 )
+# Generic HMAC sandbox webhooks are never a live-money settlement protocol.
+PAYMENT_SANDBOX_WEBHOOKS_ENABLED = (
+    os.getenv("PAYMENT_SANDBOX_WEBHOOKS_ENABLED", "False").lower() == "true"
+)
 
 # ─── Default primary key ─────────────────────────────────────
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
