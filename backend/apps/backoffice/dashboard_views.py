@@ -885,12 +885,8 @@ class LiveDashboardView(APIView):
 
         # ─── 4. EXECUTIVE & FINANCIAL DASHBOARD (ADMIN STATS COMPLÈTES) ─────
         def _compute_period_metrics(cutoff):
-            tbl_c = (
-                ProductEvent.objects.filter(
-                    event_name="table_created", created_at__gte=cutoff
-                ).count()
-                + GameTable.objects.filter(created_at__gte=cutoff).count()
-            )
+            # Count persisted tables only; client telemetry is not authoritative.
+            tbl_c = GameTable.objects.filter(created_at__gte=cutoff).count()
             gr_sub = GameResult.objects.filter(created_at__gte=cutoff)
             ip_sub = InstantPlay.objects.filter(created_at__gte=cutoff)
             de_sub = DrawEntry.objects.filter(created_at__gte=cutoff).select_related(
@@ -902,52 +898,39 @@ class LiveDashboardView(APIView):
                 + de_sub.count()
             )
 
-            tx_staked = int(
-                WalletTransaction.objects.filter(
-                    type="game", direction="debit", created_at__gte=cutoff
-                ).aggregate(s=Sum("amount"))["s"]
-                or 0
+            # Monetary GGR uses ONLY completed MGA game-ledger transactions.
+            # InstantPlay, DrawEntry, GameResult and SIM wallets are not proof
+            # of real money and must never enter MGA financial reporting.
+            game_money = WalletTransaction.objects.filter(
+                currency_code="MGA",
+                type="game",
+                status="completed",
+                created_at__gte=cutoff,
             )
-            ip_staked = int(ip_sub.aggregate(s=Sum("cost"))["s"] or 0)
-            de_staked = sum(int(e.draw.entry_cost) for e in de_sub)
-            total_stk = tx_staked + ip_staked + de_staked
-            if total_stk == 0:
-                gp_stk = int(
-                    GameParticipant.objects.filter(
-                        round__started_at__gte=cutoff
-                    ).aggregate(s=Sum("bet_amount"))["s"]
-                    or 0
-                )
-                total_stk = gp_stk + ip_staked + de_staked
-
-            tx_pay = int(
-                WalletTransaction.objects.filter(
-                    type="game", direction="credit", created_at__gte=cutoff
-                ).aggregate(s=Sum("amount"))["s"]
-                or 0
+            total_stk = int(
+                game_money.filter(direction="debit").aggregate(
+                    s=Sum("amount")
+                )["s"] or 0
             )
-            ip_pay = int(ip_sub.aggregate(s=Sum("prize"))["s"] or 0)
-            total_pay = tx_pay + ip_pay
-            if total_pay == 0:
-                total_pay = (
-                    int(
-                        gr_sub.filter(outcome="win").aggregate(s=Sum("amount"))["s"]
-                        or 0
-                    )
-                    + ip_pay
-                )
+            total_pay = int(
+                game_money.filter(direction="credit").aggregate(
+                    s=Sum("amount")
+                )["s"] or 0
+            )
 
             ggr = total_stk - total_pay
             ggr_margin = round((ggr / total_stk) * 100, 1) if total_stk > 0 else 0.0
 
             dep_agg = WalletTransaction.objects.filter(
-                type="deposit", status="completed", created_at__gte=cutoff
+                type="deposit", status="completed", currency_code="MGA",
+                created_at__gte=cutoff,
             ).aggregate(vol=Sum("amount"), cnt=Count("id"))
             dep_v = int(dep_agg["vol"] or 0)
             dep_c = int(dep_agg["cnt"] or 0)
 
             wd_agg = WalletTransaction.objects.filter(
-                type="withdrawal", status="completed", created_at__gte=cutoff
+                type="withdrawal", status="completed", currency_code="MGA",
+                created_at__gte=cutoff,
             ).aggregate(vol=Sum("amount"), cnt=Count("id"))
             wd_v = int(wd_agg["vol"] or 0)
             wd_c = int(wd_agg["cnt"] or 0)
@@ -992,48 +975,34 @@ class LiveDashboardView(APIView):
         # Ventilation par jeu sur la période sélectionnée
         by_game_analytics = []
         for g_k, g_label in GAME_LABELS.items():
-            g_created = (
-                ProductEvent.objects.filter(
-                    event_name="table_created", game_type=g_k, created_at__gte=since
-                ).count()
-                + GameTable.objects.filter(game_type=g_k, created_at__gte=since).count()
-            )
+            g_created = GameTable.objects.filter(
+                game_type=g_k, created_at__gte=since
+            ).count()
             g_active = tables_qs.filter(
                 game_type=g_k, status__in=["open", "running"]
             ).count()
             g_res = results_window.filter(game_type=g_k)
             g_played = g_res.values("game_id").distinct().count()
 
+            # Use explicit, server-recorded game metadata for MGA attribution.
+            # No free-form description or untyped game result is a financial source.
+            game_money = WalletTransaction.objects.filter(
+                currency_code="MGA",
+                type="game",
+                status="completed",
+                metadata__game_type=g_k,
+                created_at__gte=since,
+            )
             g_stk = int(
-                GameParticipant.objects.filter(
-                    round__session__table__game_type=g_k,
-                    round__started_at__gte=since,
-                ).aggregate(s=Sum("bet_amount"))["s"]
-                or 0
+                game_money.filter(direction="debit").aggregate(
+                    s=Sum("amount")
+                )["s"] or 0
             )
-            if g_stk == 0:
-                g_stk = int(
-                    WalletTransaction.objects.filter(
-                        type="game",
-                        direction="debit",
-                        created_at__gte=since,
-                        description__icontains=g_k,
-                    ).aggregate(s=Sum("amount"))["s"]
-                    or 0
-                )
             g_pay = int(
-                g_res.filter(outcome="win").aggregate(s=Sum("amount"))["s"] or 0
+                game_money.filter(direction="credit").aggregate(
+                    s=Sum("amount")
+                )["s"] or 0
             )
-            if g_pay == 0:
-                g_pay = int(
-                    WalletTransaction.objects.filter(
-                        type="game",
-                        direction="credit",
-                        created_at__gte=since,
-                        description__icontains=g_k,
-                    ).aggregate(s=Sum("amount"))["s"]
-                    or 0
-                )
             g_players = len(set(g_res.values_list("user_id", flat=True).distinct()))
 
             by_game_analytics.append(
@@ -1065,13 +1034,21 @@ class LiveDashboardView(APIView):
                 or r["user__email"]
                 or f"ID-{r['user_id']}",
                 "wins_count": r["wins_count"],
-                "total_won_mga": int(r["total_won"] or 0),
+                "total_won_mga": int(
+                    WalletTransaction.objects.filter(
+                        user_id=r["user_id"], currency_code="MGA",
+                        type="game", direction="credit", status="completed",
+                    ).aggregate(total=Sum("amount"))["total"] or 0
+                ),
             }
             for r in top_winners_qs
         ]
 
         top_bettors_qs = (
-            WalletTransaction.objects.filter(type="game", direction="debit")
+            WalletTransaction.objects.filter(
+                type="game", direction="debit", currency_code="MGA",
+                status="completed",
+            )
             .values("user_id", "user__display_name", "user__phone", "user__email")
             .annotate(total_staked=Sum("amount"), bets_count=Count("id"))
             .order_by("-total_staked")[:10]
@@ -1095,39 +1072,45 @@ class LiveDashboardView(APIView):
         ]
 
         biggest_wins_qs = (
-            GameResult.objects.filter(outcome="win")
+            WalletTransaction.objects.filter(
+                type="game", direction="credit", currency_code="MGA",
+                status="completed", metadata__game_type__isnull=False,
+            )
             .select_related("user")
             .order_by("-amount")[:10]
         )
         biggest_wins = [
             {
-                "id": str(bw.id),
-                "user_id": bw.user_id,
-                "display_name": bw.user.display_name if bw.user else "Joueur",
-                "identifier": (
-                    (bw.user.phone if bw.user else "")
-                    or (bw.user.email if bw.user else "")
+                "id": str(item.id),
+                "user_id": item.user_id,
+                "display_name": item.user.display_name,
+                "identifier": item.user.phone or item.user.email,
+                "game_type": item.metadata.get("game_type", ""),
+                "game_label": GAME_LABELS.get(
+                    item.metadata.get("game_type", ""),
+                    item.metadata.get("game_type", ""),
                 ),
-                "game_type": bw.game_type,
-                "game_label": GAME_LABELS.get(bw.game_type, bw.game_type),
-                "amount": int(bw.amount),
-                "created_at": bw.created_at.isoformat(),
+                "amount": int(item.amount),
+                "created_at": item.created_at.isoformat(),
             }
-            for bw in biggest_wins_qs
+            for item in biggest_wins_qs
         ]
 
         # Transactions financières et retraits en attente
         pending_wd = WalletTransaction.objects.filter(
-            type="withdrawal", status="pending"
+            type="withdrawal", status="pending", currency_code="MGA"
         ).aggregate(vol=Sum("amount"), cnt=Count("id"))
         completed_wd = WalletTransaction.objects.filter(
-            type="withdrawal", status="completed", created_at__gte=since
+            type="withdrawal", status="completed",
+            currency_code="MGA", created_at__gte=since,
         ).aggregate(vol=Sum("amount"), cnt=Count("id"))
         completed_dep = WalletTransaction.objects.filter(
-            type="deposit", status="completed", created_at__gte=since
+            type="deposit", status="completed",
+            currency_code="MGA", created_at__gte=since,
         ).aggregate(vol=Sum("amount"), cnt=Count("id"))
         bonus_agg = WalletTransaction.objects.filter(
-            type="bonus", direction="credit", created_at__gte=since
+            type="bonus", direction="credit", currency_code="MGA",
+            status="completed", created_at__gte=since,
         ).aggregate(vol=Sum("amount"), cnt=Count("id"))
 
         recent_tx_qs = WalletTransaction.objects.select_related("user").order_by(
@@ -1180,6 +1163,27 @@ class LiveDashboardView(APIView):
             },
             "periods_comparison": periods_comparison,
             "by_game_analytics": by_game_analytics,
+            "metric_provenance": {
+                "mga_source": "completed WalletTransaction(currency_code=MGA)",
+                "games_source": "server GameTable/GameResult",
+                "per_game_mga": "completed MGA transactions with metadata.game_type",
+                "note": "SIM balances, client events and untyped results excluded from MGA",
+            },
+            "sim_overview": {
+                "unit": "SIM",
+                "completed_bonus_sim": int(
+                    WalletTransaction.objects.filter(
+                        type="bonus", direction="credit", status="completed",
+                        currency_code="SIM", created_at__gte=since,
+                    ).aggregate(value=Sum("amount"))["value"] or 0
+                ),
+                "completed_game_debits_sim": int(
+                    WalletTransaction.objects.filter(
+                        type="game", direction="debit", status="completed",
+                        currency_code="SIM", created_at__gte=since,
+                    ).aggregate(value=Sum("amount"))["value"] or 0
+                ),
+            },
             "financial_overview": {
                 "deposits_volume_mga": int(completed_dep["vol"] or 0),
                 "deposits_count": int(completed_dep["cnt"] or 0),
