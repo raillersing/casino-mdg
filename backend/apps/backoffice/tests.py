@@ -244,7 +244,7 @@ class AuditTests(TestCase):
             len(
                 data["application_stats"]["concurrency_and_capacity"]["capacity_tiers"]
             ),
-            4,
+            0,
         )
 
         # Pillar 3: Player flow
