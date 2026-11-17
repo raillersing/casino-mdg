@@ -5,9 +5,17 @@ from apps.kyc.views import BackofficeKYCListView, BackofficeKYCReviewView
 from .auth_views import BackofficeAuthChannelsView
 from .dashboard_views import LiveDashboardView
 from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliationView
+from .report_views import (
+    BackofficeLiveTablesView,
+    BackofficeOperationalReportView,
+    BackofficeReportCSVView,
+)
 from .views import AuditEventListView
 
 urlpatterns = [
+    path("reports/overview/", BackofficeOperationalReportView.as_view(), name="backoffice-report-overview"),
+    path("reports/export.csv", BackofficeReportCSVView.as_view(), name="backoffice-report-export"),
+    path("games/tables/", BackofficeLiveTablesView.as_view(), name="backoffice-live-tables"),
     path(
         "config/auth-methods/",
         BackofficeAuthChannelsView.as_view(),
