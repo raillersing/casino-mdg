@@ -122,7 +122,19 @@ class PaymentIntentView(APIView):
         direction = str(request.data.get("direction", ""))
         phone_number = str(request.data.get("phone_number", "")).strip()
         key = str(request.data.get("idempotency_key", "")).strip()
-        sandbox = bool(request.data.get("sandbox", True))
+        # Financial execution mode is a server-owned security boundary.
+        # Never let a player switch an adapter into live mode via JSON.
+        if request.data.get("sandbox", True) is not True:
+            return Response(
+                {
+                    "detail": (
+                        "Paiements réels désactivés : seule la simulation "
+                        "est autorisée."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        sandbox = True
 
         try:
             amount = int(request.data.get("amount", 0))
