@@ -82,10 +82,7 @@ export function getOpsTables(token: string, status: string) {
   }>(token, `games/tables/?${params}`);
 }
 
-export async function downloadOpsReport(
-  token: string,
-  days: 1 | 7 | 30 | 90,
-) {
+export async function downloadOpsReport(token: string, days: 1 | 7 | 30 | 90) {
   const response = await fetch(
     `/api/v1/backoffice/reports/export.csv?days=${days}`,
     { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
