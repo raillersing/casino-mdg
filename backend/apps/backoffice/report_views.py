@@ -111,7 +111,9 @@ class BackofficeOperationalReportView(APIView):
     def get(self, request):
         days = resolve_window(request)
         if days is None:
-            return Response({"detail": "Période invalide : 1, 7, 30 ou 90 jours."}, status=400)
+            return Response(
+                {"detail": "Période invalide : 1, 7, 30 ou 90 jours."}, status=400
+            )
         return Response(build_report(days))
 
 
@@ -120,14 +122,18 @@ class BackofficeReportCSVView(APIView):
 
     def get(self, request):
         if not request.user.is_superuser:
-            return Response({"detail": "Export réservé au super-administrateur."}, status=403)
+            return Response(
+                {"detail": "Export réservé au super-administrateur."}, status=403
+            )
         days = resolve_window(request)
         if days is None:
             return Response({"detail": "Période invalide."}, status=400)
         report = build_report(days)
         stream = io.StringIO()
         writer = csv.writer(stream)
-        writer.writerow(["section", "metric", "dimension", "count", "amount", "currency"])
+        writer.writerow(
+            ["section", "metric", "dimension", "count", "amount", "currency"]
+        )
         for key, value in report["players"].items():
             if isinstance(value, dict):
                 for dimension, count in sorted(value.items()):
@@ -144,24 +150,43 @@ class BackofficeReportCSVView(APIView):
             for row in report["wallet"][currency]:
                 writer.writerow(
                     [
-                        "wallet", row["type"], f"{row['direction']}:{row['status']}",
-                        row["count"], row["amount"], currency,
+                        "wallet",
+                        row["type"],
+                        f"{row['direction']}:{row['status']}",
+                        row["count"],
+                        row["amount"],
+                        currency,
                     ]
                 )
         for key in ("intent_counts", "intent_providers"):
             for dimension, count in sorted(report["payments"][key].items()):
                 writer.writerow(["payments", key, dimension, count, "", ""])
         writer.writerow(
-            ["payments", "webhooks_received", "", report["payments"]["webhooks_received"], "", ""]
+            [
+                "payments",
+                "webhooks_received",
+                "",
+                report["payments"]["webhooks_received"],
+                "",
+                "",
+            ]
         )
         record_audit(
             request.user,
             "backoffice.report.csv_exported",
             request.user,
-            {"days": days, "report_type": "operational_snapshot", "contains_pii": False},
+            {
+                "days": days,
+                "report_type": "operational_snapshot",
+                "contains_pii": False,
+            },
         )
-        response = HttpResponse(stream.getvalue(), content_type="text/csv; charset=utf-8")
-        response["Content-Disposition"] = f'attachment; filename="casino-mdg-operational-{days}d.csv"'
+        response = HttpResponse(
+            stream.getvalue(), content_type="text/csv; charset=utf-8"
+        )
+        response["Content-Disposition"] = (
+            f'attachment; filename="casino-mdg-operational-{days}d.csv"'
+        )
         response["Cache-Control"] = "no-store"
         response["X-Content-Type-Options"] = "nosniff"
         return response
@@ -181,7 +206,9 @@ class BackofficeLiveTablesView(APIView):
             return Response({"detail": "Pagination invalide."}, status=400)
         if not 1 <= limit <= 100 or not 0 <= offset <= 100000:
             return Response({"detail": "Pagination invalide."}, status=400)
-        queryset = GameTable.objects.select_related("created_by").order_by("-updated_at")
+        queryset = GameTable.objects.select_related("created_by").order_by(
+            "-updated_at"
+        )
         if status != "all":
             queryset = queryset.filter(status=status)
         total = queryset.count()
