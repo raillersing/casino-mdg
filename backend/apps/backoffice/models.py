@@ -42,3 +42,36 @@ class FeatureFlag(models.Model):
 
     def __str__(self):
         return self.key
+
+
+class AuthChannelPolicy(models.Model):
+    """Singleton server-side choice of allowed player OTP channels."""
+
+    MODES = [
+        ("email", "Email"),
+        ("sms", "SMS"),
+        ("both", "Email et SMS"),
+        ("none", "Désactivés"),
+    ]
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    mode = models.CharField(max_length=8, choices=MODES, default="both")
+    revision = models.PositiveIntegerField(default=1)
+    reason = models.CharField(max_length=255, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="auth_channel_policy_changes",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "auth_channel_policy"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(pk=1),
+                name="auth_channel_singleton",
+            )
+        ]
