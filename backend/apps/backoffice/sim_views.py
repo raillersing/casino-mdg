@@ -141,7 +141,7 @@ class SimAdjustmentListCreateView(APIView):
         limit, offset = page
         queryset = BalanceAdjustmentRequest.objects.all()
         total = queryset.count()
-        items = queryset[offset : offset + limit]
+        items = queryset[offset:][:limit]
         return Response(
             {
                 "count": total,
