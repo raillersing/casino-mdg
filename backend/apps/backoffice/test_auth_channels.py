@@ -49,8 +49,10 @@ class BackofficeAuthChannelTests(TestCase):
     def test_staff_and_superuser_without_totp_cannot_change_policy(self):
         self.client.force_authenticate(self.staff)
         request = {
-            "mode": "none", "reason": "Arrêt temporaire des canaux OTP",
-            "revision": 0, "mfa_code": "123456",
+            "mode": "none",
+            "reason": "Arrêt temporaire des canaux OTP",
+            "revision": 0,
+            "mfa_code": "123456",
         }
         self.assertEqual(
             self.client.patch(self.url, request, format="json").status_code,
@@ -90,15 +92,14 @@ class BackofficeAuthChannelTests(TestCase):
 
         # Even a correct pending code may not bypass a channel shutdown.
         OTPChallenge.objects.create(
-            phone="+261340000201", code_hash="unused",
+            phone="+261340000201",
+            code_hash="unused",
             expires_at="2030-01-01T00:00:00Z",
         )
         anonymous = APIClient()
         for endpoint in ("otp/request/", "otp/verify/"):
             payload = {"phone": "0340000201", "code": "123456"}
-            res = anonymous.post(
-                "/api/v1/auth/" + endpoint, payload, format="json"
-            )
+            res = anonymous.post("/api/v1/auth/" + endpoint, payload, format="json")
             self.assertEqual(res.status_code, 503)
         public = anonymous.get("/api/v1/auth/methods/")
         self.assertFalse(public.data["sms"]["allowed"])
@@ -123,25 +124,31 @@ class BackofficeAuthChannelTests(TestCase):
             ).status_code,
             503,
         )
-        self.assertIsNone(anonymous.get("/api/v1/auth/methods/").data["default_channel"])
+        self.assertIsNone(
+            anonymous.get("/api/v1/auth/methods/").data["default_channel"]
+        )
 
     def test_invalid_mode_revision_or_reason_are_rejected_before_mfa(self):
-        TOTPDevice.objects.create(
-            user=self.admin, name="Security key", confirmed=True
-        )
+        TOTPDevice.objects.create(user=self.admin, name="Security key", confirmed=True)
         self.client.force_authenticate(self.admin)
         for payload in (
             {
-                "mode": "superuser", "reason": "Politique de test valide",
-                "revision": 0, "mfa_code": "123456",
+                "mode": "superuser",
+                "reason": "Politique de test valide",
+                "revision": 0,
+                "mfa_code": "123456",
             },
             {
-                "mode": "email", "reason": "court",
-                "revision": 0, "mfa_code": "123456",
+                "mode": "email",
+                "reason": "court",
+                "revision": 0,
+                "mfa_code": "123456",
             },
             {
-                "mode": "email", "reason": "Politique de test valide",
-                "revision": True, "mfa_code": "123456",
+                "mode": "email",
+                "reason": "Politique de test valide",
+                "revision": True,
+                "mfa_code": "123456",
             },
         ):
             self.assertEqual(
