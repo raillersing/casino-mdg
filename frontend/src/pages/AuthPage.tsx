@@ -13,10 +13,12 @@ import { useGameStore } from "@stores/gameStore";
 import { useTranslation } from "react-i18next";
 import {
   createGuestToken,
+  getAuthMethods,
   requestEmailOtp,
   requestOtp,
   verifyEmailOtp,
   verifyOtp,
+  type AuthMethodCapabilities,
 } from "@/services/auth";
 
 export function AuthPage() {
@@ -27,6 +29,8 @@ export function AuthPage() {
     "email",
   );
   const [emailRequestId, setEmailRequestId] = useState("");
+  const [authCapabilities, setAuthCapabilities] =
+    useState<AuthMethodCapabilities | null>(null);
   const [code, setCode] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [step, setStep] = useState<"phone" | "code" | "done">("phone");
@@ -43,6 +47,24 @@ export function AuthPage() {
   const setGuestMode = useGameStore((state) => state.setGuestMode);
 
   useEffect(() => {
+    let current = true;
+    getAuthMethods()
+      .then((capabilities) => {
+        if (!current) return;
+        setAuthCapabilities(capabilities);
+        if (capabilities.default_channel) {
+          setDeliveryMethod(capabilities.default_channel);
+        }
+      })
+      .catch(() => {
+        // The OTP backend still enforces the actual policy on each request.
+      });
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = window.setInterval(() => {
       setResendCooldown((prev) => Math.max(0, prev - 1));
@@ -54,6 +76,9 @@ export function AuthPage() {
     setLoading(true);
     setError("");
     try {
+      if (authCapabilities && !authCapabilities[deliveryMethod].available) {
+        throw new Error("Cette méthode de vérification est actuellement indisponible.");
+      }
       const result =
         deliveryMethod === "email"
           ? await requestEmailOtp(phone, email.trim())
@@ -180,6 +205,7 @@ export function AuthPage() {
                     type="button"
                     className={`button ${deliveryMethod === "email" ? "button-gold" : "button-outline"}`}
                     aria-pressed={deliveryMethod === "email"}
+                    disabled={Boolean(authCapabilities && !authCapabilities.email.available)}
                     onClick={() => {
                       setDeliveryMethod("email");
                       setError("");
@@ -191,6 +217,7 @@ export function AuthPage() {
                     type="button"
                     className={`button ${deliveryMethod === "sms" ? "button-gold" : "button-outline"}`}
                     aria-pressed={deliveryMethod === "sms"}
+                    disabled={Boolean(authCapabilities && !authCapabilities.sms.available)}
                     onClick={() => {
                       setDeliveryMethod("sms");
                       setError("");
@@ -199,6 +226,11 @@ export function AuthPage() {
                     SMS
                   </button>
                 </div>
+                {authCapabilities && !authCapabilities.default_channel && (
+                  <p role="status" className="auth-error">
+                    Aucun canal de vérification disponible. Contactez le support.
+                  </p>
+                )}
                 {deliveryMethod === "email" && (
                   <>
                     <label className="field-label" htmlFor="auth-email">
@@ -250,6 +282,8 @@ export function AuthPage() {
                   className="button button-gold full"
                   disabled={
                     loading ||
+                    (authCapabilities !== null &&
+                      !authCapabilities[deliveryMethod].available) ||
                     phone.replace(/^0/, "").length < 8 ||
                     (deliveryMethod === "email" && !email.includes("@"))
                   }
