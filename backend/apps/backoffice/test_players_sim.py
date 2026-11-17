@@ -57,9 +57,7 @@ class BackofficePlayersAndSimTests(TestCase):
             403,
         )
         self.login(self.admin)
-        detail = self.client.get(
-            f"/api/v1/backoffice/players/{self.player.pk}/"
-        )
+        detail = self.client.get(f"/api/v1/backoffice/players/{self.player.pk}/")
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(detail.data["player"]["email"], self.player.email)
         self.assertEqual(detail.data["wallets"], [])
@@ -70,8 +68,10 @@ class BackofficePlayersAndSimTests(TestCase):
     def test_sim_summary_and_ledger_never_include_mga(self):
         credit_simulation_bonus(self.player)
         LedgerAccount.objects.create(
-            user=self.player, account_type="player",
-            currency_code="MGA", balance=999999,
+            user=self.player,
+            account_type="player",
+            currency_code="MGA",
+            balance=999999,
         )
         self.login(self.staff)
         summary = self.client.get("/api/v1/backoffice/sim/summary/")
@@ -120,7 +120,8 @@ class BackofficePlayersAndSimTests(TestCase):
             self.client.post(
                 f"/api/v1/backoffice/sim/adjustments/{first.data['id']}/decision/",
                 {
-                    "action": "approve", "reason": "Revue et accord de dotation",
+                    "action": "approve",
+                    "reason": "Revue et accord de dotation",
                     "mfa_code": "123456",
                 },
                 format="json",
@@ -150,9 +151,7 @@ class BackofficePlayersAndSimTests(TestCase):
             user=self.player, account_type="player", currency_code="SIM"
         )
         self.assertEqual(player_account.balance, 2500)
-        self.assertFalse(
-            LedgerAccount.objects.filter(currency_code="MGA").exists()
-        )
+        self.assertFalse(LedgerAccount.objects.filter(currency_code="MGA").exists())
         entries = LedgerEntry.objects.filter(
             transaction_id=approved.data["transaction_id"]
         )
@@ -165,7 +164,8 @@ class BackofficePlayersAndSimTests(TestCase):
         replay = self.client.post(
             f"/api/v1/backoffice/sim/adjustments/{first.data['id']}/decision/",
             {
-                "action": "approve", "reason": "Réessai après approbation",
+                "action": "approve",
+                "reason": "Réessai après approbation",
                 "mfa_code": "123456",
             },
             format="json",
@@ -177,14 +177,13 @@ class BackofficePlayersAndSimTests(TestCase):
         self.login(self.admin)
         first = self.request_grant(key="cashier-admin-self-request-0001")
         self.assertEqual(first.status_code, 201)
-        TOTPDevice.objects.create(
-            user=self.admin, name="Self", confirmed=True
-        )
+        TOTPDevice.objects.create(user=self.admin, name="Self", confirmed=True)
         with patch.object(TOTPDevice, "verify_token", return_value=True) as verify:
             response = self.client.post(
                 f"/api/v1/backoffice/sim/adjustments/{first.data['id']}/decision/",
                 {
-                    "action": "approve", "reason": "Ma propre approbation",
+                    "action": "approve",
+                    "reason": "Ma propre approbation",
                     "mfa_code": "123456",
                 },
                 format="json",
@@ -210,9 +209,7 @@ class BackofficePlayersAndSimTests(TestCase):
         first = self.request_grant()
         self.assertEqual(first.status_code, 201)
         self.login(self.admin)
-        TOTPDevice.objects.create(
-            user=self.admin, name="Approve", confirmed=True
-        )
+        TOTPDevice.objects.create(user=self.admin, name="Approve", confirmed=True)
         with patch.object(TOTPDevice, "verify_token", return_value=True):
             response = self.client.post(
                 f"/api/v1/backoffice/sim/adjustments/{first.data['id']}/decision/",
