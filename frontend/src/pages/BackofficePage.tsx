@@ -1145,7 +1145,7 @@ export function BackofficePage() {
                   className="auth-name-field"
                   value={flagMfa}
                   onChange={(event) =>
-                    setFlagMfa(event.target.value.replace(/\\D/g, ""))
+                    setFlagMfa(event.target.value.replace(/\D/g, ""))
                   }
                 />
               </div>
