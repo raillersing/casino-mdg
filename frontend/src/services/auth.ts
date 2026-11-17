@@ -34,7 +34,6 @@ async function post<T>(path: string, body: Record<string, string>): Promise<T> {
   return payload as T;
 }
 
-
 export type AuthMethodCapabilities = {
   email: { allowed: boolean; available: boolean };
   sms: { allowed: boolean; available: boolean };
