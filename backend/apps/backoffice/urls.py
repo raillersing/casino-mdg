@@ -4,6 +4,7 @@ from apps.kyc.views import BackofficeKYCListView, BackofficeKYCReviewView
 
 from .auth_views import BackofficeAuthChannelsView
 from .dashboard_views import LiveDashboardView
+from .finance_views import MgaFinanceOverviewView, MgaPaymentIntentListView
 from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliationView
 from .players_views import PlayerDetailView, PlayerDirectoryView
 from .report_views import (
@@ -20,6 +21,16 @@ from .sim_views import (
 from .views import AuditEventListView
 
 urlpatterns = [
+    path(
+        "finance/overview/",
+        MgaFinanceOverviewView.as_view(),
+        name="backoffice-mga-overview",
+    ),
+    path(
+        "finance/intents/",
+        MgaPaymentIntentListView.as_view(),
+        name="backoffice-mga-intents",
+    ),
     path(
         "reports/overview/",
         BackofficeOperationalReportView.as_view(),
