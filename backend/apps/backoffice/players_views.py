@@ -51,7 +51,7 @@ class PlayerDirectoryView(APIView):
         elif state not in (None, "all"):
             return Response({"detail": "Filtre de statut invalide."}, status=400)
         total = queryset.count()
-        users = queryset[offset : offset + limit]
+        users = queryset[offset:][:limit]
         full_access = request.user.is_superuser
         return Response(
             {
