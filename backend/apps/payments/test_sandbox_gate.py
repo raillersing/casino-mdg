@@ -29,9 +29,7 @@ class PaymentSandboxGateTests(TestCase):
             "idempotency_key": "payment-live-attempt-001",
             "sandbox": False,
         }
-        response = self.client.post(
-            "/api/v1/payments/intents/", body, format="json"
-        )
+        response = self.client.post("/api/v1/payments/intents/", body, format="json")
         self.assertEqual(response.status_code, 503)
         self.assertIn("désactivés", response.data["detail"])
         self.assertEqual(PaymentIntent.objects.count(), 0)
@@ -39,9 +37,7 @@ class PaymentSandboxGateTests(TestCase):
 
         body["sandbox"] = "false"
         body["idempotency_key"] = "payment-live-attempt-002"
-        bad_string = self.client.post(
-            "/api/v1/payments/intents/", body, format="json"
-        )
+        bad_string = self.client.post("/api/v1/payments/intents/", body, format="json")
         self.assertEqual(bad_string.status_code, 503)
         self.assertFalse(PaymentIntent.objects.exists())
 
