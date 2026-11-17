@@ -553,7 +553,8 @@ export function LiveCommandCenter({
                 Non évaluée — recette staging requise
               </strong>
               <small style={{ color: "var(--muted)", fontSize: "11px" }}>
-                Aucun score de préparation certifié sans tests de charge et audit.
+                Aucun score de préparation certifié sans tests de charge et
+                audit.
               </small>
             </div>
             <Gauge size={22} color="var(--gold)" />
