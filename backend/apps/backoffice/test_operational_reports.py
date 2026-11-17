@@ -106,7 +106,10 @@ class OperationalReportsTests(TestCase):
         self.assertEqual(data["players"]["registered_total"], 1)
         self.assertEqual(data["players"]["active_accounts"], 1)
         self.assertEqual(
-            {(r["currency"], r["direction"], r["amount"]) for r in data["wallet"]["MGA"]},
+            {
+                (r["currency"], r["direction"], r["amount"])
+                for r in data["wallet"]["MGA"]
+            },
             {("MGA", "debit", 300), ("MGA", "credit", 200)},
         )
         self.assertEqual(data["wallet"]["SIM"][0]["amount"], 8000)
@@ -117,7 +120,9 @@ class OperationalReportsTests(TestCase):
         self.assertNotIn(self.player.email, str(data))
         for invalid in ("0", "365", "abc", "-1"):
             self.assertEqual(
-                self.client.get(f"/api/v1/backoffice/reports/overview/?days={invalid}").status_code,
+                self.client.get(
+                    f"/api/v1/backoffice/reports/overview/?days={invalid}"
+                ).status_code,
                 400,
             )
 
@@ -158,7 +163,9 @@ class OperationalReportsTests(TestCase):
         self.assertNotIn(table.access_code, str(result.data))
         self.assertIn("not confirmed live engine", result.data["status_provenance"])
         self.assertEqual(
-            self.client.get("/api/v1/backoffice/games/tables/?status=broken").status_code,
+            self.client.get(
+                "/api/v1/backoffice/games/tables/?status=broken"
+            ).status_code,
             400,
         )
 
