@@ -145,6 +145,7 @@ def initiate_payment_intent(
     intent.status = init_result.status if init_result.success else "failed"
     intent.error_message = "" if init_result.success else init_result.message
     intent.metadata = {
+        "sandbox": True,
         "adapter_response": init_result.raw_response,
         "message": init_result.message,
     }
