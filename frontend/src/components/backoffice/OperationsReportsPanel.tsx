@@ -51,7 +51,9 @@ export function OperationsReportsPanel({ token }: { token: string }) {
     <section className="activity-card" aria-labelledby="ops-report-title">
       <div className="section-heading compact">
         <div>
-          <span className="eyebrow gold">Rapports & conformité des données</span>
+          <span className="eyebrow gold">
+            Rapports & conformité des données
+          </span>
           <h2 id="ops-report-title">Rapports opérationnels vérifiables</h2>
         </div>
       </div>
@@ -93,7 +95,11 @@ export function OperationsReportsPanel({ token }: { token: string }) {
           {downloading ? "Export..." : "Exporter CSV agrégé"}
         </button>
       </div>
-      {error && <p role="alert" className="auth-error">{error}</p>}
+      {error && (
+        <p role="alert" className="auth-error">
+          {error}
+        </p>
+      )}
       {message && <p role="status">{message}</p>}
       {report && (
         <>
@@ -127,7 +133,9 @@ export function OperationsReportsPanel({ token }: { token: string }) {
               <span>Événements entrants prestataires</span>
             </div>
             <div>
-              <strong>{report.payments.settlement_verified ? "Oui" : "Non"}</strong>
+              <strong>
+                {report.payments.settlement_verified ? "Oui" : "Non"}
+              </strong>
               <span>Rapprochement bancaire attesté</span>
             </div>
           </div>
@@ -137,10 +145,13 @@ export function OperationsReportsPanel({ token }: { token: string }) {
               <strong>{currency} — registre interne</strong>
               {report.wallet[currency].length ? (
                 report.wallet[currency].map((row) => (
-                  <p key={`${currency}:${row.type}:${row.direction}:${row.status}`}>
-                    {row.type} · {row.direction} · {row.status} :
-                    {" "}{formatNumber(row.amount)} {currency}
-                    {" · "}{row.count} transaction(s)
+                  <p
+                    key={`${currency}:${row.type}:${row.direction}:${row.status}`}
+                  >
+                    {row.type} · {row.direction} · {row.status} :{" "}
+                    {formatNumber(row.amount)} {currency}
+                    {" · "}
+                    {row.count} transaction(s)
                   </p>
                 ))
               ) : (
@@ -216,20 +227,28 @@ export function GameOperationsPanel({ token }: { token: string }) {
           {loading ? "Actualisation..." : "Actualiser"}
         </button>
       </div>
-      {error && <p role="alert" className="auth-error">{error}</p>}
+      {error && (
+        <p role="alert" className="auth-error">
+          {error}
+        </p>
+      )}
       <p>{total} table(s) correspondante(s), 30 premières affichées.</p>
       <div style={{ display: "grid", gap: "8px" }}>
         {tables.map((table) => (
           <div className="activity-row" key={table.id}>
             <div>
-              <strong>{table.name} — {table.game_type}</strong>
+              <strong>
+                {table.name} — {table.game_type}
+              </strong>
               <span>
                 {table.code} · {table.status} · {table.max_players} sièges
-                {" · "}{table.is_private ? "Privée" : "Publique"}
+                {" · "}
+                {table.is_private ? "Privée" : "Publique"}
               </span>
               <small>
                 Propriétaire : {table.owner_display_name || "Non attribué"}
-                {" · "}{new Date(table.updated_at).toLocaleString("fr-FR")}
+                {" · "}
+                {new Date(table.updated_at).toLocaleString("fr-FR")}
               </small>
             </div>
           </div>
