@@ -41,6 +41,10 @@ import { LiveCommandCenter } from "@components/backoffice/LiveCommandCenter";
 import { AuthChannelsPanel } from "@components/backoffice/AuthChannelsPanel";
 import { PlayerDirectoryPanel } from "@components/backoffice/PlayerDirectoryPanel";
 import { SimCashierPanel } from "@components/backoffice/SimCashierPanel";
+import {
+  OperationsReportsPanel,
+  GameOperationsPanel,
+} from "@components/backoffice/OperationsReportsPanel";
 
 export function BackofficePage() {
   const token = useGameStore((state) => state.accessToken);
@@ -464,6 +468,13 @@ export function BackofficePage() {
       {token && (activeTab === "all" || activeTab === "finance") && (
         <SimCashierPanel token={token} />
       )}
+      {token && (activeTab === "all" || activeTab === "games") && (
+        <GameOperationsPanel token={token} />
+      )}
+      {token &&
+        (activeTab === "all" ||
+          activeTab === "finance" ||
+          activeTab === "flow") && <OperationsReportsPanel token={token} />}
       {(activeTab === "all" || activeTab === "ops") && (
         <div className="wallet-layout">
           <section className="activity-card">

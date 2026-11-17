@@ -370,14 +370,15 @@ export type LiveDashboardData = {
     concurrency_and_capacity: {
       websocket_clients_ccu: number;
       estimated_concurrent_users: number;
-      production_readiness_score: number;
+      production_readiness_score: number | null;
       readiness_pillars: {
         rng_and_game_rules: number;
         security_and_kyc: number;
         realtime_ws_engine: number;
         database_and_ledger_scale: number;
         global_edge_infrastructure: number;
-      };
+      } | null;
+      readiness_evidence: { status: string; description: string };
       capacity_tiers: LiveDashboardCapacityTier[];
     };
   };
