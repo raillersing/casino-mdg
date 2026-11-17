@@ -540,7 +540,7 @@ export function LiveCommandCenter({
                   textTransform: "uppercase",
                 }}
               >
-                Score Audit Prod Mondiale
+                Validation capacité & sécurité
               </span>
               <strong
                 style={{
