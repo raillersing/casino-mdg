@@ -8,7 +8,10 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         ("backoffice", "0003_authchannelpolicy"),
-        ("wallet", "0002_rename_wallet_trans_user_created_idx_wallet_tran_user_id_1da2e3_idx_and_more"),
+        (
+            "wallet",
+            "0002_rename_wallet_trans_user_created_idx_wallet_tran_user_id_1da2e3_idx_and_more",
+        ),
     ]
 
     operations = [
@@ -18,8 +21,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.UUIDField(
-                        default=uuid.uuid4, editable=False,
-                        primary_key=True, serialize=False,
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
                     ),
                 ),
                 ("amount", models.PositiveBigIntegerField()),
@@ -33,7 +38,8 @@ class Migration(migrations.Migration):
                             ("approved", "Approuvée"),
                             ("rejected", "Rejetée"),
                         ],
-                        default="pending", max_length=12,
+                        default="pending",
+                        max_length=12,
                     ),
                 ),
                 ("decision_reason", models.TextField(blank=True)),
@@ -58,7 +64,8 @@ class Migration(migrations.Migration):
                 (
                     "decided_by",
                     models.ForeignKey(
-                        blank=True, null=True,
+                        blank=True,
+                        null=True,
                         on_delete=django.db.models.deletion.PROTECT,
                         related_name="sim_grants_decided",
                         to=settings.AUTH_USER_MODEL,
@@ -67,7 +74,8 @@ class Migration(migrations.Migration):
                 (
                     "transaction",
                     models.ForeignKey(
-                        blank=True, null=True,
+                        blank=True,
+                        null=True,
                         on_delete=django.db.models.deletion.PROTECT,
                         related_name="approved_sim_grants",
                         to="wallet.wallettransaction",
