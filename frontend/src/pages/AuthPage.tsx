@@ -77,7 +77,9 @@ export function AuthPage() {
     setError("");
     try {
       if (authCapabilities && !authCapabilities[deliveryMethod].available) {
-        throw new Error("Cette méthode de vérification est actuellement indisponible.");
+        throw new Error(
+          "Cette méthode de vérification est actuellement indisponible.",
+        );
       }
       const result =
         deliveryMethod === "email"
@@ -205,7 +207,9 @@ export function AuthPage() {
                     type="button"
                     className={`button ${deliveryMethod === "email" ? "button-gold" : "button-outline"}`}
                     aria-pressed={deliveryMethod === "email"}
-                    disabled={Boolean(authCapabilities && !authCapabilities.email.available)}
+                    disabled={Boolean(
+                      authCapabilities && !authCapabilities.email.available,
+                    )}
                     onClick={() => {
                       setDeliveryMethod("email");
                       setError("");
@@ -217,7 +221,9 @@ export function AuthPage() {
                     type="button"
                     className={`button ${deliveryMethod === "sms" ? "button-gold" : "button-outline"}`}
                     aria-pressed={deliveryMethod === "sms"}
-                    disabled={Boolean(authCapabilities && !authCapabilities.sms.available)}
+                    disabled={Boolean(
+                      authCapabilities && !authCapabilities.sms.available,
+                    )}
                     onClick={() => {
                       setDeliveryMethod("sms");
                       setError("");
@@ -228,7 +234,8 @@ export function AuthPage() {
                 </div>
                 {authCapabilities && !authCapabilities.default_channel && (
                   <p role="status" className="auth-error">
-                    Aucun canal de vérification disponible. Contactez le support.
+                    Aucun canal de vérification disponible. Contactez le
+                    support.
                   </p>
                 )}
                 {deliveryMethod === "email" && (
