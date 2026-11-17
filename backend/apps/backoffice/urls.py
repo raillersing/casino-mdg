@@ -5,9 +5,12 @@ from apps.kyc.views import BackofficeKYCListView, BackofficeKYCReviewView
 from .auth_views import BackofficeAuthChannelsView
 from .dashboard_views import LiveDashboardView
 from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliationView
+from .finance_views import MgaFinanceOverviewView, MgaPaymentIntentListView
 from .views import AuditEventListView
 
 urlpatterns = [
+    path("finance/overview/", MgaFinanceOverviewView.as_view(), name="finance-mga-overview"),
+    path("finance/intents/", MgaPaymentIntentListView.as_view(), name="finance-mga-intents"),
     path(
         "config/auth-methods/",
         BackofficeAuthChannelsView.as_view(),
