@@ -550,11 +550,7 @@ export function LiveCommandCenter({
                   color: "var(--gold-light)",
                 }}
               >
-                {
-                  data.application_stats.concurrency_and_capacity
-                    .production_readiness_score
-                }{" "}
-                / 100 · Prêt Pilote 500 CCU
+                Non évaluée — recette staging requise
               </strong>
               <small style={{ color: "var(--muted)", fontSize: "11px" }}>
                 RNG 95% · Sécu 84% · WS 55% · DB 48%
