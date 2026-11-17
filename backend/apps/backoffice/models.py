@@ -75,3 +75,56 @@ class AuthChannelPolicy(models.Model):
                 name="auth_channel_singleton",
             )
         ]
+
+
+class BalanceAdjustmentRequest(models.Model):
+    """Approval-only SIM token grant. Never represents real MGA funds."""
+
+    STATES = [
+        ("pending", "En attente"),
+        ("approved", "Approuvée"),
+        ("rejected", "Rejetée"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    player = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="sim_grant_requests",
+    )
+    amount = models.PositiveBigIntegerField()
+    reason = models.TextField()
+    idempotency_key = models.CharField(max_length=160, unique=True)
+    status = models.CharField(max_length=12, choices=STATES, default="pending")
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="sim_grants_requested",
+    )
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="sim_grants_decided",
+    )
+    decision_reason = models.TextField(blank=True)
+    transaction = models.ForeignKey(
+        "wallet.WalletTransaction",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="approved_sim_grants",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "backoffice_sim_grants"
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0, amount__lte=1_000_000),
+                name="sim_grant_amount_bounded",
+            )
+        ]
