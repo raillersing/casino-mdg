@@ -49,20 +49,18 @@ class SimCashierSummaryView(APIView):
         accounts = LedgerAccount.objects.filter(currency_code="SIM")
         grouped = list(
             accounts.values("account_type")
-            .annotate(count=Count("id"), balance=Sum("balance"), held=Sum("held_balance"))
+            .annotate(
+                count=Count("id"), balance=Sum("balance"), held=Sum("held_balance")
+            )
             .order_by("account_type")
         )
         entries = LedgerEntry.objects.filter(account__currency_code="SIM")
         debit = int(
-            entries.filter(entry_type="debit").aggregate(total=Sum("amount"))[
-                "total"
-            ]
+            entries.filter(entry_type="debit").aggregate(total=Sum("amount"))["total"]
             or 0
         )
         credit = int(
-            entries.filter(entry_type="credit").aggregate(total=Sum("amount"))[
-                "total"
-            ]
+            entries.filter(entry_type="credit").aggregate(total=Sum("amount"))["total"]
             or 0
         )
         return Response(
@@ -94,13 +92,13 @@ class SimLedgerView(APIView):
         if page is None:
             return Response({"detail": "Pagination invalide."}, status=400)
         limit, offset = page
-        queryset = WalletTransaction.objects.filter(
-            currency_code="SIM"
-        ).order_by("-created_at")
+        queryset = WalletTransaction.objects.filter(currency_code="SIM").order_by(
+            "-created_at"
+        )
         total = queryset.count()
-        items = queryset.select_related("user").prefetch_related(
-            "entries__account"
-        )[offset : offset + limit]
+        items = queryset.select_related("user").prefetch_related("entries__account")[
+            offset : offset + limit
+        ]
         return Response(
             {
                 "currency": "SIM",
@@ -160,9 +158,13 @@ class SimAdjustmentListCreateView(APIView):
         if type(player_id) is not int or player_id <= 0:
             return Response({"detail": "Identifiant joueur invalide."}, status=400)
         if type(amount) is not int or not 1 <= amount <= 1_000_000:
-            return Response({"detail": "Montant SIM invalide (1 à 1 000 000)."}, status=400)
+            return Response(
+                {"detail": "Montant SIM invalide (1 à 1 000 000)."}, status=400
+            )
         if not isinstance(reason, str) or not 20 <= len(reason.strip()) <= 1000:
-            return Response({"detail": "Motif détaillé requis (20 à 1000 caractères)."}, status=400)
+            return Response(
+                {"detail": "Motif détaillé requis (20 à 1000 caractères)."}, status=400
+            )
         if not 16 <= len(key) <= 160:
             return Response({"detail": "Clé d'idempotence requise."}, status=400)
         try:
@@ -188,7 +190,9 @@ class SimAdjustmentListCreateView(APIView):
                     or grant.reason != reason.strip()
                 ):
                     return Response(
-                        {"detail": "Clé d'idempotence utilisée pour une autre demande."},
+                        {
+                            "detail": "Clé d'idempotence utilisée pour une autre demande."
+                        },
                         status=409,
                     )
                 if created:
@@ -258,8 +262,11 @@ class SimAdjustmentDecisionView(APIView):
         grant.decided_at = timezone.now()
         grant.save(
             update_fields=[
-                "status", "transaction", "decision_reason",
-                "decided_by", "decided_at",
+                "status",
+                "transaction",
+                "decision_reason",
+                "decided_by",
+                "decided_at",
             ]
         )
         record_audit(
@@ -267,11 +274,14 @@ class SimAdjustmentDecisionView(APIView):
             f"sim.grant.{grant.status}",
             grant,
             {
-                "currency": "SIM", "amount": grant.amount,
+                "currency": "SIM",
+                "amount": grant.amount,
                 "player_id": grant.player_id,
                 "requester_id": grant.requested_by_id,
                 "decision_reason": grant.decision_reason,
-                "transaction_id": str(grant.transaction_id) if grant.transaction_id else None,
+                "transaction_id": (
+                    str(grant.transaction_id) if grant.transaction_id else None
+                ),
             },
         )
         return Response(serialize_grant(grant))
