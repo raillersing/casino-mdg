@@ -13,9 +13,21 @@ from .report_views import (
 from .views import AuditEventListView
 
 urlpatterns = [
-    path("reports/overview/", BackofficeOperationalReportView.as_view(), name="backoffice-report-overview"),
-    path("reports/export.csv", BackofficeReportCSVView.as_view(), name="backoffice-report-export"),
-    path("games/tables/", BackofficeLiveTablesView.as_view(), name="backoffice-live-tables"),
+    path(
+        "reports/overview/",
+        BackofficeOperationalReportView.as_view(),
+        name="backoffice-report-overview",
+    ),
+    path(
+        "reports/export.csv",
+        BackofficeReportCSVView.as_view(),
+        name="backoffice-report-export",
+    ),
+    path(
+        "games/tables/",
+        BackofficeLiveTablesView.as_view(),
+        name="backoffice-live-tables",
+    ),
     path(
         "config/auth-methods/",
         BackofficeAuthChannelsView.as_view(),
