@@ -113,7 +113,10 @@ class MgaFinanceOverviewView(APIView):
                 },
                 "warnings": [
                     "Les écritures MGA internes peuvent provenir de tests sandbox.",
-                    "Un grand livre agrégé équilibré ne certifie pas chaque intent ni un paiement PSP.",
+                    (
+                        "Un grand livre agrégé équilibré ne certifie "
+                        "pas chaque intent ni un paiement PSP."
+                    ),
                     "Les opérations réelles restent soumises aux autorisations et tests externes.",
                 ],
             }
