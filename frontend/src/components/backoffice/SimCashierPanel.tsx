@@ -38,7 +38,9 @@ export function SimCashierPanel({ token }: { token: string }) {
       setError(err instanceof Error ? err.message : "Caisse inaccessible.");
     }
     // A staff reader without full accounting privileges may see summaries.
-    getSimLedger(token).then(setLedger).catch(() => setLedger(null));
+    getSimLedger(token)
+      .then(setLedger)
+      .catch(() => setLedger(null));
   }, [token]);
 
   useEffect(() => {
@@ -83,7 +85,9 @@ export function SimCashierPanel({ token }: { token: string }) {
         decisionReason.trim(),
         mfaCode,
       );
-      setMessage(`Demande ${grant.id} : ${grant.status}. Écriture : ${grant.transaction_id || "aucune"}.`);
+      setMessage(
+        `Demande ${grant.id} : ${grant.status}. Écriture : ${grant.transaction_id || "aucune"}.`,
+      );
       setSelectedGrant("");
       setMfaCode("");
       setDecisionReason("");
@@ -109,12 +113,18 @@ export function SimCashierPanel({ token }: { token: string }) {
         Jetons de simulation uniquement. Aucune fonction de cet écran ne
         transfère ni ne débite des Ariary (MGA).
       </p>
-      {error && <p className="auth-error" role="alert">{error}</p>}
+      {error && (
+        <p className="auth-error" role="alert">
+          {error}
+        </p>
+      )}
       {message && <p role="status">{message}</p>}
       {summary && (
         <div className="stats-grid" aria-label="Bilan du grand livre SIM">
           <div>
-            <strong>{summary.total_balances_sim.toLocaleString("fr-FR")}</strong>
+            <strong>
+              {summary.total_balances_sim.toLocaleString("fr-FR")}
+            </strong>
             <span>Somme de tous les comptes SIM</span>
           </div>
           <div>
@@ -122,11 +132,15 @@ export function SimCashierPanel({ token }: { token: string }) {
             <span>Débits SIM comptabilisés</span>
           </div>
           <div>
-            <strong>{summary.entries_credit_sim.toLocaleString("fr-FR")}</strong>
+            <strong>
+              {summary.entries_credit_sim.toLocaleString("fr-FR")}
+            </strong>
             <span>Crédits SIM comptabilisés</span>
           </div>
           <div>
-            <strong>{summary.ledger_entries_balanced ? "Équilibré" : "ÉCART"}</strong>
+            <strong>
+              {summary.ledger_entries_balanced ? "Équilibré" : "ÉCART"}
+            </strong>
             <span>Somme débits / crédits du journal</span>
           </div>
           <div>
@@ -191,8 +205,8 @@ export function SimCashierPanel({ token }: { token: string }) {
       <div style={{ marginTop: "18px", display: "grid", gap: "10px" }}>
         <h3>Approbation séparée</h3>
         <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-          Approbateur différent du demandeur, super-administrateur
-          authentifié et code TOTP obligatoire.
+          Approbateur différent du demandeur, super-administrateur authentifié
+          et code TOTP obligatoire.
         </p>
         <label className="field-label" htmlFor="sim-decision-request">
           Demande en attente
@@ -206,7 +220,8 @@ export function SimCashierPanel({ token }: { token: string }) {
           <option value="">Sélectionner une demande</option>
           {pending.map((grant) => (
             <option key={grant.id} value={grant.id}>
-              #{grant.id.slice(0, 8)} · Joueur {grant.player_id} · {grant.amount} SIM
+              #{grant.id.slice(0, 8)} · Joueur {grant.player_id} ·{" "}
+              {grant.amount} SIM
             </option>
           ))}
         </select>
@@ -217,7 +232,9 @@ export function SimCashierPanel({ token }: { token: string }) {
           id="sim-decision-action"
           className="auth-name-field"
           value={action}
-          onChange={(event) => setAction(event.target.value as "approve" | "reject")}
+          onChange={(event) =>
+            setAction(event.target.value as "approve" | "reject")
+          }
         >
           <option value="approve">Approuver</option>
           <option value="reject">Refuser</option>
@@ -241,7 +258,9 @@ export function SimCashierPanel({ token }: { token: string }) {
           inputMode="numeric"
           maxLength={6}
           value={mfaCode}
-          onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, ""))}
+          onChange={(event) =>
+            setMfaCode(event.target.value.replace(/\D/g, ""))
+          }
         />
         <button
           className="button button-gold"
@@ -265,7 +284,8 @@ export function SimCashierPanel({ token }: { token: string }) {
               <div>
                 <strong>{tx.transaction_code}</strong>
                 <span>
-                  {tx.type} · {tx.amount.toLocaleString("fr-FR")} SIM · {tx.status}
+                  {tx.type} · {tx.amount.toLocaleString("fr-FR")} SIM ·{" "}
+                  {tx.status}
                 </span>
                 <small>{tx.entries.length} écritures comptables</small>
               </div>
