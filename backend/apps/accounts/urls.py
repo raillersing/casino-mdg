@@ -1,13 +1,12 @@
 from django.urls import path
 
-from .methods_views import PublicAuthMethodsView
-
 from .email_views import (
     RequestEmailBindingView,
     RequestEmailOTPView,
     VerifyEmailBindingView,
     VerifyEmailOTPView,
 )
+from .methods_views import PublicAuthMethodsView
 from .views import (
     GuestTokenView,
     MeView,
