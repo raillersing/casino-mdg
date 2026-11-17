@@ -38,6 +38,7 @@ import {
 } from "@services/kyc";
 import { CheckCircle2, Download, FileText, HeartHandshake } from "lucide-react";
 import { LiveCommandCenter } from "@components/backoffice/LiveCommandCenter";
+import { AuthChannelsPanel } from "@components/backoffice/AuthChannelsPanel";
 
 export function BackofficePage() {
   const token = useGameStore((state) => state.accessToken);
@@ -452,6 +453,9 @@ export function BackofficePage() {
         selectedPeriod={selectedPeriod}
         onChangePeriod={handlePeriodChange}
       />
+      {token && (activeTab === "all" || activeTab === "ops") && (
+        <AuthChannelsPanel token={token} />
+      )}
       {(activeTab === "all" || activeTab === "ops") && (
         <div className="wallet-layout">
           <section className="activity-card">
