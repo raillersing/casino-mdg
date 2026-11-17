@@ -9,9 +9,7 @@ from .models import AuthChannelPolicy
 
 def channel_mode():
     return (
-        AuthChannelPolicy.objects.filter(pk=1)
-        .values_list("mode", flat=True)
-        .first()
+        AuthChannelPolicy.objects.filter(pk=1).values_list("mode", flat=True).first()
         or "both"
     )
 
@@ -58,8 +56,6 @@ def channel_capabilities():
         "default_channel": (
             "email"
             if email_enabled and email_ready
-            else "sms"
-            if sms_enabled and sms_ready
-            else None
+            else "sms" if sms_enabled and sms_ready else None
         ),
     }
