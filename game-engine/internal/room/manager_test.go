@@ -537,8 +537,12 @@ func TestPokerBotManiacIsAggressive(t *testing.T) {
 	hand.Phase = "preflop"
 	table.State = hand
 
+	// A 50-trial Bernoulli sample flaked at 14/50 on CI despite the
+	// maniac's 0.35 base bluff probability. Use a larger sample and
+	// conservative lower bound to detect actual behavioral regressions.
+	const trials = 500
 	aggressive := 0
-	for i := 0; i < 50; i++ {
+	for i := 0; i < trials; i++ {
 		turn := decidePokerBotTurn(hand, p1, table, "maniac", 1)
 		if turn.Action == "bet" || turn.Action == "raise" || turn.Action == "all_in" {
 			aggressive++
@@ -547,8 +551,8 @@ func TestPokerBotManiacIsAggressive(t *testing.T) {
 		p1.AllIn = false
 		p1.Bet = 0
 	}
-	if aggressive < 15 {
-		t.Fatalf("maniac was aggressive only %d/50 with weak hand, expected at least 15", aggressive)
+	if aggressive < 100 {
+		t.Fatalf("maniac was aggressive only %d/%d with weak hand, expected at least 20%%", aggressive, trials)
 	}
 }
 
