@@ -13,6 +13,7 @@ from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.backoffice.auth_policy import channel_allowed
 from apps.wallet.services import credit_simulation_bonus
 
 from .authentication import encode_token
@@ -106,6 +107,8 @@ class RequestEmailOTPView(APIView):
     throttle_classes = [OTPRequestThrottle]
 
     def post(self, request):
+        if not channel_allowed("email"):
+            return Response({"detail": "Connexion email désactivée."}, status=503)
         try:
             email = clean_email(request.data.get("email"))
             phone = normalize_phone(request.data.get("phone"))
@@ -134,6 +137,8 @@ class VerifyEmailOTPView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        if not channel_allowed("email"):
+            return Response({"detail": "Connexion email désactivée."}, status=503)
         challenge = consume_challenge(request, "login")
         if not challenge:
             return Response(
@@ -202,6 +207,8 @@ class RequestEmailBindingView(APIView):
     throttle_classes = [OTPRequestThrottle]
 
     def post(self, request):
+        if not channel_allowed("email"):
+            return Response({"detail": "Service email désactivé."}, status=503)
         user = request.user
         if user.email_verified_at is not None:
             return Response(
@@ -222,6 +229,8 @@ class VerifyEmailBindingView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        if not channel_allowed("email"):
+            return Response({"detail": "Service email désactivé."}, status=503)
         challenge = consume_challenge(request, "bind")
         if not challenge or challenge.user_id != request.user.pk:
             return Response(

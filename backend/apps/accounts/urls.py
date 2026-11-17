@@ -6,6 +6,7 @@ from .email_views import (
     VerifyEmailBindingView,
     VerifyEmailOTPView,
 )
+from .methods_views import PublicAuthMethodsView
 from .views import (
     GuestTokenView,
     MeView,
@@ -16,6 +17,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("methods/", PublicAuthMethodsView.as_view(), name="auth-methods"),
     path("otp/request/", RequestOTPView.as_view(), name="otp-request"),
     path("email/request/", RequestEmailOTPView.as_view(), name="email-otp-request"),
     path("email/verify/", VerifyEmailOTPView.as_view(), name="email-otp-verify"),

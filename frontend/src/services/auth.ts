@@ -34,6 +34,18 @@ async function post<T>(path: string, body: Record<string, string>): Promise<T> {
   return payload as T;
 }
 
+export type AuthMethodCapabilities = {
+  email: { allowed: boolean; available: boolean };
+  sms: { allowed: boolean; available: boolean };
+  default_channel: "email" | "sms" | null;
+};
+
+export async function getAuthMethods(): Promise<AuthMethodCapabilities> {
+  const response = await fetch("/api/v1/auth/methods/");
+  if (!response.ok) throw new Error("Canaux d'authentification indisponibles.");
+  return (await response.json()) as AuthMethodCapabilities;
+}
+
 export function requestOtp(phone: string) {
   return post<OtpRequestResponse>("otp/request/", { phone });
 }
