@@ -81,7 +81,9 @@ class PlayerDetailView(APIView):
     def get(self, request, player_id):
         # Detailed contact and financial records require elevated privileges.
         if not request.user.is_superuser:
-            return Response({"detail": "Droit de consultation renforcé requis."}, status=403)
+            return Response(
+                {"detail": "Droit de consultation renforcé requis."}, status=403
+            )
         try:
             player = User.objects.get(pk=player_id, is_staff=False)
         except User.DoesNotExist:
@@ -94,9 +96,7 @@ class PlayerDetailView(APIView):
         recent_tx = WalletTransaction.objects.filter(user=player).order_by(
             "-created_at"
         )[:25]
-        intents = PaymentIntent.objects.filter(user=player).order_by(
-            "-created_at"
-        )[:10]
+        intents = PaymentIntent.objects.filter(user=player).order_by("-created_at")[:10]
         return Response(
             {
                 "player": {
