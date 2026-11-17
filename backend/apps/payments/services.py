@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -46,6 +47,14 @@ def initiate_payment_intent(
     Initie une transaction Mobile Money (dépôt ou retrait) avec vérification de conformité KYC,
     sécurisation du solde et appel à la passerelle opérateur.
     """
+    # This application is still in a SIM/sandbox pilot.
+    # Explicitly refuse live PSP execution even if a caller bypasses
+    # the API and invokes this service directly.
+    if sandbox is not True:
+        raise ValidationError(
+            "Les paiements réels ne sont pas autorisés : mode sandbox obligatoire."
+        )
+
     if provider not in dict(WebhookInboxEvent.PROVIDERS):
         raise ValidationError(f"Opérateur '{provider}' non supporté.")
 
@@ -137,6 +146,7 @@ def initiate_payment_intent(
     intent.status = init_result.status if init_result.success else "failed"
     intent.error_message = "" if init_result.success else init_result.message
     intent.metadata = {
+        "sandbox": True,
         "adapter_response": init_result.raw_response,
         "message": init_result.message,
     }
@@ -172,6 +182,12 @@ def settle_payment_intent(
     Rapprochement comptable définitif d'un PaymentIntent après notification du webhook opérateur.
     Exécute les écritures de débit/crédit en partie double dans le grand livre (Ledger).
     """
+    if not settings.DEBUG and not (
+        isinstance(intent.metadata, dict) and intent.metadata.get("sandbox") is True
+    ):
+        raise ValidationError(
+            "Impossible de solder un paiement non attesté comme sandbox."
+        )
     if intent.status == "completed":
         return intent  # Déjà rapproché
 
@@ -212,6 +228,7 @@ def settle_payment_intent(
                 metadata={
                     "payment_intent_id": str(intent.id),
                     "provider": intent.provider,
+                    "sandbox": True,
                 },
                 processed_at=now,
             )
@@ -286,6 +303,7 @@ def settle_payment_intent(
                 metadata={
                     "payment_intent_id": str(intent.id),
                     "provider": intent.provider,
+                    "sandbox": True,
                 },
                 processed_at=now,
             )

@@ -3,7 +3,7 @@ import hmac
 import json
 
 from django.conf import settings
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -11,6 +11,10 @@ from apps.payments.models import PaymentIntent, WebhookInboxEvent
 from apps.wallet.models import LedgerAccount, WalletTransaction
 
 
+@override_settings(
+    PAYMENT_SANDBOX_WEBHOOKS_ENABLED=True,
+    PAYMENT_WEBHOOK_SECRET="sandbox-tests-hmac-key-minimum-32-characters",
+)
 class PaymentWebhookTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

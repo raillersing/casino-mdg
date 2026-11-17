@@ -37,6 +37,19 @@ class PaymentWebhookView(APIView):
     authentication_classes = []
 
     def post(self, request, provider):
+        # No generic sandbox webhook should settle funds in a deployed instance
+        # unless an operator explicitly enabled an isolated sandbox test path.
+        if not settings.DEBUG:
+            key = settings.PAYMENT_WEBHOOK_SECRET
+            if (
+                not settings.PAYMENT_SANDBOX_WEBHOOKS_ENABLED
+                or key == "dev-webhook-secret-change-me"
+                or len(key) < 32
+            ):
+                return Response(
+                    {"detail": "Réception des webhooks sandbox désactivée."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
         if provider not in dict(WebhookInboxEvent.PROVIDERS):
             return Response(
                 {"detail": "Opérateur inconnu."}, status=status.HTTP_404_NOT_FOUND
@@ -122,7 +135,19 @@ class PaymentIntentView(APIView):
         direction = str(request.data.get("direction", ""))
         phone_number = str(request.data.get("phone_number", "")).strip()
         key = str(request.data.get("idempotency_key", "")).strip()
-        sandbox = bool(request.data.get("sandbox", True))
+        # Financial execution mode is a server-owned security boundary.
+        # Never let a player switch an adapter into live mode via JSON.
+        if request.data.get("sandbox", True) is not True:
+            return Response(
+                {
+                    "detail": (
+                        "Paiements réels désactivés : seule la simulation "
+                        "est autorisée."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        sandbox = True
 
         try:
             amount = int(request.data.get("amount", 0))
