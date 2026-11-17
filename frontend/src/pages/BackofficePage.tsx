@@ -41,6 +41,7 @@ import { LiveCommandCenter } from "@components/backoffice/LiveCommandCenter";
 import { AuthChannelsPanel } from "@components/backoffice/AuthChannelsPanel";
 import { PlayerDirectoryPanel } from "@components/backoffice/PlayerDirectoryPanel";
 import { SimCashierPanel } from "@components/backoffice/SimCashierPanel";
+import { MgaFinancePanel } from "@components/backoffice/MgaFinancePanel";
 import {
   OperationsReportsPanel,
   GameOperationsPanel,
@@ -467,6 +468,9 @@ export function BackofficePage() {
       )}
       {token && (activeTab === "all" || activeTab === "finance") && (
         <SimCashierPanel token={token} />
+      )}
+      {token && (activeTab === "all" || activeTab === "finance") && (
+        <MgaFinancePanel token={token} />
       )}
       {token && (activeTab === "all" || activeTab === "games") && (
         <GameOperationsPanel token={token} />
