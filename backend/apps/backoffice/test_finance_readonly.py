@@ -120,6 +120,7 @@ class MGAReadOnlyTests(TestCase):
             "/api/v1/backoffice/finance/overview/",
             "/api/v1/backoffice/finance/intents/",
         ):
+            self.client.force_authenticate(user=None)
             self.assertEqual(self.client.get(path).status_code, 401)
             self.client.force_authenticate(self.user)
             self.assertEqual(self.client.get(path).status_code, 403)
