@@ -32,6 +32,22 @@ configurés, une demande cliente pouvait déclencher le chemin live.
 - `sandbox=true` -> parcours de simulation existant, intent annoté
   `metadata.sandbox=true`.
 
+## Garde supplémentaire sur les webhooks génériques
+
+- Avec `DEBUG=False`, le webhook de simulation renvoie **503** sauf si
+  `PAYMENT_SANDBOX_WEBHOOKS_ENABLED=True` **ET** si un secret HMAC non
+  trivial (32 caractères minimum, différent du secret de développement)
+  est configuré.
+- Ce mécanisme est exclusivement destiné au staging isolé. Il ne
+  remplace pas la vérification de signature/contrat d'un opérateur réel.
+- En mode déployé, le service de règlement refuse les intents historiques
+  ou non classifiés qui ne portent pas `metadata.sandbox=True`.
+- Toute écriture MGA créée depuis un intent de test doit conserver
+  `metadata.sandbox=True` afin d'empêcher sa présentation comme un
+  paiement effectivement reçu.
+- Le webhook ne permet pas d'activer les paiements réels. Aucun
+  fournisseur n'a été authentifié ni testé en conditions réelles.
+
 ## Limites à traiter avant une activité MGA réelle
 
 L'inbox de webhooks et le grand livre historique demandent un audit
