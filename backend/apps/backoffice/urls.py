@@ -8,7 +8,11 @@ from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliati
 from .views import AuditEventListView
 
 urlpatterns = [
-    path("config/auth-methods/", BackofficeAuthChannelsView.as_view(), name="backoffice-auth-methods"),
+    path(
+        "config/auth-methods/",
+        BackofficeAuthChannelsView.as_view(),
+        name="backoffice-auth-methods",
+    ),
     path("live-dashboard/", LiveDashboardView.as_view(), name="live-dashboard"),
     path("audit-events/", AuditEventListView.as_view(), name="audit-events"),
     path("feature-flags/", FeatureFlagView.as_view(), name="feature-flags"),
