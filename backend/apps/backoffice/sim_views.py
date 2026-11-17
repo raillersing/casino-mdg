@@ -96,9 +96,8 @@ class SimLedgerView(APIView):
             "-created_at"
         )
         total = queryset.count()
-        items = queryset.select_related("user").prefetch_related("entries__account")[
-            offset : offset + limit
-        ]
+        queryset = queryset.select_related("user").prefetch_related("entries__account")
+        items = queryset[offset:][:limit]
         return Response(
             {
                 "currency": "SIM",
