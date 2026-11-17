@@ -39,6 +39,7 @@ import {
 import { CheckCircle2, Download, FileText, HeartHandshake } from "lucide-react";
 import { LiveCommandCenter } from "@components/backoffice/LiveCommandCenter";
 import { AuthChannelsPanel } from "@components/backoffice/AuthChannelsPanel";
+import { OperationsReportsPanel, GameOperationsPanel } from "@components/backoffice/OperationsReportsPanel";
 
 export function BackofficePage() {
   const token = useGameStore((state) => state.accessToken);
@@ -455,6 +456,12 @@ export function BackofficePage() {
       />
       {token && (activeTab === "all" || activeTab === "ops") && (
         <AuthChannelsPanel token={token} />
+      )}
+      {token && (activeTab === "all" || activeTab === "games") && (
+        <GameOperationsPanel token={token} />
+      )}
+      {token && (activeTab === "all" || activeTab === "finance" || activeTab === "flow") && (
+        <OperationsReportsPanel token={token} />
       )}
       {(activeTab === "all" || activeTab === "ops") && (
         <div className="wallet-layout">
