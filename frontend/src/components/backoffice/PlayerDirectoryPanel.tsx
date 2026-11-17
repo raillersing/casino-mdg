@@ -14,20 +14,25 @@ export function PlayerDirectoryPanel({ token }: { token: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async (term: string) => {
-    setBusy(true);
-    setError("");
-    try {
-      const data = await getBackofficePlayers(token, term);
-      setPlayers(data.results);
-      setTotal(data.count);
-      setSelected(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Recherche indisponible.");
-    } finally {
-      setBusy(false);
-    }
-  }, [token]);
+  const load = useCallback(
+    async (term: string) => {
+      setBusy(true);
+      setError("");
+      try {
+        const data = await getBackofficePlayers(token, term);
+        setPlayers(data.results);
+        setTotal(data.count);
+        setSelected(null);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Recherche indisponible.",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [token],
+  );
 
   useEffect(() => {
     void load("");
@@ -39,7 +44,9 @@ export function PlayerDirectoryPanel({ token }: { token: string }) {
       setSelected(await getBackofficePlayerDetail(token, id));
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Consultation détaillée interdite.",
+        err instanceof Error
+          ? err.message
+          : "Consultation détaillée interdite.",
       );
     }
   };
@@ -75,7 +82,11 @@ export function PlayerDirectoryPanel({ token }: { token: string }) {
         {total} joueurs correspondants. Les données privées sont masquées aux
         opérateurs sans accès renforcé.
       </p>
-      {error && <p className="auth-error" role="alert">{error}</p>}
+      {error && (
+        <p className="auth-error" role="alert">
+          {error}
+        </p>
+      )}
       {players.length === 0 ? (
         <p>Aucun joueur trouvé.</p>
       ) : (
@@ -89,8 +100,10 @@ export function PlayerDirectoryPanel({ token }: { token: string }) {
                 </span>
                 <small>
                   Email {player.email_verified ? "vérifié" : "non attesté"}
-                  {" · "}Téléphone {player.phone_verified ? "attesté" : "non attesté"}
-                  {" · "}{player.is_active ? "Actif" : "Suspendu"}
+                  {" · "}Téléphone{" "}
+                  {player.phone_verified ? "attesté" : "non attesté"}
+                  {" · "}
+                  {player.is_active ? "Actif" : "Suspendu"}
                   {" · "}KYC {player.kyc_level}
                 </small>
               </div>
@@ -126,12 +139,13 @@ export function PlayerDirectoryPanel({ token }: { token: string }) {
           {selected.transactions.slice(0, 10).map((tx) => (
             <p key={tx.id}>
               {tx.type} : {tx.amount.toLocaleString("fr-FR")} {tx.currency}
-              {" · "}{tx.status}
+              {" · "}
+              {tx.status}
             </p>
           ))}
           <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-            Les soldes MGA présentés proviennent du registre interne ;
-            ils ne prouvent pas à eux seuls un rapprochement bancaire.
+            Les soldes MGA présentés proviennent du registre interne ; ils ne
+            prouvent pas à eux seuls un rapprochement bancaire.
           </p>
         </div>
       )}
