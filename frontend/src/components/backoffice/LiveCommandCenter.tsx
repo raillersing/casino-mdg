@@ -553,7 +553,7 @@ export function LiveCommandCenter({
                 Non évaluée — recette staging requise
               </strong>
               <small style={{ color: "var(--muted)", fontSize: "11px" }}>
-                RNG 95% · Sécu 84% · WS 55% · DB 48%
+                Aucun score de préparation certifié sans tests de charge et audit.
               </small>
             </div>
             <Gauge size={22} color="var(--gold)" />
