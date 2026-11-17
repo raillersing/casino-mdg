@@ -34,7 +34,9 @@ class MgaFinanceOverviewView(APIView):
 
     def get(self, request):
         if not request.user.is_superuser:
-            return Response({"detail": "Accès aux données financières restreint."}, status=403)
+            return Response(
+                {"detail": "Accès aux données financières restreint."}, status=403
+            )
         try:
             days = int(request.query_params.get("days", 7))
         except (TypeError, ValueError):
@@ -42,9 +44,7 @@ class MgaFinanceOverviewView(APIView):
         if days not in (1, 7, 30, 90):
             return Response({"detail": "Période invalide."}, status=400)
         cutoff = timezone.now() - timedelta(days=days)
-        intents = PaymentIntent.objects.filter(
-            currency="MGA", created_at__gte=cutoff
-        )
+        intents = PaymentIntent.objects.filter(currency="MGA", created_at__gte=cutoff)
         sandbox_count = intents.filter(metadata__sandbox=True).count()
         total_count = intents.count()
         wallet = WalletTransaction.objects.filter(
@@ -55,14 +55,12 @@ class MgaFinanceOverviewView(APIView):
             transaction__created_at__gte=cutoff,
         )
         debit_total = int(
-            entries.filter(entry_type="debit").aggregate(total=Sum("amount"))[
-                "total"
-            ] or 0
+            entries.filter(entry_type="debit").aggregate(total=Sum("amount"))["total"]
+            or 0
         )
         credit_total = int(
-            entries.filter(entry_type="credit").aggregate(total=Sum("amount"))[
-                "total"
-            ] or 0
+            entries.filter(entry_type="credit").aggregate(total=Sum("amount"))["total"]
+            or 0
         )
         accounts = LedgerAccount.objects.filter(
             currency_code="MGA", account_type="player"
@@ -70,13 +68,15 @@ class MgaFinanceOverviewView(APIView):
         hold = int(accounts.aggregate(total=Sum("held_balance"))["total"] or 0)
         completed = wallet.filter(status="completed")
         receipts = (
-            completed.filter(type="deposit", direction="credit")
-            .aggregate(total=Sum("amount"))["total"]
+            completed.filter(type="deposit", direction="credit").aggregate(
+                total=Sum("amount")
+            )["total"]
             or 0
         )
         withdrawals = (
-            completed.filter(type="withdrawal", direction="debit")
-            .aggregate(total=Sum("amount"))["total"]
+            completed.filter(type="withdrawal", direction="debit").aggregate(
+                total=Sum("amount")
+            )["total"]
             or 0
         )
         webhook_qs = WebhookInboxEvent.objects.filter(received_at__gte=cutoff)
@@ -128,7 +128,12 @@ class MgaPaymentIntentListView(APIView):
             return Response({"detail": "Accès financier restreint."}, status=403)
         status = request.query_params.get("status", "all")
         if status not in (
-            "all", "pending", "processing", "completed", "failed", "cancelled",
+            "all",
+            "pending",
+            "processing",
+            "completed",
+            "failed",
+            "cancelled",
         ):
             return Response({"detail": "Statut invalide."}, status=400)
         try:
