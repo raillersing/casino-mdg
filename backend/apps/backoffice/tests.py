@@ -293,6 +293,7 @@ class AuditTests(TestCase):
         # Create wallet transactions
         WalletTransaction.objects.create(
             transaction_code="TX-DEP-01",
+            currency_code="MGA",
             user=vip_winner,
             type="deposit",
             direction="credit",
@@ -301,6 +302,7 @@ class AuditTests(TestCase):
         )
         WalletTransaction.objects.create(
             transaction_code="TX-BET-01",
+            currency_code="MGA",
             user=vip_bettor,
             type="game",
             direction="debit",
@@ -310,6 +312,7 @@ class AuditTests(TestCase):
         )
         WalletTransaction.objects.create(
             transaction_code="TX-WD-01",
+            currency_code="MGA",
             user=vip_winner,
             type="withdrawal",
             direction="debit",
@@ -317,7 +320,18 @@ class AuditTests(TestCase):
             status="pending",
         )
 
-        # Create game results
+        WalletTransaction.objects.create(
+            transaction_code="TX-PRIZE-01",
+            user=vip_winner,
+            type="game",
+            direction="credit",
+            currency_code="MGA",
+            amount=42000,
+            status="completed",
+            metadata={"game_type": "belote"},
+        )
+
+        # GameResults prove wins, but no real MGA amount without a ledger post.
         GameResult.objects.create(
             game_id="00000000-0000-0000-0000-000000000001",
             user=vip_winner,
@@ -343,7 +357,7 @@ class AuditTests(TestCase):
         self.assertEqual(exec_day["selected_period"]["period"], "day")
         self.assertEqual(exec_day["selected_period"]["window_days"], 1)
 
-        # Leaderboard: top winner should be Champion Belote with 2 wins and 42000 MGA
+        # Win count from authoritative results; money from MGA ledger entries.
         top_winners = exec_day["leaderboards"]["top_winners"]
         self.assertTrue(len(top_winners) >= 1)
         self.assertEqual(top_winners[0]["user_id"], vip_winner.id)
@@ -370,3 +384,70 @@ class AuditTests(TestCase):
             self.assertEqual(
                 r.data["executive_dashboard"]["selected_period"]["period"], p
             )
+
+    def test_financial_metrics_do_not_mix_sim_and_mga_or_client_table_events(self):
+        staff = User.objects.create_user(
+            email="finance-report@mdg.local",
+            phone="+261340000140",
+            display_name="Finance",
+            is_staff=True,
+        )
+        player = User.objects.create_user(
+            email="currency-check@mdg.local",
+            phone="+261340000141",
+            display_name="Currency",
+        )
+        ProductEvent.objects.create(
+            user=player,
+            event_name="table_created",
+            game_type="belote",
+            session_id="client-only",
+        )
+        GameResult.objects.create(
+            game_id="00000000-0000-0000-0000-000000000088",
+            user=player,
+            game_type="belote",
+            outcome="win",
+            amount=900000,
+        )
+        for code, currency, kind, direction, amount in (
+            ("SIM-DEP", "SIM", "deposit", "credit", 40000),
+            ("SIM-STK", "SIM", "game", "debit", 70000),
+            ("SIM-PRZ", "SIM", "game", "credit", 80000),
+            ("SIM-WD", "SIM", "withdrawal", "debit", 20000),
+            ("SIM-BON", "SIM", "bonus", "credit", 5000),
+            ("MGA-DEP", "MGA", "deposit", "credit", 6000),
+            ("MGA-STK", "MGA", "game", "debit", 1500),
+            ("MGA-PRZ", "MGA", "game", "credit", 1100),
+            ("MGA-WD", "MGA", "withdrawal", "debit", 1000),
+        ):
+            WalletTransaction.objects.create(
+                transaction_code=code,
+                user=player,
+                currency_code=currency,
+                type=kind,
+                direction=direction,
+                amount=amount,
+                status="completed",
+            )
+
+        client = APIClient()
+        client.force_authenticate(staff)
+        response = client.get("/api/v1/backoffice/live-dashboard/?period=week")
+        self.assertEqual(response.status_code, 200)
+        executive = response.data["executive_dashboard"]
+        week = executive["periods_comparison"]["week"]
+        self.assertEqual(week["tables_created"], 0)
+        self.assertEqual(week["total_stakes_mga"], 1500)
+        self.assertEqual(week["total_payouts_mga"], 1100)
+        self.assertEqual(week["ggr_mga"], 400)
+        self.assertEqual(week["deposits_volume_mga"], 6000)
+        self.assertEqual(week["withdrawals_volume_mga"], 1000)
+        self.assertEqual(executive["financial_overview"]["deposits_volume_mga"], 6000)
+        self.assertEqual(executive["financial_overview"]["bonus_volume_mga"], 0)
+        self.assertEqual(executive["sim_overview"]["completed_bonus_sim"], 5000)
+        self.assertEqual(executive["sim_overview"]["completed_game_debits_sim"], 70000)
+        self.assertEqual(
+            executive["leaderboards"]["top_winners"][0]["total_won_mga"], 1100
+        )
+        self.assertEqual(executive["by_game_analytics"][1]["ggr_mga"], 0)
