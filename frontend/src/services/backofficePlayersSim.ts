@@ -116,7 +116,8 @@ async function api<T>(
     ...(payload ? { body: JSON.stringify(payload) } : {}),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail || "Requête back-office refusée.");
+  if (!response.ok)
+    throw new Error(data.detail || "Requête back-office refusée.");
   return data as T;
 }
 
@@ -167,10 +168,9 @@ export function decideSimGrant(
   reason: string,
   mfaCode: string,
 ) {
-  return api<SimGrant>(
-    token,
-    `sim/adjustments/${grantId}/decision/`,
-    "POST",
-    { action, reason, mfa_code: mfaCode },
-  );
+  return api<SimGrant>(token, `sim/adjustments/${grantId}/decision/`, "POST", {
+    action,
+    reason,
+    mfa_code: mfaCode,
+  });
 }
