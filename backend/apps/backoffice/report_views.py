@@ -97,7 +97,7 @@ def build_report(days):
             "intent_counts": grouped_count(intents, "status"),
             "intent_providers": grouped_count(intents, "provider"),
             "webhooks_received": WebhookInboxEvent.objects.filter(
-                created_at__gte=since
+                received_at__gte=since
             ).count(),
             "currency": "MGA",
             "settlement_verified": False,
