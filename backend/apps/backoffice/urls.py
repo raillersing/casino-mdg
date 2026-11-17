@@ -5,9 +5,26 @@ from apps.kyc.views import BackofficeKYCListView, BackofficeKYCReviewView
 from .auth_views import BackofficeAuthChannelsView
 from .dashboard_views import LiveDashboardView
 from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliationView
+from .players_views import PlayerDetailView, PlayerDirectoryView
+from .sim_views import (
+    SimAdjustmentDecisionView,
+    SimAdjustmentListCreateView,
+    SimCashierSummaryView,
+    SimLedgerView,
+)
 from .views import AuditEventListView
 
 urlpatterns = [
+    path("players/", PlayerDirectoryView.as_view(), name="backoffice-players"),
+    path("players/<int:player_id>/", PlayerDetailView.as_view(), name="backoffice-player-detail"),
+    path("sim/summary/", SimCashierSummaryView.as_view(), name="backoffice-sim-summary"),
+    path("sim/ledger/", SimLedgerView.as_view(), name="backoffice-sim-ledger"),
+    path("sim/adjustments/", SimAdjustmentListCreateView.as_view(), name="backoffice-sim-adjustments"),
+    path(
+        "sim/adjustments/<uuid:adjustment_id>/decision/",
+        SimAdjustmentDecisionView.as_view(),
+        name="backoffice-sim-decision",
+    ),
     path(
         "config/auth-methods/",
         BackofficeAuthChannelsView.as_view(),
