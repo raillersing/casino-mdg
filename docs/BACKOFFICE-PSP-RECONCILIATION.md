@@ -1,7 +1,7 @@
 # Contrôle de rapprochement par transaction — CasinoMDG
 
 Endpoint en lecture seule : `GET /api/v1/backoffice/finance/reconciliation/items/`.
-Réservé au super-administrateur ; filtre `days=1|7|30|90`,
+Réservé au rôle `casino:finance_auditor` (ou super-administrateur) ; filtre `days=1|7|30|90`,
 `provider=mvola|orange|airtel|all` ; pagination `limit`/`offset`.
 
 Source : modèle PaymentIntent, WebhookInboxEvent, WalletTransaction et
