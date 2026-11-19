@@ -20,9 +20,7 @@ class FeatureFlagView(APIView):
         can_update = bool(
             request.user.is_active
             and request.user.is_superuser
-            and TOTPDevice.objects.filter(
-                user=request.user, confirmed=True
-            ).exists()
+            and TOTPDevice.objects.filter(user=request.user, confirmed=True).exists()
         )
         return Response(
             {
@@ -42,9 +40,7 @@ class FeatureFlagView(APIView):
     @transaction.atomic
     def post(self, request):
         if not request.user.is_active or not request.user.is_superuser:
-            return Response(
-                {"detail": "Super-administrateur requis."}, status=403
-            )
+            return Response({"detail": "Super-administrateur requis."}, status=403)
         key = request.data.get("key")
         enabled = request.data.get("enabled")
         reason = request.data.get("reason")
@@ -65,9 +61,7 @@ class FeatureFlagView(APIView):
         if len(mfa_code) != 6 or not mfa_code.isdigit():
             return Response({"detail": "Code TOTP requis."}, status=403)
 
-        flag = FeatureFlag.objects.select_for_update().filter(
-            key=key.strip()
-        ).first()
+        flag = FeatureFlag.objects.select_for_update().filter(key=key.strip()).first()
         if flag is None:
             return Response(
                 {"detail": "Paramètre inexistant. Création non autorisée."},
@@ -115,6 +109,7 @@ class FeatureFlagView(APIView):
                 "updated_at": flag.updated_at.isoformat(),
             }
         )
+
 
 class ChatModerationView(APIView):
     permission_classes = [IsAdminUser]

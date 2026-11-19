@@ -1154,7 +1154,7 @@ export function BackofficePage() {
                 Consultation uniquement. La modification exige un super-administrateur
                 avec un appareil TOTP confirmé.
               </p>
-            )
+            )}
             {flags.length ? (
               flags.map((flag) => (
                 <div className="activity-row" key={flag.key}>

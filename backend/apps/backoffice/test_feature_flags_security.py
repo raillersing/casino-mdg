@@ -13,12 +13,17 @@ from apps.backoffice.models import AuditEvent, FeatureFlag
 class FeatureFlagSecurityTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(
-            email="flags-root@mdg.local", phone="+261340000610",
-            display_name="Admin", is_staff=True, is_superuser=True,
+            email="flags-root@mdg.local",
+            phone="+261340000610",
+            display_name="Admin",
+            is_staff=True,
+            is_superuser=True,
         )
         self.staff = User.objects.create_user(
-            email="flags-staff@mdg.local", phone="+261340000611",
-            display_name="Operator", is_staff=True,
+            email="flags-staff@mdg.local",
+            phone="+261340000611",
+            display_name="Operator",
+            is_staff=True,
         )
         self.flag = FeatureFlag.objects.create(
             key="game_results", enabled=True, reason="Initial setup"
