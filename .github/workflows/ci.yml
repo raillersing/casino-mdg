@@ -339,6 +339,9 @@ jobs:
           node --check scripts/staging-live-acceptance.mjs
           node --test scripts/staging-live-acceptance.test.mjs
 
+      - name: Test production configuration preflight guards
+        run: python3 -m unittest discover -s scripts -p 'test_production_preflight.py'
+
   # ───────────────────────────────────────────
   # Security scan
   # ───────────────────────────────────────────
