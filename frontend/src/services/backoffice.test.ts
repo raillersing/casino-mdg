@@ -48,7 +48,7 @@ describe("backoffice live dashboard service", () => {
     );
   });
 
-  it("toggles feature flag with staff authorization", async () => {
+  it("submits feature flag update with TOTP and optimistic lock", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -62,10 +62,12 @@ describe("backoffice live dashboard service", () => {
     );
 
     const updated = await setFeatureFlag(
-      "staff-token",
+      "admin-token",
       "game_results",
       false,
       "Maintenance NOC",
+      "123456",
+      "2026-10-25T12:00:00Z",
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -74,8 +76,15 @@ describe("backoffice live dashboard service", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer staff-token",
+          Authorization: "Bearer admin-token",
         },
+        body: JSON.stringify({
+          key: "game_results",
+          enabled: false,
+          reason: "Maintenance NOC",
+          mfa_code: "123456",
+          expected_updated_at: "2026-10-25T12:00:00Z",
+        }),
       }),
     );
     expect(updated.enabled).toBe(false);

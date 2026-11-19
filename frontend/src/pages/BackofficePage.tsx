@@ -1119,7 +1119,9 @@ export function BackofficePage() {
           </section>
 
           <section className="activity-card">
-            <div className="chat-head">Feature flags — modifications sécurisées</div>
+            <div className="chat-head">
+              Feature flags — modifications sécurisées
+            </div>
             {flagCanUpdate ? (
               <div style={{ display: "grid", gap: "8px", margin: "12px 0" }}>
                 <label className="field-label" htmlFor="flag-change-reason">
@@ -1151,8 +1153,8 @@ export function BackofficePage() {
               </div>
             ) : (
               <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-                Consultation uniquement. La modification exige un super-administrateur
-                avec un appareil TOTP confirmé.
+                Consultation uniquement. La modification exige un
+                super-administrateur avec un appareil TOTP confirmé.
               </p>
             )}
             {flags.length ? (
