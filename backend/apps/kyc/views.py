@@ -5,6 +5,8 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.backoffice.rbac import BackofficeCapabilityPermission
+
 from .models import KYCDocument, KYCRequest
 from .services import attach_document_to_request, review_kyc_request
 
@@ -184,7 +186,8 @@ class KYCDocumentDownloadView(APIView):
 
 
 class BackofficeKYCListView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "kyc.read"}
 
     def get(self, request):
         status_filter = request.query_params.get("status")
@@ -217,7 +220,8 @@ class BackofficeKYCListView(APIView):
 
 
 class BackofficeKYCReviewView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"POST": "kyc.review"}
 
     def post(self, request, request_id):
         try:

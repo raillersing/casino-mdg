@@ -1,12 +1,13 @@
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from .models import AuditEvent
+from .rbac import BackofficeCapabilityPermission
 
 
 class AuditEventListView(ListAPIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "audit.read"}
     queryset = AuditEvent.objects.select_related("actor").all()
 
     def list(self, request, *args, **kwargs):

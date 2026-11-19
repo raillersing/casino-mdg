@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework.test import APIClient
@@ -29,6 +30,9 @@ class BackofficeAuthChannelTests(TestCase):
             password="test-password-strong-only",
             phone="+261340000203",
             display_name="Admin",
+        )
+        self.staff.groups.add(
+            Group.objects.get_or_create(name="casino:security_auditor")[0]
         )
         self.client = APIClient()
         self.url = "/api/v1/backoffice/config/auth-methods/"

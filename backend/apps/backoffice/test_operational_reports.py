@@ -1,5 +1,6 @@
 """Operational reports are based on persisted server data, never mixed currencies."""
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -30,6 +31,7 @@ class OperationalReportsTests(TestCase):
             phone="+261340000303",
             display_name="Real Player",
         )
+        self.staff.groups.add(Group.objects.get_or_create(name="casino:operations")[0])
         self.client = APIClient()
 
     def seed(self):

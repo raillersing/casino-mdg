@@ -7,7 +7,6 @@ from datetime import timedelta
 from django.db.models import Count, Sum
 from django.http import HttpResponse
 from django.utils import timezone
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -16,6 +15,7 @@ from apps.games.models import GameResult, GameTable, MatchmakingTicket
 from apps.payments.models import PaymentIntent, WebhookInboxEvent
 from apps.wallet.models import WalletTransaction
 
+from .rbac import BackofficeCapabilityPermission
 from .services import record_audit
 
 
@@ -106,7 +106,8 @@ def build_report(days):
 
 
 class BackofficeOperationalReportView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "reports.read"}
 
     def get(self, request):
         days = resolve_window(request)
@@ -118,7 +119,8 @@ class BackofficeOperationalReportView(APIView):
 
 
 class BackofficeReportCSVView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "reports.export"}
 
     def get(self, request):
         if not request.user.is_superuser:
@@ -193,7 +195,8 @@ class BackofficeReportCSVView(APIView):
 
 
 class BackofficeLiveTablesView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "games.read"}
 
     def get(self, request):
         status = request.query_params.get("status", "all")

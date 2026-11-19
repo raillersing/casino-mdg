@@ -1,13 +1,14 @@
 """Back-office player directory and audited detail (no account mutations)."""
 
 from django.db.models import Q
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.payments.models import PaymentIntent
 from apps.wallet.models import LedgerAccount, WalletTransaction
+
+from .rbac import BackofficeCapabilityPermission
 
 
 def mask_email(value):
@@ -22,7 +23,8 @@ def mask_phone(value):
 
 
 class PlayerDirectoryView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "players.list"}
 
     def get(self, request):
         query = str(request.query_params.get("q", "")).strip()
@@ -76,7 +78,8 @@ class PlayerDirectoryView(APIView):
 
 
 class PlayerDetailView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "players.detail"}
 
     def get(self, request, player_id):
         # Detailed contact and financial records require elevated privileges.

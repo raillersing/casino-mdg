@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.utils import timezone
 from django_otp.plugins.otp_totp.models import TOTPDevice
@@ -33,6 +34,10 @@ class BackofficePlayersAndSimTests(TestCase):
             phone="+261340000253",
             display_name="Approver",
         )
+        self.staff.groups.add(
+            Group.objects.get_or_create(name="casino:player_support")[0]
+        )
+        self.staff.groups.add(Group.objects.get_or_create(name="casino:sim_cashier")[0])
         self.client = APIClient()
         self.request_key = "cashier-sim-safe-key-0001"
 
