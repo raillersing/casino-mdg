@@ -2,7 +2,6 @@ import uuid
 
 from django.db import transaction
 from django_otp.plugins.otp_totp.models import TOTPDevice
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -10,11 +9,13 @@ from apps.payments.models import PaymentIntent, WebhookInboxEvent
 from apps.social.models import ChatMessage
 
 from .models import FeatureFlag
+from .rbac import BackofficeCapabilityPermission
 from .services import record_audit
 
 
 class FeatureFlagView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "flags.read", "POST": "flags.write"}
 
     def get(self, request):
         can_update = bool(
@@ -112,7 +113,8 @@ class FeatureFlagView(APIView):
 
 
 class ChatModerationView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "chat.read", "POST": "chat.moderate"}
 
     def get(self, request):
         messages = ChatMessage.objects.select_related("author", "table")[:100]
@@ -157,7 +159,8 @@ class ChatModerationView(APIView):
 
 
 class PaymentReconciliationView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "finance.reconcile"}
 
     def get(self, request):
         events = WebhookInboxEvent.objects.all()

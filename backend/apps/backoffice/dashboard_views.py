@@ -8,7 +8,6 @@ from django.core.cache import cache
 from django.db import connection
 from django.db.models import Count, Sum
 from django.utils import timezone
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -38,6 +37,8 @@ from config.middleware import (
     REQUEST_COUNTS,
     REQUEST_DURATION_SECONDS,
 )
+
+from .rbac import BackofficeCapabilityPermission
 
 GAME_LABELS = {
     "poker": "Poker Texas Hold'em (9-Max)",
@@ -369,7 +370,8 @@ class LiveDashboardView(APIView):
     Datadog Gaming NOC et Playtech IMS.
     """
 
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "operations.read"}
 
     def get(self, request):
         period = request.query_params.get("period", "").lower()

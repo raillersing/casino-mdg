@@ -4,7 +4,6 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Sum
 from django.utils import timezone
 from django_otp.plugins.otp_totp.models import TOTPDevice
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,6 +12,7 @@ from apps.wallet.models import LedgerAccount, LedgerEntry, WalletTransaction
 from apps.wallet.services import credit_simulation_reward
 
 from .models import BalanceAdjustmentRequest
+from .rbac import BackofficeCapabilityPermission
 from .services import record_audit
 
 
@@ -43,7 +43,8 @@ def serialize_grant(grant):
 
 
 class SimCashierSummaryView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "sim.summary"}
 
     def get(self, request):
         accounts = LedgerAccount.objects.filter(currency_code="SIM")
@@ -83,7 +84,8 @@ class SimCashierSummaryView(APIView):
 
 
 class SimLedgerView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "sim.ledger"}
 
     def get(self, request):
         if not request.user.is_superuser:
@@ -131,7 +133,11 @@ class SimLedgerView(APIView):
 
 
 class SimAdjustmentListCreateView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {
+        "GET": "sim.adjustments.read",
+        "POST": "sim.adjustments.request",
+    }
 
     def get(self, request):
         page = paginate(request)
@@ -207,7 +213,8 @@ class SimAdjustmentListCreateView(APIView):
 
 
 class SimAdjustmentDecisionView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"POST": "sim.adjustments.approve"}
 
     @transaction.atomic
     def post(self, request, adjustment_id):

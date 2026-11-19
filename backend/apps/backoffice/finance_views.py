@@ -4,12 +4,13 @@ from datetime import timedelta
 
 from django.db.models import Count, Sum
 from django.utils import timezone
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.payments.models import PaymentIntent, WebhookInboxEvent
 from apps.wallet.models import LedgerAccount, LedgerEntry, WalletTransaction
+
+from .rbac import BackofficeCapabilityPermission
 
 
 def aggregate_intents(queryset):
@@ -30,7 +31,8 @@ def aggregate_intents(queryset):
 
 
 class MgaFinanceOverviewView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "finance.read"}
 
     def get(self, request):
         if not request.user.is_superuser:
@@ -124,7 +126,8 @@ class MgaFinanceOverviewView(APIView):
 
 
 class MgaPaymentIntentListView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "finance.read"}
 
     def get(self, request):
         if not request.user.is_superuser:

@@ -2,7 +2,6 @@
 
 from django.db import transaction
 from django_otp.plugins.otp_totp.models import TOTPDevice
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,11 +12,13 @@ from .auth_policy import (
     smtp_configured,
 )
 from .models import AuthChannelPolicy
+from .rbac import BackofficeCapabilityPermission
 from .services import record_audit
 
 
 class BackofficeAuthChannelsView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "auth.read", "PATCH": "auth.write"}
 
     def get(self, request):
         record = AuthChannelPolicy.objects.filter(pk=1).first()
