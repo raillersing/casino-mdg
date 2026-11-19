@@ -8,23 +8,20 @@ from collections import defaultdict
 from datetime import timedelta
 
 from django.utils import timezone
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.payments.models import PaymentIntent, WebhookInboxEvent
 from apps.wallet.models import LedgerEntry, WalletTransaction
 
+from .rbac import BackofficeCapabilityPermission
+
 
 class TransactionReconciliationView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"GET": "finance.reconcile"}
 
     def get(self, request):
-        if not request.user.is_active or not request.user.is_superuser:
-            return Response(
-                {"detail": "Contrôle financier réservé au super-administrateur."},
-                status=403,
-            )
         try:
             days = int(request.query_params.get("days", 7))
             limit = int(request.query_params.get("limit", 25))
