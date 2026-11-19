@@ -1,5 +1,6 @@
 """Per-intent reconciliation must not claim PSP settlement."""
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework.test import APIClient
 
