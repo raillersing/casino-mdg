@@ -53,13 +53,14 @@ def check_configuration(env):
             bad(key, "must be an operator-managed strong unique secret")
 
     hosts = [h.strip() for h in env.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
-    if not hosts or "*" in hosts or not any("." in h and not h.startswith(".") for h in hosts):
+    if not hosts or "*" in hosts or not any("." in h and not h.startswith(".") for h in hosts) or any(h.endswith(".invalid") for h in hosts):
         bad("ALLOWED_HOSTS", "must list explicit public hostnames; wildcard not allowed")
 
     origins = [o.strip() for o in env.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
     if not origins or any(
         (urlparse(o).scheme != "https" or not urlparse(o).hostname or
-         urlparse(o).hostname in ("localhost", "127.0.0.1") or "*" in o)
+         urlparse(o).hostname in ("localhost", "127.0.0.1") or
+         urlparse(o).hostname.endswith(".invalid") or "*" in o)
         for o in origins
     ):
         bad("CORS_ALLOWED_ORIGINS", "must contain explicit HTTPS origins")
