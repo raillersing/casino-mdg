@@ -113,6 +113,12 @@ class TransactionReconciliationTests(TestCase):
         self.assertEqual(item["internal_status"], "internally_consistent")
         self.assertFalse(item["external_psp_settlement_verified"])
 
+    def test_finance_group_can_review_internal_data(self):
+        group = Group.objects.create(name="casino:finance_auditor")
+        self.staff.groups.add(group)
+        self.client.force_authenticate(self.staff)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
     def test_invalid_filters_rejected(self):
         self.client.force_authenticate(self.admin)
         for query in ("?days=365", "?provider=unknown", "?limit=1000", "?offset=-1"):
