@@ -37,9 +37,7 @@ class AuditTests(TestCase):
         AuditEvent.objects.create(
             actor=user, action="test.action", target_type="User", target_id=str(user.pk)
         )
-        staff.groups.add(
-            Group.objects.get_or_create(name="casino:security_auditor")[0]
-        )
+        staff.groups.add(Group.objects.get_or_create(name="casino:security_auditor")[0])
         client.force_authenticate(staff)
         response = client.get("/api/v1/backoffice/audit-events/")
         self.assertEqual(response.status_code, 200)
@@ -96,9 +94,7 @@ class AuditTests(TestCase):
             is_staff=True,
         )
         client = APIClient()
-        staff.groups.add(
-            Group.objects.get_or_create(name="casino:chat_moderator")[0]
-        )
+        staff.groups.add(Group.objects.get_or_create(name="casino:chat_moderator")[0])
         client.force_authenticate(staff)
         response = client.post(
             "/api/v1/backoffice/chat-messages/",
@@ -143,9 +139,7 @@ class AuditTests(TestCase):
             idempotency_key="recon-intent",
         )
         client = APIClient()
-        staff.groups.add(
-            Group.objects.get_or_create(name="casino:finance_auditor")[0]
-        )
+        staff.groups.add(Group.objects.get_or_create(name="casino:finance_auditor")[0])
         client.force_authenticate(staff)
         response = client.get("/api/v1/backoffice/payment-reconciliation/")
         self.assertEqual(response.status_code, 200)
@@ -229,9 +223,7 @@ class AuditTests(TestCase):
             )
 
         # 4. Staff user -> 200 OK with full 3-pillar telemetry
-        staff.groups.add(
-            Group.objects.get_or_create(name="casino:operations")[0]
-        )
+        staff.groups.add(Group.objects.get_or_create(name="casino:operations")[0])
         client.force_authenticate(staff)
         res = client.get("/api/v1/backoffice/live-dashboard/?days=7")
         self.assertEqual(res.status_code, 200)
@@ -366,9 +358,7 @@ class AuditTests(TestCase):
         )
 
         client = APIClient()
-        staff.groups.add(
-            Group.objects.get_or_create(name="casino:operations")[0]
-        )
+        staff.groups.add(Group.objects.get_or_create(name="casino:operations")[0])
         client.force_authenticate(staff)
 
         # 1. Test period=day
@@ -453,9 +443,7 @@ class AuditTests(TestCase):
             )
 
         client = APIClient()
-        staff.groups.add(
-            Group.objects.get_or_create(name="casino:operations")[0]
-        )
+        staff.groups.add(Group.objects.get_or_create(name="casino:operations")[0])
         client.force_authenticate(staff)
         response = client.get("/api/v1/backoffice/live-dashboard/?period=week")
         self.assertEqual(response.status_code, 200)
