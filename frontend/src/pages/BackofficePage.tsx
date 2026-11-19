@@ -64,6 +64,10 @@ export function BackofficePage() {
   >("all");
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
+  const [flagCanUpdate, setFlagCanUpdate] = useState(false);
+  const [flagReason, setFlagReason] = useState("");
+  const [flagMfa, setFlagMfa] = useState("");
+  const [flagSaving, setFlagSaving] = useState(false);
   const [reconciliation, setReconciliation] = useState<{
     intents_pending: number;
     intents_completed: number;
@@ -175,6 +179,7 @@ export function BackofficePage() {
           ]) => {
             setEvents(audit.results);
             setFlags(featureFlags.results);
+            setFlagCanUpdate(featureFlags.can_update);
             setReconciliation(report);
             setProductSummary(summary);
             setFeedbackSummary(feedback);
@@ -218,25 +223,33 @@ export function BackofficePage() {
   }, [autoRefresh, loadAllBackofficeData, selectedPeriod, token, windowDays]);
 
   const handleToggleFlag = async (flag: FeatureFlag) => {
-    if (!token) return;
+    if (!token || !flagCanUpdate || flagSaving) return;
+    setFlagSaving(true);
+    setError("");
     try {
       const updated = await setFeatureFlag(
         token,
         flag.key,
         !flag.enabled,
-        flag.reason || "Action Backoffice Live Ops",
+        flagReason.trim(),
+        flagMfa,
+        flag.updated_at,
       );
       setFlags((current) =>
         current.map((item) =>
-          item.key === flag.key ? { ...item, enabled: updated.enabled } : item,
+          item.key === flag.key ? { ...item, ...updated } : item,
         ),
       );
+      setFlagReason("");
+      setFlagMfa("");
     } catch (reason) {
       setError(
         reason instanceof Error
           ? reason.message
           : "Impossible de modifier le flag.",
       );
+    } finally {
+      setFlagSaving(false);
     }
   };
 
@@ -1106,7 +1119,44 @@ export function BackofficePage() {
           </section>
 
           <section className="activity-card">
-            <div className="chat-head">Feature flags</div>
+            <div className="chat-head">
+              Feature flags — modifications sécurisées
+            </div>
+            {flagCanUpdate ? (
+              <div style={{ display: "grid", gap: "8px", margin: "12px 0" }}>
+                <label className="field-label" htmlFor="flag-change-reason">
+                  Justification du changement
+                </label>
+                <textarea
+                  id="flag-change-reason"
+                  className="auth-name-field"
+                  maxLength={255}
+                  value={flagReason}
+                  onChange={(event) => setFlagReason(event.target.value)}
+                  placeholder="Motif précis de la modification (10 caractères minimum)"
+                />
+                <label className="field-label" htmlFor="flag-step-up-code">
+                  Code TOTP du super-administrateur
+                </label>
+                <input
+                  id="flag-step-up-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  className="auth-name-field"
+                  value={flagMfa}
+                  onChange={(event) =>
+                    setFlagMfa(event.target.value.replace(/\D/g, ""))
+                  }
+                />
+              </div>
+            ) : (
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+                Consultation uniquement. La modification exige un
+                super-administrateur avec un appareil TOTP confirmé.
+              </p>
+            )}
             {flags.length ? (
               flags.map((flag) => (
                 <div className="activity-row" key={flag.key}>
@@ -1126,8 +1176,14 @@ export function BackofficePage() {
                       type="button"
                       className="button button-sm button-ghost"
                       onClick={() => void handleToggleFlag(flag)}
+                      disabled={
+                        !flagCanUpdate ||
+                        flagSaving ||
+                        flagReason.trim().length < 10 ||
+                        flagMfa.length !== 6
+                      }
                     >
-                      Basculer
+                      {flagSaving ? "Validation..." : "Basculer"}
                     </button>
                   </div>
                 </div>

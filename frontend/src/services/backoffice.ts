@@ -25,13 +25,18 @@ export function getAuditEvents(token: string) {
   return get<{ results: AuditEvent[] }>("audit-events/", token);
 }
 export function getFeatureFlags(token: string) {
-  return get<{ results: FeatureFlag[] }>("feature-flags/", token);
+  return get<{ results: FeatureFlag[]; can_update: boolean }>(
+    "feature-flags/",
+    token,
+  );
 }
 export function setFeatureFlag(
   token: string,
   key: string,
   enabled: boolean,
-  reason = "Mise à jour Live Ops",
+  reason: string,
+  mfaCode: string,
+  expectedUpdatedAt: string,
 ) {
   return fetch("/api/v1/backoffice/feature-flags/", {
     method: "POST",
@@ -39,7 +44,13 @@ export function setFeatureFlag(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ key, enabled, reason }),
+    body: JSON.stringify({
+      key,
+      enabled,
+      reason,
+      mfa_code: mfaCode,
+      expected_updated_at: expectedUpdatedAt,
+    }),
   }).then(async (response) => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || "Action refusée.");

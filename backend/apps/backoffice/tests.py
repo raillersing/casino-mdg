@@ -41,27 +41,32 @@ class AuditTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 1)
 
-    def test_staff_can_toggle_feature_flag(self):
+    def test_staff_cannot_toggle_feature_flag_without_superuser_step_up(self):
         staff = User.objects.create_user(
             email="flagstaff@mdg.local",
             phone="+261340000017",
             display_name="Flag staff",
             is_staff=True,
         )
+        flag = FeatureFlag.objects.create(key="game_results", enabled=True)
         client = APIClient()
         client.force_authenticate(staff)
         response = client.post(
             "/api/v1/backoffice/feature-flags/",
-            {"key": "game_results", "enabled": False, "reason": "Maintenance"},
+            {
+                "key": "game_results",
+                "enabled": False,
+                "reason": "Maintenance programmée du moteur de jeux",
+                "expected_updated_at": flag.updated_at.isoformat(),
+                "mfa_code": "123456",
+            },
             format="json",
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(FeatureFlag.objects.get(key="game_results").enabled)
-        self.assertTrue(
-            AuditEvent.objects.filter(
-                action="feature_flag.updated",
-                target_id=str(FeatureFlag.objects.get(key="game_results").pk),
-            ).exists()
+        self.assertEqual(response.status_code, 403)
+        flag.refresh_from_db()
+        self.assertTrue(flag.enabled)
+        self.assertFalse(
+            AuditEvent.objects.filter(action="feature_flag.updated").exists()
         )
 
     def test_staff_can_hide_chat_message_and_action_is_audited(self):

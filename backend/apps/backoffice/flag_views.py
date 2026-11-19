@@ -1,5 +1,7 @@
 import uuid
 
+from django.db import transaction
+from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,8 +17,14 @@ class FeatureFlagView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
+        can_update = bool(
+            request.user.is_active
+            and request.user.is_superuser
+            and TOTPDevice.objects.filter(user=request.user, confirmed=True).exists()
+        )
         return Response(
             {
+                "can_update": can_update,
                 "results": [
                     {
                         "key": item.key,
@@ -24,32 +32,82 @@ class FeatureFlagView(APIView):
                         "reason": item.reason,
                         "updated_at": item.updated_at.isoformat(),
                     }
-                    for item in FeatureFlag.objects.all()
-                ]
+                    for item in FeatureFlag.objects.all().order_by("key")
+                ],
             }
         )
 
+    @transaction.atomic
     def post(self, request):
-        key = str(request.data.get("key", "")).strip()
-        if not key or len(key) > 80:
-            return Response({"detail": "Clé de feature flag invalide."}, status=400)
-        flag, _ = FeatureFlag.objects.update_or_create(
-            key=key,
-            defaults={
-                "enabled": bool(request.data.get("enabled", True)),
-                "reason": str(request.data.get("reason", ""))[:255],
-                "updated_by": request.user,
-            },
+        if not request.user.is_active or not request.user.is_superuser:
+            return Response({"detail": "Super-administrateur requis."}, status=403)
+        key = request.data.get("key")
+        enabled = request.data.get("enabled")
+        reason = request.data.get("reason")
+        expected_timestamp = request.data.get("expected_updated_at")
+        mfa_code = str(request.data.get("mfa_code") or "").strip()
+
+        if not isinstance(key, str) or not key.strip() or len(key.strip()) > 80:
+            return Response({"detail": "Clé du paramètre invalide."}, status=400)
+        if type(enabled) is not bool:
+            return Response({"detail": "État booléen requis."}, status=400)
+        if not isinstance(reason, str) or not 10 <= len(reason.strip()) <= 255:
+            return Response(
+                {"detail": "Justification obligatoire (10 à 255 caractères)."},
+                status=400,
+            )
+        if not isinstance(expected_timestamp, str) or not expected_timestamp:
+            return Response({"detail": "Version du paramètre requise."}, status=400)
+        if len(mfa_code) != 6 or not mfa_code.isdigit():
+            return Response({"detail": "Code TOTP requis."}, status=403)
+
+        flag = FeatureFlag.objects.select_for_update().filter(key=key.strip()).first()
+        if flag is None:
+            return Response(
+                {"detail": "Paramètre inexistant. Création non autorisée."},
+                status=404,
+            )
+        if flag.updated_at.isoformat() != expected_timestamp:
+            return Response(
+                {"detail": "Paramètre modifié depuis votre dernière consultation."},
+                status=409,
+            )
+        if flag.enabled is enabled:
+            return Response({"detail": "Aucun changement à appliquer."}, status=409)
+
+        devices = (
+            TOTPDevice.objects.select_for_update()
+            .filter(user=request.user, confirmed=True)
+            .order_by("pk")
         )
+        if not any(device.verify_token(mfa_code) for device in devices):
+            return Response(
+                {"detail": "Seconde vérification TOTP refusée."},
+                status=403,
+            )
+
+        previous = flag.enabled
+        flag.enabled = enabled
+        flag.reason = reason.strip()
+        flag.updated_by = request.user
+        flag.save(update_fields=["enabled", "reason", "updated_by", "updated_at"])
         record_audit(
             request.user,
             "feature_flag.updated",
             flag,
-            {"enabled": flag.enabled, "reason": flag.reason},
+            {
+                "before": previous,
+                "after": flag.enabled,
+                "reason": flag.reason,
+            },
         )
         return Response(
-            {"key": flag.key, "enabled": flag.enabled, "reason": flag.reason},
-            status=200,
+            {
+                "key": flag.key,
+                "enabled": flag.enabled,
+                "reason": flag.reason,
+                "updated_at": flag.updated_at.isoformat(),
+            }
         )
 
 
