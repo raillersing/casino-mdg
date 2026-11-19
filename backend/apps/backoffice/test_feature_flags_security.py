@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework.test import APIClient
@@ -24,6 +25,9 @@ class FeatureFlagSecurityTests(TestCase):
             phone="+261340000611",
             display_name="Operator",
             is_staff=True,
+        )
+        self.staff.groups.add(
+            Group.objects.get_or_create(name="casino:security_auditor")[0]
         )
         self.flag = FeatureFlag.objects.create(
             key="game_results", enabled=True, reason="Initial setup"
