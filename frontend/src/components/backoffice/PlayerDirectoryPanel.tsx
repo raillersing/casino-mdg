@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  changePlayerStatus,
   getBackofficePlayerDetail,
   getBackofficePlayers,
   type BackofficePlayer,
@@ -13,6 +14,10 @@ export function PlayerDirectoryPanel({ token }: { token: string }) {
   const [selected, setSelected] = useState<PlayerDetail | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [statusReason, setStatusReason] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
 
   const load = useCallback(
     async (term: string) => {
@@ -40,6 +45,9 @@ export function PlayerDirectoryPanel({ token }: { token: string }) {
 
   const openPlayer = async (id: number) => {
     setError("");
+    setStatusMessage("");
+    setStatusReason("");
+    setMfaCode("");
     try {
       setSelected(await getBackofficePlayerDetail(token, id));
     } catch (err) {
@@ -48,6 +56,46 @@ export function PlayerDirectoryPanel({ token }: { token: string }) {
           ? err.message
           : "Consultation détaillée interdite.",
       );
+    }
+  };
+
+  const changeStatus = async () => {
+    if (!selected || savingStatus) return;
+    setError("");
+    setStatusMessage("");
+    setSavingStatus(true);
+    try {
+      const result = await changePlayerStatus(
+        token,
+        selected.player.id,
+        selected.player.is_active,
+        statusReason.trim(),
+        mfaCode,
+      );
+      setSelected({
+        ...selected,
+        player: { ...selected.player, is_active: result.is_active },
+      });
+      setPlayers((current) =>
+        current.map((player) =>
+          player.id === result.player_id
+            ? { ...player, is_active: result.is_active }
+            : player,
+        ),
+      );
+      setStatusReason("");
+      setMfaCode("");
+      setStatusMessage(
+        result.is_active
+          ? "Compte réactivé. Les anciennes sessions JWT restent révoquées."
+          : "Compte suspendu. Les anciennes sessions JWT sont révoquées.",
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Modification de compte refusée.",
+      );
+    } finally {
+      setSavingStatus(false);
     }
   };
 
@@ -147,6 +195,58 @@ export function PlayerDirectoryPanel({ token }: { token: string }) {
             Les soldes MGA présentés proviennent du registre interne ; ils ne
             prouvent pas à eux seuls un rapprochement bancaire.
           </p>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void changeStatus();
+            }}
+            style={{ display: "grid", gap: "8px", maxWidth: "480px" }}
+          >
+            <h3>Action administrative sécurisée</h3>
+            <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+              Réservée au super-administrateur avec TOTP. Une partie financée
+              active bloque la suspension ; la déconnexion WebSocket doit encore
+              être vérifiée séparément.
+            </p>
+            <label htmlFor="player-status-reason">
+              Motif (12–255 caractères)
+            </label>
+            <textarea
+              id="player-status-reason"
+              className="auth-name-field"
+              maxLength={255}
+              value={statusReason}
+              onChange={(event) => setStatusReason(event.target.value)}
+              placeholder="Justification vérifiable de la décision"
+            />
+            <label htmlFor="player-status-totp">Code TOTP à 6 chiffres</label>
+            <input
+              id="player-status-totp"
+              className="auth-name-field"
+              type="password"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={mfaCode}
+              onChange={(event) => setMfaCode(event.target.value)}
+            />
+            <button
+              type="submit"
+              className="button button-outline"
+              disabled={
+                savingStatus ||
+                statusReason.trim().length < 12 ||
+                mfaCode.length !== 6
+              }
+            >
+              {savingStatus
+                ? "Validation..."
+                : selected.player.is_active
+                  ? "Suspendre le compte"
+                  : "Réactiver le compte"}
+            </button>
+            {statusMessage && <p role="status">{statusMessage}</p>}
+          </form>
         </div>
       )}
     </section>

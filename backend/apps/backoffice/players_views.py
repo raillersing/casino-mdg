@@ -1,14 +1,18 @@
-"""Back-office player directory and audited detail (no account mutations)."""
+"""Back-office player directory, restricted details and audited status controls."""
 
+from django.db import transaction
 from django.db.models import Q
+from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
+from apps.games.models import TableBankroll
 from apps.payments.models import PaymentIntent
 from apps.wallet.models import LedgerAccount, WalletTransaction
 
 from .rbac import BackofficeCapabilityPermission
+from .services import record_audit
 
 
 def mask_email(value):
@@ -138,5 +142,99 @@ class PlayerDetailView(APIView):
                     }
                     for item in intents
                 ],
+            }
+        )
+
+
+class PlayerStatusView(APIView):
+    """Superuser/TOTP account suspension; never modifies wallet or table funds."""
+
+    permission_classes = [BackofficeCapabilityPermission]
+    capability_by_method = {"POST": "players.status"}
+
+    @transaction.atomic
+    def post(self, request, player_id):
+        if not request.user.is_superuser:
+            return Response({"detail": "Super-administrateur requis."}, status=403)
+
+        action = request.data.get("action")
+        reason = request.data.get("reason")
+        expected_active = request.data.get("expected_active")
+        code = str(request.data.get("mfa_code") or "").strip()
+        if action not in ("suspend", "reactivate"):
+            return Response({"detail": "Action inconnue."}, status=400)
+        if type(expected_active) is not bool:
+            return Response({"detail": "État attendu obligatoire."}, status=400)
+        if not isinstance(reason, str) or not 12 <= len(reason.strip()) <= 255:
+            return Response(
+                {"detail": "Justification obligatoire (12 à 255 caractères)."},
+                status=400,
+            )
+        if len(code) != 6 or not code.isdigit():
+            return Response({"detail": "Code TOTP requis."}, status=403)
+
+        player = (
+            User.objects.select_for_update()
+            .filter(pk=player_id, is_staff=False, is_superuser=False)
+            .first()
+        )
+        if player is None:
+            return Response({"detail": "Joueur introuvable."}, status=404)
+        if player.is_active != expected_active:
+            return Response(
+                {"detail": "État modifié depuis la consultation."}, status=409
+            )
+        desired_active = action == "reactivate"
+        if player.is_active == desired_active:
+            return Response({"detail": "Aucun changement à appliquer."}, status=409)
+
+        # Do not lock a player out of an unsettled game without an operational
+        # review and an explicit engine/funds recovery procedure.
+        if (
+            not desired_active
+            and TableBankroll.objects.filter(
+                user=player, status__in=["reserved", "active"]
+            ).exists()
+        ):
+            return Response(
+                {
+                    "detail": "Partie financée en cours : traitement manuel requis.",
+                    "manual_review_required": True,
+                },
+                status=409,
+            )
+
+        devices = (
+            TOTPDevice.objects.select_for_update()
+            .filter(user=request.user, confirmed=True)
+            .order_by("pk")
+        )
+        if not any(device.verify_token(code) for device in devices):
+            return Response(
+                {"detail": "Seconde vérification TOTP refusée."}, status=403
+            )
+
+        previous = player.is_active
+        player.is_active = desired_active
+        player.token_version += 1
+        player.save(update_fields=["is_active", "token_version"])
+        record_audit(
+            request.user,
+            "player.reactivated" if desired_active else "player.suspended",
+            player,
+            {
+                "before": previous,
+                "after": player.is_active,
+                "reason": reason.strip(),
+                "jwt_sessions_revoked": True,
+                "live_engine_disconnect_verified": False,
+            },
+        )
+        return Response(
+            {
+                "player_id": player.pk,
+                "is_active": player.is_active,
+                "jwt_sessions_revoked": True,
+                "live_engine_disconnect_verified": False,
             }
         )

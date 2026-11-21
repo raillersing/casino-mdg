@@ -253,6 +253,9 @@ class RefreshTokenView(APIView):
         try:
             payload = decode_refresh_token(str(request.data.get("refresh", "")))
             user = User.objects.get(pk=payload["sub"], is_active=True)
+            version = payload.get("ver", 0)
+            if type(version) is not int or version != user.token_version:
+                return Response({"detail": "Session révoquée."}, status=401)
         except (jwt.InvalidTokenError, User.DoesNotExist, KeyError, TypeError):
             return Response({"detail": "Session expirée."}, status=401)
         return Response(
