@@ -7,6 +7,7 @@ from .dashboard_views import LiveDashboardView
 from .finance_views import MgaFinanceOverviewView, MgaPaymentIntentListView
 from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliationView
 from .players_views import PlayerDetailView, PlayerDirectoryView
+from .reconciliation_views import TransactionReconciliationView
 from .report_views import (
     BackofficeLiveTablesView,
     BackofficeOperationalReportView,
@@ -30,6 +31,11 @@ urlpatterns = [
         "finance/intents/",
         MgaPaymentIntentListView.as_view(),
         name="backoffice-mga-intents",
+    ),
+    path(
+        "finance/reconciliation/items/",
+        TransactionReconciliationView.as_view(),
+        name="backoffice-finance-transaction-reconciliation",
     ),
     path(
         "reports/overview/",
