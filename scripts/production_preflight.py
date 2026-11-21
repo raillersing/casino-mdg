@@ -44,12 +44,12 @@ def check_configuration(env):
     if env.get("DEBUG", "").strip().lower() != "false":
         bad("DEBUG", "must equal False")
 
-    secrets = ("DJANGO_SECRET_KEY", "DB_PASSWORD", "GAME_ENGINE_BOT_SECRET",
+    secrets = ("DJANGO_SECRET_KEY", "JWT_SECRET", "DB_PASSWORD", "GAME_ENGINE_BOT_SECRET",
                "GAME_ENGINE_RESULT_SECRET", "PAYMENT_WEBHOOK_SECRET")
     for key in secrets:
         value = env.get(key, "")
         if len(value) < 24 or any(marker in value.lower() for marker in
-            ("change-me", "change_me", "example", "dev-key", "placeholder")):
+            ("change-me", "change_me", "example", "dev-key", "placeholder", "generate-strong")):
             bad(key, "must be an operator-managed strong unique secret")
 
     hosts = [h.strip() for h in env.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
