@@ -52,6 +52,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     kyc_verified_at = models.DateTimeField(null=True, blank=True)
 
     is_active = models.BooleanField(default=True)
+    # Bumped on admin status changes to reject all earlier access/refresh JWTs.
+    token_version = models.PositiveIntegerField(default=0)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
     last_login = models.DateTimeField(null=True, blank=True)

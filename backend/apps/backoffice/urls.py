@@ -6,7 +6,11 @@ from .auth_views import BackofficeAuthChannelsView
 from .dashboard_views import LiveDashboardView
 from .finance_views import MgaFinanceOverviewView, MgaPaymentIntentListView
 from .flag_views import ChatModerationView, FeatureFlagView, PaymentReconciliationView
-from .players_views import PlayerDetailView, PlayerDirectoryView
+from .matchmaking_ops_views import (
+    MatchmakingDiagnosticsView,
+    MatchmakingTicketInterventionView,
+)
+from .players_views import PlayerDetailView, PlayerDirectoryView, PlayerStatusView
 from .reconciliation_views import TransactionReconciliationView
 from .report_views import (
     BackofficeLiveTablesView,
@@ -52,7 +56,22 @@ urlpatterns = [
         BackofficeLiveTablesView.as_view(),
         name="backoffice-live-tables",
     ),
+    path(
+        "games/matchmaking/diagnostics/",
+        MatchmakingDiagnosticsView.as_view(),
+        name="backoffice-matchmaking-diagnostics",
+    ),
+    path(
+        "games/matchmaking/tickets/<uuid:ticket_id>/cancel/",
+        MatchmakingTicketInterventionView.as_view(),
+        name="backoffice-matchmaking-ticket-cancel",
+    ),
     path("players/", PlayerDirectoryView.as_view(), name="backoffice-players"),
+    path(
+        "players/<int:player_id>/status/",
+        PlayerStatusView.as_view(),
+        name="backoffice-player-status",
+    ),
     path(
         "players/<int:player_id>/",
         PlayerDetailView.as_view(),

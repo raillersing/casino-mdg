@@ -12,6 +12,7 @@ def encode_token(user, token_type="access", lifetime_seconds=900):
     return jwt.encode(
         {
             "sub": str(user.pk),
+            "ver": user.token_version,
             "type": token_type,
             "iat": int(now.timestamp()),
             "exp": int(now.timestamp()) + lifetime_seconds,
@@ -50,6 +51,9 @@ class JWTAuthentication(authentication.BaseAuthentication):
             if payload.get("type") != "access":
                 raise exceptions.AuthenticationFailed("Token non utilisable")
             user = User.objects.get(pk=payload["sub"], is_active=True)
+            version = payload.get("ver", 0)
+            if type(version) is not int or version != user.token_version:
+                raise exceptions.AuthenticationFailed("Session révoquée")
         except (jwt.InvalidTokenError, User.DoesNotExist, KeyError) as exc:
             raise exceptions.AuthenticationFailed("Token invalide ou expiré") from exc
         return user, header[1]

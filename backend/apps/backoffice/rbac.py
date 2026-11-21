@@ -34,6 +34,8 @@ PRIVILEGED_CAPABILITIES = frozenset(
         "sim.adjustments.approve",
         "auth.write",
         "players.detail",
+        "players.status",
+        "games.cancel_stale",
         "flags.write",
     }
 )

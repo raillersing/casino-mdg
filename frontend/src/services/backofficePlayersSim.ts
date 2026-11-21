@@ -130,6 +130,28 @@ export function getBackofficePlayerDetail(token: string, id: number) {
   return api<PlayerDetail>(token, `players/${id}/`);
 }
 
+export type PlayerStatusChange = {
+  player_id: number;
+  is_active: boolean;
+  jwt_sessions_revoked: boolean;
+  live_engine_disconnect_verified: boolean;
+};
+
+export function changePlayerStatus(
+  token: string,
+  playerId: number,
+  isActive: boolean,
+  reason: string,
+  mfaCode: string,
+) {
+  return api<PlayerStatusChange>(token, `players/${playerId}/status/`, "POST", {
+    action: isActive ? "suspend" : "reactivate",
+    expected_active: isActive,
+    reason,
+    mfa_code: mfaCode,
+  });
+}
+
 export function getSimSummary(token: string) {
   return api<SimCashierSummary>(token, "sim/summary/");
 }

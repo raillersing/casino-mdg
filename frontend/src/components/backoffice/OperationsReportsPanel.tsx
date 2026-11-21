@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  cancelStaleMatchmakingTicket,
   downloadOpsReport,
   getOpsReport,
   getOpsTables,
+  getMatchmakingDiagnostics,
+  type MatchmakingDiagnostics,
   type OperationsReport,
   type OperationsTable,
 } from "@/services/backofficeReports";
@@ -171,14 +174,26 @@ export function GameOperationsPanel({ token }: { token: string }) {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<MatchmakingDiagnostics | null>(
+    null,
+  );
+  const [selectedTicketId, setSelectedTicketId] = useState("");
+  const [reason, setReason] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [intervening, setIntervening] = useState(false);
+  const [message, setMessage] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await getOpsTables(token, status);
+      const [data, queue] = await Promise.all([
+        getOpsTables(token, status),
+        getMatchmakingDiagnostics(token),
+      ]);
       setTables(data.results);
       setTotal(data.count);
+      setDiagnostics(queue);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Tables indisponibles.");
     } finally {
@@ -189,6 +204,34 @@ export function GameOperationsPanel({ token }: { token: string }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const cancelSelected = async () => {
+    const ticket = diagnostics?.stale_sample.find(
+      (item) => item.ticket_id === selectedTicketId,
+    );
+    if (!ticket || intervening) return;
+    setIntervening(true);
+    setError("");
+    setMessage("");
+    try {
+      await cancelStaleMatchmakingTicket(
+        token,
+        ticket.ticket_id,
+        ticket.expected_updated_at,
+        reason.trim(),
+        mfaCode,
+      );
+      setMessage("Ticket périmé annulé et action consignée dans l'audit.");
+      setSelectedTicketId("");
+      setMfaCode("");
+      setReason("");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Intervention refusée.");
+    } finally {
+      setIntervening(false);
+    }
+  };
 
   return (
     <section className="activity-card" aria-labelledby="ops-tables-title">
@@ -254,6 +297,95 @@ export function GameOperationsPanel({ token }: { token: string }) {
           </div>
         ))}
       </div>
+      <h3>Diagnostic de file d'attente</h3>
+      <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+        Lecture des tickets stockés uniquement. La santé du moteur de jeu
+        WebSocket n'est pas vérifiée par ces statistiques.
+      </p>
+      {diagnostics && (
+        <>
+          <div className="stats-grid">
+            <div>
+              <strong>{diagnostics.queued_fresh}</strong>
+              <span>Recherches récentes</span>
+            </div>
+            <div>
+              <strong>{diagnostics.queued_stale}</strong>
+              <span>Tickets périmés</span>
+            </div>
+            <div>
+              <strong>{diagnostics.matched_without_table}</strong>
+              <span>Associations sans table</span>
+            </div>
+          </div>
+          {diagnostics.stale_sample.map((ticket) => (
+            <div className="activity-row" key={ticket.ticket_id}>
+              <div>
+                <strong>{ticket.game_type}</strong>
+                <span>
+                  {ticket.target_players} joueurs · dernier signal il y a{" "}
+                  {ticket.age_seconds} secondes
+                </span>
+              </div>
+              <button
+                type="button"
+                className="button button-outline button-small"
+                onClick={() => {
+                  setSelectedTicketId(ticket.ticket_id);
+                  setError("");
+                  setMessage("");
+                }}
+              >
+                Examiner
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+      {selectedTicketId && (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void cancelSelected();
+          }}
+          style={{ display: "grid", gap: "8px", maxWidth: "480px" }}
+        >
+          <h3>Annulation d'un ticket périmé</h3>
+          <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+            Seul un super-administrateur avec TOTP peut confirmer. Les tables
+            actives et les transactions sont exclues de cette opération.
+          </p>
+          <label htmlFor="matchmaking-reason">Motif (12–255 caractères)</label>
+          <textarea
+            className="auth-name-field"
+            id="matchmaking-reason"
+            maxLength={255}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <label htmlFor="matchmaking-totp">Code TOTP</label>
+          <input
+            className="auth-name-field"
+            id="matchmaking-totp"
+            type="password"
+            inputMode="numeric"
+            maxLength={6}
+            autoComplete="one-time-code"
+            value={mfaCode}
+            onChange={(event) => setMfaCode(event.target.value)}
+          />
+          <button
+            className="button button-outline"
+            disabled={
+              intervening || reason.trim().length < 12 || mfaCode.length !== 6
+            }
+            type="submit"
+          >
+            {intervening ? "Vérification..." : "Annuler le ticket périmé"}
+          </button>
+        </form>
+      )}
+      {message && <p role="status">{message}</p>}
     </section>
   );
 }
