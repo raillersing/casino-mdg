@@ -47,8 +47,7 @@ def enforce_production_settings(env):
         if host.strip()
     ]
     if not hosts or any(
-        host == "*" or host.endswith(".invalid") or "." not in host
-        for host in hosts
+        host == "*" or host.endswith(".invalid") or "." not in host for host in hosts
     ):
         errors.append("ALLOWED_HOSTS")
 
