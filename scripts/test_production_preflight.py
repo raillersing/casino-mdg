@@ -10,6 +10,7 @@ class ProductionPreflightTests(unittest.TestCase):
             "ENV": "production",
             "DEBUG": "False",
             "DJANGO_SECRET_KEY": "a" * 48,
+            "JWT_SECRET": "z" * 48,
             "DB_PASSWORD": "b" * 48,
             "GAME_ENGINE_BOT_SECRET": "c" * 48,
             "GAME_ENGINE_RESULT_SECRET": "d" * 48,
