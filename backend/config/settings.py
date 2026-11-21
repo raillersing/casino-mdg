@@ -7,7 +7,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .production_guard import enforce_production_settings
+
 load_dotenv()
+enforce_production_settings(os.environ)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
