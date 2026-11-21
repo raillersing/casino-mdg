@@ -149,11 +149,13 @@ services:
       DB_CONN_MAX_AGE: ${DB_CONN_MAX_AGE:-60}
       REDIS_URL: redis://redis:6379/0
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-casino_admin}:${RABBITMQ_PASS}@rabbitmq:5672//
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Explicit HTTPS origins required}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Explicit production hostnames required}
       GAME_ENGINE_INTERNAL_URL: http://game-engine:8080
       GAME_ENGINE_BOT_SECRET: ${GAME_ENGINE_BOT_SECRET}
       GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?Strong webhook secret required}
+      SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-True}
       # Email login is off until a secure SMTP provider is configured.
       EMAIL_OTP_ENABLED: ${EMAIL_OTP_ENABLED:-False}
       EMAIL_HOST: ${EMAIL_HOST:-}
