@@ -19,5 +19,5 @@ fi
 
 ARGS=(--project-name casino-mdg-staging --env-file "$ENV_FILE" -f "$ROOT/docker-compose.staging.yml")
 docker compose "${ARGS[@]}" config --quiet
-docker compose "${ARGS[@]}" up -d --build
+docker compose "${ARGS[@]}" up -d --build --wait --wait-timeout 300
 echo "Staging is bound on 127.0.0.1; run scripts/staging-smoke.sh for health checks."
