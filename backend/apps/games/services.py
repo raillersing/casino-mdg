@@ -37,6 +37,7 @@ def generate_admission_token(
             buy_in = 0
     payload = {
         "sub": str(user.pk),
+        "ver": user.token_version,
         "name": (
             getattr(user, "display_name", "")
             or getattr(user, "username", "")
