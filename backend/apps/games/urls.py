@@ -37,7 +37,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path("internal/sessions/<uuid:player_id>/", InternalPlayerSessionView.as_view()),
+    path("internal/sessions/<int:player_id>/", InternalPlayerSessionView.as_view()),
     path(
         "internal/tables/<uuid:table_id>/finance/", InternalTableFinanceView.as_view()
     ),
