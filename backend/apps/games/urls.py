@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .finance_views import InternalTableFinanceView
+from .session_guard_views import InternalPlayerSessionView
 from .statistics_views import ConfirmHumanActivityView, UniquePlayerStatisticsView
 from .views import (
     BotSimulationCancelView,
@@ -36,6 +37,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("internal/sessions/<int:player_id>/", InternalPlayerSessionView.as_view()),
     path(
         "internal/tables/<uuid:table_id>/finance/", InternalTableFinanceView.as_view()
     ),

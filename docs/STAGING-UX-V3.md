@@ -96,3 +96,22 @@ Pour chaque scénario : consigner date, commit exact, compte(s) de test, jeu, fo
 ## Prochaine étape de mise en ligne
 
 Une fois la recette validée, documenter le plan GO/NO-GO (sauvegarde, version des images, migrations, tests de santé, rollback), puis faire approuver explicitement l'opération de production.
+
+
+## Déploiement GitHub Actions contrôlé (à configurer par l'exploitant)
+
+Le workflow `.github/workflows/deploy-staging.yml` remplace l'ancien job fictif. Il ne part **jamais automatiquement** : sur GitHub Actions, choisir « Deploy isolated staging (manual) », branche `master`, puis cocher `confirm_isolated_staging`. Le workflow refuse le déploiement tant qu'aucune CI *push master* réussie n'existe pour le commit exact. Il utilise l'environnement protégé `staging` (activer une approbation humaine si nécessaire).
+
+Configurer ces **secrets dans l'environnement GitHub `staging`** :
+
+- `STAGING_SSH_HOST` : adresse DNS/IP du VPS de staging ;
+- `STAGING_SSH_USER` : compte SSH dédié avec droits Docker limités ;
+- `STAGING_SSH_PRIVATE_KEY` : clé SSH privée de déploiement, limitée au staging ;
+- `STAGING_SSH_KNOWN_HOSTS` : ligne(s) de clé d'hôte SSH **vérifiées hors bande** ; ne pas désactiver la vérification de l'hôte ;
+- `STAGING_DEPLOY_DIR` : dossier de checkout indépendant, contenant `staging` dans son chemin, par ex. `/opt/casino-mdg-staging`.
+
+Sur le VPS, préparer **à l'avance** ce checkout séparé du code de production, l'accès GitHub `origin`, `docker compose`, `curl`, `python3` et le fichier `.env.staging` (secrets forts, services réels ou faux comptes de test, aucun secret de production). La clé Git de lecture sur le VPS est distincte de la clé SSH de déploiement. Le workflow refuse la présence de `.env.production` dans le dossier staging, les modifications Git suivies, les commits qui ne correspondent plus à `origin/master` et toute erreur de démarrage ou de smoke test.
+
+Le workflow checkout le commit vérifié, démarre uniquement `docker-compose.staging.yml` et exige les checks de santé avant de déclarer l'opération réussie. **Sa présence ne prouve pas qu'un VPS a déjà été déployé.** Les tests de parties réelles restent une recette manuelle distincte (issue #57).
+
+Voir aussi `docs/ENGINE-SESSION-REVOCATION.md` pour les scénarios de sécurité des sessions WebSocket.

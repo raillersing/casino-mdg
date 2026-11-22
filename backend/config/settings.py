@@ -235,6 +235,9 @@ SECURE_REDIRECT_EXEMPT = [
     r"^readyz/?$",
     r"^metrics/?$",
     r"^api/v1/ping/?$",
+    # Private Docker engine-to-backend RPC uses HTTP and an HMAC shared secret.
+    # Exempt only this exact authenticated session-status path from HTTPS redirects.
+    r"^api/v1/games/internal/sessions/[0-9]+/?$",
 ]
 
 if not DEBUG and os.getenv("SECURE_SSL_REDIRECT", "False").lower() == "true":

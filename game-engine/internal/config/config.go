@@ -7,39 +7,41 @@ import (
 )
 
 type Config struct {
-	ServerAddr           string
-	BackendInternalURL   string
-	RedisURL             string
-	JWTSecret            string
-	BotServiceSecret     string
-	ResultSecret         string
-	GracePeriod          time.Duration
-	SnapshotInterval     time.Duration
-	MaxTables            int
-	MaxPlayersPerTable   int
-	Deterministic        bool
-	Blinds               bool
-	BotActionDelay       time.Duration
-	BotProfile           string
-	NodeID               string
+	ServerAddr                 string
+	BackendInternalURL         string
+	RedisURL                   string
+	JWTSecret                  string
+	BotServiceSecret           string
+	ResultSecret               string
+	GracePeriod                time.Duration
+	SnapshotInterval           time.Duration
+	SessionValidationInterval  time.Duration
+	MaxTables                  int
+	MaxPlayersPerTable         int
+	Deterministic              bool
+	Blinds                     bool
+	BotActionDelay             time.Duration
+	BotProfile                 string
+	NodeID                     string
 }
 
 func Load() (*Config, error) {
 	return &Config{
-		ServerAddr:           getEnv("GAME_ENGINE_ADDR", ":8080"),
-		BackendInternalURL:   getEnv("BACKEND_INTERNAL_URL", "http://localhost:8000"),
-		RedisURL:             getEnv("REDIS_URL", "redis://localhost:6379/0"),
-		JWTSecret:            getEnv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes"),
-		BotServiceSecret:     getEnv("GAME_ENGINE_BOT_SECRET", "dev-game-engine-bot-secret-change-me"),
-		ResultSecret:         getEnv("GAME_ENGINE_RESULT_SECRET", "dev-game-engine-result-secret-change-me"),
-		GracePeriod:          30 * time.Second,
-		SnapshotInterval:     5 * time.Second,
-		MaxTables:            10000,
-		MaxPlayersPerTable:   9,
-		Blinds:               true,
-		BotActionDelay:       botActionDelay(),
-		BotProfile:           botProfile(),
-		NodeID:               getEnv("NODE_ID", "engine-node-1"),
+		ServerAddr:                 getEnv("GAME_ENGINE_ADDR", ":8080"),
+		BackendInternalURL:         getEnv("BACKEND_INTERNAL_URL", "http://localhost:8000"),
+		RedisURL:                   getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		JWTSecret:                  getEnv("JWT_SECRET", "dev-jwt-secret-change-me-32-bytes"),
+		BotServiceSecret:           getEnv("GAME_ENGINE_BOT_SECRET", "dev-game-engine-bot-secret-change-me"),
+		ResultSecret:               getEnv("GAME_ENGINE_RESULT_SECRET", "dev-game-engine-result-secret-change-me"),
+		GracePeriod:                30 * time.Second,
+		SnapshotInterval:           5 * time.Second,
+		SessionValidationInterval:  15 * time.Second,
+		MaxTables:                  10000,
+		MaxPlayersPerTable:         9,
+		Blinds:                     true,
+		BotActionDelay:             botActionDelay(),
+		BotProfile:                 botProfile(),
+		NodeID:                     getEnv("NODE_ID", "engine-node-1"),
 	}, nil
 }
 

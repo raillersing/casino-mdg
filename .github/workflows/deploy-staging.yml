@@ -1,0 +1,112 @@
+name: Deploy isolated staging (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_isolated_staging:
+        description: "I confirm the target is an isolated staging checkout, never production"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    name: Deploy and smoke-test isolated staging
+    if: github.ref == 'refs/heads/master' && inputs.confirm_isolated_staging == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    concurrency:
+      group: casino-mdg-staging-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Verify CI is green for this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          success="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${COMMIT_SHA}&per_page=50" \
+            --jq '[.workflow_runs[] | select(.event == "push" and .head_sha == env.COMMIT_SHA and .conclusion == "success")] | length')"
+          if [[ "$success" -lt 1 ]]; then
+            echo "Refusing deployment: no successful master push CI run for this commit" >&2
+            exit 1
+          fi
+
+      - name: Deploy over verified SSH (secrets remain on VPS)
+        env:
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+          STAGING_DEPLOY_DIR: ${{ secrets.STAGING_DEPLOY_DIR }}
+          TARGET_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          for variable in STAGING_SSH_HOST STAGING_SSH_USER STAGING_SSH_PRIVATE_KEY STAGING_SSH_KNOWN_HOSTS STAGING_DEPLOY_DIR; do
+            if [[ -z "${!variable}" ]]; then
+              echo "Missing staging environment secret: $variable" >&2
+              exit 1
+            fi
+          done
+          [[ "$STAGING_SSH_HOST" =~ ^[a-zA-Z0-9.-]+$ ]] || { echo "Invalid SSH hostname" >&2; exit 1; }
+          [[ "$STAGING_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "Invalid SSH username" >&2; exit 1; }
+          [[ "$STAGING_DEPLOY_DIR" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { echo "Invalid staging path" >&2; exit 1; }
+          [[ "$STAGING_DEPLOY_DIR" == *staging* && "$STAGING_DEPLOY_DIR" != *..* ]] || {
+            echo "Refusing non-staging or traversing directory" >&2
+            exit 1
+          }
+
+          umask 077
+          key_file="${RUNNER_TEMP}/staging-deploy-key"
+          hosts_file="${RUNNER_TEMP}/staging-known-hosts"
+          printf '%s\n' "$STAGING_SSH_PRIVATE_KEY" > "$key_file"
+          printf '%s\n' "$STAGING_SSH_KNOWN_HOSTS" > "$hosts_file"
+          trap 'rm -f "$key_file" "$hosts_file"' EXIT
+
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
+            -o "UserKnownHostsFile=$hosts_file" -i "$key_file" \
+            "$STAGING_SSH_USER@$STAGING_SSH_HOST" bash -se -- "$TARGET_COMMIT" "$STAGING_DEPLOY_DIR" <<'REMOTE'
+          set -euo pipefail
+          expected_commit="$1"
+          root="$2"
+          [[ "$expected_commit" =~ ^[a-f0-9]{40}$ ]] || exit 2
+          [[ "$root" == *staging* && "$root" != *..* ]] || exit 2
+          [[ -d "$root/.git" && -f "$root/.env.staging" && -f "$root/docker-compose.staging.yml" ]] || {
+            echo "Dedicated staging checkout and env file must be prepared on the VPS" >&2
+            exit 2
+          }
+          [[ ! -e "$root/.env.production" ]] || { echo "Production secrets present in staging directory" >&2; exit 2; }
+          cd "$root"
+          origin="$(git remote get-url origin)"
+          if [[ "$origin" != "https://github.com/raillersing/casino-mdg.git" && \
+                "$origin" != "https://github.com/raillersing/casino-mdg" && \
+                "$origin" != "git@github.com:raillersing/casino-mdg.git" && \
+                "$origin" != "git@github.com:raillersing/casino-mdg" ]]; then
+            echo "Refusing deployment from unexpected repository" >&2
+            exit 2
+          fi
+          if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+            echo "Tracked staging checkout changes must be reviewed before deployment" >&2
+            exit 2
+          fi
+          git fetch --no-tags origin master
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$expected_commit" ]]; then
+            echo "Requested commit no longer matches remote master; dispatch again" >&2
+            exit 2
+          fi
+          git checkout --detach "$expected_commit"
+          bash scripts/staging-up.sh "$root/.env.staging"
+          port="$(sed -n 's/^STAGING_PORT=//p' .env.staging | tail -n 1)"
+          port="${port:-18081}"
+          [[ "$port" =~ ^[0-9]{1,5}$ ]] && (( port >= 1 && port <= 65535 )) || {
+            echo "Invalid loopback staging port" >&2
+            exit 2
+          }
+          bash scripts/staging-smoke.sh "http://127.0.0.1:$port"
+          echo "Staging deployment and read-only health checks passed for $expected_commit"
+          REMOTE

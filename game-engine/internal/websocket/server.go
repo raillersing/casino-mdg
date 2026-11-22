@@ -225,6 +225,14 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+	var claims userClaims
+	if !isBot {
+		claims, ok = authenticate(r.URL.Query().Get("token"), s.config.JWTSecret)
+		if !ok || !s.validHumanSession(r.Context(), playerID, claims.Ver) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade failed: %v", err)
@@ -245,10 +253,6 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		admissionRole:    admissionRole,
 	}
 	if !isBot && admissionTableID != "" {
-		claims, valid := authenticate(r.URL.Query().Get("token"), s.config.JWTSecret)
-		if !valid {
-			return
-		}
 		client.turnDuration = claims.TurnDuration
 		client.admissionGameType = claims.GameType
 		client.settings = claims.Settings
@@ -256,8 +260,13 @@ func (s *Server) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		client.fundingSession = claims.FundingSession
 		client.fundingOperation = claims.FundingOperation
 	}
+	done := make(chan struct{})
+	if !isBot && s.config.BackendInternalURL != "" {
+		go s.watchHumanSession(client, claims.Ver, done)
+	}
 	go s.writePump(client)
 	s.readPump(client)
+	close(done)
 }
 
 func (s *Server) readPump(client *Client) {
@@ -1821,6 +1830,7 @@ type userClaims struct {
 	FundingOperation string              `json:"funding_operation,omitempty"`
 	BuyIn            int64               `json:"buy_in,omitempty"`
 	Sub              string              `json:"sub"`
+	Ver              int64               `json:"ver"`
 	Name             string              `json:"name"`
 	TableID          string              `json:"table_id"`
 	SeatID           int                 `json:"seat_id"`
