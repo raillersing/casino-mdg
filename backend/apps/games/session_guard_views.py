@@ -3,6 +3,7 @@
 The Game Engine calls this endpoint at handshake and during live sessions.
 Never expose the shared secret or account status to browser clients.
 """
+
 import hmac
 
 from django.conf import settings
