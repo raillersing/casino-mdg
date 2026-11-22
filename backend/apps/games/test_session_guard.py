@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
@@ -53,7 +51,7 @@ class InternalPlayerSessionTests(TestCase):
 
     def test_unknown_player_cannot_authenticate(self):
         response = self.client.get(
-            f"/api/v1/games/internal/sessions/{uuid4()}/",
+            f"/api/v1/games/internal/sessions/{self.player.pk + 10000}/",
             HTTP_X_GAME_ENGINE_SECRET="engine-test-key",
         )
         self.assertEqual(response.status_code, 404)
