@@ -36,9 +36,11 @@ class InternalPlayerSessionView(APIView):
         if account is None:
             response = JsonResponse({"detail": "Compte introuvable."}, status=404)
         else:
-            response = JsonResponse({
-                "active": account["is_active"],
-                "token_version": account["token_version"],
-            })
+            response = JsonResponse(
+                {
+                    "active": account["is_active"],
+                    "token_version": account["token_version"],
+                }
+            )
         response["Cache-Control"] = "no-store"
         return response
