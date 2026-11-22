@@ -15,6 +15,7 @@ type Config struct {
 	ResultSecret         string
 	GracePeriod          time.Duration
 	SnapshotInterval     time.Duration
+	SessionValidationInterval time.Duration
 	MaxTables            int
 	MaxPlayersPerTable   int
 	Deterministic        bool
@@ -34,6 +35,7 @@ func Load() (*Config, error) {
 		ResultSecret:         getEnv("GAME_ENGINE_RESULT_SECRET", "dev-game-engine-result-secret-change-me"),
 		GracePeriod:          30 * time.Second,
 		SnapshotInterval:     5 * time.Second,
+		SessionValidationInterval: 15 * time.Second,
 		MaxTables:            10000,
 		MaxPlayersPerTable:   9,
 		Blinds:               true,
