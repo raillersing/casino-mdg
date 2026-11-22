@@ -3,7 +3,7 @@
 ## Contrat entre Django et Go
 
 - Le backend émet les JWT d'admission avec `ver` = `User.token_version`.
-- Le moteur vérifie la signature et la date d'expiration du JWT avant le handshake, puis appelle `GET /api/v1/games/internal/sessions/<player_uuid>/` avec `X-Game-Engine-Secret`. Seul le moteur connaît `GAME_ENGINE_RESULT_SECRET`.
+- Le moteur vérifie la signature et la date d'expiration du JWT avant le handshake, puis appelle `GET /api/v1/games/internal/sessions/<player_id>/` avec `X-Game-Engine-Secret`. Seul le moteur connaît `GAME_ENGINE_RESULT_SECRET`.
 - Django répond uniquement `{"active": true|false, "token_version": n}`, avec `Cache-Control: no-store`. Une clé erronée est refusée en 403 et un compte inconnu en 404.
 - Le moteur n'accepte la connexion que si `active=true` et si la version correspond exactement à celle du JWT ; il refait le contrôle **toutes les 15 secondes** sur les connexions humaines ouvertes, même avant l'entrée dans une table. La vérification HTTPS interne n'est pas requise au sein du réseau Docker privé ; utiliser TLS authentifié pour tout backend distant.
 - Si le backend est indisponible, si la réponse est malformée ou si les secrets sont absents, le moteur **refuse** les nouvelles connexions humaines et **ferme** les connexions actives lors du contrôle suivant. Une interruption backend peut donc provoquer des déconnexions ; cette politique de sécurité doit être testée en staging.
