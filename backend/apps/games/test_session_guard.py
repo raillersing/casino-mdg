@@ -41,6 +41,16 @@ class InternalPlayerSessionTests(TestCase):
         response = self.client.get(self.path, **headers)
         self.assertEqual(response.json(), {"active": True, "token_version": 2})
 
+    @override_settings(SECURE_SSL_REDIRECT=True)
+    def test_authenticated_private_rpc_is_usable_without_proxy_tls_redirect(self):
+        response = self.client.get(
+            self.path,
+            HTTP_X_GAME_ENGINE_SECRET="engine-test-key",
+            secure=False,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"active": True, "token_version": 0})
+
     def test_unknown_player_cannot_authenticate(self):
         response = self.client.get(
             f"/api/v1/games/internal/sessions/{uuid4()}/",
