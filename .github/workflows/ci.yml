@@ -342,6 +342,9 @@ jobs:
       - name: Test production configuration preflight guards
         run: python3 -m unittest discover -s scripts -p 'test_production_preflight.py'
 
+      - name: Test staging environment bootstrap and isolation
+        run: python3 -m unittest discover -s scripts -p 'test_staging_environment.py'
+
   # ───────────────────────────────────────────
   # Security scan
   # ───────────────────────────────────────────
