@@ -76,15 +76,21 @@ def configuration_errors(env):
         bad("STAGING_PORT", "must be an unprivileged staging-only port (e.g. 18081)")
 
     origin_value = env.get("STAGING_ORIGIN", "")
-    origin = urlsplit(origin_value)
-    host = origin.hostname
+    try:
+        origin = urlsplit(origin_value)
+        host = origin.hostname
+        origin_port = origin.port
+    except ValueError:
+        origin = urlsplit("")
+        host = None
+        origin_port = None
     if (not host or origin.username or origin.password or origin.path not in ("", "/")
             or origin.query or origin.fragment or origin.scheme not in ("http", "https")):
         bad("STAGING_ORIGIN", "must be an explicit loopback URL or HTTPS staging origin")
     else:
         local = host in ("localhost", "127.0.0.1", "::1")
         if local:
-            if origin.scheme != "http" or origin.port != port:
+            if origin.scheme != "http" or origin_port != port:
                 bad("STAGING_ORIGIN", "loopback origin must use http and STAGING_PORT")
         elif origin.scheme != "https" or "staging" not in host.lower():
             bad("STAGING_ORIGIN", "public origin must be HTTPS and explicitly named staging")
