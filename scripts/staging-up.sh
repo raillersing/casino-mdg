@@ -12,6 +12,11 @@ if grep -Eq '^[[:space:]]*STAGING_[A-Z0-9_]+=[[:space:]]*(CHANGE_ME|change-me)' 
   echo "Refusing staging startup: example credentials are still present." >&2
   exit 2
 fi
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "Python 3 is required for staging preflight." >&2
+  exit 2
+fi
+python3 "$ROOT/scripts/staging_environment.py" check --env-file "$ENV_FILE"
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker CLI is required to launch staging." >&2
   exit 2
