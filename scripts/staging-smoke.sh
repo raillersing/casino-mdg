@@ -18,4 +18,12 @@ curl --fail --silent --show-error --max-time 15 --output /dev/null "$BASE_URL/"
 echo "Checking Django through Nginx at $BASE_URL/api/v1/ping/"
 curl --fail --silent --show-error --max-time 15 "$BASE_URL/api/v1/ping/" \
   | python3 -c 'import json,sys; data=json.load(sys.stdin); assert data.get("status") == "ok", data'
-echo "Frontend and API smoke checks passed; real matchmaking and game engine still require two-account acceptance tests."
+echo "Verifying engine-only player session endpoint refuses unauthenticated callers"
+http_status="$(curl --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' \
+  "$BASE_URL/api/v1/games/internal/sessions/1/")"
+if [[ "$http_status" != "403" ]]; then
+  echo "FAIL: internal engine endpoint must return HTTP 403, got $http_status" >&2
+  exit 1
+fi
+
+echo "PASS: frontend, API and internal endpoint guards; multiplayer still requires real-account staging acceptance."
