@@ -1,6 +1,6 @@
 # CasinoMDG — Staging isolé (préparation et recette v3)
 
-> Statut au 16 novembre 2026 : configuration et scripts fournis, **aucun déploiement distant confirmé**. La recette réelle #57 reste ouverte. Ne pas considérer un test simulé comme une partie réussie entre joueurs humains.
+> Statut au 23 novembre 2026 : automatisation du bootstrap et du préflight ajoutée ; **aucun déploiement distant confirmé**. La recette réelle #57 reste ouverte. Ne pas considérer un test simulé comme une partie réussie entre joueurs humains.
 
 ## Architecture et garanties d'isolation
 
@@ -13,20 +13,26 @@
 
 ## Préparer et lancer sur un serveur possédant Docker Compose
 
-Depuis un checkout à jour de la branche / version choisie :
+Depuis un **checkout staging séparé**, sur le VPS (compte avec accès GitHub et Docker) :
 
 ```bash
-cp .env.staging.example .env.staging
-chmod 600 .env.staging
-# Modifier .env.staging, remplacer TOUS les CHANGE_ME
-# Générer un secret différent pour chaque variable : openssl rand -hex 32
+# À exécuter une seule fois sur le VPS. Ne pas toucher au dossier de production.
+sudo install -d -m 0750 -o "$USER" -g "$(id -gn)" /opt/casino-mdg-staging
+git clone https://github.com/raillersing/casino-mdg.git /opt/casino-mdg-staging
+cd /opt/casino-mdg-staging
+python3 scripts/staging_environment.py init
+python3 scripts/staging_environment.py check --env-file .env.staging
 bash scripts/staging-up.sh
 bash scripts/staging-smoke.sh
 docker compose --project-name casino-mdg-staging --env-file .env.staging \
   -f docker-compose.staging.yml ps
 ```
 
-Le script `staging-up.sh` rejette les placeholders `CHANGE_ME` et vérifie la configuration Compose avant de créer les services. Les migrations ne s'appliquent qu'à la base `staging-postgres` propre au projet de staging.
+La commande `init` exige un checkout dont le répertoire porte `staging` et refuse un fichier `.env.production`. Elle génère **sept secrets indépendants** sans les afficher, écrit `.env.staging` avec les permissions `0600`, et ne remplace jamais un fichier existant. Le préflight refuse les secrets insuffisants ou partagés, les origines de production, les ports sensibles, les noms DB non isolés et les activations d'argent réel. `staging-up.sh` impose ce contrôle **avant** tout démarrage Docker.
+
+Si le checkout existe déjà, **ne pas le recloner** et ne pas régénérer les secrets. Mettre à jour le code Git de ce checkout et lancer `python3 scripts/staging_environment.py check --env-file .env.staging`, suivi des scripts de démarrage et de smoke test. Aucun secret staging ne doit être copié dans GitHub ni depuis une production existante.
+
+Pour tester les OTP email, renseigner uniquement dans le fichier local `.env.staging` les paramètres de votre serveur SMTP de test, puis activer `STAGING_EMAIL_OTP_ENABLED=True`. Le préflight vérifie la présence de ces paramètres mais ne constitue pas un test de réception réel. Les migrations n'opèrent que sur le volume PostgreSQL propre au projet Compose staging.
 
 **Accès depuis un ordinateur** : créer un tunnel SSH local, puis ouvrir `http://127.0.0.1:18081` dans le navigateur.
 
