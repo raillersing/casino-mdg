@@ -20,7 +20,7 @@
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.0",
     "howler": "^2.2.4",
-    "i18next": "^23.10.0",
+    "i18next": "26.3.4",
     "i18next-browser-languagedetector": "^7.2.0",
     "lucide-react": "^0.323.0",
     "react": "^18.3.0",

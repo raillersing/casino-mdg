@@ -25,6 +25,18 @@ class ProductionPreflightTests(unittest.TestCase):
     def test_known_good_static_example(self):
         self.assertEqual(check_configuration(self.safe), [])
 
+    def test_explicit_internal_hosts_with_public_hostname(self):
+        env = dict(self.safe, ALLOWED_HOSTS="kajitik.com,www.kajitik.com,127.0.0.1,backend")
+        self.assertEqual(check_configuration(env), [])
+
+    def test_private_only_and_invalid_hosts_are_rejected(self):
+        for hosts in ("backend,127.0.0.1", "kajitik.com,*", ".kajitik.com", "kajitik.com,unknown"):
+            with self.subTest(hosts=hosts):
+                self.assertTrue(any("ALLOWED_HOSTS" in item for item in check_configuration(dict(self.safe, ALLOWED_HOSTS=hosts))))
+
+    def test_minimum_secret_length_matches_runtime_guard(self):
+        self.assertTrue(any("JWT_SECRET" in item for item in check_configuration(dict(self.safe, JWT_SECRET="x" * 24))))
+
     def test_wildcard_hosts_and_cors_are_blocked(self):
         env = dict(self.safe, ALLOWED_HOSTS="*", CORS_ALLOWED_ORIGINS="*")
         result = check_configuration(env)

@@ -18,7 +18,7 @@ from apps.backoffice.services import record_audit
 from .authentication import decode_refresh_token, encode_token
 from .models import OTPChallenge, User, UserDevice
 from .sms import send_sms_otp
-from .throttles import OTPRequestThrottle, OTPVerifyThrottle
+from .throttles import GuestCreationThrottle, OTPRequestThrottle, OTPVerifyThrottle
 
 
 def normalize_phone(value):
@@ -269,18 +269,19 @@ class RefreshTokenView(APIView):
 class GuestTokenView(APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
+    throttle_classes = [GuestCreationThrottle]
 
+    @transaction.atomic
     def post(self, request):
         import uuid
 
-        guest_id = f"guest_{uuid.uuid4().hex[:12]}"
-        user, _ = User.objects.get_or_create(
+        guest_id = f"guest_{uuid.uuid4().hex[:14]}"
+        display_name = str(request.data.get("display_name") or "Invité").strip()
+        user = User.objects.create_user(
             phone=guest_id,
-            defaults={
-                "email": f"{guest_id}@mdg.local",
-                "display_name": str(request.data.get("display_name") or "Invité"),
-                "is_active": True,
-            },
+            email=f"{guest_id}@mdg.local",
+            display_name=display_name[:50] or "Invité",
+            is_active=True,
         )
         from apps.wallet.services import credit_simulation_bonus
 

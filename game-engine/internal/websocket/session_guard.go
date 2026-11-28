@@ -14,7 +14,7 @@ import (
 
 // The engine uses the same isolated server-to-server credential as its
 // financial checkpoint endpoint. Browser tokens cannot invoke this API.
-var playerSessionHTTPClient = &http.Client{Timeout: 3 * time.Second}
+var playerSessionHTTPClient = sharedHTTPClient
 
 func (s *Server) validHumanSession(ctx context.Context, playerID string, version int64) bool {
 	// Unit-test-only configurations may not have a Django backend. Real

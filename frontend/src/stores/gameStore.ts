@@ -47,10 +47,16 @@ interface GameState {
 }
 
 const guestKey = "mdg_guest";
-const savedGuest =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem(guestKey) || "null")
-    : null;
+function readSavedGuest() {
+  if (typeof window === "undefined" || !localStorage.getItem("mdg_access_token"))
+    return null;
+  try {
+    return JSON.parse(localStorage.getItem(guestKey) || "null");
+  } catch {
+    return null;
+  }
+}
+const savedGuest = readSavedGuest();
 
 export const useGameStore = create<GameState>((set, get) => ({
   isAuthenticated:
@@ -97,7 +103,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setSession: (accessToken, refreshToken) => {
     localStorage.setItem("mdg_access_token", accessToken);
     localStorage.setItem("mdg_refresh_token", refreshToken);
-    set({ accessToken, refreshToken, isAuthenticated: true, isGuest: false });
+    set({ accessToken, refreshToken, isAuthenticated: true });
   },
   setGuestMode: (name, balance = 10000) => {
     const payload = { name, balance, xp: 0, level: 1 };

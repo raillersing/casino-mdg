@@ -355,3 +355,60 @@ test("claims a completed daily mission from the profile", async ({ page }) => {
   await page.getByRole("button", { name: "Réclamer" }).first().click();
   await expect(page.getByText("Réclamée").first()).toBeVisible();
 });
+
+test("starts a server-backed guest session from home and retains it on reload", async ({ page }) => {
+  let requests = 0;
+  const guest = {
+    id: "guest-user-1",
+    display_name: "Invité QA",
+    phone: "guest_test123",
+    email: "guest_test123@mdg.local",
+    email_verified: false,
+    xp: 0,
+    level: 1,
+    is_staff: false,
+  };
+  await page.route("**/api/v1/auth/guest/", (route) => {
+    requests += 1;
+    return route.fulfill({
+      status: 200,
+      json: {
+        access: "guest-access-token",
+        refresh: "guest-refresh-token",
+        user: guest,
+        wallet: { balance: 10000, currency: "SIM" },
+      },
+    });
+  });
+  await page.route("**/api/v1/auth/me/", (route) =>
+    route.fulfill({ status: 200, json: guest }),
+  );
+  await page.route("**/api/v1/wallet/balance/", (route) =>
+    route.fulfill({
+      status: 200,
+      json: {
+        account_id: 1, balance: 10000, currency: "SIM", held_balance: 0,
+        mga_balance: 0, mga_held_balance: 0,
+      },
+    }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Jouer maintenant", exact: true }).click();
+  await expect(page).toHaveURL(/\/games\?intent=matchmaking$/);
+  await expect(page.evaluate(() => localStorage.getItem("mdg_access_token"))).resolves.toBe("guest-access-token");
+  await page.reload();
+  await expect(page.evaluate(() => localStorage.getItem("mdg_access_token"))).resolves.toBe("guest-access-token");
+  expect(requests).toBe(1);
+});
+
+test("guest creation failure never creates a fake local session", async ({ page }) => {
+  await page.route("**/api/v1/auth/guest/", (route) =>
+    route.fulfill({ status: 503, json: { detail: "Service indisponible" } }),
+  );
+  await page.goto("/auth");
+  await page.getByRole("button", { name: /Jouer maintenant — invité/i }).click();
+  await expect(page.getByText("Service indisponible", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/auth$/);
+  await expect(page.evaluate(() => localStorage.getItem("mdg_access_token"))).resolves.toBeNull();
+  await expect(page.evaluate(() => localStorage.getItem("mdg_guest"))).resolves.toBeNull();
+});

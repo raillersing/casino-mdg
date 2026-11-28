@@ -47,6 +47,9 @@ def initiate_payment_intent(
     Initie une transaction Mobile Money (dépôt ou retrait) avec vérification de conformité KYC,
     sécurisation du solde et appel à la passerelle opérateur.
     """
+    if user.phone.startswith("guest_"):
+        raise ValidationError("Les invités ne peuvent pas effectuer de paiements.")
+
     # This application is still in a SIM/sandbox pilot.
     # Explicitly refuse live PSP execution even if a caller bypasses
     # the API and invokes this service directly.

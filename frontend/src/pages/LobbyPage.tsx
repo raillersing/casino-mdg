@@ -46,7 +46,7 @@ import {
 import { useGameStore } from "@stores/gameStore";
 import { useTranslation } from "react-i18next";
 import { trackEvent } from "@services/analytics";
-import { createGuestToken } from "@services/auth";
+import { ensureGuestSession } from "@services/auth";
 import { BotCountSelector } from "@components/game/BotCountSelector";
 import { CreateTableModal } from "@components/game/CreateTableModal";
 import { JoinPrivateTableModal } from "@components/game/JoinPrivateTableModal";
@@ -640,8 +640,6 @@ export function LobbyPage() {
   };
 
   const guestName = useGameStore((state) => state.guestName);
-  const setGuestMode = useGameStore((state) => state.setGuestMode);
-  const setSession = useGameStore((state) => state.setSession);
 
   const launchSimulation = async (
     gameType: "poker" | "belote" | "rami" | "ludo" | "domino",
@@ -649,10 +647,7 @@ export function LobbyPage() {
     let token = accessToken;
     if (!token) {
       try {
-        const auth = await createGuestToken(guestName || "Invité Salon");
-        setSession(auth.access, auth.refresh);
-        setGuestMode(auth.user.display_name, auth.wallet.balance);
-        token = auth.access;
+        token = await ensureGuestSession(guestName || "Invité Salon");
       } catch {
         navigate("/auth");
         return;
@@ -692,10 +687,7 @@ export function LobbyPage() {
     let token = accessToken;
     if (!token) {
       try {
-        const auth = await createGuestToken(guestName || "Invité");
-        setSession(auth.access, auth.refresh);
-        setGuestMode(auth.user.display_name, auth.wallet.balance);
-        token = auth.access;
+        token = await ensureGuestSession(guestName || "Invité");
       } catch {
         navigate("/auth");
         return;

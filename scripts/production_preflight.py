@@ -48,12 +48,18 @@ def check_configuration(env):
                "GAME_ENGINE_RESULT_SECRET", "PAYMENT_WEBHOOK_SECRET")
     for key in secrets:
         value = env.get(key, "")
-        if len(value) < 24 or any(marker in value.lower() for marker in
+        if len(value) < 32 or any(marker in value.lower() for marker in
             ("change-me", "change_me", "example", "dev-key", "placeholder", "generate-strong")):
             bad(key, "must be an operator-managed strong unique secret")
 
     hosts = [h.strip() for h in env.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
-    if not hosts or "*" in hosts or not any("." in h and not h.startswith(".") for h in hosts) or any(h.endswith(".invalid") for h in hosts):
+    internal_hosts = {"backend", "localhost", "127.0.0.1", "[::1]"}
+    public_hosts = [host for host in hosts if host not in internal_hosts]
+    if not public_hosts or any(
+        "*" in host or host.startswith(".") or host.endswith(".invalid") or host == "votre-domaine.com"
+        or "." not in host or "/" in host or ":" in host
+        for host in public_hosts
+    ):
         bad("ALLOWED_HOSTS", "must list explicit public hostnames; wildcard not allowed")
 
     origins = [o.strip() for o in env.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]

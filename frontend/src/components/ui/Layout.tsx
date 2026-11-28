@@ -30,6 +30,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const accessToken = useGameStore((state) => state.accessToken);
   const refreshToken = useGameStore((state) => state.refreshToken);
   const isGuest = useGameStore((state) => state.isGuest);
+  const guestBalance = useGameStore((state) => state.guestBalance);
   const setUser = useGameStore((state) => state.setUser);
   const setSession = useGameStore((state) => state.setSession);
   const logout = useGameStore((state) => state.logout);
@@ -62,16 +63,28 @@ export function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!accessToken) return;
+    let currentSession = true;
     Promise.all([
       getCurrentUser(accessToken),
       getWalletBalance(accessToken).catch(() => null),
     ])
       .then(([current, wallet]) => {
+        if (!currentSession) return;
+        const sessionStore = useGameStore.getState();
+        if (current.phone?.startsWith("guest_")) {
+          sessionStore.setGuestMode(
+            current.display_name,
+            wallet?.currency === "SIM" ? wallet.balance : sessionStore.guestBalance,
+          );
+        } else {
+          sessionStore.clearGuestMode();
+        }
         const mga = wallet?.mga_balance ?? 0;
         setUser({
           id: current.id,
           displayName: current.display_name,
-          email: `${current.phone}@mdg.local`,
+          email: current.email,
+          emailVerified: current.email_verified,
           phone: current.phone,
           xp: current.xp,
           level: current.level,
@@ -82,6 +95,7 @@ export function Layout({ children }: { children: ReactNode }) {
         });
       })
       .catch((err: unknown) => {
+        if (!currentSession) return;
         const status =
           (err as { response?: { status?: number }; status?: number })?.response
             ?.status ??
@@ -93,10 +107,18 @@ export function Layout({ children }: { children: ReactNode }) {
             return;
           }
           void refreshAccessToken(refreshToken)
-            .then((session) => setSession(session.access, session.refresh))
-            .catch(() => logout());
+            .then((session) => {
+              if (currentSession) setSession(session.access, session.refresh);
+            })
+            .catch((refreshError: unknown) => {
+              const code = (refreshError as { status?: number })?.status;
+              if (currentSession && (code === 401 || code === 403)) logout();
+            });
         }
       });
+    return () => {
+      currentSession = false;
+    };
   }, [accessToken, logout, refreshToken, setSession, setUser]);
 
   useEffect(() => {
@@ -132,6 +154,10 @@ export function Layout({ children }: { children: ReactNode }) {
       if (document.visibilityState === "visible")
         void getWalletBalance(accessToken)
           .then((w) => {
+            const state = useGameStore.getState();
+            if (state.accessToken !== accessToken) return;
+            if (state.isGuest && w.currency === "SIM")
+              state.setGuestMode(state.user?.displayName || "Invité", w.balance);
             if (typeof w.mga_balance === "number")
               updateBalance(w.mga_balance, w.mga_held_balance);
           })
@@ -218,11 +244,11 @@ export function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="main-shell">
-        {isGuest && !accessToken && (
+        {isGuest && accessToken && (
           <div className="guest-banner" role="status">
             <div>
               <Sparkles size={14} />
-              <span>{t("layout.guestBanner")}</span>
+              <span>{i18n.language.startsWith("mg") ? "Vahiny · SIM ihany" : "Mode invité · SIM uniquement"}</span>
             </div>
             <Link to="/auth" className="button button-small button-gold">
               {t("layout.connect")}
@@ -245,9 +271,11 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <WalletCards size={14} />
                 <span>
-                  {typeof user.mgaBalance === "number"
-                    ? `${user.mgaBalance.toLocaleString()} Ar`
-                    : "Solde indisponible"}
+                  {isGuest
+                    ? `${guestBalance.toLocaleString()} SIM`
+                    : typeof user.mgaBalance === "number"
+                      ? `${user.mgaBalance.toLocaleString()} Ar`
+                      : "Solde indisponible"}
                 </span>
               </Link>
             ) : (
