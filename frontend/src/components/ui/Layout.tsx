@@ -71,9 +71,11 @@ export function Layout({ children }: { children: ReactNode }) {
       .then(([current, wallet]) => {
         if (!currentSession) return;
         const sessionStore = useGameStore.getState();
-        if (current.phone.startsWith("guest_")) {
-          if (wallet?.currency === "SIM")
-            sessionStore.setGuestMode(current.display_name, wallet.balance);
+        if (current.phone?.startsWith("guest_")) {
+          sessionStore.setGuestMode(
+            current.display_name,
+            wallet?.currency === "SIM" ? wallet.balance : sessionStore.guestBalance,
+          );
         } else {
           sessionStore.clearGuestMode();
         }
@@ -114,7 +116,9 @@ export function Layout({ children }: { children: ReactNode }) {
             });
         }
       });
-    return () => { currentSession = false; };
+    return () => {
+      currentSession = false;
+    };
   }, [accessToken, logout, refreshToken, setSession, setUser]);
 
   useEffect(() => {
@@ -240,11 +244,11 @@ export function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="main-shell">
-        {isGuest && !accessToken && (
+        {isGuest && accessToken && (
           <div className="guest-banner" role="status">
             <div>
               <Sparkles size={14} />
-              <span>{t("layout.guestBanner")}</span>
+              <span>{i18n.language.startsWith("mg") ? "Vahiny · SIM ihany" : "Mode invité · SIM uniquement"}</span>
             </div>
             <Link to="/auth" className="button button-small button-gold">
               {t("layout.connect")}
