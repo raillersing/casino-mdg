@@ -235,15 +235,20 @@ SECURE_REDIRECT_EXEMPT = [
     r"^readyz/?$",
     r"^metrics/?$",
     r"^api/v1/ping/?$",
-    # Private Docker engine-to-backend RPC uses HTTP and an HMAC shared secret.
-    # Exempt only this exact authenticated session-status path from HTTPS redirects.
-    r"^api/v1/games/internal/sessions/[0-9]+/?$",
+    # Private engine RPC: authenticated shared-secret endpoints only.
+    # Production ingress blocks /api/v1/games/internal/ from the public network.
+    r"^api/v1/games/internal/sessions/[0-9]+/$",
+    r"^api/v1/games/internal/tables/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/finance/$",
+    r"^api/v1/games/internal/human-activity/$",
+    r"^api/v1/games/internal/bots/session-complete/$",
+    r"^api/v1/games/internal/settle-round/$",
 ]
 
 if not DEBUG and os.getenv("SECURE_SSL_REDIRECT", "False").lower() == "true":
     SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # Roll out HSTS gradually; do not opt unrelated subdomains in by default.
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "300"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 else:
