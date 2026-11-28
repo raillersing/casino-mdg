@@ -32,7 +32,7 @@ func (s *Server) fundingOperations(id string) ([]room.FundingOperation, error) {
 		return nil, err
 	}
 	req.Header.Set("X-Game-Engine-Secret", s.config.ResultSecret)
-	resp, err := (&http.Client{Timeout: 3 * time.Second}).Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (s *Server) deliverFinance(record financeRecord) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Game-Engine-Secret", s.config.ResultSecret)
-	resp, err := (&http.Client{Timeout: 3 * time.Second}).Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
