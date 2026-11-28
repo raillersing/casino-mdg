@@ -26,11 +26,18 @@ class RuntimeProductionGuardTests(SimpleTestCase):
         self.assertIsNone(enforce_production_settings(self.safe))
 
     def test_explicit_internal_hosts_are_allowed_with_public_hostname(self):
-        env = dict(self.safe, ALLOWED_HOSTS="kajitik.com,www.kajitik.com,127.0.0.1,backend")
+        env = dict(
+            self.safe, ALLOWED_HOSTS="kajitik.com,www.kajitik.com,127.0.0.1,backend"
+        )
         self.assertIsNone(enforce_production_settings(env))
 
     def test_private_only_and_wildcard_hosts_are_rejected(self):
-        for hosts in ("backend,127.0.0.1", "kajitik.com,*", ".kajitik.com", "kajitik.com,unknown"):
+        for hosts in (
+            "backend,127.0.0.1",
+            "kajitik.com,*",
+            ".kajitik.com",
+            "kajitik.com,unknown",
+        ):
             with self.subTest(hosts=hosts):
                 with self.assertRaises(ImproperlyConfigured):
                     enforce_production_settings(dict(self.safe, ALLOWED_HOSTS=hosts))
