@@ -567,6 +567,11 @@ class TableListCreateView(APIView):
                 created_by=request.user, creation_key=creation_key
             ).first()
             if existing:
+                if request.user.phone.startswith("guest_") and existing.stake_amount > 0:
+                    return Response(
+                        {"detail": "Le mode invité est réservé aux tables gratuites SIM."},
+                        status=403,
+                    )
                 if existing.creation_payload_hash != creation_hash:
                     return Response(
                         {
@@ -613,6 +618,11 @@ class TableListCreateView(APIView):
             )
         except (TypeError, ValueError) as exc:
             return Response({"detail": str(exc)}, status=400)
+        if request.user.phone.startswith("guest_") and stake_amount > 0:
+            return Response(
+                {"detail": "Le mode invité est réservé aux tables gratuites SIM."},
+                status=403,
+            )
         stakes_label = (
             (
                 f"Minimum {stake_amount:,} Ar"
@@ -807,6 +817,11 @@ class TableAdmissionView(APIView):
     def post(self, request, table_id):
         try:
             table = GameTable.objects.select_for_update().get(pk=table_id)
+            if request.user.phone.startswith("guest_") and table.stake_amount > 0:
+                return Response(
+                    {"detail": "Le mode invité est réservé aux tables gratuites SIM."},
+                    status=403,
+                )
             if table.status == "finished":
                 return Response({"detail": "Cette table est terminée."}, status=409)
             if (

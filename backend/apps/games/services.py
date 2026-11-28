@@ -110,6 +110,8 @@ def seed_demo_tables():
 @transaction.atomic
 def join_table(table, user, buy_in=None):
     table = GameTable.objects.select_for_update().get(pk=table.pk)
+    if user.phone.startswith("guest_") and table.stake_amount > 0:
+        raise ValueError("Le mode invité est réservé aux tables gratuites SIM.")
     if table.status == "finished":
         raise ValueError("Cette table est terminée.")
     existing = TableSeat.objects.filter(table=table, user=user).first()
@@ -215,5 +217,8 @@ def leave_table(table, user):
 
 def top_up_table(table, user, amount, key=None):
     from .finance import reserve_top_up
+
+    if user.phone.startswith("guest_"):
+        raise ValueError("Le mode invité ne permet pas de recharger un tapis MGA.")
 
     return reserve_top_up(table, user, amount, key)

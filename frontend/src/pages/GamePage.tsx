@@ -26,7 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { NetworkQualityBadge } from "@components/ui/NetworkQualityBadge";
-import { createGuestToken } from "@services/auth";
+import { ensureGuestSession } from "@services/auth";
 import {
   createTableInvitation,
   acceptTableInvitation,
@@ -723,8 +723,6 @@ export function GamePage() {
     ((action: string, actionPayload?: unknown) => void) | null
   >(null);
   const accessToken = useGameStore((state) => state.accessToken);
-  const setSession = useGameStore((state) => state.setSession);
-  const setGuestMode = useGameStore((state) => state.setGuestMode);
   const user = useGameStore((state) => state.user);
   const updateBalance = useGameStore((state) => state.updateBalance);
   const [tableMeta, setTableMeta] = useState<GameTable | null>(null);
@@ -1888,16 +1886,12 @@ export function GamePage() {
 
   useEffect(() => {
     if (!accessToken) {
-      void createGuestToken("Joueur")
-        .then((auth) => {
-          setSession(auth.access, auth.refresh);
-          setGuestMode(auth.user.display_name, auth.wallet.balance);
-        })
+      void ensureGuestSession("Joueur")
         .catch((err) => {
           console.warn("Guest auto-login failed:", err);
         });
     }
-  }, [accessToken, setGuestMode, setSession]);
+  }, [accessToken]);
 
   useEffect(() => {
     if (tableId && (admissionToken || accessToken))

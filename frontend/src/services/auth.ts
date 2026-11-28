@@ -1,3 +1,5 @@
+import { useGameStore } from "@stores/gameStore";
+
 type OtpRequestResponse = {
   request_id: string;
   expires_in: number;
@@ -111,7 +113,10 @@ export function getCurrentUser(token: string) {
     headers: { Authorization: `Bearer ${token}` },
   }).then(async (response) => {
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.detail || "Session expirée.");
+    if (!response.ok)
+      throw Object.assign(new Error(payload.detail || "Session expirée."), {
+        status: response.status,
+      });
     return payload as {
       id: string;
       display_name: string;
@@ -139,6 +144,49 @@ export function refreshAccessToken(refresh: string) {
 
 export function createGuestToken(displayName: string) {
   return post<AuthResponse>("guest/", { display_name: displayName });
+}
+
+// All entry points share a single server-backed session request.
+let guestRequest: Promise<string> | null = null;
+export function ensureGuestSession(displayName = "Joueur Invité"): Promise<string> {
+  const current = useGameStore.getState().accessToken;
+  if (current) return Promise.resolve(current);
+  if (!guestRequest) {
+    guestRequest = createGuestToken(displayName)
+      .then((auth) => {
+        const store = useGameStore.getState();
+        if (store.accessToken) return store.accessToken;
+        if (
+          !auth.access ||
+          !auth.refresh ||
+          !auth.user?.phone?.startsWith("guest_") ||
+          auth.user.is_staff ||
+          auth.wallet?.currency !== "SIM" ||
+          !Number.isFinite(auth.wallet.balance)
+        ) {
+          throw new Error("Session invitée invalide.");
+        }
+        store.setUser({
+          id: auth.user.id,
+          displayName: auth.user.display_name,
+          email: auth.user.email,
+          emailVerified: false,
+          phone: auth.user.phone,
+          xp: auth.user.xp,
+          level: auth.user.level,
+          balance: 0,
+          mgaBalance: 0,
+          isStaff: false,
+        });
+        store.setGuestMode(auth.user.display_name, auth.wallet.balance);
+        store.setSession(auth.access, auth.refresh);
+        return auth.access;
+      })
+      .finally(() => {
+        guestRequest = null;
+      });
+  }
+  return guestRequest;
 }
 
 export function updateCurrentUser(token: string, displayName: string) {

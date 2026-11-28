@@ -12,7 +12,7 @@ import {
 import { useGameStore } from "@stores/gameStore";
 import { useTranslation } from "react-i18next";
 import {
-  createGuestToken,
+  ensureGuestSession,
   getAuthMethods,
   requestEmailOtp,
   requestOtp,
@@ -44,7 +44,7 @@ export function AuthPage() {
   const setUser = useGameStore((state) => state.setUser);
   const setAuthenticated = useGameStore((state) => state.setAuthenticated);
   const setSession = useGameStore((state) => state.setSession);
-  const setGuestMode = useGameStore((state) => state.setGuestMode);
+  const clearGuestMode = useGameStore((state) => state.clearGuestMode);
 
   useEffect(() => {
     let current = true;
@@ -116,6 +116,7 @@ export function AuthPage() {
               displayName || "Joueur MDG",
             )
           : await verifyOtp(phone, code, displayName || "Joueur MDG");
+      clearGuestMode();
       setUser({
         id: result.user.id,
         displayName: result.user.display_name,
@@ -198,6 +199,39 @@ export function AuthPage() {
             </p>
             {step === "phone" ? (
               <>
+                <button
+                  type="button"
+                  className="button button-gold full"
+                  disabled={loading}
+                  onClick={async () => {
+                    setLoading(true);
+                    setError("");
+                    try {
+                      await ensureGuestSession();
+                      const next = searchParams.get("next");
+                      navigate(
+                        next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/backoffice")
+                          ? next
+                          : "/games?intent=matchmaking",
+                      );
+                    } catch (err) {
+                      setError(
+                        err instanceof Error ? err.message : "Connexion invitée impossible.",
+                      );
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Jouer maintenant — invité
+                  <ArrowRight size={17} />
+                </button>
+                <p style={{ color: "var(--muted)", margin: "8px 0 20px" }}>
+                  Sans SMS ni email, en monnaie virtuelle SIM uniquement.
+                </p>
+                <div className="eyebrow" style={{ marginBottom: "10px" }}>
+                  Ou se connecter à son compte
+                </div>
                 <div
                   role="group"
                   aria-label="Méthode de vérification"
@@ -234,8 +268,8 @@ export function AuthPage() {
                 </div>
                 {authCapabilities && !authCapabilities.default_channel && (
                   <p role="status" className="auth-error">
-                    Aucun canal de vérification disponible. Contactez le
-                    support.
+                    Connexion au compte indisponible. Vous pouvez jouer en mode
+                    invité ci-dessus.
                   </p>
                 )}
                 {deliveryMethod === "email" && (
@@ -304,63 +338,6 @@ export function AuthPage() {
                       <ArrowRight size={17} />
                     </>
                   )}
-                </button>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    margin: "16px 0 12px",
-                    color: "var(--muted)",
-                    fontSize: "0.78rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      flex: 1,
-                      height: "1px",
-                      background: "rgba(255,255,255,0.1)",
-                    }}
-                  />
-                  <span>OU SANS COMPTE</span>
-                  <div
-                    style={{
-                      flex: 1,
-                      height: "1px",
-                      background: "rgba(255,255,255,0.1)",
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="button button-outline full"
-                  onClick={async () => {
-                    setLoading(true);
-                    setError("");
-                    try {
-                      const auth = await createGuestToken("Joueur Invité");
-                      setSession(auth.access, auth.refresh);
-                      setGuestMode(auth.user.display_name, auth.wallet.balance);
-                      setStep("done");
-                      window.setTimeout(
-                        () => navigate(searchParams.get("next") || "/"),
-                        600,
-                      );
-                    } catch {
-                      setGuestMode("Invité", 10000);
-                      setStep("done");
-                      window.setTimeout(
-                        () => navigate(searchParams.get("next") || "/"),
-                        600,
-                      );
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  disabled={loading}
-                  style={{ fontSize: "0.85rem", padding: "10px 14px" }}
-                >
-                  🎮 Accès Direct Invité (10 000 SIM)
                 </button>
               </>
             ) : (

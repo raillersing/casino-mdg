@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Bot,
@@ -11,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useGameStore } from "@stores/gameStore";
 import { trackEvent } from "@services/analytics";
+import { ensureGuestSession } from "@services/auth";
 import "../styles/home-game-v2.css";
 
 type ResumableGame = {
@@ -40,6 +41,9 @@ export function HomePage() {
   const mg = i18n.language.startsWith("mg");
   const tr = (fr: string, malagasy: string) => (mg ? malagasy : fr);
   const token = useGameStore((state) => state.accessToken);
+  const navigate = useNavigate();
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState("");
   const [resumable, setResumable] = useState<ResumableGame[]>([]);
 
   useEffect(() => {
@@ -82,11 +86,31 @@ export function HomePage() {
             )}
           </p>
           <div className="home-game-hero-actions">
-            <Link to="/games?intent=matchmaking" className="home-game-primary">
+            <button
+              type="button"
+              className="home-game-primary"
+              disabled={joining}
+              onClick={async () => {
+                setJoining(true);
+                setJoinError("");
+                try {
+                  await ensureGuestSession();
+                  navigate("/games?intent=matchmaking");
+                } catch {
+                  setJoinError(
+                    tr("Connexion impossible. Réessayez.", "Tsy afaka mifandray. Andramo indray."),
+                  );
+                } finally {
+                  setJoining(false);
+                }
+              }}
+            >
               <Gamepad2 size={19} aria-hidden="true" />
-              {tr("Jouer en ligne", "Hilalao amin'ny hafa")}
+              {joining
+                ? tr("Connexion…", "Mifandray…")
+                : tr("Jouer maintenant", "Hilalao izao")}
               <ArrowRight size={18} aria-hidden="true" />
-            </Link>
+            </button>
             <Link
               to="/lobby?action=join-private"
               className="home-game-secondary"
@@ -95,6 +119,7 @@ export function HomePage() {
               {tr("J'ai un code d'invitation", "Manana kaody fanasana aho")}
             </Link>
           </div>
+          {joinError && <p role="alert">{joinError}</p>}
         </div>
       </section>
 

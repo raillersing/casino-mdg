@@ -1,4 +1,4 @@
-from rest_framework.throttling import SimpleRateThrottle
+from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
 
 
 class OTPRequestThrottle(SimpleRateThrottle):
@@ -19,3 +19,10 @@ class OTPVerifyThrottle(SimpleRateThrottle):
             "scope": self.scope,
             "ident": self.get_ident(request),
         }
+
+
+class GuestCreationThrottle(AnonRateThrottle):
+    """Limit new disposable identities; token refresh is a separate route."""
+
+    scope = "guest_creation"
+    rate = "5/minute"
