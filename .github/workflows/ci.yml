@@ -328,6 +328,9 @@ jobs:
       - name: Validate production Compose configuration
         run: docker compose --env-file .env.production.example -f docker-compose.prod.yml config --quiet
 
+      - name: Check production operator script syntax
+        run: bash -n scripts/production-common.sh && for script in scripts/production-*.sh; do bash -n "$script"; done
+
       - name: Test tunnel-only production ingress
         run: bash scripts/test-production-ingress.sh
 

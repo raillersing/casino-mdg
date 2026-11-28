@@ -48,3 +48,28 @@ References:
 - https://developers.cloudflare.com/fundamentals/reference/http-headers/
 - https://docs.docker.com/engine/network/port-publishing/
 - https://docs.djangoproject.com/en/5.2/ref/settings/#secure-proxy-ssl-header
+
+## Operator automation
+
+After the CI on the exact master commit passes and Cloudflare DNS routes have
+been verified, update the local repository with a fast-forward only. Set
+SECURE_SSL_REDIRECT=True in the existing private env file, then:
+
+```bash
+bash scripts/production-doctor.sh
+bash scripts/production-deploy.sh --validated-commit FULL_CI_SHA --tunnel-confirmed --maintenance-confirmed
+```
+
+The two confirmation flags are operator assertions, not automatic proofs.
+The deploy script requires Docker Engine 28+, a clean master at the verified
+SHA, working edge redirects, and a static preflight. It builds before stopping
+the five application services; drains must be performed by the operator first.
+It backs up PostgreSQL, media, engine outbox, actual live image IDs and private
+configuration, then recreates backend, engine/workers, and frontend in order.
+Redis/RabbitMQ volumes are preserved, not separately backed up. The backup
+directory is local to the VPS; offsite backup and tested full restore are still
+required. The recorded source HEAD is not evidence of the old running code.
+The smoke script verifies HTTP boundaries and health, not a live game.
+Use `bash scripts/production-rollback-plan.sh BACKUP_DIRECTORY` for a
+non-destructive artifact check. Do not restore automatically after migrations.
+Never run `docker compose down -v` or remove persistent volumes.
