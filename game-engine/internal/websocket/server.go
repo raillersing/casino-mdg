@@ -1087,6 +1087,9 @@ func validGameType(gameType string) bool {
 
 var sharedHTTPClient = &http.Client{
 	Timeout: 3 * time.Second,
+	CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
 	Transport: &http.Transport{
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 32,
