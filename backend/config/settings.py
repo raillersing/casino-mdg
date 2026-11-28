@@ -20,7 +20,11 @@ DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 raw_allowed_hosts = [
     h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h.strip()
 ]
-if (
+if os.getenv("ENV", "").strip().lower() == "production":
+    ALLOWED_HOSTS = sorted(
+        set(raw_allowed_hosts + ["localhost", "127.0.0.1", "backend"])
+    )
+elif (
     "*" in raw_allowed_hosts
     or not raw_allowed_hosts
     or "votre-domaine.com" in raw_allowed_hosts

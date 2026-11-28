@@ -52,6 +52,7 @@ def enforce_production_settings(env):
         "*" in host
         or host.startswith(".")
         or host.endswith(".invalid")
+        or host == "votre-domaine.com"
         or "." not in host
         or "/" in host
         or ":" in host

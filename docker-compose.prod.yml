@@ -136,7 +136,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    environment:
+    environment: &django_production_env
       ENV: production
       DEBUG: "False"
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
@@ -156,6 +156,7 @@ services:
       GAME_ENGINE_RESULT_SECRET: ${GAME_ENGINE_RESULT_SECRET}
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?Strong webhook secret required}
       SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-True}
+      SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-300}
       # Email login is off until a secure SMTP provider is configured.
       EMAIL_OTP_ENABLED: ${EMAIL_OTP_ENABLED:-False}
       EMAIL_HOST: ${EMAIL_HOST:-}
@@ -206,6 +207,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      <<: *django_production_env
       DJANGO_SETTINGS_MODULE: config.settings
       JWT_SECRET: ${JWT_SECRET}
       DB_HOST: postgres
@@ -240,6 +242,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      <<: *django_production_env
       DJANGO_SETTINGS_MODULE: config.settings
       JWT_SECRET: ${JWT_SECRET}
       DB_HOST: postgres

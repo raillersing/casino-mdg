@@ -56,7 +56,7 @@ def check_configuration(env):
     internal_hosts = {"backend", "localhost", "127.0.0.1", "[::1]"}
     public_hosts = [host for host in hosts if host not in internal_hosts]
     if not public_hosts or any(
-        "*" in host or host.startswith(".") or host.endswith(".invalid")
+        "*" in host or host.startswith(".") or host.endswith(".invalid") or host == "votre-domaine.com"
         or "." not in host or "/" in host or ":" in host
         for host in public_hosts
     ):
