@@ -97,7 +97,7 @@ func (s *Server) dispatchHumanActivity() {
 	activityDispatchMu.Lock()
 	defer activityDispatchMu.Unlock()
 	files, _ := filepath.Glob(filepath.Join(activityOutboxDir(), "*.json"))
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := sharedHTTPClient
 	for _, name := range files {
 		body, err := os.ReadFile(name)
 		if err != nil {
